@@ -1,0 +1,284 @@
+﻿<UserControl x:Class="PersonalProjectManager.Views.ProjectDetailView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:local="clr-namespace:PersonalProjectManager.Views"
+             xmlns:vm="clr-namespace:PersonalProjectManager.ViewModels"
+             xmlns:converters="clr-namespace:PersonalProjectManager.Converters"
+             xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance Type=vm:ProjectDetailViewModel, IsDesignTimeCreatable=False}"
+             Background="White"
+             d:DesignHeight="700" d:DesignWidth="800">
+
+    <UserControl.Resources>
+        <converters:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+        <converters:InverseBooleanToVisibilityConverter x:Key="InverseBooleanToVisibilityConverter"/>
+        <converters:NullToVisibilityConverter x:Key="NullToVisibilityConverter"/>
+        <converters:ZeroToVisibilityConverter x:Key="ZeroToVisibilityConverter"/>
+        <converters:BooleanToBrushConverter x:Key="BooleanToBrushConverter" TrueBrush="Red" FalseBrush="Green"/>
+
+        <SolidColorBrush x:Key="TextSecondaryBrush" Color="#FF555555"/>
+        <SolidColorBrush x:Key="AccentBrush" Color="#FF5C9DDE"/>
+        <SolidColorBrush x:Key="LightGrayBrush" Color="#FFF0F0F0"/>
+        <SolidColorBrush x:Key="ErrorBrush" Color="Red"/>
+        <SolidColorBrush x:Key="SuccessBrush" Color="Green"/>
+
+        <Style x:Key="BaseTextBlockStyle" TargetType="TextBlock">
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="0,5"/>
+        </Style>
+        <Style x:Key="LabelTextStyle" TargetType="TextBlock" BasedOn="{StaticResource BaseTextBlockStyle}">
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Margin" Value="0,5,8,5"/>
+            <Setter Property="TextAlignment" Value="Right"/>
+        </Style>
+        <Style x:Key="HeaderTextStyle" TargetType="TextBlock" BasedOn="{StaticResource BaseTextBlockStyle}">
+            <Setter Property="FontSize" Value="20"/>
+            <Setter Property="FontWeight" Value="Light"/>
+            <Setter Property="Margin" Value="0,0,0,15"/>
+        </Style>
+        <Style x:Key="BaseTextBoxStyle" TargetType="TextBox">
+            <Setter Property="Margin" Value="0,5"/>
+            <Setter Property="Padding" Value="5,3"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="BorderBrush" Value="#FFABADB3"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+        <Style x:Key="BaseDatePickerStyle" TargetType="DatePicker">
+            <Setter Property="Margin" Value="0,5"/>
+            <Setter Property="Padding" Value="5,3"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+        <Style x:Key="BaseButtonStyle" TargetType="Button">
+            <Setter Property="Padding" Value="10,5"/>
+            <Setter Property="Margin" Value="5"/>
+            <Setter Property="MinWidth" Value="75"/>
+            <Setter Property="Background" Value="{StaticResource AccentBrush}"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Style.Triggers>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Opacity" Value="0.6"/>
+                </Trigger>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Opacity" Value="0.9"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="TreeViewButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="3,1"/>
+            <Setter Property="Margin" Value="5,0,0,0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="ToolTipService.ShowDuration" Value="5000"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Opacity" Value="0.8"/>
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Opacity" Value="0.4"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <HierarchicalDataTemplate DataType="{x:Type vm:ObjectiveViewModel}" ItemsSource="{Binding Tasks}">
+            <StackPanel Orientation="Horizontal" Margin="0,3">
+                <TextBlock Text="🎯" Margin="0,0,8,0" ToolTip="Mục tiêu" VerticalAlignment="Center" FontSize="14"/>
+                <TextBlock Text="{Binding ObjectiveName}" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                <ProgressBar Value="{Binding Progress}" Maximum="100" Width="60" Height="10" Margin="10,0,5,0" VerticalAlignment="Center" ToolTip="{Binding Progress, StringFormat='Tiến độ: {0:N1}%'}"/>
+                <TextBlock Text="{Binding Progress, StringFormat={}{0:N1} %}" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" FontSize="11"/>
+
+                <Button Content="✏️" Style="{StaticResource TreeViewButtonStyle}" Foreground="Blue"
+                         Command="{Binding DataContext.EditObjectiveCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                         CommandParameter="{Binding}" ToolTip="Chỉnh sửa mục tiêu này"/>
+                <Button Content="🗑️" Foreground="Gray"
+                        Command="{Binding DataContext.DeleteObjectiveCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                        CommandParameter="{Binding}" ToolTip="Xóa mục tiêu này và các nhiệm vụ con">
+                    <Button.Style>
+                        <Style TargetType="Button" BasedOn="{StaticResource TreeViewButtonStyle}">
+                            <Style.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="Foreground" Value="Red"/>
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                </Button>
+            </StackPanel>
+        </HierarchicalDataTemplate>
+
+        <HierarchicalDataTemplate DataType="{x:Type vm:TaskViewModel}" ItemsSource="{Binding SubTasks}">
+            <Grid Margin="0,2">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <CheckBox Grid.Column="0" IsChecked="{Binding IsCompleted, Mode=TwoWay}" VerticalAlignment="Center" Margin="0,0,5,0" ToolTip="Đánh dấu hoàn thành"/>
+                <TextBlock Grid.Column="1" Text="▫" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,5,0" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="2" Text="{Binding TaskName}" VerticalAlignment="Center" ToolTip="{Binding Notes}" TextTrimming="CharacterEllipsis"/>
+                <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center" Margin="10,0,0,0">
+                    <ProgressBar Value="{Binding Progress}" Maximum="100" Width="50" Height="8" Margin="0,0,5,0" VerticalAlignment="Center" ToolTip="{Binding Progress, StringFormat='Tiến độ: {0:N1}%'}"/>
+                    <TextBlock Text="{Binding Progress, StringFormat={}{0:N1} %}" Foreground="{StaticResource AccentBrush}" FontSize="10" VerticalAlignment="Center"/>
+                </StackPanel>
+
+                <Button Grid.Column="4" Content="✏️" Style="{StaticResource TreeViewButtonStyle}" Foreground="Blue"
+                         Command="{Binding DataContext.EditTaskCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                         CommandParameter="{Binding}" ToolTip="Chỉnh sửa nhiệm vụ này"/>
+                <Button Grid.Column="5" Content="🗑️" Foreground="Gray"
+                         Command="{Binding DataContext.DeleteTaskCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                         CommandParameter="{Binding}" ToolTip="Xóa nhiệm vụ này và các nhiệm vụ con">
+                    <Button.Style>
+                        <Style TargetType="Button" BasedOn="{StaticResource TreeViewButtonStyle}">
+                            <Style.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="Foreground" Value="Red"/>
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                </Button>
+            </Grid>
+        </HierarchicalDataTemplate>
+    </UserControl.Resources>
+
+    <Grid>
+        <Border Background="#AAFFFFFF" Visibility="{Binding IsLoading, Converter={StaticResource BooleanToVisibilityConverter}}" Panel.ZIndex="10">
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                <TextBlock Text="Đang tải / xử lý..." FontSize="16" Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}" />
+                <ProgressBar IsIndeterminate="True" Height="10" Width="200" Margin="0,10,0,0" />
+            </StackPanel>
+        </Border>
+
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                      Visibility="{Binding IsLoading, Converter={StaticResource InverseBooleanToVisibilityConverter}}">
+            <Border Padding="25">
+                <StackPanel>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Style="{StaticResource HeaderTextStyle}">
+                            <Run Text="Chi tiết Dự án:"/>
+                            <Run Text="{Binding EditableProject.ProjectName, FallbackValue='[Tên dự án]', Mode=OneWay}" FontWeight="Bold"/>
+                        </TextBlock>
+                        <Button Grid.Column="1" Content="🔄 Tải lại" Command="{Binding RefreshDataCommand}" Style="{StaticResource BaseButtonStyle}" VerticalAlignment="Center" HorizontalAlignment="Right" ToolTip="Tải lại toàn bộ dữ liệu dự án"/>
+                    </Grid>
+
+                    <Border Background="{StaticResource LightGrayBrush}" BorderBrush="#FFD0D0D0" BorderThickness="1" CornerRadius="4" Padding="20" Margin="0,0,0,25"
+                             Visibility="{Binding CurrentProject, Converter={StaticResource NullToVisibilityConverter}}">
+                        <Grid IsEnabled="{Binding IsSaving, Converter={StaticResource InverseBooleanToVisibilityConverter}}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" MinWidth="120"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="30"/>
+                                <ColumnDefinition Width="Auto" MinWidth="100"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Tên dự án (*):" Style="{StaticResource LabelTextStyle}"/>
+                            <TextBox Grid.Row="0" Grid.Column="1" Grid.ColumnSpan="4" Text="{Binding EditableProject.ProjectName, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource BaseTextBoxStyle}"/>
+
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Người thực hiện:" Style="{StaticResource LabelTextStyle}"/>
+                            <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding EditableProject.Owner, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource BaseTextBoxStyle}"/>
+
+                            <TextBlock Grid.Row="1" Grid.Column="3" Text="Trạng thái:" Style="{StaticResource LabelTextStyle}"/>
+                            <ComboBox Grid.Row="1" Grid.Column="4" VerticalContentAlignment="Center" Padding="5,3" Margin="0,5"
+                                      SelectedItem="{Binding EditableProject.Status, Mode=TwoWay}"
+                                      ItemsSource="{Binding AvailableStatuses, Mode=OneTime}"/>
+
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Ngày bắt đầu:" Style="{StaticResource LabelTextStyle}"/>
+                            <DatePicker Grid.Row="2" Grid.Column="1" SelectedDate="{Binding EditableProject.StartDate, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource BaseDatePickerStyle}"/>
+
+                            <TextBlock Grid.Row="2" Grid.Column="3" Text="Ngày kết thúc:" Style="{StaticResource LabelTextStyle}"/>
+                            <DatePicker Grid.Row="2" Grid.Column="4" SelectedDate="{Binding EditableProject.EndDate, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource BaseDatePickerStyle}"/>
+
+                            <TextBlock Grid.Row="3" Grid.Column="0" Text="Tài nguyên:" Style="{StaticResource LabelTextStyle}" VerticalAlignment="Top" Margin="0,8,8,5"/>
+                            <TextBox Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="4" Style="{StaticResource BaseTextBoxStyle}"
+                                     Text="{Binding EditableProject.Resources, UpdateSourceTrigger=PropertyChanged}"
+                                     AcceptsReturn="True" TextWrapping="Wrap" MinHeight="50" VerticalScrollBarVisibility="Auto"/>
+
+                            <StackPanel Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="4" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+                                <Button Content="Hủy Bỏ" Command="{Binding CancelEditProjectDetailsCommand}" Style="{StaticResource BaseButtonStyle}" Background="OrangeRed" ToolTip="Khôi phục lại thông tin dự án ban đầu"/>
+                                <Button Content="Lưu Thông Tin" Command="{Binding SaveProjectDetailsCommand}" Style="{StaticResource BaseButtonStyle}" ToolTip="Lưu các thay đổi thông tin dự án"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <TextBlock Text="Mục tiêu và Nhiệm vụ" Style="{StaticResource HeaderTextStyle}" FontSize="18" Margin="0,0,0,10"
+                               Visibility="{Binding CurrentProject, Converter={StaticResource NullToVisibilityConverter}}"/>
+
+                    <TextBlock Text="Chưa có mục tiêu nào được thêm cho dự án này."
+                               Margin="0,10,0,10" FontStyle="Italic" Foreground="{StaticResource TextSecondaryBrush}"
+                               Visibility="{Binding Objectives.Count, Converter={StaticResource ZeroToVisibilityConverter}, FallbackValue=Collapsed}" />
+
+                    <Border BorderBrush="#FFD0D0D0" BorderThickness="1" CornerRadius="4" MinHeight="250" Background="White"
+                            Visibility="{Binding Objectives.Count, Converter={StaticResource ZeroToVisibilityConverter}, ConverterParameter=Invert, FallbackValue=Visible}">
+                        <TreeView x:Name="ObjectivesTreeView" ItemsSource="{Binding Objectives}" BorderThickness="0" Padding="5">
+                            <i:Interaction.Triggers>
+                                <i:EventTrigger EventName="SelectedItemChanged">
+                                    <i:InvokeCommandAction Command="{Binding SelectTreeViewItemCommand}"
+                                                            CommandParameter="{Binding ElementName=ObjectivesTreeView, Path=SelectedItem}"/>
+                                </i:EventTrigger>
+                            </i:Interaction.Triggers>
+                        </TreeView>
+                    </Border>
+
+                    <StackPanel Orientation="Horizontal" Margin="0,20,0,0"
+                                 Visibility="{Binding CurrentProject, Converter={StaticResource NullToVisibilityConverter}}">
+                        <Button Content="+ Thêm mục tiêu" Style="{StaticResource BaseButtonStyle}" Command="{Binding AddObjectiveCommand}" ToolTip="Thêm một mục tiêu mới cho dự án."/>
+                        <Button Content="+ Thêm nhiệm vụ" Style="{StaticResource BaseButtonStyle}" Command="{Binding AddTaskCommand}" ToolTip="Thêm nhiệm vụ mới cho mục tiêu hoặc nhiệm vụ đang chọn."/>
+                    </StackPanel>
+
+                    <TextBlock Margin="0,15,0,0" HorizontalAlignment="Left" VerticalAlignment="Center"
+                               Text="{Binding StatusMessage}" FontWeight="SemiBold" TextWrapping="Wrap"
+                               Foreground="{Binding IsStatusError, Converter={StaticResource BooleanToBrushConverter}}"
+                               Visibility="{Binding HasStatusMessage, Converter={StaticResource BooleanToVisibilityConverter}}" />
+
+                </StackPanel>
+            </Border>
+        </ScrollViewer>
+
+        <Border Background="#FFFEEEEE" BorderBrush="{StaticResource ErrorBrush}" BorderThickness="1" CornerRadius="4" Padding="15" Margin="20"
+                 Visibility="{Binding CurrentProject, Converter={StaticResource NullToVisibilityConverter}, ConverterParameter=Invert}"
+                 VerticalAlignment="Top" HorizontalAlignment="Stretch" Panel.ZIndex="5">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Text="⚠️" FontSize="16" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                <TextBlock Grid.Column="1" Text="{Binding StatusMessage}" Foreground="{StaticResource ErrorBrush}" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                <Button Grid.Column="2" Content="Thử lại" Command="{Binding RefreshDataCommand}" Style="{StaticResource BaseButtonStyle}" Margin="15,0,0,0" Padding="8,2" FontSize="11" VerticalAlignment="Center"/>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

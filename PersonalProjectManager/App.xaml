@@ -1,0 +1,41 @@
+﻿<Application x:Class="PersonalProjectManager.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:PersonalProjectManager"
+             xmlns:vm="clr-namespace:PersonalProjectManager.ViewModels"
+             xmlns:views="clr-namespace:PersonalProjectManager.Views"
+             xmlns:converters="clr-namespace:PersonalProjectManager.Converters"
+             xmlns:sys="clr-namespace:System;assembly=mscorlib">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Styles/Styles.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+
+            <converters:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+            <converters:InverseBooleanToVisibilityConverter x:Key="InverseBooleanToVisibilityConverter"/>
+            <converters:NullToVisibilityConverter x:Key="NullToVisibilityConverter"/>
+            <converters:ZeroToVisibilityConverter x:Key="ZeroToVisibilityConverter"/>
+            <converters:BooleanToBrushConverter x:Key="BooleanToBrushConverter" TrueBrush="Red" FalseBrush="Green"/>
+
+            <DataTemplate DataType="{x:Type vm:DashboardViewModel}">
+                <views:DashboardView/>
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:CreateProjectViewModel}">
+                <views:CreateProjectView/>
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:ProjectListViewModel}">
+                <views:ProjectListView/>
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:CompletedProjectListViewModel}">
+                <views:CompletedProjectListView/>
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:ProgressDashboardViewModel}">
+                <views:ProgressDashboardView/>
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:ProjectDetailViewModel}">
+                <views:ProjectDetailView/>
+            </DataTemplate>
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>
