@@ -1,7 +1,7 @@
 # Thiết kế ứng dụng ghi chú/nhiệm vụ phân cấp (Windows 10)
 
 ## 1. Tầm nhìn sản phẩm
-Ứng dụng dành cho người Việt, kết hợp ghi chú linh hoạt như Notion với quản lý nhiệm vụ đa cấp không giới hạn. Người dùng có thể tạo trang ghi chú, gắn các nhiệm vụ lớn/nhỏ theo cây phân cấp, theo dõi % hoàn thành tự động, và thao tác thuận tiện trên Windows 10 (ứng dụng WPF trong repo hiện tại).
+Ứng dụng dành cho người Việt, kết hợp ghi chú linh hoạt như Notion với quản lý nhiệm vụ đa cấp không giới hạn. Người dùng có thể tạo trang ghi chú, gắn các nhiệm vụ lớn/nhỏ theo cây phân cấp, theo dõi % hoàn thành tự động, và thao tác thuận tiện trên Windows 10 (ứng dụng WPF trong repo hiện tại). Ưu tiên **offline-first**: toàn bộ dữ liệu và tính năng cốt lõi hoạt động mượt mà khi không có mạng; đồng bộ chỉ là tùy chọn bổ sung.
 
 ## 2. Nhân vật & kịch bản chính
 - **Sinh viên/nhân viên văn phòng**: ghi chú bài học/cuộc họp, chia nhiệm vụ thành nhiều lớp việc con, đánh dấu nhanh hoàn thành.
@@ -28,11 +28,20 @@
    - Soạn thảo rich text cơ bản (in đậm/nghiêng/gạch đầu dòng, checklist inline).
    - Chèn khối bảng nhiệm vụ trong trang: mỗi dòng là nhiệm vụ, hỗ trợ thêm cấp con trực tiếp.
 6. **Template & lặp lại**
-   - Template trang/nhiệm vụ (OKR, project plan); clone nhanh.
+   - Template trang/nhiệm vụ (OKR, project plan, roadmap tuần) lấy cảm hứng từ Notion/ClickUp/TickTick; clone nhanh và tùy chỉnh trường.
    - Nhiệm vụ lặp (daily/weekly); tự tạo instance con, liên kết tiến độ chuỗi.
 7. **Thông báo & nhắc việc**
    - Nhắc tới hạn, push notification Windows 10; snooze.
    - Báo cáo email tùy chọn (để trống khi offline).
+   - Widget/Live Tile tóm tắt tiến độ (lấy cảm hứng từ Microsoft To Do) ngay trên Start Menu/Taskbar.
+
+8. **Công cụ nâng cao (tham khảo Notion, Todoist, TickTick, ClickUp)**
+   - **Quick Add** toàn cục (phím nóng) để ghi nhiệm vụ/ghi chú từ bất kỳ màn hình nào, lưu offline ngay.
+   - **Focus mode/Pomodoro**: hẹn giờ tập trung cho nhiệm vụ hiện tại, ghi log thời gian và cập nhật % tiến độ.
+   - **Phân tích tiến độ**: biểu đồ burn-down, heatmap thói quen (như TickTick habit), báo cáo tuần offline.
+   - **Tag & filter nâng cao**: lưu bộ lọc yêu thích, lọc đa điều kiện; tìm kiếm offline bằng FTS.
+   - **Xuất/nhập**: xuất Markdown/CSV/JSON để lưu trữ nội bộ; import từ Trello/Notion qua file.
+   - **Offline-first UX**: trạng thái đồng bộ rõ ràng, mọi thao tác (tạo/sửa/kéo-thả) hoạt động tức thì, hàng đợi đồng bộ chạy nền khi có mạng.
 
 ## 4. Kiến trúc & kỹ thuật (WPF, MVVM)
 - **Pattern**: MVVM; `ViewModels` xử lý state, binding 2 chiều; `Commands` cho thao tác.
@@ -42,18 +51,19 @@
 - **Hiệu năng cây vô hạn**: dùng `HierarchicalDataTemplate` + virtualization (`VirtualizingStackPanel`), lazy-load con theo nhu cầu.
 - **Tìm kiếm**: chỉ mục SQLite FTS5 cho văn bản ghi chú và tiêu đề nhiệm vụ.
 
-## 5. Thiết kế giao diện (thân thiện người Việt)
+## 5. Thiết kế giao diện (thân thiện người Việt, đẹp và dễ dùng offline)
 - **Bố cục chính**
   - Thanh bên trái: danh sách trang (folder), nút tạo mới, ô tìm kiếm.
   - Khung giữa: nội dung trang với khối ghi chú; bảng nhiệm vụ trong trang.
   - Pane phải: chi tiết nhiệm vụ đang chọn (mô tả, checklist, tệp, tag, % hoàn thành lớn).
   - Header: thanh breadcrumb + bộ lọc nhanh (Trạng thái, Tag, Ưu tiên, Người phụ trách).
-- **Theme**: sáng/tối, font dễ đọc (Inter/Noto Sans), màu chủ đạo xanh biển + accent cam; icon rõ ràng; spacing 8/12 px.
+- **Theme**: sáng/tối, font dễ đọc (Inter/Noto Sans), màu chủ đạo xanh biển + accent cam; icon rõ ràng; spacing 8/12 px; hoạt ảnh nhẹ nhưng không gây lag ở cấu hình trung bình.
 - **Tương tác**
-  - Tick checkbox trong mọi chế độ (tree/board/table) để cập nhật % ngay.
-  - Kéo-thả đổi cấp độ, reorder; shortcut: Enter thêm nhiệm vụ cùng cấp, Tab/Shift+Tab thụt/giảm cấp.
-  - Context menu tiếng Việt (Đổi trạng thái, Thêm nhiệm vụ con, Sao chép liên kết).
-  - Hỗ trợ nhập liệu tiếng Việt tốt (TextBox với Input Method Editor).
+   - Tick checkbox trong mọi chế độ (tree/board/table) để cập nhật % ngay.
+   - Kéo-thả đổi cấp độ, reorder; shortcut: Enter thêm nhiệm vụ cùng cấp, Tab/Shift+Tab thụt/giảm cấp.
+   - Context menu tiếng Việt (Đổi trạng thái, Thêm nhiệm vụ con, Sao chép liên kết).
+   - Hỗ trợ nhập liệu tiếng Việt tốt (TextBox với Input Method Editor).
+- **Offline UX rõ ràng**: trạng thái mạng ở header; cho phép “Chỉ lưu cục bộ”, “Đẩy lên khi có mạng”; cảnh báo xung đột chỉ khi bật đồng bộ.
 - **Khả năng truy cập**: phím tắt, focus visible, cao tương phản, thông báo trạng thái bằng text.
 
 ## 6. Luồng người dùng chính
