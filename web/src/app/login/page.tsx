@@ -1,0 +1,93 @@
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { Sparkles, ShieldCheck, CalendarClock, TrendingUp } from "lucide-react";
+import { getCurrentUser } from "@/lib/auth";
+import { LoginForm } from "./login-form";
+
+export const metadata = { title: "Đăng nhập" };
+
+export default async function LoginPage() {
+  const user = await getCurrentUser();
+  if (user) redirect("/dashboard");
+
+  return (
+    <div className="grid min-h-screen lg:grid-cols-2">
+      {/* Bảng thương hiệu */}
+      <div className="relative hidden flex-col justify-between overflow-hidden bg-brand-gradient p-12 text-white lg:flex">
+        <div className="absolute -right-24 -top-24 h-96 w-96 rounded-full bg-white/10 blur-2xl" />
+        <div className="absolute -bottom-32 -left-16 h-96 w-96 rounded-full bg-brand-400/20 blur-2xl" />
+        <div className="relative flex items-center gap-3">
+          <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-white/15 ring-1 ring-white/25">
+            <Sparkles className="h-6 w-6" />
+          </span>
+          <div>
+            <p className="text-lg font-semibold leading-tight">Zenith Clinic</p>
+            <p className="text-xs text-white/70">Quản lý Trung tâm Thẩm mỹ</p>
+          </div>
+        </div>
+
+        <div className="relative max-w-md">
+          <h2 className="text-3xl font-semibold leading-tight text-balance">
+            Vận hành phòng khám mượt mà, chuyên nghiệp.
+          </h2>
+          <p className="mt-3 text-white/75">
+            Từ lịch hẹn, tiếp nhận khách, tư vấn — dịch vụ, đến chăm sóc và báo cáo doanh thu. Tất cả trong một hệ thống.
+          </p>
+          <ul className="mt-8 space-y-3 text-sm">
+            <li className="flex items-center gap-3">
+              <CalendarClock className="h-5 w-5 text-brand-200" /> Lịch hẹn &amp; tiếp nhận khách theo thời gian thực
+            </li>
+            <li className="flex items-center gap-3">
+              <ShieldCheck className="h-5 w-5 text-brand-200" /> Bảo mật số điện thoại khách — ẩn 100%
+            </li>
+            <li className="flex items-center gap-3">
+              <TrendingUp className="h-5 w-5 text-brand-200" /> Báo cáo doanh thu &amp; hiệu suất nhân viên
+            </li>
+          </ul>
+        </div>
+
+        <p className="relative text-xs text-white/60">
+          Trung tâm Phẫu thuật Thẩm mỹ — Bệnh viện Đa khoa Hồng Phúc
+        </p>
+      </div>
+
+      {/* Form đăng nhập */}
+      <div className="flex items-center justify-center p-6 sm:p-12">
+        <div className="w-full max-w-sm">
+          <div className="mb-8 flex items-center gap-3 lg:hidden">
+            <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-brand-600 text-white">
+              <Sparkles className="h-6 w-6" />
+            </span>
+            <div>
+              <p className="text-lg font-semibold text-slate-900">Zenith Clinic</p>
+              <p className="text-xs text-slate-500">Quản lý Trung tâm Thẩm mỹ</p>
+            </div>
+          </div>
+
+          <h1 className="text-2xl font-semibold text-slate-900">Đăng nhập</h1>
+          <p className="mt-1 text-sm text-slate-500">Chào mừng trở lại! Vui lòng đăng nhập để tiếp tục.</p>
+
+          <div className="mt-7">
+            <LoginForm />
+          </div>
+
+          <div className="mt-6 rounded-xl bg-slate-50 p-3 text-xs text-slate-500 ring-1 ring-slate-100">
+            <p className="font-medium text-slate-600">Tài khoản demo (mật khẩu: 123456)</p>
+            <p className="mt-1 leading-relaxed">
+              <code className="text-brand-700">admin</code> · <code className="text-brand-700">letan</code> ·{" "}
+              <code className="text-brand-700">tuvan1</code> · <code className="text-brand-700">bacsi1</code> ·{" "}
+              <code className="text-brand-700">cskh</code>
+            </p>
+          </div>
+
+          <p className="mt-8 text-center text-xs text-slate-400">
+            © {new Date().getFullYear()} Zenith Clinic ·{" "}
+            <Link href="/login" className="hover:text-slate-600">
+              Hỗ trợ kỹ thuật
+            </Link>
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}

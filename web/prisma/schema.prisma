@@ -1,0 +1,381 @@
+// Zenith Clinic — Hệ thống quản lý Trung tâm Phẫu thuật Thẩm mỹ
+// Thiết kế đáp ứng 7 yêu cầu nghiệp vụ: tiếp nhận/lịch hẹn, hồ sơ khách,
+// tư vấn & thanh toán/công nợ, vật tư & ảnh trước-sau, chăm sóc khách hàng,
+// báo cáo quản trị, và bảo mật số điện thoại (ẩn 100%, chỉ tra theo 5 số cuối).
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================ ENUMS ============================
+
+enum Role {
+  ADMIN // Quản trị viên / Ban giám đốc — xem toàn bộ
+  MANAGER // Quản lý — xem báo cáo, không sửa cấu hình hệ thống
+  TELESALE // Tiếp nhận thông tin / Telesale — đặt lịch hẹn
+  RECEPTION // Lễ tân — check-in, lập hồ sơ khách
+  CONSULTANT // Tư vấn viên
+  DOCTOR // Bác sĩ thực hiện dịch vụ
+  CARE // Chăm sóc khách hàng (CSKH)
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum CustomerSource {
+  MARKETING // Marketing / quảng cáo
+  COLLABORATOR // Cộng tác viên (CTV)
+  WALK_IN // Khách vãng lai / tự đến
+  REFERRAL // Khách cũ giới thiệu
+  HOTLINE // Tổng đài / hotline
+  FACEBOOK
+  ZALO
+  TIKTOK
+  OTHER
+}
+
+enum AppointmentType {
+  NEW // Khách mới
+  FOLLOW_UP // Tái khám
+  RE_SERVICE // Làm lại / dịch vụ tiếp theo
+}
+
+enum AppointmentStatus {
+  BOOKED // Đã đặt lịch
+  CONFIRMED // Đã xác nhận
+  ARRIVED // Khách đã đến (check-in)
+  IN_CONSULT // Đang tư vấn
+  IN_SERVICE // Đang làm dịch vụ
+  DONE // Hoàn thành
+  CANCELLED // Hủy
+  NO_SHOW // Hẹn nhưng không đến
+}
+
+enum CaseStatus {
+  OPEN // Mới mở hồ sơ
+  CONSULTED // Đã tư vấn
+  SERVICED // Đã/đang làm dịch vụ
+  COMPLETED // Hoàn tất
+  CANCELLED // Hủy
+}
+
+enum ConsultResult {
+  PENDING // Chưa chốt
+  AGREED // Chốt làm dịch vụ
+  CONSIDERING // Khách cân nhắc
+  DECLINED // Từ chối
+}
+
+enum PaymentMethod {
+  CASH // Tiền mặt
+  CARD // Quẹt thẻ
+  TRANSFER // Chuyển khoản
+  EWALLET // Ví điện tử
+}
+
+enum PhotoType {
+  BEFORE // Ảnh trước làm
+  AFTER // Ảnh sau làm
+  FOLLOW_UP // Ảnh tái khám theo tháng/lần
+}
+
+enum CareChannel {
+  NOTE // Ghi nhận nội bộ
+  ZALO
+  SMS
+  CALL // Gọi điện
+  EMAIL
+  OTHER
+}
+
+enum CareDirection {
+  OUT // Gửi tới khách
+  IN // Khách phản hồi
+}
+
+// ============================ NHÂN SỰ ============================
+
+model User {
+  id           String   @id @default(cuid())
+  code         String?  @unique // Mã nhân viên
+  fullName     String
+  username     String   @unique
+  passwordHash String
+  role         Role
+  phone        String? // SĐT nội bộ của nhân viên (không phải khách)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  customersCreated     Customer[]      @relation("CustomerCreatedBy")
+  appointmentsCreated  Appointment[]   @relation("ApptCreatedBy")
+  appointmentsAssigned Appointment[]   @relation("ApptConsultant")
+  casesCreated         CaseRecord[]    @relation("CaseCreatedBy")
+  casesConsulted       CaseRecord[]    @relation("CaseConsultant")
+  casesAsDoctor        CaseRecord[]    @relation("CaseDoctor")
+  caseServices         CaseService[]   @relation("CaseServiceDoctor")
+  payments             Payment[]
+  materialUsages       MaterialUsage[]
+  photos               Photo[]
+  careMessages         CareMessage[]
+  followUpsCreated     FollowUp[]
+  auditLogs            AuditLog[]
+  shifts               Shift[]
+}
+
+// ============================ KHÁCH HÀNG ============================
+
+model Customer {
+  id           String         @id @default(cuid())
+  code         String         @unique // Mã khách hàng, ví dụ KH000123
+  fullName     String
+  gender       Gender?
+  dob          DateTime?
+  // Số điện thoại được mã hoá AES-256-GCM, KHÔNG bao giờ trả về cho nhân viên.
+  phoneEnc     String
+  // 5 số cuối để tra cứu & hiển thị (theo yêu cầu số 7).
+  phoneLast5   String
+  // Băm SĐT đã chuẩn hoá để chống trùng hồ sơ.
+  phoneHash    String
+  source       CustomerSource @default(OTHER)
+  sourceDetail String? // Tên CTV / chiến dịch / nguồn cụ thể
+  address      String?
+  note         String?
+  createdById  String?
+  createdBy    User?          @relation("CustomerCreatedBy", fields: [createdById], references: [id])
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  appointments Appointment[]
+  cases        CaseRecord[]
+  photos       Photo[]
+  careMessages CareMessage[]
+  followUps    FollowUp[]
+
+  @@index([phoneLast5])
+  @@index([phoneHash])
+  @@index([fullName])
+}
+
+// ============================ LỊCH HẸN ============================
+
+model Appointment {
+  id              String            @id @default(cuid())
+  customerId      String?
+  customer        Customer?         @relation(fields: [customerId], references: [id])
+  guestName       String? // Tên khách khi đặt lịch mà chưa lập hồ sơ
+  phoneLast5      String?
+  type            AppointmentType   @default(NEW)
+  status          AppointmentStatus @default(BOOKED)
+  scheduledAt     DateTime
+  serviceInterest String? // Dịch vụ khách quan tâm
+  source          CustomerSource    @default(OTHER)
+  sourceDetail    String?
+  note            String?
+  createdById     String?
+  createdBy       User?             @relation("ApptCreatedBy", fields: [createdById], references: [id])
+  consultantId    String?
+  consultant      User?             @relation("ApptConsultant", fields: [consultantId], references: [id])
+  arrivedAt       DateTime?
+  caseId          String?           @unique
+  case            CaseRecord?       @relation(fields: [caseId], references: [id])
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@index([scheduledAt])
+  @@index([status])
+}
+
+// ============================ DANH MỤC ============================
+
+model Service {
+  id           String        @id @default(cuid())
+  name         String
+  category     String?
+  defaultPrice Decimal       @default(0) @db.Decimal(14, 0)
+  active       Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  caseServices CaseService[]
+}
+
+model Material {
+  id        String          @id @default(cuid())
+  name      String
+  unit      String          @default("cái")
+  sku       String?
+  active    Boolean         @default(true)
+  createdAt DateTime        @default(now())
+  usages    MaterialUsage[]
+}
+
+// ============================ HỒ SƠ ĐIỀU TRỊ ============================
+
+model CaseRecord {
+  id             String        @id @default(cuid())
+  code           String        @unique // Mã hồ sơ, ví dụ HS000123
+  customerId     String
+  customer       Customer      @relation(fields: [customerId], references: [id])
+  consultantId   String?
+  consultant     User?         @relation("CaseConsultant", fields: [consultantId], references: [id])
+  doctorId       String?
+  doctor         User?         @relation("CaseDoctor", fields: [doctorId], references: [id])
+  status         CaseStatus    @default(OPEN)
+  consultResult  ConsultResult @default(PENDING) // Phục vụ tính tỉ lệ chốt tư vấn
+  chiefComplaint String? // Nhu cầu / lý do của khách
+  note           String?
+  // Số tiền (VND, không phần lẻ). totalAmount = tổng finalPrice các dịch vụ.
+  totalAmount    Decimal       @default(0) @db.Decimal(14, 0)
+  discountAmount Decimal       @default(0) @db.Decimal(14, 0)
+  paidAmount     Decimal       @default(0) @db.Decimal(14, 0)
+  debtAmount     Decimal       @default(0) @db.Decimal(14, 0) // = total - paid
+  createdById    String?
+  createdBy      User?         @relation("CaseCreatedBy", fields: [createdById], references: [id])
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  completedAt    DateTime?
+
+  services    CaseService[]
+  payments    Payment[]
+  materials   MaterialUsage[]
+  photos      Photo[]
+  followUps   FollowUp[]
+  appointment Appointment?
+
+  @@index([status])
+  @@index([createdAt])
+  @@index([consultantId])
+  @@index([doctorId])
+}
+
+model CaseService {
+  id          String      @id @default(cuid())
+  caseId      String
+  case        CaseRecord  @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  serviceId   String?
+  service     Service?    @relation(fields: [serviceId], references: [id])
+  name        String // Tên dịch vụ tại thời điểm chốt (snapshot)
+  unitPrice   Decimal     @default(0) @db.Decimal(14, 0)
+  quantity    Int         @default(1)
+  discount    Decimal     @default(0) @db.Decimal(14, 0)
+  finalPrice  Decimal     @default(0) @db.Decimal(14, 0)
+  doctorId    String?
+  doctor      User?       @relation("CaseServiceDoctor", fields: [doctorId], references: [id])
+  performedAt DateTime?
+  note        String?
+  createdAt   DateTime    @default(now())
+}
+
+model Payment {
+  id           String        @id @default(cuid())
+  caseId       String
+  case         CaseRecord    @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  amount       Decimal       @db.Decimal(14, 0)
+  method       PaymentMethod @default(CASH)
+  paidAt       DateTime      @default(now())
+  receivedById String?
+  receivedBy   User?         @relation(fields: [receivedById], references: [id])
+  note         String?
+}
+
+model MaterialUsage {
+  id            String     @id @default(cuid())
+  caseId        String
+  case          CaseRecord @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  materialId    String?
+  material      Material?  @relation(fields: [materialId], references: [id])
+  name          String // Tên vật tư (snapshot)
+  unit          String     @default("cái")
+  quantity      Decimal    @default(1) @db.Decimal(10, 2)
+  performedById String?
+  performedBy   User?      @relation(fields: [performedById], references: [id])
+  performedAt   DateTime   @default(now())
+  note          String?
+}
+
+model Photo {
+  id            String      @id @default(cuid())
+  customerId    String
+  customer      Customer    @relation(fields: [customerId], references: [id])
+  caseId        String?
+  case          CaseRecord? @relation(fields: [caseId], references: [id])
+  type          PhotoType   @default(BEFORE)
+  url           String // Đường dẫn ảnh đã lưu
+  caption       String?
+  followUpIndex Int? // Lần/tháng tái khám (1, 2, 3...)
+  takenAt       DateTime    @default(now())
+  uploadedById  String?
+  uploadedBy    User?       @relation(fields: [uploadedById], references: [id])
+}
+
+model FollowUp {
+  id          String            @id @default(cuid())
+  caseId      String
+  case        CaseRecord        @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  customerId  String
+  customer    Customer          @relation(fields: [customerId], references: [id])
+  scheduledAt DateTime
+  status      AppointmentStatus @default(BOOKED)
+  note        String?
+  doneAt      DateTime?
+  createdById String?
+  createdBy   User?             @relation(fields: [createdById], references: [id])
+  createdAt   DateTime          @default(now())
+
+  @@index([scheduledAt])
+}
+
+// ============================ CHĂM SÓC KHÁCH HÀNG ============================
+
+model CareMessage {
+  id          String        @id @default(cuid())
+  customerId  String
+  customer    Customer      @relation(fields: [customerId], references: [id])
+  caseId      String?
+  channel     CareChannel   @default(NOTE)
+  direction   CareDirection @default(OUT)
+  content     String
+  createdById String?
+  createdBy   User?         @relation(fields: [createdById], references: [id])
+  createdAt   DateTime      @default(now())
+
+  @@index([createdAt])
+}
+
+// ============================ LỊCH LÀM VIỆC ============================
+
+model Shift {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  date      DateTime @db.Date
+  startTime String // "08:00"
+  endTime   String // "17:00"
+  note      String?
+  createdAt DateTime @default(now())
+
+  @@index([date])
+}
+
+// ============================ NHẬT KÝ HỆ THỐNG ============================
+
+model AuditLog {
+  id       String   @id @default(cuid())
+  actorId  String?
+  actor    User?    @relation(fields: [actorId], references: [id])
+  action   String // ví dụ: LOGIN, REVEAL_PHONE, CREATE_CASE...
+  entity   String?
+  entityId String?
+  meta     Json?
+  ip       String?
+  at       DateTime @default(now())
+
+  @@index([at])
+}
