@@ -60,3 +60,19 @@ export async function toggleStaffActive(formData: FormData): Promise<void> {
   await prisma.user.update({ where: { id }, data: { active: !u.active } });
   revalidatePath("/nhan-su");
 }
+
+/**
+ * Xóa vĩnh viễn một nhân sự (CHỈ quản trị viên, không tự xóa mình).
+ * Các bản ghi do người này tạo sẽ được giữ lại (trường người tạo chuyển về trống).
+ */
+export async function deleteStaff(formData: FormData): Promise<void> {
+  const me = await requireUser(["ADMIN"]);
+  const id = String(formData.get("id") ?? "");
+  if (!id || id === me.id) return;
+  await prisma.$transaction([
+    prisma.shift.deleteMany({ where: { userId: id } }),
+    prisma.auditLog.deleteMany({ where: { actorId: id } }),
+    prisma.user.delete({ where: { id } }),
+  ]);
+  revalidatePath("/nhan-su");
+}

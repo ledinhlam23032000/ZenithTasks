@@ -8,9 +8,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { Table, THead, TH, TR, TD } from "@/components/ui/table";
+import { DeleteButton } from "@/components/ui/delete-button";
 import { NewStaffButton } from "./new-staff";
 import { ResetPasswordButton } from "./reset-password";
-import { toggleStaffActive } from "./actions";
+import { toggleStaffActive, deleteStaff } from "./actions";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Nhân sự" };
@@ -74,6 +75,13 @@ export default async function StaffPage() {
                             <Power className="h-3.5 w-3.5" /> {u.active ? "Khóa" : "Mở"}
                           </button>
                         </form>
+                      )}
+                      {u.id !== me.id && (
+                        <DeleteButton
+                          action={deleteStaff}
+                          id={u.id}
+                          confirmText={`Xóa nhân sự "${u.fullName}"? Hành động này không thể hoàn tác.`}
+                        />
                       )}
                     </div>
                   </TD>

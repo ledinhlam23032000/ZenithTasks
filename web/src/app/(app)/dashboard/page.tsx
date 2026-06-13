@@ -23,7 +23,8 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { EmptyState } from "@/components/ui/empty-state";
-import { ColumnChart, BarList } from "@/components/charts/charts";
+import { BarList } from "@/components/charts/charts";
+import { RevenueChart } from "@/components/charts/revenue-chart";
 import { CARE_CHANNEL, APPT_STATUS } from "@/lib/status";
 
 export const dynamic = "force-dynamic";
@@ -113,7 +114,7 @@ export default async function DashboardPage() {
         <Card className="lg:col-span-3">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="h-4 w-4 text-brand-500" /> Doanh thu 6 tháng gần nhất
+              <BarChart3 className="h-4 w-4 text-brand-500" /> Doanh thu
             </CardTitle>
             <span
               className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${
@@ -124,7 +125,7 @@ export default async function DashboardPage() {
             </span>
           </CardHeader>
           <CardContent className="pt-0">
-            <ColumnChart data={d.revenueTrend} formatValue={formatVNDShort} />
+            <RevenueChart series={d.revenueSeries} />
           </CardContent>
         </Card>
 

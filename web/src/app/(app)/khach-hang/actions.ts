@@ -1,5 +1,6 @@
 "use server";
 
+import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
@@ -90,4 +91,33 @@ export async function updateCustomer(_prev: EditCustomerState, formData: FormDat
   revalidatePath(`/khach-hang/${d.customerId}`);
   revalidatePath("/khach-hang");
   return { ok: true };
+}
+
+/**
+ * Xóa vĩnh viễn một khách hàng và toàn bộ dữ liệu liên quan.
+ * CHỈ quản trị viên. Xóa con trước, cha sau, trong một giao dịch.
+ */
+export async function deleteCustomer(formData: FormData): Promise<void> {
+  const user = await requireUser(["ADMIN"]);
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+
+  await prisma.$transaction([
+    prisma.payment.deleteMany({ where: { case: { customerId: id } } }),
+    prisma.caseService.deleteMany({ where: { case: { customerId: id } } }),
+    prisma.materialUsage.deleteMany({ where: { case: { customerId: id } } }),
+    prisma.followUp.deleteMany({ where: { customerId: id } }),
+    prisma.photo.deleteMany({ where: { customerId: id } }),
+    prisma.careMessage.deleteMany({ where: { customerId: id } }),
+    prisma.appointment.deleteMany({ where: { customerId: id } }),
+    prisma.caseRecord.deleteMany({ where: { customerId: id } }),
+    prisma.customer.delete({ where: { id } }),
+  ]);
+
+  await prisma.auditLog
+    .create({ data: { actorId: user.id, action: "DELETE_CUSTOMER", entity: "Customer", entityId: id } })
+    .catch(() => {});
+
+  revalidatePath("/khach-hang");
+  redirect("/khach-hang");
 }

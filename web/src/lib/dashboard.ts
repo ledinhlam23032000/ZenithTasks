@@ -1,4 +1,15 @@
-import { startOfMonth, endOfMonth, subMonths, format } from "date-fns";
+import {
+  startOfDay,
+  addDays,
+  startOfWeek,
+  addWeeks,
+  startOfMonth,
+  addMonths,
+  startOfYear,
+  addYears,
+  subYears,
+  format,
+} from "date-fns";
 import { prisma } from "@/lib/db";
 import { toNum } from "@/lib/money";
 import { todayRange, monthRange, lastMonthRange, growthPct } from "@/lib/dates";
@@ -97,18 +108,33 @@ export async function getAdminDashboard() {
   const revenueThisMonth = toNum(revThisMonth._sum.amount);
   const revenueLastMonth = toNum(revLastMonth._sum.amount);
 
-  // Doanh thu 6 tháng gần nhất (cho biểu đồ xu hướng)
+  // Doanh thu theo nhiều đơn vị thời gian (ngày/tuần/tháng/năm) cho biểu đồ.
   const now = new Date();
-  const months = Array.from({ length: 6 }, (_, i) => {
-    const d = subMonths(now, 5 - i);
-    return { label: format(d, "MM/yy"), gte: startOfMonth(d), lte: endOfMonth(d) };
+  const payRows = await prisma.payment.findMany({
+    where: { paidAt: { gte: startOfYear(subYears(now, 4)) } },
+    select: { paidAt: true, amount: true },
   });
-  const monthlyRev = await Promise.all(
-    months.map((m) =>
-      prisma.payment.aggregate({ where: { paidAt: { gte: m.gte, lte: m.lte } }, _sum: { amount: true } }),
-    ),
-  );
-  const revenueTrend = months.map((m, i) => ({ label: m.label, value: toNum(monthlyRev[i]._sum.amount) }));
+  const pays = payRows.map((p) => ({ at: p.paidAt, amount: toNum(p.amount) }));
+  const sumIn = (gte: Date, lt: Date) =>
+    pays.reduce((s, p) => (p.at >= gte && p.at < lt ? s + p.amount : s), 0);
+  const buildSeries = (
+    count: number,
+    step: (base: Date, n: number) => Date,
+    startOf: (d: Date) => Date,
+    labelFmt: string,
+  ) =>
+    Array.from({ length: count }, (_, i) => {
+      const d = step(now, -(count - 1 - i));
+      const gte = startOf(d);
+      const lt = startOf(step(d, 1));
+      return { label: format(gte, labelFmt), value: sumIn(gte, lt) };
+    });
+  const revenueSeries = {
+    day: buildSeries(14, addDays, startOfDay, "dd/MM"),
+    week: buildSeries(12, addWeeks, (d) => startOfWeek(d, { weekStartsOn: 1 }), "dd/MM"),
+    month: buildSeries(12, addMonths, startOfMonth, "MM/yy"),
+    year: buildSeries(5, addYears, startOfYear, "yyyy"),
+  };
 
   return {
     today: {
@@ -136,7 +162,7 @@ export async function getAdminDashboard() {
     consultants: consultantRows,
     recentCare,
     todaySchedule,
-    revenueTrend,
+    revenueSeries,
   };
 }
 

@@ -18,7 +18,7 @@ import {
 import { differenceInYears, format } from "date-fns";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { maskPhone } from "@/lib/phone";
+import { maskPhone, decryptPhone } from "@/lib/phone";
 import { toNum, formatVND } from "@/lib/money";
 import { fmtDate, fmtDateTime, fmtRelative } from "@/lib/format";
 import {
@@ -36,7 +36,9 @@ import { Avatar } from "@/components/ui/avatar";
 import { StatCard } from "@/components/ui/stat-card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { buttonVariants } from "@/components/ui/button";
+import { DeleteButton } from "@/components/ui/delete-button";
 import { receiveCustomer } from "../../tiep-nhan/actions";
+import { deleteCustomer } from "../actions";
 import { EditCustomerButton } from "../edit-customer";
 import { CareComposer } from "../../cham-soc/care-composer";
 import { PhotoTypeLabel } from "../../ho-so/[id]/photo-label";
@@ -68,6 +70,16 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
 
   if (!customer) notFound();
 
+  // Chỉ quản trị viên mới xem được số điện thoại đầy đủ (giải mã phía máy chủ).
+  let fullPhone: string | null = null;
+  if (user.role === "ADMIN") {
+    try {
+      fullPhone = decryptPhone(customer.phoneEnc);
+    } catch {
+      fullPhone = null;
+    }
+  }
+
   const totalValue = customer.cases.reduce((s, c) => s + toNum(c.totalAmount), 0);
   const totalDebt = customer.cases.reduce((s, c) => s + toNum(c.debtAmount), 0);
   const age = customer.dob ? differenceInYears(new Date(), customer.dob) : null;
@@ -93,7 +105,14 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
             </div>
             <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-sm text-slate-600">
               <span className="inline-flex items-center gap-1.5">
-                <ShieldCheck className="h-4 w-4 text-brand-500" /> {maskPhone(customer.phoneLast5)}
+                <ShieldCheck className="h-4 w-4 text-brand-500" />
+                {fullPhone ? (
+                  <span className="font-medium text-slate-800" title="Số đầy đủ — chỉ quản trị viên xem được">
+                    {fullPhone}
+                  </span>
+                ) : (
+                  maskPhone(customer.phoneLast5)
+                )}
               </span>
               <span>{customer.gender ? GENDER_LABEL[customer.gender] : "—"}</span>
               {customer.dob && (
@@ -137,6 +156,15 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
                   <FilePlus2 className="h-4 w-4" /> Mở hồ sơ điều trị
                 </button>
               </form>
+            )}
+            {user.role === "ADMIN" && (
+              <DeleteButton
+                action={deleteCustomer}
+                id={customer.id}
+                label="Xóa khách"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 px-3 py-2 text-sm font-medium text-rose-600 hover:bg-rose-50"
+                confirmText={`Xóa vĩnh viễn hồ sơ "${customer.fullName}" cùng toàn bộ hồ sơ điều trị, thanh toán, ảnh và lịch hẹn? Không thể hoàn tác.`}
+              />
             )}
           </div>
         </CardContent>
