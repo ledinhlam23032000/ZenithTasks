@@ -1,0 +1,42 @@
+# Zenith Clinic — chạy toàn bộ hệ thống (web + PostgreSQL) bằng 1 lệnh:
+#   docker compose up --build
+# Sau đó mở http://localhost:3000  (đăng nhập: admin / 123456)
+#
+# ⚠️  Khoá bí mật dưới đây chỉ dùng cho DEMO. Hãy đổi AUTH_SECRET và
+#     PHONE_ENC_KEY trước khi chạy thật (xem web/DEPLOY.md).
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: zenith
+      POSTGRES_PASSWORD: zenith_dev_pw
+      POSTGRES_DB: zenith_clinic
+    volumes:
+      - zenith_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U zenith -d zenith_clinic"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  app:
+    build: ./web
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: "postgresql://zenith:zenith_dev_pw@db:5432/zenith_clinic?schema=public"
+      AUTH_SECRET: "A63K8EjWA1sFCamrTWOEFEiifKx6jwoPm3+vmNA1eErg73ba1YS7DKvPMOZvlcpm"
+      PHONE_ENC_KEY: "QKuRqi5MjrXaJ6Dv5XwMQCD/0Dmyvc2TuTUEBf8nGM8="
+      APP_NAME: "Zenith Clinic"
+    ports:
+      - "3000:3000"
+    volumes:
+      - zenith_uploads:/app/public/uploads
+
+volumes:
+  zenith_db:
+  zenith_uploads:
