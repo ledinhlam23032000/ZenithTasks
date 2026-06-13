@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { addDays, format, isToday, isTomorrow } from "date-fns";
+import { addDays, addMonths, startOfMonth, endOfMonth, format, isToday, isTomorrow } from "date-fns";
 import { vi } from "date-fns/locale";
 import { CalendarClock, ChevronLeft, ChevronRight, Sun, CalendarDays } from "lucide-react";
 import { requireUser } from "@/lib/auth";
@@ -20,6 +20,7 @@ import { DeleteButton } from "@/components/ui/delete-button";
 import { NewAppointmentButton } from "./new-appointment";
 import { AppointmentStatusControl } from "./appointment-status";
 import { deleteAppointment } from "./actions";
+import { MonthCalendar } from "./month-calendar";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Lịch hẹn" };
@@ -30,7 +31,7 @@ const CAN_CREATE = ["ADMIN", "MANAGER", "TELESALE", "RECEPTION"];
 export default async function AppointmentsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ date?: string }>;
+  searchParams: Promise<{ date?: string; view?: string }>;
 }) {
   const user = await requireUser([...ROLES]);
   const sp = await searchParams;
@@ -39,6 +40,7 @@ export default async function AppointmentsPage({
   const valid = !Number.isNaN(selected.getTime());
   const day = valid ? selected : new Date();
   const dateKey = format(day, "yyyy-MM-dd");
+  const view = sp.view === "month" ? "month" : "day";
 
   const [appts, todayCount, tomorrowCount, services, consultants] = await Promise.all([
     prisma.appointment.findMany({
@@ -56,9 +58,30 @@ export default async function AppointmentsPage({
     getConsultants(),
   ]);
 
-  const prevKey = format(addDays(day, -1), "yyyy-MM-dd");
-  const nextKey = format(addDays(day, 1), "yyyy-MM-dd");
-  const dayTitle = isToday(day) ? "Hôm nay" : isTomorrow(day) ? "Ngày mai" : fmtDayLabel(day);
+  const monthAppts =
+    view === "month"
+      ? await prisma.appointment.findMany({
+          where: { scheduledAt: { gte: startOfMonth(day), lte: endOfMonth(day) } },
+          select: { scheduledAt: true },
+        })
+      : [];
+  const countByDay: Record<string, number> = {};
+  for (const a of monthAppts) {
+    const k = format(a.scheduledAt, "yyyy-MM-dd");
+    countByDay[k] = (countByDay[k] ?? 0) + 1;
+  }
+
+  const prevKey = format(view === "month" ? addMonths(day, -1) : addDays(day, -1), "yyyy-MM-dd");
+  const nextKey = format(view === "month" ? addMonths(day, 1) : addDays(day, 1), "yyyy-MM-dd");
+  const viewParam = view === "month" ? "&view=month" : "";
+  const dayTitle =
+    view === "month"
+      ? `Tháng ${format(day, "MM/yyyy")}`
+      : isToday(day)
+        ? "Hôm nay"
+        : isTomorrow(day)
+          ? "Ngày mai"
+          : fmtDayLabel(day);
 
   const arrived = appts.filter((a) => ["ARRIVED", "IN_CONSULT", "IN_SERVICE", "DONE"].includes(a.status)).length;
   const canDelete = ["ADMIN", "MANAGER"].includes(user.role);
@@ -127,30 +150,49 @@ export default async function AppointmentsPage({
       <Card>
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
           <div className="flex items-center gap-1.5">
-            <Link href={`/lich-hen?date=${prevKey}`} className={buttonVariants({ variant: "secondary", size: "icon" })} aria-label="Ngày trước">
+            <Link href={`/lich-hen?date=${prevKey}${viewParam}`} className={buttonVariants({ variant: "secondary", size: "icon" })} aria-label="Trước">
               <ChevronLeft className="h-4 w-4" />
             </Link>
             <div className="px-2 text-center">
               <p className="text-sm font-semibold text-slate-800">{dayTitle}</p>
               <p className="text-xs text-slate-400">{format(day, "EEEE, dd/MM/yyyy", { locale: vi })}</p>
             </div>
-            <Link href={`/lich-hen?date=${nextKey}`} className={buttonVariants({ variant: "secondary", size: "icon" })} aria-label="Ngày sau">
+            <Link href={`/lich-hen?date=${nextKey}${viewParam}`} className={buttonVariants({ variant: "secondary", size: "icon" })} aria-label="Sau">
               <ChevronRight className="h-4 w-4" />
             </Link>
           </div>
-          <form className="flex items-center gap-2" action="/lich-hen">
-            <input
-              type="date"
-              name="date"
-              defaultValue={dateKey}
-              className="h-9 rounded-lg border border-slate-200 px-3 text-sm text-slate-700 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
-            />
-            <button className={buttonVariants({ variant: "secondary", size: "sm" })}>Xem</button>
-          </form>
+          <div className="flex items-center gap-2">
+            <div className="inline-flex rounded-lg bg-slate-100 p-0.5 text-xs font-medium">
+              <Link
+                href={`/lich-hen?date=${dateKey}`}
+                className={`rounded-md px-3 py-1 ${view === "day" ? "bg-white text-brand-700 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+              >
+                Ngày
+              </Link>
+              <Link
+                href={`/lich-hen?date=${dateKey}&view=month`}
+                className={`rounded-md px-3 py-1 ${view === "month" ? "bg-white text-brand-700 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+              >
+                Tháng
+              </Link>
+            </div>
+            <form className="flex items-center gap-2" action="/lich-hen">
+              <input
+                type="date"
+                name="date"
+                defaultValue={dateKey}
+                className="h-9 rounded-lg border border-slate-200 px-3 text-sm text-slate-700 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
+              />
+              {view === "month" && <input type="hidden" name="view" value="month" />}
+              <button className={buttonVariants({ variant: "secondary", size: "sm" })}>Xem</button>
+            </form>
+          </div>
         </div>
 
         <CardContent className="pt-0">
-          {appts.length === 0 ? (
+          {view === "month" ? (
+            <MonthCalendar monthDate={day} countByDay={countByDay} />
+          ) : appts.length === 0 ? (
             <EmptyState
               icon={<CalendarClock className="h-6 w-6" />}
               title={`Không có lịch hẹn ${dayTitle.toLowerCase()}`}

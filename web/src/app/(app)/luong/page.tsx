@@ -1,5 +1,5 @@
 import { format } from "date-fns";
-import { Wallet, Coins, HandCoins, Banknote } from "lucide-react";
+import { Wallet, Coins, HandCoins, Banknote, FileSpreadsheet } from "lucide-react";
 import { requireUser } from "@/lib/auth";
 import { getPayroll } from "@/lib/payroll";
 import { ROLE_LABELS } from "@/lib/rbac";
@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatCard } from "@/components/ui/stat-card";
 import { Table, THead, TH, TR, TD } from "@/components/ui/table";
 import { EmptyState } from "@/components/ui/empty-state";
+import { PrintButton } from "@/components/ui/print-button";
 import { setStaffSalary } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -32,17 +33,26 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
         description="Tính lương theo tháng: lương cơ bản + hoa hồng theo doanh thu phụ trách, và hoa hồng cộng tác viên."
         icon={<Wallet className="h-5 w-5" />}
         actions={
-          <form method="GET" className="flex items-center gap-2">
-            <input
-              type="month"
-              name="m"
-              defaultValue={monthValue}
-              className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-brand-400 focus:outline-none"
-            />
-            <button className="rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700">
-              Xem
-            </button>
-          </form>
+          <div className="flex flex-wrap items-center gap-2">
+            <form method="GET" className="flex items-center gap-2">
+              <input
+                type="month"
+                name="m"
+                defaultValue={monthValue}
+                className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-brand-400 focus:outline-none"
+              />
+              <button className="rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700">
+                Xem
+              </button>
+            </form>
+            <a
+              href={`/luong/export?m=${monthValue}`}
+              className="print-hide inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50"
+            >
+              <FileSpreadsheet className="h-4 w-4" /> Xuất Excel
+            </a>
+            <PrintButton />
+          </div>
         }
       />
 
