@@ -2,6 +2,7 @@ import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import bcrypt from "bcryptjs";
 import { PrismaClient } from "../src/generated/prisma/client";
+import type { Service, Material, Customer } from "../src/generated/prisma/client";
 import { encryptPhone, phoneLast5, hashPhone } from "../src/lib/phone";
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
@@ -81,7 +82,7 @@ async function main() {
     { name: "Triệt lông công nghệ Diode", category: "Da liễu", defaultPrice: 2_000_000 },
     { name: "Tiêm Meso trẻ hoá da", category: "Trẻ hoá", defaultPrice: 5_000_000 },
   ];
-  const services = [];
+  const services: Service[] = [];
   for (const s of servicesData) {
     services.push(await prisma.service.create({ data: s }));
   }
@@ -97,7 +98,7 @@ async function main() {
     { name: "Gạc y tế tiệt trùng", unit: "gói" },
     { name: "Mặt nạ dưỡng phục hồi", unit: "miếng" },
   ];
-  const materials = [];
+  const materials: Material[] = [];
   for (const m of materialsData) {
     materials.push(await prisma.material.create({ data: m }));
   }
@@ -118,7 +119,7 @@ async function main() {
     WALK_IN: ["Khách tự đến"],
   };
 
-  const customers = [];
+  const customers: Customer[] = [];
   for (let i = 0; i < 16; i++) {
     const fullName = `${pick(firstNames)} ${pick(midLast)}`;
     // SĐT giả: 09xxxxxxxx

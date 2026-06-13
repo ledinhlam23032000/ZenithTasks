@@ -1,0 +1,115 @@
+import Link from "next/link";
+import { MessageCircleHeart, Search, Inbox } from "lucide-react";
+import { requireUser } from "@/lib/auth";
+import { prisma } from "@/lib/db";
+import { isValidLast5, maskPhone } from "@/lib/phone";
+import { todayRange } from "@/lib/dates";
+import { fmtDateTime, fmtRelative } from "@/lib/format";
+import { CARE_CHANNEL } from "@/lib/status";
+import { PageHeader } from "@/components/ui/page-header";
+import { Card, CardContent } from "@/components/ui/card";
+import { StatCard } from "@/components/ui/stat-card";
+import { Badge } from "@/components/ui/badge";
+import { Avatar } from "@/components/ui/avatar";
+import { EmptyState } from "@/components/ui/empty-state";
+import { buttonVariants } from "@/components/ui/button";
+import type { Prisma } from "@/generated/prisma/client";
+
+export const dynamic = "force-dynamic";
+export const metadata = { title: "Chăm sóc khách hàng" };
+
+export default async function CarePage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
+  await requireUser(["ADMIN", "MANAGER", "CARE"]);
+  const sp = await searchParams;
+  const q = (sp.q ?? "").trim();
+
+  const where: Prisma.CareMessageWhereInput = q
+    ? { customer: isValidLast5(q) ? { phoneLast5: q } : { fullName: { contains: q, mode: "insensitive" } } }
+    : {};
+
+  const [messages, todayCount, weekCount] = await Promise.all([
+    prisma.careMessage.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      take: 80,
+      include: {
+        customer: { select: { id: true, fullName: true, code: true, phoneLast5: true } },
+        createdBy: { select: { fullName: true } },
+      },
+    }),
+    prisma.careMessage.count({ where: { createdAt: todayRange() } }),
+    prisma.careMessage.count({ where: { createdAt: { gte: new Date(Date.now() - 7 * 86400000) } } }),
+  ]);
+
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title="Chăm sóc khách hàng"
+        description="Toàn bộ tin nhắn & ghi nhận chăm sóc của bộ phận CSKH — hiển thị minh bạch cho quản trị."
+        icon={<MessageCircleHeart className="h-5 w-5" />}
+      />
+
+      <div className="grid gap-4 sm:grid-cols-3">
+        <StatCard label="Tin chăm sóc hôm nay" value={todayCount} icon={<MessageCircleHeart className="h-5 w-5" />} tone="pink" />
+        <StatCard label="Trong 7 ngày" value={weekCount} icon={<MessageCircleHeart className="h-5 w-5" />} tone="purple" />
+        <StatCard label="Tổng hiển thị" value={messages.length} icon={<Inbox className="h-5 w-5" />} tone="slate" />
+      </div>
+
+      <Card>
+        <div className="border-b border-slate-100 px-4 py-3">
+          <form action="/cham-soc" className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input
+                name="q"
+                defaultValue={q}
+                placeholder="Lọc theo tên khách hoặc 5 số cuối…"
+                className="h-10 w-full rounded-lg border border-slate-200 pl-9 pr-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
+              />
+            </div>
+            <button className={buttonVariants({ variant: "secondary" })}>Lọc</button>
+          </form>
+        </div>
+
+        <CardContent className="pt-4">
+          {messages.length === 0 ? (
+            <EmptyState
+              icon={<MessageCircleHeart className="h-6 w-6" />}
+              title="Chưa có tin chăm sóc"
+              description="Tin nhắn CSKH được tạo từ trang hồ sơ của từng khách hàng."
+            />
+          ) : (
+            <ul className="space-y-3">
+              {messages.map((m) => {
+                const ch = CARE_CHANNEL[m.channel];
+                return (
+                  <li key={m.id} className="flex gap-3 rounded-xl border border-slate-100 p-3.5">
+                    <Avatar name={m.customer.fullName} className="h-9 w-9" />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Link href={`/khach-hang/${m.customer.id}`} className="font-medium text-slate-800 hover:text-brand-600">
+                          {m.customer.fullName}
+                        </Link>
+                        <span className="text-xs text-slate-400">{m.customer.code}</span>
+                        <span className="text-xs text-slate-300">·</span>
+                        <span className="text-xs text-slate-400">{maskPhone(m.customer.phoneLast5)}</span>
+                        <Badge tone={ch.tone}>{ch.label}</Badge>
+                        <Badge tone={m.direction === "IN" ? "amber" : "slate"}>
+                          {m.direction === "IN" ? "Khách phản hồi" : "Gửi khách"}
+                        </Badge>
+                      </div>
+                      <p className="mt-1.5 text-sm text-slate-700">{m.content}</p>
+                      <p className="mt-1 text-xs text-slate-400" title={fmtDateTime(m.createdAt)}>
+                        {m.createdBy?.fullName ?? "Hệ thống"} · {fmtRelative(m.createdAt)}
+                      </p>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
