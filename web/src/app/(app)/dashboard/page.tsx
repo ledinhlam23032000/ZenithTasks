@@ -9,6 +9,7 @@ import {
   UserPlus,
   MessageCircleHeart,
   ArrowRight,
+  BarChart3,
 } from "lucide-react";
 import { requireUser } from "@/lib/auth";
 import { isManagerial, ROLE_LABELS } from "@/lib/rbac";
@@ -21,8 +22,8 @@ import { StatCard } from "@/components/ui/stat-card";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
-import { Table, THead, TH, TR, TD } from "@/components/ui/table";
 import { EmptyState } from "@/components/ui/empty-state";
+import { ColumnChart, BarList } from "@/components/charts/charts";
 import { CARE_CHANNEL, APPT_STATUS } from "@/lib/status";
 
 export const dynamic = "force-dynamic";
@@ -37,6 +38,10 @@ export default async function DashboardPage() {
   }
 
   const d = await getAdminDashboard();
+  const maxConsultRev = Math.max(1, ...d.consultants.map((c) => c.revenue));
+  const statusBars = Object.entries(d.today.byStatus)
+    .map(([k, v]) => ({ label: APPT_STATUS[k as keyof typeof APPT_STATUS]?.label ?? k, value: v }))
+    .sort((a, b) => b.value - a.value);
 
   return (
     <div className="space-y-6">
@@ -103,6 +108,38 @@ export default async function DashboardPage() {
         />
       </div>
 
+      {/* Biểu đồ: doanh thu 6 tháng + cơ cấu lịch hôm nay */}
+      <div className="grid gap-6 lg:grid-cols-5">
+        <Card className="lg:col-span-3">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BarChart3 className="h-4 w-4 text-brand-500" /> Doanh thu 6 tháng gần nhất
+            </CardTitle>
+            <span
+              className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${
+                d.revenue.growth >= 0 ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"
+              }`}
+            >
+              {d.revenue.growth >= 0 ? "▲" : "▼"} {Math.abs(d.revenue.growth)}% so tháng trước
+            </span>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <ColumnChart data={d.revenueTrend} formatValue={formatVNDShort} />
+          </CardContent>
+        </Card>
+
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CalendarClock className="h-4 w-4 text-brand-500" /> Cơ cấu lịch hôm nay
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <BarList data={statusBars} />
+          </CardContent>
+        </Card>
+      </div>
+
       {/* Lịch hẹn hôm nay */}
       <Card>
         <CardHeader>
@@ -154,33 +191,29 @@ export default async function DashboardPage() {
             {d.consultants.length === 0 ? (
               <EmptyState title="Chưa có dữ liệu tư vấn tháng này" />
             ) : (
-              <Table>
-                <THead>
-                  <TR className="hover:bg-transparent">
-                    <TH>Tư vấn viên</TH>
-                    <TH className="text-center">Số ca</TH>
-                    <TH className="text-center">Tỉ lệ chốt</TH>
-                    <TH className="text-right">Doanh thu</TH>
-                  </TR>
-                </THead>
-                <tbody>
-                  {d.consultants.map((c) => (
-                    <TR key={c.id}>
-                      <TD>
-                        <div className="flex items-center gap-2.5">
-                          <Avatar name={c.name} className="h-8 w-8" />
-                          <span className="font-medium text-slate-800">{c.name}</span>
-                        </div>
-                      </TD>
-                      <TD className="text-center">{c.consults}</TD>
-                      <TD className="text-center">
-                        <Badge tone={c.rate >= 60 ? "green" : c.rate >= 40 ? "amber" : "red"}>{c.rate}%</Badge>
-                      </TD>
-                      <TD className="text-right font-semibold text-slate-800">{formatVND(c.revenue)}</TD>
-                    </TR>
-                  ))}
-                </tbody>
-              </Table>
+              <ul className="space-y-4">
+                {d.consultants.map((c) => (
+                  <li key={c.id}>
+                    <div className="flex items-center gap-2.5">
+                      <Avatar name={c.name} className="h-8 w-8" />
+                      <span className="min-w-0 flex-1 truncate font-medium text-slate-800">{c.name}</span>
+                      <Badge tone={c.rate >= 60 ? "green" : c.rate >= 40 ? "amber" : "red"}>{c.rate}% chốt</Badge>
+                      <span className="w-20 shrink-0 text-right text-sm font-semibold tabular-nums text-slate-800">
+                        {formatVNDShort(c.revenue)}
+                      </span>
+                    </div>
+                    <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-slate-100">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-brand-500 to-accent-400"
+                        style={{ width: `${Math.max(3, Math.round((c.revenue / maxConsultRev) * 100))}%` }}
+                      />
+                    </div>
+                    <p className="mt-1 text-xs text-slate-400">
+                      {c.consults} ca tư vấn · {c.agreed} chốt
+                    </p>
+                  </li>
+                ))}
+              </ul>
             )}
           </CardContent>
         </Card>

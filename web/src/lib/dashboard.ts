@@ -1,3 +1,4 @@
+import { startOfMonth, endOfMonth, subMonths, format } from "date-fns";
 import { prisma } from "@/lib/db";
 import { toNum } from "@/lib/money";
 import { todayRange, monthRange, lastMonthRange, growthPct } from "@/lib/dates";
@@ -96,6 +97,19 @@ export async function getAdminDashboard() {
   const revenueThisMonth = toNum(revThisMonth._sum.amount);
   const revenueLastMonth = toNum(revLastMonth._sum.amount);
 
+  // Doanh thu 6 tháng gần nhất (cho biểu đồ xu hướng)
+  const now = new Date();
+  const months = Array.from({ length: 6 }, (_, i) => {
+    const d = subMonths(now, 5 - i);
+    return { label: format(d, "MM/yy"), gte: startOfMonth(d), lte: endOfMonth(d) };
+  });
+  const monthlyRev = await Promise.all(
+    months.map((m) =>
+      prisma.payment.aggregate({ where: { paidAt: { gte: m.gte, lte: m.lte } }, _sum: { amount: true } }),
+    ),
+  );
+  const revenueTrend = months.map((m, i) => ({ label: m.label, value: toNum(monthlyRev[i]._sum.amount) }));
+
   return {
     today: {
       total: todayAppts.length,
@@ -122,6 +136,7 @@ export async function getAdminDashboard() {
     consultants: consultantRows,
     recentCare,
     todaySchedule,
+    revenueTrend,
   };
 }
 
