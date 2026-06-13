@@ -39,6 +39,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { DeleteButton } from "@/components/ui/delete-button";
 import { receiveCustomer } from "../../tiep-nhan/actions";
 import { deleteCustomer } from "../actions";
+import { deleteCareMessage } from "../../cham-soc/actions";
 import { EditCustomerButton } from "../edit-customer";
 import { CareComposer } from "../../cham-soc/care-composer";
 import { PhotoTypeLabel } from "../../ho-so/[id]/photo-label";
@@ -267,11 +268,22 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
                     const ch = CARE_CHANNEL[m.channel];
                     return (
                       <li key={m.id} className="border-l-2 border-slate-100 pl-3">
-                        <div className="flex items-center gap-2">
-                          <Badge tone={ch.tone}>{ch.label}</Badge>
-                          <span className="text-xs text-slate-400">
-                            {m.direction === "IN" ? "Khách phản hồi" : "Gửi khách"}
-                          </span>
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <Badge tone={ch.tone}>{ch.label}</Badge>
+                            <span className="text-xs text-slate-400">
+                              {m.direction === "IN" ? "Khách phản hồi" : "Gửi khách"}
+                            </span>
+                          </div>
+                          {canCare && (
+                            <DeleteButton
+                              action={deleteCareMessage}
+                              id={m.id}
+                              label=""
+                              confirmText="Xóa ghi chú chăm sóc này?"
+                              className="text-slate-300 hover:text-rose-500"
+                            />
+                          )}
                         </div>
                         <p className="mt-1 text-sm text-slate-700">{m.content}</p>
                         <p className="mt-0.5 text-xs text-slate-400">

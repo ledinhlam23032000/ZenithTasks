@@ -38,7 +38,16 @@ import {
   UploadPhotoButton,
   AddFollowUpButton,
 } from "./case-widgets";
-import { removeCaseService, removeMaterial, deletePhoto, lockCase, unlockCase } from "../actions";
+import {
+  removeCaseService,
+  removeMaterial,
+  deletePhoto,
+  lockCase,
+  unlockCase,
+  deletePayment,
+  deleteFollowUp,
+  deleteCase,
+} from "../actions";
 
 export const dynamic = "force-dynamic";
 
@@ -79,6 +88,7 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
   const discount = toNum(record.discountAmount);
   const commissionRate = toNum(record.commissionRate);
   const commissionAmount = toNum(record.commissionAmount);
+  const canVoidPayment = ["ADMIN", "MANAGER"].includes(user.role) && !lockedForMe;
 
   return (
     <div className="space-y-6">
@@ -94,6 +104,16 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
           <div className="flex items-center gap-2">
             <Badge tone={CASE_STATUS[record.status].tone} dot>{CASE_STATUS[record.status].label}</Badge>
             <Badge tone={CONSULT_RESULT[record.consultResult].tone}>{CONSULT_RESULT[record.consultResult].label}</Badge>
+            {isAdmin && (
+              <ConfirmButton
+                action={deleteCase}
+                fields={{ id: record.id }}
+                confirmText={`Xóa toàn bộ hồ sơ ${record.code} (dịch vụ, thanh toán, vật tư, tái khám)? Không thể hoàn tác.`}
+                className="inline-flex items-center gap-1 rounded-lg border border-rose-200 px-2.5 py-1 text-sm font-medium text-rose-600 hover:bg-rose-50"
+              >
+                <Trash2 className="h-3.5 w-3.5" /> Xóa hồ sơ
+              </ConfirmButton>
+            )}
           </div>
         }
       />
@@ -354,7 +374,19 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
                         <span className="font-medium text-slate-700">{formatVND(p.amount)}</span>
                         <span className="ml-1.5 text-xs text-slate-400">{PAYMENT_LABEL[p.method]}</span>
                       </div>
-                      <span className="text-xs text-slate-400">{fmtDate(p.paidAt)}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-slate-400">{fmtDate(p.paidAt)}</span>
+                        {canVoidPayment && (
+                          <ConfirmButton
+                            action={deletePayment}
+                            fields={{ id: p.id, caseId: record.id }}
+                            confirmText={`Xóa khoản thu ${formatVND(p.amount)}?`}
+                            className="text-slate-300 hover:text-rose-500"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </ConfirmButton>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -381,9 +413,21 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
               ) : (
                 <ul className="space-y-2.5">
                   {record.followUps.map((f) => (
-                    <li key={f.id} className="rounded-lg border border-slate-100 p-2.5">
-                      <p className="text-sm font-medium text-slate-700">{fmtDateTime(f.scheduledAt)}</p>
-                      {f.note && <p className="text-xs text-slate-500">{f.note}</p>}
+                    <li key={f.id} className="flex items-start justify-between gap-2 rounded-lg border border-slate-100 p-2.5">
+                      <div>
+                        <p className="text-sm font-medium text-slate-700">{fmtDateTime(f.scheduledAt)}</p>
+                        {f.note && <p className="text-xs text-slate-500">{f.note}</p>}
+                      </div>
+                      {canClinical && (
+                        <ConfirmButton
+                          action={deleteFollowUp}
+                          fields={{ id: f.id, caseId: record.id }}
+                          confirmText="Xóa lịch tái khám này?"
+                          className="mt-0.5 text-slate-300 hover:text-rose-500"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </ConfirmButton>
+                      )}
                     </li>
                   ))}
                 </ul>

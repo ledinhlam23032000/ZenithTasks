@@ -46,3 +46,13 @@ export async function addCareMessage(_prev: CareFormState, formData: FormData): 
   revalidatePath("/dashboard");
   return { ok: true, nonce: Date.now() };
 }
+
+export async function deleteCareMessage(formData: FormData): Promise<void> {
+  await requireUser(["ADMIN", "MANAGER", "CARE"]);
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+  const m = await prisma.careMessage.findUnique({ where: { id }, select: { customerId: true } });
+  await prisma.careMessage.delete({ where: { id } }).catch(() => {});
+  if (m?.customerId) revalidatePath(`/khach-hang/${m.customerId}`);
+  revalidatePath("/cham-soc");
+}

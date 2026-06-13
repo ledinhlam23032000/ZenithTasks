@@ -16,8 +16,10 @@ import { Table, THead, TH, TR, TD } from "@/components/ui/table";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Avatar } from "@/components/ui/avatar";
 import { buttonVariants } from "@/components/ui/button";
+import { DeleteButton } from "@/components/ui/delete-button";
 import { NewAppointmentButton } from "./new-appointment";
 import { AppointmentStatusControl } from "./appointment-status";
+import { deleteAppointment } from "./actions";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Lịch hẹn" };
@@ -59,6 +61,7 @@ export default async function AppointmentsPage({
   const dayTitle = isToday(day) ? "Hôm nay" : isTomorrow(day) ? "Ngày mai" : fmtDayLabel(day);
 
   const arrived = appts.filter((a) => ["ARRIVED", "IN_CONSULT", "IN_SERVICE", "DONE"].includes(a.status)).length;
+  const canDelete = ["ADMIN", "MANAGER"].includes(user.role);
 
   return (
     <div className="space-y-6">
@@ -164,6 +167,7 @@ export default async function AppointmentsPage({
                   <TH>Nguồn</TH>
                   <TH>Phụ trách</TH>
                   <TH>Trạng thái</TH>
+                  {canDelete && <TH />}
                 </TR>
               </THead>
               <tbody>
@@ -202,6 +206,17 @@ export default async function AppointmentsPage({
                       <TD>
                         <AppointmentStatusControl id={a.id} status={a.status} />
                       </TD>
+                      {canDelete && (
+                        <TD className="text-right">
+                          <DeleteButton
+                            action={deleteAppointment}
+                            id={a.id}
+                            label=""
+                            confirmText={`Xóa lịch hẹn của ${name}? (Lịch thường nên đổi trạng thái "Hủy" thay vì xóa.)`}
+                            className="rounded-md p-1.5 text-slate-300 hover:bg-rose-50 hover:text-rose-500"
+                          />
+                        </TD>
+                      )}
                     </TR>
                   );
                 })}

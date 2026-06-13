@@ -63,3 +63,36 @@ export async function toggleMaterial(formData: FormData): Promise<void> {
   await prisma.material.update({ where: { id }, data: { active: !m.active } });
   revalidatePath("/danh-muc");
 }
+
+export async function deleteService(formData: FormData): Promise<void> {
+  await requireUser([...ROLES]);
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+  await prisma.service.delete({ where: { id } }).catch(() => {});
+  revalidatePath("/danh-muc");
+}
+
+export async function deleteMaterial(formData: FormData): Promise<void> {
+  await requireUser([...ROLES]);
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+  await prisma.material.delete({ where: { id } }).catch(() => {});
+  revalidatePath("/danh-muc");
+}
+
+/** Nhập kho: cộng tồn kho + ghi nhật ký nhập. */
+export async function stockIn(formData: FormData): Promise<void> {
+  const user = await requireUser([...ROLES]);
+  const id = String(formData.get("id") ?? "");
+  const qty = Number(formData.get("quantity") ?? 0) || 0;
+  const note = String(formData.get("note") ?? "").trim();
+  if (!id || qty <= 0) return;
+  await prisma.$transaction([
+    prisma.material.update({ where: { id }, data: { stock: { increment: qty } } }),
+    prisma.stockMovement.create({
+      data: { materialId: id, type: "IN", quantity: qty, note: note || null, createdById: user.id },
+    }),
+  ]);
+  revalidatePath("/danh-muc");
+  revalidatePath("/kho");
+}

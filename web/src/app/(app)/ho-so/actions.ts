@@ -2,6 +2,7 @@
 
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
@@ -240,6 +241,15 @@ export async function addMaterial(_prev: CaseActionState, formData: FormData): P
       performedById: user.id,
     },
   });
+  // Xuất kho: trừ tồn + ghi nhật ký (nếu vật tư có trong danh mục kho).
+  if (d.materialId) {
+    await prisma.material
+      .update({ where: { id: d.materialId }, data: { stock: { decrement: d.quantity } } })
+      .catch(() => {});
+    await prisma.stockMovement
+      .create({ data: { materialId: d.materialId, type: "OUT", quantity: d.quantity, note: "Dùng cho hồ sơ", createdById: user.id } })
+      .catch(() => {});
+  }
   refresh(d.caseId);
   return { ok: true, nonce: Date.now() };
 }
@@ -249,7 +259,16 @@ export async function removeMaterial(formData: FormData): Promise<void> {
   const id = String(formData.get("id") ?? "");
   const caseId = String(formData.get("caseId") ?? "");
   if (!id || (await isLockedFor(caseId, user.role))) return;
+  const usage = await prisma.materialUsage.findUnique({ where: { id }, select: { materialId: true, quantity: true } });
   await prisma.materialUsage.delete({ where: { id } }).catch(() => {});
+  // Hoàn kho lại nếu vật tư thuộc danh mục kho.
+  if (usage?.materialId) {
+    const q = toNum(usage.quantity);
+    await prisma.material.update({ where: { id: usage.materialId }, data: { stock: { increment: q } } }).catch(() => {});
+    await prisma.stockMovement
+      .create({ data: { materialId: usage.materialId, type: "IN", quantity: q, note: "Hoàn kho (xóa vật tư)", createdById: user.id } })
+      .catch(() => {});
+  }
   if (caseId) refresh(caseId);
 }
 
@@ -330,4 +349,42 @@ export async function addFollowUp(_prev: CaseActionState, formData: FormData): P
   });
   refresh(d.caseId, d.customerId);
   return { ok: true, nonce: Date.now() };
+}
+
+// ---- Xóa thanh toán (quản trị / quản lý) ----
+export async function deletePayment(formData: FormData): Promise<void> {
+  const user = await requireUser(["ADMIN", "MANAGER"]);
+  const id = String(formData.get("id") ?? "");
+  const caseId = String(formData.get("caseId") ?? "");
+  if (!id || (await isLockedFor(caseId, user.role))) return;
+  await prisma.payment.delete({ where: { id } }).catch(() => {});
+  if (caseId) {
+    await recalc(caseId);
+    refresh(caseId);
+  }
+}
+
+// ---- Xóa lịch tái khám ----
+export async function deleteFollowUp(formData: FormData): Promise<void> {
+  const user = await requireUser([...CLINICAL]);
+  const id = String(formData.get("id") ?? "");
+  const caseId = String(formData.get("caseId") ?? "");
+  if (!id || (await isLockedFor(caseId, user.role))) return;
+  await prisma.followUp.delete({ where: { id } }).catch(() => {});
+  if (caseId) refresh(caseId);
+}
+
+// ---- Xóa cả hồ sơ điều trị (CHỈ quản trị viên) ----
+export async function deleteCase(formData: FormData): Promise<void> {
+  await requireUser(["ADMIN"]);
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+  const rec = await prisma.caseRecord.findUnique({ where: { id }, select: { customerId: true } });
+  // Dịch vụ/thanh toán/vật tư/tái khám tự xóa theo (onDelete: Cascade); ảnh giữ lại cho khách.
+  await prisma.photo.updateMany({ where: { caseId: id }, data: { caseId: null } });
+  await prisma.caseRecord.delete({ where: { id } }).catch(() => {});
+  if (rec?.customerId) revalidatePath(`/khach-hang/${rec.customerId}`);
+  revalidatePath("/ho-so");
+  revalidatePath("/dashboard");
+  redirect(rec?.customerId ? `/khach-hang/${rec.customerId}` : "/ho-so");
 }

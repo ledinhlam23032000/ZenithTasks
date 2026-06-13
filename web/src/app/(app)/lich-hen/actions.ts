@@ -107,3 +107,13 @@ export async function updateAppointmentStatus(formData: FormData): Promise<void>
   revalidatePath("/lich-hen");
   revalidatePath("/dashboard");
 }
+
+/** Xóa lịch hẹn (quản trị / quản lý). Lịch thường thì nên đổi trạng thái "Hủy". */
+export async function deleteAppointment(formData: FormData): Promise<void> {
+  await requireUser(["ADMIN", "MANAGER"]);
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+  await prisma.appointment.delete({ where: { id } }).catch(() => {});
+  revalidatePath("/lich-hen");
+  revalidatePath("/dashboard");
+}

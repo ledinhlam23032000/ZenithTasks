@@ -1,13 +1,14 @@
-import { ListChecks, Package, Power } from "lucide-react";
+import { ListChecks, Package, Power, PackagePlus } from "lucide-react";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { formatVND } from "@/lib/money";
+import { formatVND, toNum } from "@/lib/money";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, THead, TH, TR, TD } from "@/components/ui/table";
+import { DeleteButton } from "@/components/ui/delete-button";
 import { NewServiceButton, NewMaterialButton } from "./catalog-forms";
-import { toggleService, toggleMaterial } from "./actions";
+import { toggleService, toggleMaterial, deleteService, deleteMaterial, stockIn } from "./actions";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Danh mục dịch vụ" };
@@ -52,12 +53,21 @@ export default async function CatalogPage() {
                     <TD className="text-slate-500">{s.category ?? "—"}</TD>
                     <TD className="text-right font-semibold text-slate-800">{formatVND(s.defaultPrice)}</TD>
                     <TD className="text-right">
-                      <form action={toggleService}>
-                        <input type="hidden" name="id" value={s.id} />
-                        <button className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100" title={s.active ? "Ẩn" : "Hiện"}>
-                          <Power className="h-3.5 w-3.5" />
-                        </button>
-                      </form>
+                      <div className="flex items-center justify-end gap-1">
+                        <form action={toggleService}>
+                          <input type="hidden" name="id" value={s.id} />
+                          <button className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100" title={s.active ? "Ẩn" : "Hiện"}>
+                            <Power className="h-3.5 w-3.5" />
+                          </button>
+                        </form>
+                        <DeleteButton
+                          action={deleteService}
+                          id={s.id}
+                          label=""
+                          confirmText={`Xóa dịch vụ "${s.name}" khỏi danh mục?`}
+                          className="rounded-md p-1.5 text-slate-300 hover:bg-rose-50 hover:text-rose-500"
+                        />
+                      </div>
                     </TD>
                   </TR>
                 ))}
@@ -79,6 +89,7 @@ export default async function CatalogPage() {
                 <TR className="hover:bg-transparent">
                   <TH>Tên vật tư</TH>
                   <TH>Đơn vị</TH>
+                  <TH className="text-right">Tồn kho</TH>
                   <TH>Trạng thái</TH>
                   <TH />
                 </TR>
@@ -88,14 +99,43 @@ export default async function CatalogPage() {
                   <TR key={m.id} className={m.active ? "" : "opacity-50"}>
                     <TD className="font-medium text-slate-800">{m.name}</TD>
                     <TD className="text-slate-500">{m.unit}</TD>
+                    <TD className={`text-right font-semibold tabular-nums ${toNum(m.stock) <= 0 ? "text-rose-500" : "text-slate-800"}`}>
+                      {toNum(m.stock)}
+                    </TD>
                     <TD>{m.active ? <Badge tone="green">Đang dùng</Badge> : <Badge tone="slate">Ẩn</Badge>}</TD>
                     <TD className="text-right">
-                      <form action={toggleMaterial}>
-                        <input type="hidden" name="id" value={m.id} />
-                        <button className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100" title={m.active ? "Ẩn" : "Hiện"}>
-                          <Power className="h-3.5 w-3.5" />
-                        </button>
-                      </form>
+                      <div className="flex items-center justify-end gap-1">
+                        <form action={stockIn} className="flex items-center gap-1">
+                          <input type="hidden" name="id" value={m.id} />
+                          <input
+                            name="quantity"
+                            type="number"
+                            min={1}
+                            step="any"
+                            placeholder="SL"
+                            className="w-16 rounded-md border border-slate-200 px-1.5 py-1 text-right text-xs focus:border-brand-400 focus:outline-none"
+                          />
+                          <button
+                            className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-100"
+                            title="Nhập kho"
+                          >
+                            <PackagePlus className="h-3.5 w-3.5" /> Nhập
+                          </button>
+                        </form>
+                        <form action={toggleMaterial}>
+                          <input type="hidden" name="id" value={m.id} />
+                          <button className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100" title={m.active ? "Ẩn" : "Hiện"}>
+                            <Power className="h-3.5 w-3.5" />
+                          </button>
+                        </form>
+                        <DeleteButton
+                          action={deleteMaterial}
+                          id={m.id}
+                          label=""
+                          confirmText={`Xóa vật tư "${m.name}" khỏi danh mục (cả lịch sử kho)?`}
+                          className="rounded-md p-1.5 text-slate-300 hover:bg-rose-50 hover:text-rose-500"
+                        />
+                      </div>
                     </TD>
                   </TR>
                 ))}

@@ -21,6 +21,7 @@ import {
   Contact,
   ListChecks,
   Wallet,
+  Boxes,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -40,6 +41,7 @@ const ICONS: Record<string, LucideIcon> = {
   Contact,
   ListChecks,
   Wallet,
+  Boxes,
 };
 
 export type NavItemData = { href: string; label: string; icon: string };
