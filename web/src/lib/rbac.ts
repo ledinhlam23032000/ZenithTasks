@@ -43,6 +43,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/cham-soc", label: "Chăm sóc KH", icon: "MessageCircleHeart", roles: ["ADMIN", "MANAGER", "CARE"] },
   { href: "/bao-cao", label: "Báo cáo", icon: "TrendingUp", roles: ["ADMIN", "MANAGER"] },
   { href: "/lich-lam-viec", label: "Lịch làm việc", icon: "CalendarDays", roles: ["ADMIN", "MANAGER", "RECEPTION", "CONSULTANT", "DOCTOR", "CARE", "TELESALE"] },
+  { href: "/luong", label: "Lương & hoa hồng", icon: "Wallet", roles: ["ADMIN", "MANAGER"] },
   { href: "/nhan-su", label: "Nhân sự", icon: "Contact", roles: ["ADMIN"] },
   { href: "/danh-muc", label: "Danh mục dịch vụ", icon: "ListChecks", roles: ["ADMIN", "MANAGER"] },
 ];

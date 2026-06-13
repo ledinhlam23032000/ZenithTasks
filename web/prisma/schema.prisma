@@ -111,6 +111,8 @@ model User {
   passwordHash String
   role         Role
   phone        String? // SĐT nội bộ của nhân viên (không phải khách)
+  baseSalary     Decimal @default(0) @db.Decimal(14, 0) // Lương cơ bản theo tháng
+  commissionRate Decimal @default(0) @db.Decimal(5, 2) // % hoa hồng trên doanh thu phụ trách
   active       Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -241,6 +243,13 @@ model CaseRecord {
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
   completedAt    DateTime?
+  // Khóa hồ sơ: sau khi khóa, nhân viên không sửa được (chỉ quản trị mở lại).
+  locked           Boolean   @default(false)
+  lockedAt         DateTime?
+  lockedById       String?
+  // Hoa hồng cộng tác viên giới thiệu khách (tính trên tổng tiền hồ sơ).
+  commissionRate   Decimal   @default(0) @db.Decimal(5, 2)
+  commissionAmount Decimal   @default(0) @db.Decimal(14, 0)
 
   services    CaseService[]
   payments    Payment[]

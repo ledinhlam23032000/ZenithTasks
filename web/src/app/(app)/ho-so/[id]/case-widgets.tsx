@@ -45,6 +45,7 @@ export function CaseInfoForm({
     consultResult: string;
     consultantId: string | null;
     doctorId: string | null;
+    commissionRate: number;
     chiefComplaint: string | null;
     note: string | null;
   };
@@ -88,6 +89,19 @@ export function CaseInfoForm({
             ))}
           </Select>
         </div>
+      </div>
+      <div>
+        <Label htmlFor="commissionRate">Hoa hồng cộng tác viên (% trên tổng tiền)</Label>
+        <Input
+          id="commissionRate"
+          name="commissionRate"
+          type="number"
+          min={0}
+          max={100}
+          step={0.5}
+          defaultValue={initial.commissionRate}
+          placeholder="0"
+        />
       </div>
       <div>
         <Label htmlFor="chiefComplaint">Nhu cầu của khách</Label>

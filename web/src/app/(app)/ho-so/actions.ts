@@ -12,19 +12,31 @@ export type CaseActionState = { ok?: boolean; error?: string; nonce?: number };
 
 const CLINICAL = ["ADMIN", "MANAGER", "CONSULTANT", "DOCTOR"] as const;
 
-/** Tính lại tổng tiền / đã trả / công nợ cho hồ sơ. */
+const LOCKED_MSG = "Hồ sơ đã khóa — không thể chỉnh sửa. Vui lòng liên hệ quản trị viên để mở lại.";
+
+/** Hồ sơ đã khóa thì chỉ ADMIN mới được sửa. */
+async function isLockedFor(caseId: string, role: string): Promise<boolean> {
+  if (role === "ADMIN") return false;
+  const c = await prisma.caseRecord.findUnique({ where: { id: caseId }, select: { locked: true } });
+  return !!c?.locked;
+}
+
+/** Tính lại tổng tiền / đã trả / công nợ / hoa hồng cho hồ sơ. */
 async function recalc(caseId: string): Promise<void> {
-  const [services, payAgg] = await Promise.all([
+  const [services, payAgg, rec] = await Promise.all([
     prisma.caseService.findMany({ where: { caseId }, select: { finalPrice: true, discount: true } }),
     prisma.payment.aggregate({ where: { caseId }, _sum: { amount: true } }),
+    prisma.caseRecord.findUnique({ where: { id: caseId }, select: { commissionRate: true } }),
   ]);
   const total = services.reduce((s, x) => s + toNum(x.finalPrice), 0);
   const discount = services.reduce((s, x) => s + toNum(x.discount), 0);
   const paid = toNum(payAgg._sum.amount);
   const debt = Math.max(total - paid, 0);
+  const rate = toNum(rec?.commissionRate);
+  const commissionAmount = Math.round((total * rate) / 100);
   await prisma.caseRecord.update({
     where: { id: caseId },
-    data: { totalAmount: total, discountAmount: discount, paidAmount: paid, debtAmount: debt },
+    data: { totalAmount: total, discountAmount: discount, paidAmount: paid, debtAmount: debt, commissionAmount },
   });
 }
 
@@ -35,6 +47,29 @@ function refresh(caseId: string, customerId?: string) {
   if (customerId) revalidatePath(`/khach-hang/${customerId}`);
 }
 
+// ---- Khóa / mở khóa hồ sơ ----
+export async function lockCase(formData: FormData): Promise<void> {
+  const user = await requireUser([...CLINICAL]);
+  const id = String(formData.get("caseId") ?? "");
+  if (!id) return;
+  await prisma.caseRecord.update({
+    where: { id },
+    data: { locked: true, lockedAt: new Date(), lockedById: user.id },
+  });
+  refresh(id);
+}
+
+export async function unlockCase(formData: FormData): Promise<void> {
+  await requireUser(["ADMIN"]);
+  const id = String(formData.get("caseId") ?? "");
+  if (!id) return;
+  await prisma.caseRecord.update({
+    where: { id },
+    data: { locked: false, lockedAt: null, lockedById: null },
+  });
+  refresh(id);
+}
+
 // ---- Cập nhật thông tin hồ sơ (tư vấn) ----
 const infoSchema = z.object({
   caseId: z.string().min(1),
@@ -42,22 +77,27 @@ const infoSchema = z.object({
   doctorId: z.string().optional(),
   status: z.enum(["OPEN", "CONSULTED", "SERVICED", "COMPLETED", "CANCELLED"]),
   consultResult: z.enum(["PENDING", "AGREED", "CONSIDERING", "DECLINED"]),
+  commissionRate: z.coerce.number().min(0, "Hoa hồng không hợp lệ.").max(100, "Hoa hồng tối đa 100%.").default(0),
   chiefComplaint: z.string().trim().optional(),
   note: z.string().trim().optional(),
 });
 
 export async function updateCaseInfo(_prev: CaseActionState, formData: FormData): Promise<CaseActionState> {
-  await requireUser([...CLINICAL]);
+  const user = await requireUser([...CLINICAL]);
+  const caseId = String(formData.get("caseId") ?? "");
+  if (await isLockedFor(caseId, user.role)) return { error: LOCKED_MSG };
+
   const parsed = infoSchema.safeParse({
-    caseId: formData.get("caseId") ?? "",
+    caseId,
     consultantId: formData.get("consultantId") ?? "",
     doctorId: formData.get("doctorId") ?? "",
     status: formData.get("status") ?? "OPEN",
     consultResult: formData.get("consultResult") ?? "PENDING",
+    commissionRate: formData.get("commissionRate") ?? 0,
     chiefComplaint: formData.get("chiefComplaint") ?? "",
     note: formData.get("note") ?? "",
   });
-  if (!parsed.success) return { error: "Dữ liệu không hợp lệ." };
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu không hợp lệ." };
   const d = parsed.data;
 
   await prisma.caseRecord.update({
@@ -67,11 +107,13 @@ export async function updateCaseInfo(_prev: CaseActionState, formData: FormData)
       doctorId: d.doctorId || null,
       status: d.status,
       consultResult: d.consultResult,
+      commissionRate: d.commissionRate,
       chiefComplaint: d.chiefComplaint || null,
       note: d.note || null,
       completedAt: d.status === "COMPLETED" ? new Date() : null,
     },
   });
+  await recalc(d.caseId); // cập nhật lại tiền hoa hồng theo tỉ lệ mới
   refresh(d.caseId);
   return { ok: true, nonce: Date.now() };
 }
@@ -87,9 +129,12 @@ const serviceSchema = z.object({
 });
 
 export async function addCaseService(_prev: CaseActionState, formData: FormData): Promise<CaseActionState> {
-  await requireUser([...CLINICAL]);
+  const user = await requireUser([...CLINICAL]);
+  const caseId = String(formData.get("caseId") ?? "");
+  if (await isLockedFor(caseId, user.role)) return { error: LOCKED_MSG };
+
   const parsed = serviceSchema.safeParse({
-    caseId: formData.get("caseId") ?? "",
+    caseId,
     serviceId: formData.get("serviceId") ?? "",
     name: formData.get("name") ?? "",
     unitPrice: formData.get("unitPrice") ?? 0,
@@ -119,10 +164,10 @@ export async function addCaseService(_prev: CaseActionState, formData: FormData)
 }
 
 export async function removeCaseService(formData: FormData): Promise<void> {
-  await requireUser([...CLINICAL]);
+  const user = await requireUser([...CLINICAL]);
   const id = String(formData.get("id") ?? "");
   const caseId = String(formData.get("caseId") ?? "");
-  if (!id) return;
+  if (!id || (await isLockedFor(caseId, user.role))) return;
   await prisma.caseService.delete({ where: { id } }).catch(() => {});
   if (caseId) {
     await recalc(caseId);
@@ -140,8 +185,11 @@ const paymentSchema = z.object({
 
 export async function addPayment(_prev: CaseActionState, formData: FormData): Promise<CaseActionState> {
   const user = await requireUser([...CLINICAL, "RECEPTION"]);
+  const caseId = String(formData.get("caseId") ?? "");
+  if (await isLockedFor(caseId, user.role)) return { error: LOCKED_MSG };
+
   const parsed = paymentSchema.safeParse({
-    caseId: formData.get("caseId") ?? "",
+    caseId,
     amount: formData.get("amount") ?? 0,
     method: formData.get("method") ?? "CASH",
     note: formData.get("note") ?? "",
@@ -168,8 +216,11 @@ const materialSchema = z.object({
 
 export async function addMaterial(_prev: CaseActionState, formData: FormData): Promise<CaseActionState> {
   const user = await requireUser([...CLINICAL]);
+  const caseId = String(formData.get("caseId") ?? "");
+  if (await isLockedFor(caseId, user.role)) return { error: LOCKED_MSG };
+
   const parsed = materialSchema.safeParse({
-    caseId: formData.get("caseId") ?? "",
+    caseId,
     materialId: formData.get("materialId") ?? "",
     name: formData.get("name") ?? "",
     unit: formData.get("unit") ?? "cái",
@@ -194,10 +245,11 @@ export async function addMaterial(_prev: CaseActionState, formData: FormData): P
 }
 
 export async function removeMaterial(formData: FormData): Promise<void> {
-  await requireUser([...CLINICAL]);
+  const user = await requireUser([...CLINICAL]);
   const id = String(formData.get("id") ?? "");
   const caseId = String(formData.get("caseId") ?? "");
-  if (id) await prisma.materialUsage.delete({ where: { id } }).catch(() => {});
+  if (!id || (await isLockedFor(caseId, user.role))) return;
+  await prisma.materialUsage.delete({ where: { id } }).catch(() => {});
   if (caseId) refresh(caseId);
 }
 
@@ -208,6 +260,7 @@ export async function uploadPhoto(_prev: CaseActionState, formData: FormData): P
   const user = await requireUser([...CLINICAL]);
   const caseId = String(formData.get("caseId") ?? "");
   const customerId = String(formData.get("customerId") ?? "");
+  if (await isLockedFor(caseId, user.role)) return { error: LOCKED_MSG };
   const type = String(formData.get("type") ?? "BEFORE");
   const caption = String(formData.get("caption") ?? "").trim();
   const followUpIndex = Number(formData.get("followUpIndex") ?? 0) || null;
@@ -240,10 +293,11 @@ export async function uploadPhoto(_prev: CaseActionState, formData: FormData): P
 }
 
 export async function deletePhoto(formData: FormData): Promise<void> {
-  await requireUser([...CLINICAL]);
+  const user = await requireUser([...CLINICAL]);
   const id = String(formData.get("id") ?? "");
   const caseId = String(formData.get("caseId") ?? "");
-  if (id) await prisma.photo.delete({ where: { id } }).catch(() => {});
+  if (!id || (await isLockedFor(caseId, user.role))) return;
+  await prisma.photo.delete({ where: { id } }).catch(() => {});
   if (caseId) refresh(caseId);
 }
 
@@ -257,8 +311,11 @@ const followSchema = z.object({
 
 export async function addFollowUp(_prev: CaseActionState, formData: FormData): Promise<CaseActionState> {
   const user = await requireUser([...CLINICAL]);
+  const caseId = String(formData.get("caseId") ?? "");
+  if (await isLockedFor(caseId, user.role)) return { error: LOCKED_MSG };
+
   const parsed = followSchema.safeParse({
-    caseId: formData.get("caseId") ?? "",
+    caseId,
     customerId: formData.get("customerId") ?? "",
     scheduledAt: formData.get("scheduledAt") ?? "",
     note: formData.get("note") ?? "",

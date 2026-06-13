@@ -20,6 +20,7 @@ import {
   CalendarDays,
   Contact,
   ListChecks,
+  Wallet,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -38,6 +39,7 @@ const ICONS: Record<string, LucideIcon> = {
   CalendarDays,
   Contact,
   ListChecks,
+  Wallet,
 };
 
 export type NavItemData = { href: string; label: string; icon: string };

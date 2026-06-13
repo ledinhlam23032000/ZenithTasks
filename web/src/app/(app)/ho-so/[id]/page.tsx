@@ -11,6 +11,8 @@ import {
   RefreshCw,
   ClipboardList,
   Receipt,
+  Lock,
+  Unlock,
 } from "lucide-react";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
@@ -26,6 +28,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { Table, THead, TH, TR, TD } from "@/components/ui/table";
 import { EmptyState } from "@/components/ui/empty-state";
+import { ConfirmButton } from "@/components/ui/confirm-button";
 import { PhotoTypeLabel } from "./photo-label";
 import {
   CaseInfoForm,
@@ -35,7 +38,7 @@ import {
   UploadPhotoButton,
   AddFollowUpButton,
 } from "./case-widgets";
-import { removeCaseService, removeMaterial, deletePhoto } from "../actions";
+import { removeCaseService, removeMaterial, deletePhoto, lockCase, unlockCase } from "../actions";
 
 export const dynamic = "force-dynamic";
 
@@ -65,13 +68,17 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
 
   if (!record) notFound();
 
-  const canClinical = ["ADMIN", "MANAGER", "CONSULTANT", "DOCTOR"].includes(user.role);
-  const canPay = canClinical || user.role === "RECEPTION";
+  const isAdmin = user.role === "ADMIN";
+  const lockedForMe = record.locked && !isAdmin;
+  const canClinical = ["ADMIN", "MANAGER", "CONSULTANT", "DOCTOR"].includes(user.role) && !lockedForMe;
+  const canPay = !lockedForMe && (canClinical || user.role === "RECEPTION");
 
   const total = toNum(record.totalAmount);
   const paid = toNum(record.paidAmount);
   const debt = toNum(record.debtAmount);
   const discount = toNum(record.discountAmount);
+  const commissionRate = toNum(record.commissionRate);
+  const commissionAmount = toNum(record.commissionAmount);
 
   return (
     <div className="space-y-6">
@@ -90,6 +97,38 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
           </div>
         }
       />
+
+      {record.locked ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+          <p className="inline-flex items-center gap-2 text-sm font-medium text-amber-800">
+            <Lock className="h-4 w-4" /> Hồ sơ đã khóa — nhân viên không thể chỉnh sửa. Chỉ quản trị viên mới mở lại được.
+          </p>
+          {isAdmin && (
+            <form action={unlockCase}>
+              <input type="hidden" name="caseId" value={record.id} />
+              <button className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-sm font-medium text-amber-700 hover:bg-amber-100">
+                <Unlock className="h-4 w-4" /> Mở khóa
+              </button>
+            </form>
+          )}
+        </div>
+      ) : (
+        canClinical && (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+            <p className="text-sm text-slate-500">
+              Hoàn tất rồi? Bấm <b>Lưu &amp; khóa</b> để chốt số liệu — sau khi khóa, nhân viên sẽ không sửa được nữa.
+            </p>
+            <ConfirmButton
+              action={lockCase}
+              fields={{ caseId: record.id }}
+              confirmText="Sau khi LƯU & KHÓA, nhân viên sẽ KHÔNG thể chỉnh sửa hồ sơ này nữa (chỉ quản trị viên mở lại được). Tiếp tục?"
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-900"
+            >
+              <Lock className="h-4 w-4" /> Lưu &amp; khóa hồ sơ
+            </ConfirmButton>
+          </div>
+        )
+      )}
 
       {/* Thẻ khách */}
       <Card>
@@ -131,6 +170,7 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
                     consultResult: record.consultResult,
                     consultantId: record.consultantId,
                     doctorId: record.doctorId,
+                    commissionRate,
                     chiefComplaint: record.chiefComplaint,
                     note: record.note,
                   }}
@@ -293,6 +333,12 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
                 <span className="text-sm font-medium text-slate-600">Còn nợ</span>
                 <span className={`text-xl font-bold ${debt > 0 ? "text-rose-600" : "text-emerald-600"}`}>{formatVND(debt)}</span>
               </div>
+              {commissionRate > 0 && (
+                <div className="flex items-center justify-between border-t border-dashed border-slate-100 pt-2 text-sm">
+                  <span className="text-slate-500">Hoa hồng CTV ({commissionRate}%)</span>
+                  <span className="font-semibold text-violet-600">{formatVND(commissionAmount)}</span>
+                </div>
+              )}
               {canPay && (
                 <div className="pt-1">
                   <AddPaymentButton caseId={record.id} debt={debt} />
