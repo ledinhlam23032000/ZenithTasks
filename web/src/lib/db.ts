@@ -16,8 +16,21 @@ function createClient(): PrismaClient {
   return new PrismaClient({ adapter });
 }
 
-export const prisma: PrismaClient = globalForPrisma.prisma ?? createClient();
-
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma;
+function getClient(): PrismaClient {
+  if (!globalForPrisma.prisma) {
+    globalForPrisma.prisma = createClient();
+  }
+  return globalForPrisma.prisma;
 }
+
+// Khởi tạo LƯỜI (lazy): client chỉ được tạo — và DATABASE_URL chỉ được kiểm tra —
+// khi thực sự truy vấn CSDL. Nhờ vậy bước `next build` (chỉ nạp module để thu
+// thập cấu hình trang) không cần kết nối CSDL, giúp build được trong Docker
+// mà không phải cấp DATABASE_URL lúc build.
+export const prisma: PrismaClient = new Proxy({} as PrismaClient, {
+  get(_target, prop, receiver) {
+    const client = getClient();
+    const value = Reflect.get(client as object, prop, receiver);
+    return typeof value === "function" ? value.bind(client) : value;
+  },
+});
