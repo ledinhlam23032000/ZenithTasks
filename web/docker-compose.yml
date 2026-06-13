@@ -1,0 +1,25 @@
+# PostgreSQL cho Zenith Clinic — dùng cho phát triển hoặc triển khai nội bộ.
+#   docker compose up -d
+# Sau đó đặt trong .env:
+#   DATABASE_URL="postgresql://zenith:zenith@127.0.0.1:5432/zenith_clinic?schema=public"
+services:
+  db:
+    image: postgres:16
+    container_name: zenith_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: zenith
+      POSTGRES_PASSWORD: zenith
+      POSTGRES_DB: zenith_clinic
+    ports:
+      - "5432:5432"
+    volumes:
+      - zenith_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U zenith -d zenith_clinic"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  zenith_pgdata:
