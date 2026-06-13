@@ -23,6 +23,7 @@ export async function getAdminDashboard() {
     recentCare,
     newCustomersMonth,
     newCustomersLast,
+    todaySchedule,
   ] = await Promise.all([
     prisma.appointment.findMany({
       where: { scheduledAt: today },
@@ -53,6 +54,12 @@ export async function getAdminDashboard() {
     }),
     prisma.customer.count({ where: { createdAt: month } }),
     prisma.customer.count({ where: { createdAt: last } }),
+    prisma.appointment.findMany({
+      where: { scheduledAt: today },
+      orderBy: { scheduledAt: "asc" },
+      take: 14,
+      include: { customer: { select: { id: true, fullName: true, phoneLast5: true } } },
+    }),
   ]);
 
   // Đếm lịch hôm nay theo trạng thái
@@ -114,6 +121,7 @@ export async function getAdminDashboard() {
     },
     consultants: consultantRows,
     recentCare,
+    todaySchedule,
   };
 }
 

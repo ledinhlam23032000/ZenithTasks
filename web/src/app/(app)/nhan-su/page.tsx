@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { Table, THead, TH, TR, TD } from "@/components/ui/table";
 import { NewStaffButton } from "./new-staff";
+import { ResetPasswordButton } from "./reset-password";
 import { toggleStaffActive } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -61,17 +62,20 @@ export default async function StaffPage() {
                   </TD>
                   <TD className="text-slate-500">{fmtDate(u.createdAt)}</TD>
                   <TD className="text-right">
-                    {u.id !== me.id && (
-                      <form action={toggleStaffActive}>
-                        <input type="hidden" name="id" value={u.id} />
-                        <button
-                          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-slate-500 hover:bg-slate-100"
-                          title={u.active ? "Khóa tài khoản" : "Mở khóa"}
-                        >
-                          <Power className="h-3.5 w-3.5" /> {u.active ? "Khóa" : "Mở"}
-                        </button>
-                      </form>
-                    )}
+                    <div className="flex items-center justify-end gap-1">
+                      <ResetPasswordButton userId={u.id} name={u.fullName} />
+                      {u.id !== me.id && (
+                        <form action={toggleStaffActive}>
+                          <input type="hidden" name="id" value={u.id} />
+                          <button
+                            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-slate-500 hover:bg-slate-100"
+                            title={u.active ? "Khóa tài khoản" : "Mở khóa"}
+                          >
+                            <Power className="h-3.5 w-3.5" /> {u.active ? "Khóa" : "Mở"}
+                          </button>
+                        </form>
+                      )}
+                    </div>
                   </TD>
                 </TR>
               ))}

@@ -8,6 +8,7 @@ import {
   Menu,
   X,
   LogOut,
+  KeyRound,
   ChevronDown,
   LayoutDashboard,
   CalendarClock,
@@ -24,6 +25,7 @@ import {
 import { cn } from "@/lib/cn";
 import { Avatar } from "@/components/ui/avatar";
 import { logoutAction } from "@/lib/auth-actions";
+import { ChangePasswordModal } from "./change-password";
 
 const ICONS: Record<string, LucideIcon> = {
   LayoutDashboard,
@@ -53,6 +55,7 @@ export function AppShell({
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [pwOpen, setPwOpen] = useState(false);
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
 
@@ -152,6 +155,15 @@ export function AppShell({
                       <p className="text-xs text-slate-400">@{user.username} · {user.roleLabel}</p>
                     </div>
                     <div className="my-1 h-px bg-slate-100" />
+                    <button
+                      onClick={() => {
+                        setMenuOpen(false);
+                        setPwOpen(true);
+                      }}
+                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-100"
+                    >
+                      <KeyRound className="h-4 w-4" /> Đổi mật khẩu
+                    </button>
                     <form action={logoutAction}>
                       <button
                         type="submit"
@@ -169,6 +181,8 @@ export function AppShell({
 
         <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 lg:px-8">{children}</main>
       </div>
+
+      <ChangePasswordModal open={pwOpen} onClose={() => setPwOpen(false)} />
     </div>
   );
 }

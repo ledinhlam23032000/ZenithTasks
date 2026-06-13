@@ -13,7 +13,8 @@ import {
 import { requireUser } from "@/lib/auth";
 import { isManagerial, ROLE_LABELS } from "@/lib/rbac";
 import { getAdminDashboard, getStaffSnapshot } from "@/lib/dashboard";
-import { fmtRelative } from "@/lib/format";
+import { fmtRelative, fmtTime } from "@/lib/format";
+import { maskPhone } from "@/lib/phone";
 import { formatVND, formatVNDShort } from "@/lib/money";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatCard } from "@/components/ui/stat-card";
@@ -22,7 +23,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { Table, THead, TH, TR, TD } from "@/components/ui/table";
 import { EmptyState } from "@/components/ui/empty-state";
-import { CARE_CHANNEL } from "@/lib/status";
+import { CARE_CHANNEL, APPT_STATUS } from "@/lib/status";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Tổng quan" };
@@ -101,6 +102,44 @@ export default async function DashboardPage() {
           trend={{ value: d.customers.growth, label: "So với tháng trước" }}
         />
       </div>
+
+      {/* Lịch hẹn hôm nay */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <CalendarClock className="h-4 w-4 text-brand-500" /> Lịch hẹn hôm nay
+          </CardTitle>
+          <Link href="/lich-hen" className="text-sm font-medium text-brand-600 hover:text-brand-700">
+            Xem tất cả
+          </Link>
+        </CardHeader>
+        <CardContent className="pt-0">
+          {d.todaySchedule.length === 0 ? (
+            <EmptyState icon={<CalendarClock className="h-6 w-6" />} title="Hôm nay chưa có lịch hẹn" />
+          ) : (
+            <ul className="grid gap-2 sm:grid-cols-2">
+              {d.todaySchedule.map((a) => {
+                const name = a.customer?.fullName ?? a.guestName ?? "Khách";
+                const last5 = a.customer?.phoneLast5 ?? a.phoneLast5;
+                const st = APPT_STATUS[a.status];
+                return (
+                  <li key={a.id} className="flex items-center gap-3 rounded-xl border border-slate-100 px-3 py-2">
+                    <span className="w-12 shrink-0 text-sm font-semibold text-slate-700">{fmtTime(a.scheduledAt)}</span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-slate-800">{name}</p>
+                      <p className="truncate text-xs text-slate-400">
+                        {maskPhone(last5)}
+                        {a.serviceInterest ? ` · ${a.serviceInterest}` : ""}
+                      </p>
+                    </div>
+                    <Badge tone={st.tone}>{st.label}</Badge>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
 
       <div className="grid gap-6 lg:grid-cols-5">
         {/* Hiệu suất tư vấn */}
