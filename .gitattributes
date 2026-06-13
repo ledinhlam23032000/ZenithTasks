@@ -64,3 +64,8 @@
 # Giữ nguyên CRLF cho script Windows để chạy đúng
 *.bat text eol=crlf
 *.ps1 text eol=crlf
+
+# Script chạy trong Linux container -> luôn LF (tránh lỗi CRLF khi clone trên Windows)
+*.sh text eol=lf
+docker-entrypoint.sh text eol=lf
+Dockerfile text eol=lf

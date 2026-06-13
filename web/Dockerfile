@@ -25,7 +25,9 @@ FROM base AS runner
 ENV NODE_ENV=production
 COPY --from=build /app ./
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+# Bỏ ký tự CR (\r) phòng khi file bị checkout dạng CRLF trên Windows — nếu không
+# dòng "#!/bin/sh" sẽ hỏng và container không khởi động được.
+RUN sed -i 's/\r$//' /usr/local/bin/docker-entrypoint.sh && chmod +x /usr/local/bin/docker-entrypoint.sh
 EXPOSE 3000
 ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["npm", "run", "start"]
