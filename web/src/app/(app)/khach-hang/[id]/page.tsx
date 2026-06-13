@@ -15,7 +15,7 @@ import {
   Stethoscope,
   FilePlus2,
 } from "lucide-react";
-import { differenceInYears } from "date-fns";
+import { differenceInYears, format } from "date-fns";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { maskPhone } from "@/lib/phone";
@@ -37,6 +37,7 @@ import { StatCard } from "@/components/ui/stat-card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { buttonVariants } from "@/components/ui/button";
 import { receiveCustomer } from "../../tiep-nhan/actions";
+import { EditCustomerButton } from "../edit-customer";
 import { CareComposer } from "../../cham-soc/care-composer";
 import { PhotoTypeLabel } from "../../ho-so/[id]/photo-label";
 
@@ -73,6 +74,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
 
   const canReceive = ["ADMIN", "RECEPTION", "CONSULTANT", "DOCTOR", "MANAGER"].includes(user.role);
   const canCare = ["ADMIN", "MANAGER", "CARE"].includes(user.role);
+  const canEdit = ["ADMIN", "MANAGER", "RECEPTION", "TELESALE"].includes(user.role);
 
   return (
     <div className="space-y-6">
@@ -112,14 +114,31 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
             </div>
             {customer.note && <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">{customer.note}</p>}
           </div>
-          {canReceive && (
-            <form action={receiveCustomer}>
-              <input type="hidden" name="customerId" value={customer.id} />
-              <button className={buttonVariants()}>
-                <FilePlus2 className="h-4 w-4" /> Mở hồ sơ điều trị
-              </button>
-            </form>
-          )}
+          <div className="flex flex-wrap items-center gap-2">
+            {canEdit && (
+              <EditCustomerButton
+                customer={{
+                  id: customer.id,
+                  fullName: customer.fullName,
+                  gender: customer.gender,
+                  dob: customer.dob ? format(customer.dob, "yyyy-MM-dd") : null,
+                  source: customer.source,
+                  sourceDetail: customer.sourceDetail,
+                  address: customer.address,
+                  note: customer.note,
+                  phoneLast5: customer.phoneLast5,
+                }}
+              />
+            )}
+            {canReceive && (
+              <form action={receiveCustomer}>
+                <input type="hidden" name="customerId" value={customer.id} />
+                <button className={buttonVariants()}>
+                  <FilePlus2 className="h-4 w-4" /> Mở hồ sơ điều trị
+                </button>
+              </form>
+            )}
+          </div>
         </CardContent>
       </Card>
 

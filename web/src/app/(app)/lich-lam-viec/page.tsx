@@ -1,6 +1,6 @@
 import { startOfDay, endOfDay, addDays, isToday, format } from "date-fns";
 import { vi } from "date-fns/locale";
-import { CalendarDays, Clock } from "lucide-react";
+import { CalendarDays, Clock, Trash2 } from "lucide-react";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { isManagerial, ROLE_SHORT } from "@/lib/rbac";
@@ -9,6 +9,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { EmptyState } from "@/components/ui/empty-state";
+import { NewShiftButton } from "./new-shift";
+import { deleteShift } from "./actions";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Lịch làm việc" };
@@ -19,11 +21,16 @@ export default async function SchedulePage() {
   const from = startOfDay(new Date());
   const to = endOfDay(addDays(new Date(), 6));
 
-  const shifts = await prisma.shift.findMany({
-    where: { date: { gte: from, lte: to }, ...(managerial ? {} : { userId: user.id }) },
-    include: { user: { select: { fullName: true, role: true } } },
-    orderBy: [{ date: "asc" }, { startTime: "asc" }],
-  });
+  const [shifts, staff] = await Promise.all([
+    prisma.shift.findMany({
+      where: { date: { gte: from, lte: to }, ...(managerial ? {} : { userId: user.id }) },
+      include: { user: { select: { fullName: true, role: true } } },
+      orderBy: [{ date: "asc" }, { startTime: "asc" }],
+    }),
+    managerial
+      ? prisma.user.findMany({ where: { active: true }, orderBy: { fullName: "asc" }, select: { id: true, fullName: true } })
+      : Promise.resolve([]),
+  ]);
 
   // Gom theo ngày
   const byDay = new Map<string, typeof shifts>();
@@ -41,6 +48,7 @@ export default async function SchedulePage() {
         title="Lịch làm việc"
         description={managerial ? "Lịch làm việc của toàn bộ nhân viên trong tuần." : "Lịch làm việc của bạn trong tuần này."}
         icon={<CalendarDays className="h-5 w-5" />}
+        actions={managerial ? <NewShiftButton staff={staff} defaultDate={format(new Date(), "yyyy-MM-dd")} /> : undefined}
       />
 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -68,6 +76,14 @@ export default async function SchedulePage() {
                         </p>
                       </div>
                       <Badge tone="slate">{ROLE_SHORT[s.user.role]}</Badge>
+                      {managerial && (
+                        <form action={deleteShift}>
+                          <input type="hidden" name="id" value={s.id} />
+                          <button className="rounded-md p-1 text-slate-300 hover:bg-rose-50 hover:text-rose-500" aria-label="Xóa ca">
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </form>
+                      )}
                     </div>
                   ))
                 )}
