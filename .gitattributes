@@ -61,3 +61,6 @@
 #*.PDF   diff=astextplain
 #*.rtf   diff=astextplain
 #*.RTF   diff=astextplain
+# Giữ nguyên CRLF cho script Windows để chạy đúng
+*.bat text eol=crlf
+*.ps1 text eol=crlf
