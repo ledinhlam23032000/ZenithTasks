@@ -133,6 +133,37 @@ model User {
   auditLogs            AuditLog[]
   shifts               Shift[]
   stockMovements       StockMovement[]
+  attendances          Attendance[]
+  payrollEntries       PayrollEntry[]
+}
+
+// ============================ CHẤM CÔNG & LƯƠNG ============================
+
+model Attendance {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date       DateTime  @db.Date // ngày làm việc
+  checkInAt  DateTime  @default(now())
+  checkOutAt DateTime?
+  note       String?
+
+  @@unique([userId, date])
+  @@index([date])
+}
+
+model PayrollEntry {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  month      String // "YYYY-MM"
+  bonus      Decimal  @default(0) @db.Decimal(14, 0) // Thưởng nóng
+  adjustment Decimal  @default(0) @db.Decimal(14, 0) // Điều chỉnh (+/-)
+  nurseCases Int      @default(0) // Số ca dịch vụ (điều dưỡng) × 100k
+  note       String?
+  updatedAt  DateTime @updatedAt
+
+  @@unique([userId, month])
 }
 
 // ============================ KHÁCH HÀNG ============================

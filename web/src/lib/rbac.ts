@@ -38,6 +38,7 @@ const ALL: Role[] = ["ADMIN", "MANAGER", "TELESALE", "RECEPTION", "CONSULTANT", 
 // Menu điều hướng. Mỗi mục khai báo vai trò được phép thấy.
 export const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard", label: "Tổng quan", icon: "LayoutDashboard", roles: ALL },
+  { href: "/cham-cong", label: "Chấm công", icon: "CalendarCheck", roles: ALL },
   { href: "/lich-hen", label: "Lịch hẹn", icon: "CalendarClock", roles: ["ADMIN", "MANAGER", "TELESALE", "RECEPTION", "CONSULTANT", "NURSE"] },
   { href: "/tiep-nhan", label: "Tiếp nhận khách", icon: "UserPlus", roles: ["ADMIN", "RECEPTION", "TELESALE"] },
   { href: "/khach-hang", label: "Khách hàng", icon: "Users", roles: ["ADMIN", "MANAGER", "RECEPTION", "CONSULTANT", "DOCTOR", "NURSE", "CARE"] },

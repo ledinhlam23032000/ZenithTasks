@@ -4,13 +4,26 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 
-/** Quản trị viên đặt lương cơ bản & % hoa hồng cho một nhân sự. */
-export async function setStaffSalary(formData: FormData): Promise<void> {
+/**
+ * Lưu lương cho một nhân sự trong tháng: lương cứng (cố định theo người) +
+ * thưởng nóng / điều chỉnh / số ca điều dưỡng (theo từng tháng).
+ */
+export async function savePayroll(formData: FormData): Promise<void> {
   await requireUser(["ADMIN"]);
   const id = String(formData.get("id") ?? "");
-  if (!id) return;
+  const month = String(formData.get("month") ?? "");
+  if (!id || !/^\d{4}-\d{2}$/.test(month)) return;
+
   const base = Math.max(0, Math.round(Number(formData.get("baseSalary") ?? 0) || 0));
-  const rate = Math.min(100, Math.max(0, Number(formData.get("commissionRate") ?? 0) || 0));
-  await prisma.user.update({ where: { id }, data: { baseSalary: base, commissionRate: rate } });
+  const bonus = Math.max(0, Math.round(Number(formData.get("bonus") ?? 0) || 0));
+  const adjustment = Math.round(Number(formData.get("adjustment") ?? 0) || 0);
+  const nurseCases = Math.max(0, Math.round(Number(formData.get("nurseCases") ?? 0) || 0));
+
+  await prisma.user.update({ where: { id }, data: { baseSalary: base } });
+  await prisma.payrollEntry.upsert({
+    where: { userId_month: { userId: id, month } },
+    create: { userId: id, month, bonus, adjustment, nurseCases },
+    update: { bonus, adjustment, nurseCases },
+  });
   revalidatePath("/luong");
 }
