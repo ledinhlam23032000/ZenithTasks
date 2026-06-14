@@ -17,7 +17,7 @@ export function LoginForm() {
         <Label htmlFor="username">Tên đăng nhập</Label>
         <div className="relative">
           <User2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <Input id="username" name="username" autoComplete="username" autoFocus placeholder="vd: letan" className="pl-9" required />
+          <Input id="username" name="username" autoComplete="username" autoCapitalize="none" autoCorrect="off" spellCheck={false} autoFocus placeholder="vd: letan" className="pl-9" required />
         </div>
       </div>
 

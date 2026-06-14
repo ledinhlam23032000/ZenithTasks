@@ -8,7 +8,7 @@ import type { Role } from "@/generated/prisma/client";
 
 const COOKIE_NAME = "zsession";
 const ALG = "HS256";
-const SESSION_HOURS = 12;
+const SESSION_HOURS = 24 * 30; // 30 ngày — để nhân viên không bị đăng xuất giữa chừng
 
 function secret(): Uint8Array {
   const s = process.env.AUTH_SECRET;

@@ -21,7 +21,10 @@ export async function loginAction(_prev: LoginState, formData: FormData): Promis
     return { error: "Vui lòng nhập tên đăng nhập và mật khẩu." };
   }
 
-  const user = await prisma.user.findUnique({ where: { username: parsed.data.username } });
+  // Tìm tài khoản KHÔNG phân biệt hoa/thường (tránh lỗi gõ "Letan" vs "letan").
+  const user = await prisma.user.findFirst({
+    where: { username: { equals: parsed.data.username, mode: "insensitive" } },
+  });
   if (!user || !user.active) {
     return { error: "Tài khoản không tồn tại hoặc đã bị khoá." };
   }
