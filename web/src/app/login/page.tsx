@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Sparkles, ShieldCheck, CalendarClock, TrendingUp } from "lucide-react";
+import { ShieldCheck, CalendarClock, TrendingUp } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth";
 import { LoginForm } from "./login-form";
 
@@ -16,22 +16,14 @@ export default async function LoginPage() {
       <div className="relative hidden flex-col justify-between overflow-hidden bg-brand-gradient p-12 text-white lg:flex">
         <div className="absolute -right-24 -top-24 h-96 w-96 rounded-full bg-white/10 blur-2xl" />
         <div className="absolute -bottom-32 -left-16 h-96 w-96 rounded-full bg-brand-400/20 blur-2xl" />
-        <div className="relative flex items-center gap-3">
-          <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-white/15 ring-1 ring-white/25">
-            <Sparkles className="h-6 w-6" />
-          </span>
-          <div>
-            <p className="text-lg font-semibold leading-tight">Thẩm mỹ Hồng Phúc</p>
-            <p className="text-xs text-white/70">Phẫu thuật Tạo hình Thẩm mỹ</p>
-          </div>
-        </div>
 
         <div className="relative max-w-md">
           <h2 className="text-3xl font-semibold leading-tight text-balance">
             Trung tâm Phẫu thuật Tạo hình Thẩm mỹ
           </h2>
+          <p className="mt-2 text-sm font-medium text-white/80">Bệnh viện Đa khoa Hồng Phúc</p>
           <p className="mt-3 text-white/75">
-            Ứng dụng nội bộ quản trị — Bệnh viện Đa khoa Hồng Phúc. Lịch hẹn, hồ sơ khách, tài chính, kho, lương và báo cáo trong một hệ thống.
+            Ứng dụng nội bộ quản trị. Lịch hẹn, hồ sơ khách, tài chính, kho, lương và báo cáo trong một hệ thống.
           </p>
           <ul className="mt-8 space-y-3 text-sm">
             <li className="flex items-center gap-3">
@@ -55,14 +47,9 @@ export default async function LoginPage() {
       {/* Form đăng nhập */}
       <div className="flex items-center justify-center p-6 sm:p-12">
         <div className="w-full max-w-sm">
-          <div className="mb-8 flex items-center gap-3 lg:hidden">
-            <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-brand-600 text-white">
-              <Sparkles className="h-6 w-6" />
-            </span>
-            <div>
-              <p className="text-lg font-semibold text-slate-900">Thẩm mỹ Hồng Phúc</p>
-              <p className="text-xs text-slate-500">Phẫu thuật Tạo hình Thẩm mỹ</p>
-            </div>
+          <div className="mb-8 lg:hidden">
+            <p className="text-xl font-bold text-brand-700">Trung tâm Phẫu thuật Tạo hình Thẩm mỹ</p>
+            <p className="text-xs text-slate-500">Bệnh viện Đa khoa Hồng Phúc</p>
           </div>
 
           <h1 className="text-2xl font-semibold text-slate-900">Đăng nhập</h1>

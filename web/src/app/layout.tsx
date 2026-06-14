@@ -12,7 +12,7 @@ const appSans = Be_Vietnam_Pro({
 
 export const metadata: Metadata = {
   title: {
-    default: "Trung tâm Phẫu thuật Tạo hình Thẩm mỹ — BVĐK Hồng Phúc",
+    default: "Trung tâm Phẫu thuật Tạo hình Thẩm mỹ — Bệnh viện Đa khoa Hồng Phúc",
     template: "%s · Thẩm mỹ Hồng Phúc",
   },
   description:

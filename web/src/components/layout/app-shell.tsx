@@ -4,7 +4,6 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Sparkles,
   Menu,
   X,
   LogOut,
@@ -89,14 +88,10 @@ export function AppShell({
   );
 
   const brand = (
-    <div className="flex items-center gap-2.5 px-5 py-5">
-      <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-brand-600 text-white">
-        <Sparkles className="h-5 w-5" />
-      </span>
-      <div className="leading-tight">
-        <p className="text-sm font-semibold text-slate-900">Thẩm mỹ Hồng Phúc</p>
-        <p className="text-[11px] text-slate-400">Phẫu thuật Tạo hình Thẩm mỹ</p>
-      </div>
+    <div className="px-5 py-5 leading-tight">
+      <p className="text-base font-bold text-brand-700">Thẩm mỹ Hồng Phúc</p>
+      <p className="text-[11px] text-slate-500">Trung tâm PT Tạo hình Thẩm mỹ</p>
+      <p className="text-[11px] text-slate-400">BVĐK Hồng Phúc</p>
     </div>
   );
 
