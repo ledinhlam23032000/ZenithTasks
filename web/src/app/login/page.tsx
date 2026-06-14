@@ -21,17 +21,17 @@ export default async function LoginPage() {
             <Sparkles className="h-6 w-6" />
           </span>
           <div>
-            <p className="text-lg font-semibold leading-tight">Zenith Clinic</p>
-            <p className="text-xs text-white/70">Quản lý Trung tâm Thẩm mỹ</p>
+            <p className="text-lg font-semibold leading-tight">Thẩm mỹ Hồng Phúc</p>
+            <p className="text-xs text-white/70">Phẫu thuật Tạo hình Thẩm mỹ</p>
           </div>
         </div>
 
         <div className="relative max-w-md">
           <h2 className="text-3xl font-semibold leading-tight text-balance">
-            Vận hành phòng khám mượt mà, chuyên nghiệp.
+            Trung tâm Phẫu thuật Tạo hình Thẩm mỹ
           </h2>
           <p className="mt-3 text-white/75">
-            Từ lịch hẹn, tiếp nhận khách, tư vấn — dịch vụ, đến chăm sóc và báo cáo doanh thu. Tất cả trong một hệ thống.
+            Ứng dụng nội bộ quản trị — Bệnh viện Đa khoa Hồng Phúc. Lịch hẹn, hồ sơ khách, tài chính, kho, lương và báo cáo trong một hệ thống.
           </p>
           <ul className="mt-8 space-y-3 text-sm">
             <li className="flex items-center gap-3">
@@ -46,9 +46,10 @@ export default async function LoginPage() {
           </ul>
         </div>
 
-        <p className="relative text-xs text-white/60">
-          Trung tâm Phẫu thuật Thẩm mỹ — Bệnh viện Đa khoa Hồng Phúc
-        </p>
+        <div className="relative text-xs text-white/60">
+          <p>Thiết kế &amp; vận hành: GĐĐH — BS. Lê Đình Lam</p>
+          <p>Hỗ trợ sự cố: 0941 567 496</p>
+        </div>
       </div>
 
       {/* Form đăng nhập */}
@@ -59,8 +60,8 @@ export default async function LoginPage() {
               <Sparkles className="h-6 w-6" />
             </span>
             <div>
-              <p className="text-lg font-semibold text-slate-900">Zenith Clinic</p>
-              <p className="text-xs text-slate-500">Quản lý Trung tâm Thẩm mỹ</p>
+              <p className="text-lg font-semibold text-slate-900">Thẩm mỹ Hồng Phúc</p>
+              <p className="text-xs text-slate-500">Phẫu thuật Tạo hình Thẩm mỹ</p>
             </div>
           </div>
 
@@ -71,19 +72,16 @@ export default async function LoginPage() {
             <LoginForm />
           </div>
 
-          <div className="mt-6 rounded-xl bg-slate-50 p-3 text-xs text-slate-500 ring-1 ring-slate-100">
-            <p className="font-medium text-slate-600">Tài khoản demo (mật khẩu: 123456)</p>
-            <p className="mt-1 leading-relaxed">
-              <code className="text-brand-700">admin</code> · <code className="text-brand-700">letan</code> ·{" "}
-              <code className="text-brand-700">tuvan1</code> · <code className="text-brand-700">bacsi1</code> ·{" "}
-              <code className="text-brand-700">cskh</code>
-            </p>
+          <div className="mt-6 rounded-xl bg-slate-50 p-3 text-xs leading-relaxed text-slate-500 ring-1 ring-slate-100">
+            Tên đăng nhập do quản trị viên cấp. Quên mật khẩu? Vui lòng liên hệ quản trị viên để được đặt lại.
           </div>
 
-          <p className="mt-8 text-center text-xs text-slate-400">
-            © {new Date().getFullYear()} Zenith Clinic ·{" "}
-            <Link href="/login" className="hover:text-slate-600">
-              Hỗ trợ kỹ thuật
+          <p className="mt-8 text-center text-xs leading-relaxed text-slate-400">
+            © {new Date().getFullYear()} Trung tâm Thẩm mỹ Hồng Phúc · Thiết kế: BS. Lê Đình Lam
+            <br />
+            Hỗ trợ sự cố:{" "}
+            <Link href="tel:0941567496" className="font-medium text-brand-600 hover:text-brand-700">
+              0941 567 496
             </Link>
           </p>
         </div>

@@ -94,8 +94,8 @@ export function AppShell({
         <Sparkles className="h-5 w-5" />
       </span>
       <div className="leading-tight">
-        <p className="text-sm font-semibold text-slate-900">Zenith Clinic</p>
-        <p className="text-[11px] text-slate-400">BVĐK Hồng Phúc</p>
+        <p className="text-sm font-semibold text-slate-900">Thẩm mỹ Hồng Phúc</p>
+        <p className="text-[11px] text-slate-400">Phẫu thuật Tạo hình Thẩm mỹ</p>
       </div>
     </div>
   );
@@ -106,7 +106,11 @@ export function AppShell({
       <aside className="sticky top-0 hidden h-screen flex-col border-r border-slate-200 bg-white lg:flex">
         {brand}
         {navList}
-        <div className="px-5 py-4 text-[11px] text-slate-300">Phiên bản 1.0 · 2026</div>
+        <div className="px-5 py-4 text-[11px] leading-relaxed text-slate-400">
+          <p className="font-medium text-slate-500">BVĐK Hồng Phúc</p>
+          <p>Thiết kế: BS. Lê Đình Lam (GĐĐH)</p>
+          <p>Hỗ trợ sự cố: 0941567496</p>
+        </div>
       </aside>
 
       {/* Drawer mobile */}

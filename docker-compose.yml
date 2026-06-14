@@ -31,7 +31,7 @@ services:
       DATABASE_URL: "postgresql://zenith:zenith_dev_pw@db:5432/zenith_clinic?schema=public"
       AUTH_SECRET: "A63K8EjWA1sFCamrTWOEFEiifKx6jwoPm3+vmNA1eErg73ba1YS7DKvPMOZvlcpm"
       PHONE_ENC_KEY: "QKuRqi5MjrXaJ6Dv5XwMQCD/0Dmyvc2TuTUEBf8nGM8="
-      APP_NAME: "Zenith Clinic"
+      APP_NAME: "Thẩm mỹ Hồng Phúc"
       # Khi chạy qua tên miền/Cloudflare Tunnel, điền tên miền vào đây (ngăn cách bằng dấu phẩy)
       # để đảm bảo các thao tác lưu/xóa hoạt động sau proxy. VD: "app.phongkham.com"
       APP_ORIGINS: ""
