@@ -142,6 +142,8 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
               action={lockCase}
               fields={{ caseId: record.id }}
               confirmText="Sau khi LƯU & KHÓA, nhân viên sẽ KHÔNG thể chỉnh sửa hồ sơ này nữa (chỉ quản trị viên mở lại được). Tiếp tục?"
+              confirmLabel="Khóa hồ sơ"
+              danger={false}
               className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-900"
             >
               <Lock className="h-4 w-4" /> Lưu &amp; khóa hồ sơ

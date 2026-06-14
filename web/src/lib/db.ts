@@ -12,7 +12,8 @@ function createClient(): PrismaClient {
   if (!connectionString) {
     throw new Error("Thiếu biến môi trường DATABASE_URL. Xem web/.env.example");
   }
-  const adapter = new PrismaPg({ connectionString });
+  // Bể kết nối lớn hơn để phục vụ nhiều người dùng đồng thời.
+  const adapter = new PrismaPg({ connectionString, max: 20, idleTimeoutMillis: 30000 });
   return new PrismaClient({ adapter });
 }
 
