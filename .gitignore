@@ -360,4 +360,5 @@ MigrationBackup/
 .ionide/
 
 # Fody - auto-generated XML schema
-FodyWeavers.xsdThamMyHongPhuc-MayCon.zip
+FodyWeavers.xsd
+ThamMyHongPhuc-MayCon.zip
