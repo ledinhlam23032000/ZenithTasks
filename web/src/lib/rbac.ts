@@ -11,6 +11,7 @@ export const ROLE_LABELS: Record<Role, string> = {
   RECEPTION: "Lễ tân",
   CONSULTANT: "Tư vấn viên",
   DOCTOR: "Bác sĩ",
+  NURSE: "Điều dưỡng",
   CARE: "Chăm sóc khách hàng",
 };
 
@@ -21,6 +22,7 @@ export const ROLE_SHORT: Record<Role, string> = {
   RECEPTION: "Lễ tân",
   CONSULTANT: "Tư vấn",
   DOCTOR: "Bác sĩ",
+  NURSE: "Điều dưỡng",
   CARE: "CSKH",
 };
 
@@ -31,18 +33,18 @@ export type NavItem = {
   roles: Role[];
 };
 
-const ALL: Role[] = ["ADMIN", "MANAGER", "TELESALE", "RECEPTION", "CONSULTANT", "DOCTOR", "CARE"];
+const ALL: Role[] = ["ADMIN", "MANAGER", "TELESALE", "RECEPTION", "CONSULTANT", "DOCTOR", "NURSE", "CARE"];
 
 // Menu điều hướng. Mỗi mục khai báo vai trò được phép thấy.
 export const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard", label: "Tổng quan", icon: "LayoutDashboard", roles: ALL },
-  { href: "/lich-hen", label: "Lịch hẹn", icon: "CalendarClock", roles: ["ADMIN", "MANAGER", "TELESALE", "RECEPTION", "CONSULTANT"] },
+  { href: "/lich-hen", label: "Lịch hẹn", icon: "CalendarClock", roles: ["ADMIN", "MANAGER", "TELESALE", "RECEPTION", "CONSULTANT", "NURSE"] },
   { href: "/tiep-nhan", label: "Tiếp nhận khách", icon: "UserPlus", roles: ["ADMIN", "RECEPTION", "TELESALE"] },
-  { href: "/khach-hang", label: "Khách hàng", icon: "Users", roles: ["ADMIN", "MANAGER", "RECEPTION", "CONSULTANT", "DOCTOR", "CARE"] },
-  { href: "/ho-so", label: "Hồ sơ điều trị", icon: "FolderHeart", roles: ["ADMIN", "MANAGER", "CONSULTANT", "DOCTOR"] },
+  { href: "/khach-hang", label: "Khách hàng", icon: "Users", roles: ["ADMIN", "MANAGER", "RECEPTION", "CONSULTANT", "DOCTOR", "NURSE", "CARE"] },
+  { href: "/ho-so", label: "Hồ sơ điều trị", icon: "FolderHeart", roles: ["ADMIN", "MANAGER", "CONSULTANT", "DOCTOR", "NURSE"] },
   { href: "/cham-soc", label: "Chăm sóc KH", icon: "MessageCircleHeart", roles: ["ADMIN", "MANAGER", "CARE"] },
   { href: "/bao-cao", label: "Báo cáo", icon: "TrendingUp", roles: ["ADMIN", "MANAGER"] },
-  { href: "/lich-lam-viec", label: "Lịch làm việc", icon: "CalendarDays", roles: ["ADMIN", "MANAGER", "RECEPTION", "CONSULTANT", "DOCTOR", "CARE", "TELESALE"] },
+  { href: "/lich-lam-viec", label: "Lịch làm việc", icon: "CalendarDays", roles: ["ADMIN", "MANAGER", "RECEPTION", "CONSULTANT", "DOCTOR", "NURSE", "CARE", "TELESALE"] },
   { href: "/luong", label: "Lương & hoa hồng", icon: "Wallet", roles: ["ADMIN", "MANAGER"] },
   { href: "/nhan-su", label: "Nhân sự", icon: "Contact", roles: ["ADMIN"] },
   { href: "/danh-muc", label: "Danh mục dịch vụ", icon: "ListChecks", roles: ["ADMIN", "MANAGER"] },

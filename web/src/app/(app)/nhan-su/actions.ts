@@ -14,7 +14,7 @@ const schema = z.object({
     .trim()
     .min(3, "Tên đăng nhập tối thiểu 3 ký tự.")
     .regex(/^[a-z0-9_.]+$/i, "Tên đăng nhập chỉ gồm chữ, số, dấu chấm hoặc gạch dưới."),
-  role: z.enum(["ADMIN", "MANAGER", "TELESALE", "RECEPTION", "CONSULTANT", "DOCTOR", "CARE"]),
+  role: z.enum(["ADMIN", "MANAGER", "TELESALE", "RECEPTION", "CONSULTANT", "DOCTOR", "NURSE", "CARE"]),
   password: z.string().min(6, "Mật khẩu tối thiểu 6 ký tự."),
   phone: z.string().trim().optional(),
 });
@@ -31,21 +31,37 @@ export async function createStaff(_prev: StaffFormState, formData: FormData): Pr
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu không hợp lệ." };
   const d = parsed.data;
+  const uname = d.username.toLowerCase();
 
-  const existing = await prisma.user.findUnique({ where: { username: d.username.toLowerCase() } });
+  const existing = await prisma.user.findFirst({
+    where: { username: { equals: uname, mode: "insensitive" } },
+    select: { id: true },
+  });
   if (existing) return { error: "Tên đăng nhập đã tồn tại." };
 
-  const count = await prisma.user.count();
-  await prisma.user.create({
-    data: {
-      code: `NV${String(count + 1).padStart(3, "0")}`,
-      fullName: d.fullName,
-      username: d.username.toLowerCase(),
-      passwordHash: await hashPassword(d.password),
-      role: d.role,
-      phone: d.phone || null,
-    },
-  });
+  // Sinh mã NV KHÔNG trùng (số lớn nhất hiện có + 1) — tránh lỗi sau khi đã xóa tài khoản.
+  const users = await prisma.user.findMany({ select: { code: true } });
+  let maxN = 0;
+  for (const u of users) {
+    const m = u.code?.match(/^NV(\d+)$/);
+    if (m) maxN = Math.max(maxN, parseInt(m[1], 10));
+  }
+  const code = `NV${String(maxN + 1).padStart(3, "0")}`;
+
+  try {
+    await prisma.user.create({
+      data: {
+        code,
+        fullName: d.fullName,
+        username: uname,
+        passwordHash: await hashPassword(d.password),
+        role: d.role,
+        phone: d.phone || null,
+      },
+    });
+  } catch {
+    return { error: "Không tạo được tài khoản (tên đăng nhập hoặc mã đã tồn tại). Vui lòng thử lại." };
+  }
 
   revalidatePath("/nhan-su");
   return { ok: true };

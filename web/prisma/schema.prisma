@@ -21,6 +21,7 @@ enum Role {
   RECEPTION // Lễ tân — check-in, lập hồ sơ khách
   CONSULTANT // Tư vấn viên
   DOCTOR // Bác sĩ thực hiện dịch vụ
+  NURSE // Điều dưỡng
   CARE // Chăm sóc khách hàng (CSKH)
 }
 

@@ -88,10 +88,9 @@ export function AppShell({
   );
 
   const brand = (
-    <div className="px-5 py-5 leading-tight">
-      <p className="text-base font-bold text-brand-700">Thẩm mỹ Hồng Phúc</p>
-      <p className="text-[11px] text-slate-500">Trung tâm PT Tạo hình Thẩm mỹ</p>
-      <p className="text-[11px] text-slate-400">BVĐK Hồng Phúc</p>
+    <div className="px-5 py-5 leading-snug">
+      <p className="text-sm font-bold text-brand-700">Trung tâm Phẫu thuật Tạo hình Thẩm mỹ</p>
+      <p className="mt-1 text-[11px] text-slate-400">Bệnh viện Đa khoa Hồng Phúc</p>
     </div>
   );
 
