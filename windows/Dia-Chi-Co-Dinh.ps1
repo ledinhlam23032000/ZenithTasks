@@ -24,9 +24,16 @@ if([string]::IsNullOrWhiteSpace($token)){Write-Host 'Chua co token. Thoat.' -For
 & $cf service uninstall *>$null 2>$null
 & $cf service install $token
 Write-Host ''
-Write-Host '================ DA CAI DICH VU ================' -ForegroundColor Green
-Write-Host ' Tunnel chay NEN 24/7 (ke ca khi dong cua so nay).' -ForegroundColor Green
-Write-Host ' Yeu cau: may chu LUON BAT + Docker dang chay.' -ForegroundColor Green
-Write-Host ' Mo TEN MIEN cua ban tren trinh duyet de kiem tra.' -ForegroundColor Green
-Write-Host '================================================' -ForegroundColor Green
+if($LASTEXITCODE -eq 0){
+  Write-Host '================ DA CAI DICH VU ================' -ForegroundColor Green
+  Write-Host ' Tunnel chay NEN 24/7 (ke ca khi dong cua so nay).' -ForegroundColor Green
+  Write-Host ' Yeu cau: may chu LUON BAT + Docker dang chay.' -ForegroundColor Green
+  Write-Host ' Quay lai Cloudflare bam Next -> them Public Hostname (localhost:3000).' -ForegroundColor Green
+  Write-Host '================================================' -ForegroundColor Green
+}else{
+  Write-Host '================ CAI DAT THAT BAI ================' -ForegroundColor Red
+  Write-Host ' Token chua dung. Hay copy lai va chi dan phan bat dau bang eyJ...' -ForegroundColor Yellow
+  Write-Host ' (KHONG dan "cloudflared.exe service install" o dau), roi chay lai file nay.' -ForegroundColor Yellow
+  Write-Host '=================================================' -ForegroundColor Red
+}
 Read-Host 'Nhan Enter de dong'
