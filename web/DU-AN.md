@@ -51,14 +51,14 @@
 - **AI tự trả lời (Giai đoạn 3)**: sau khi có OA → AI tự trả lời FAQ trong cửa sổ cho phép + người duyệt cho việc quan trọng (giá/y khoa). Nhắc tái khám/hỏi thăm chủ động qua ZNS.
 
 ## CÒN LÀM (TODO) — thêm nút "Sửa" cho ADMIN ở các phần còn thiếu
-Đã có Sửa: Khách hàng, Hồ sơ (thông tin), **Dịch vụ & Vật tư (danh mục)**, **Lịch hẹn**, **Chăm sóc khách hàng**, Lương.
+Đã có Sửa: Khách hàng, Hồ sơ (thông tin), Dịch vụ & Vật tư (danh mục), Lịch hẹn, Chăm sóc khách hàng, Lương, **Dịch vụ/Vật tư/Thanh toán trong hồ sơ** (`updateCaseService`/`updateMaterialUsage`/`updatePayment` — sửa vật tư tự điều chỉnh tồn kho theo chênh lệch; sửa giá/thu tiền tự `recalc`).
 Chưa có Sửa (cần bổ sung):
-- **Dịch vụ trong hồ sơ** (CaseService): sửa đơn giá/SL/giảm giá.
-- **Vật tư trong hồ sơ** (MaterialUsage): sửa số lượng.
-- **Thanh toán** (Payment): sửa số tiền/hình thức.
 - **Ca làm việc** (Shift): sửa giờ.
 - **Nhân sự**: sửa họ tên/vai trò/SĐT.
 - (Cân nhắc) nhân sự bệnh viện điều động: cờ "lương cố định, không trừ ngày công".
+
+## Bật AI nhanh (Windows)
+`windows/Cai-AI-Key.bat` — nhập API key Anthropic, tự ghi `ANTHROPIC_API_KEY` vào `.env` (UTF-8 không BOM, giữ các dòng khác) rồi `docker compose up -d` để áp dụng.
 
 ## Cách chạy/kiểm thử nhanh trong sandbox
 - PG: `pg_ctlcluster 16 main start`; `DATABASE_URL=postgresql://zenith:zenith_dev_pw@127.0.0.1:5432/zenith_clinic?schema=public`.

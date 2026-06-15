@@ -176,6 +176,36 @@ export async function removeCaseService(formData: FormData): Promise<void> {
   }
 }
 
+// ---- Sửa dịch vụ trong hồ sơ ----
+const serviceEditSchema = serviceSchema.extend({ id: z.string().min(1) });
+
+export async function updateCaseService(_prev: CaseActionState, formData: FormData): Promise<CaseActionState> {
+  const user = await requireUser([...CLINICAL]);
+  const caseId = String(formData.get("caseId") ?? "");
+  if (await isLockedFor(caseId, user.role)) return { error: LOCKED_MSG };
+
+  const parsed = serviceEditSchema.safeParse({
+    id: formData.get("id") ?? "",
+    caseId,
+    serviceId: formData.get("serviceId") ?? "",
+    name: formData.get("name") ?? "",
+    unitPrice: formData.get("unitPrice") ?? 0,
+    quantity: formData.get("quantity") ?? 1,
+    discount: formData.get("discount") ?? 0,
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu không hợp lệ." };
+  const d = parsed.data;
+  const finalPrice = Math.max(d.unitPrice * d.quantity - d.discount, 0);
+
+  await prisma.caseService.update({
+    where: { id: d.id },
+    data: { name: d.name, unitPrice: d.unitPrice, quantity: d.quantity, discount: d.discount, finalPrice },
+  });
+  await recalc(d.caseId);
+  refresh(d.caseId);
+  return { ok: true, nonce: Date.now() };
+}
+
 // ---- Thêm thanh toán ----
 const paymentSchema = z.object({
   caseId: z.string().min(1),
@@ -199,6 +229,33 @@ export async function addPayment(_prev: CaseActionState, formData: FormData): Pr
   const d = parsed.data;
   await prisma.payment.create({
     data: { caseId: d.caseId, amount: d.amount, method: d.method, note: d.note || null, receivedById: user.id },
+  });
+  await recalc(d.caseId);
+  refresh(d.caseId);
+  return { ok: true, nonce: Date.now() };
+}
+
+// ---- Sửa thanh toán (chỉ quản trị / quản lý — liên quan tiền) ----
+const paymentEditSchema = paymentSchema.extend({ id: z.string().min(1) });
+
+export async function updatePayment(_prev: CaseActionState, formData: FormData): Promise<CaseActionState> {
+  const user = await requireUser(["ADMIN", "MANAGER"]);
+  const caseId = String(formData.get("caseId") ?? "");
+  if (await isLockedFor(caseId, user.role)) return { error: LOCKED_MSG };
+
+  const parsed = paymentEditSchema.safeParse({
+    id: formData.get("id") ?? "",
+    caseId,
+    amount: formData.get("amount") ?? 0,
+    method: formData.get("method") ?? "CASH",
+    note: formData.get("note") ?? "",
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu không hợp lệ." };
+  const d = parsed.data;
+
+  await prisma.payment.update({
+    where: { id: d.id },
+    data: { amount: d.amount, method: d.method, note: d.note || null },
   });
   await recalc(d.caseId);
   refresh(d.caseId);
@@ -270,6 +327,60 @@ export async function removeMaterial(formData: FormData): Promise<void> {
       .catch(() => {});
   }
   if (caseId) refresh(caseId);
+}
+
+// ---- Sửa vật tư trong hồ sơ (điều chỉnh tồn kho theo chênh lệch số lượng) ----
+const materialEditSchema = materialSchema.extend({ id: z.string().min(1) });
+
+export async function updateMaterialUsage(_prev: CaseActionState, formData: FormData): Promise<CaseActionState> {
+  const user = await requireUser([...CLINICAL]);
+  const caseId = String(formData.get("caseId") ?? "");
+  if (await isLockedFor(caseId, user.role)) return { error: LOCKED_MSG };
+
+  const parsed = materialEditSchema.safeParse({
+    id: formData.get("id") ?? "",
+    caseId,
+    materialId: formData.get("materialId") ?? "",
+    name: formData.get("name") ?? "",
+    unit: formData.get("unit") ?? "cái",
+    quantity: formData.get("quantity") ?? 1,
+    note: formData.get("note") ?? "",
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu không hợp lệ." };
+  const d = parsed.data;
+
+  const existing = await prisma.materialUsage.findUnique({
+    where: { id: d.id },
+    select: { materialId: true, quantity: true },
+  });
+
+  await prisma.materialUsage.update({
+    where: { id: d.id },
+    data: { name: d.name, unit: d.unit, quantity: d.quantity, note: d.note || null },
+  });
+
+  // Điều chỉnh tồn kho theo chênh lệch (dương = dùng thêm → trừ kho; âm = trả lại kho).
+  if (existing?.materialId) {
+    const delta = d.quantity - toNum(existing.quantity);
+    if (delta !== 0) {
+      await prisma.material
+        .update({ where: { id: existing.materialId }, data: { stock: { decrement: delta } } })
+        .catch(() => {});
+      await prisma.stockMovement
+        .create({
+          data: {
+            materialId: existing.materialId,
+            type: delta > 0 ? "OUT" : "IN",
+            quantity: Math.abs(delta),
+            note: "Điều chỉnh vật tư (sửa hồ sơ)",
+            createdById: user.id,
+          },
+        })
+        .catch(() => {});
+    }
+  }
+  refresh(d.caseId);
+  return { ok: true, nonce: Date.now() };
 }
 
 // ---- Tải ảnh trước / sau / tái khám ----

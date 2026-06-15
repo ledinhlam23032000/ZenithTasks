@@ -37,6 +37,9 @@ import {
   AddMaterialButton,
   UploadPhotoButton,
   AddFollowUpButton,
+  EditCaseServiceButton,
+  EditPaymentButton,
+  EditMaterialUsageButton,
 } from "./case-widgets";
 import {
   removeCaseService,
@@ -234,13 +237,19 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
                         <TD className="text-right font-semibold text-slate-800">{formatVND(s.finalPrice)}</TD>
                         {canClinical && (
                           <TD className="text-right">
-                            <form action={removeCaseService}>
-                              <input type="hidden" name="id" value={s.id} />
-                              <input type="hidden" name="caseId" value={record.id} />
-                              <button className="rounded-md p-1.5 text-slate-300 hover:bg-rose-50 hover:text-rose-500" aria-label="Xóa">
-                                <Trash2 className="h-4 w-4" />
-                              </button>
-                            </form>
+                            <div className="flex items-center justify-end gap-0.5">
+                              <EditCaseServiceButton
+                                caseId={record.id}
+                                service={{ id: s.id, name: s.name, unitPrice: toNum(s.unitPrice), quantity: s.quantity, discount: toNum(s.discount) }}
+                              />
+                              <form action={removeCaseService}>
+                                <input type="hidden" name="id" value={s.id} />
+                                <input type="hidden" name="caseId" value={record.id} />
+                                <button className="rounded-md p-1.5 text-slate-300 hover:bg-rose-50 hover:text-rose-500" aria-label="Xóa">
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              </form>
+                            </div>
                           </TD>
                         )}
                       </TR>
@@ -283,13 +292,19 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
                         <TD className="text-slate-500">{m.performedBy?.fullName ?? "—"}</TD>
                         {canClinical && (
                           <TD className="text-right">
-                            <form action={removeMaterial}>
-                              <input type="hidden" name="id" value={m.id} />
-                              <input type="hidden" name="caseId" value={record.id} />
-                              <button className="rounded-md p-1.5 text-slate-300 hover:bg-rose-50 hover:text-rose-500" aria-label="Xóa">
-                                <Trash2 className="h-4 w-4" />
-                              </button>
-                            </form>
+                            <div className="flex items-center justify-end gap-0.5">
+                              <EditMaterialUsageButton
+                                caseId={record.id}
+                                usage={{ id: m.id, name: m.name, unit: m.unit, quantity: toNum(m.quantity), note: m.note ?? "" }}
+                              />
+                              <form action={removeMaterial}>
+                                <input type="hidden" name="id" value={m.id} />
+                                <input type="hidden" name="caseId" value={record.id} />
+                                <button className="rounded-md p-1.5 text-slate-300 hover:bg-rose-50 hover:text-rose-500" aria-label="Xóa">
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              </form>
+                            </div>
                           </TD>
                         )}
                       </TR>
@@ -379,14 +394,20 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-slate-400">{fmtDate(p.paidAt)}</span>
                         {canVoidPayment && (
-                          <ConfirmButton
-                            action={deletePayment}
-                            fields={{ id: p.id, caseId: record.id }}
-                            confirmText={`Xóa khoản thu ${formatVND(p.amount)}?`}
-                            className="text-slate-300 hover:text-rose-500"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </ConfirmButton>
+                          <>
+                            <EditPaymentButton
+                              caseId={record.id}
+                              payment={{ id: p.id, amount: toNum(p.amount), method: p.method, note: p.note ?? "" }}
+                            />
+                            <ConfirmButton
+                              action={deletePayment}
+                              fields={{ id: p.id, caseId: record.id }}
+                              confirmText={`Xóa khoản thu ${formatVND(p.amount)}?`}
+                              className="text-slate-300 hover:text-rose-500"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </ConfirmButton>
+                          </>
                         )}
                       </div>
                     </div>

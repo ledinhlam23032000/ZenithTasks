@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
-import { Plus, LoaderCircle, CheckCircle2, Wallet, Package, Camera, CalendarPlus } from "lucide-react";
+import { Plus, LoaderCircle, CheckCircle2, Wallet, Package, Camera, CalendarPlus, Pencil } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/field";
@@ -15,6 +15,9 @@ import {
   addMaterial,
   uploadPhoto,
   addFollowUp,
+  updateCaseService,
+  updatePayment,
+  updateMaterialUsage,
   type CaseActionState,
 } from "../actions";
 
@@ -411,6 +414,174 @@ export function AddFollowUpButton({ caseId, customerId, defaultDateTime }: { cas
             <Button type="button" variant="secondary" onClick={() => setOpen(false)}>Hủy</Button>
             <button type="submit" disabled={pending} className={buttonVariants()}>
               {pending && <LoaderCircle className="h-4 w-4 animate-spin" />} Lưu lịch
+            </button>
+          </div>
+        </form>
+      </Modal>
+    </>
+  );
+}
+
+// ===== Sửa dịch vụ trong hồ sơ =====
+export function EditCaseServiceButton({
+  caseId,
+  service,
+}: {
+  caseId: string;
+  service: { id: string; name: string; unitPrice: number; quantity: number; discount: number };
+}) {
+  const [open, setOpen] = useState(false);
+  const [state, action, pending] = useActionState<CaseActionState, FormData>(updateCaseService, {});
+  const [name, setName] = useState(service.name);
+  const [price, setPrice] = useState(service.unitPrice);
+  const [qty, setQty] = useState(service.quantity);
+  const [discount, setDiscount] = useState(service.discount);
+  useEffect(() => {
+    if (state.ok) setOpen(false);
+  }, [state.ok]);
+  const finalPrice = Math.max(price * qty - discount, 0);
+  return (
+    <>
+      <button onClick={() => setOpen(true)} className="rounded-md p-1.5 text-slate-300 hover:bg-brand-50 hover:text-brand-600" aria-label="Sửa" title="Sửa">
+        <Pencil className="h-4 w-4" />
+      </button>
+      <Modal open={open} onClose={() => setOpen(false)} title="Sửa dịch vụ" size="lg">
+        <form action={action} className="space-y-4">
+          <input type="hidden" name="id" value={service.id} />
+          <input type="hidden" name="caseId" value={caseId} />
+          <div>
+            <Label htmlFor={`es-name-${service.id}`}>Tên dịch vụ *</Label>
+            <Input id={`es-name-${service.id}`} name="name" value={name} onChange={(e) => setName(e.target.value)} required />
+          </div>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div>
+              <Label>Đơn giá (VND)</Label>
+              <MoneyInput name="unitPrice" value={price} onValueChange={setPrice} />
+            </div>
+            <div>
+              <Label htmlFor={`es-qty-${service.id}`}>Số lượng</Label>
+              <Input id={`es-qty-${service.id}`} name="quantity" type="number" min={1} value={qty} onChange={(e) => setQty(Number(e.target.value))} />
+            </div>
+            <div>
+              <Label>Giảm giá (VND)</Label>
+              <MoneyInput name="discount" value={discount} onValueChange={setDiscount} />
+            </div>
+          </div>
+          <div className="flex items-center justify-between rounded-lg bg-brand-50 px-4 py-2.5">
+            <span className="text-sm text-slate-600">Thành tiền</span>
+            <span className="text-lg font-semibold text-brand-700">{formatVND(finalPrice)}</span>
+          </div>
+          {state.error && <p className="text-sm text-rose-600">{state.error}</p>}
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="secondary" onClick={() => setOpen(false)}>Hủy</Button>
+            <button type="submit" disabled={pending} className={buttonVariants()}>
+              {pending && <LoaderCircle className="h-4 w-4 animate-spin" />} Lưu
+            </button>
+          </div>
+        </form>
+      </Modal>
+    </>
+  );
+}
+
+// ===== Sửa khoản thu =====
+export function EditPaymentButton({
+  caseId,
+  payment,
+}: {
+  caseId: string;
+  payment: { id: string; amount: number; method: string; note: string };
+}) {
+  const [open, setOpen] = useState(false);
+  const [state, action, pending] = useActionState<CaseActionState, FormData>(updatePayment, {});
+  useEffect(() => {
+    if (state.ok) setOpen(false);
+  }, [state.ok]);
+  return (
+    <>
+      <button onClick={() => setOpen(true)} className="text-slate-300 hover:text-brand-600" aria-label="Sửa" title="Sửa">
+        <Pencil className="h-3.5 w-3.5" />
+      </button>
+      <Modal open={open} onClose={() => setOpen(false)} title="Sửa khoản thu">
+        <form action={action} className="space-y-4">
+          <input type="hidden" name="id" value={payment.id} />
+          <input type="hidden" name="caseId" value={caseId} />
+          <div>
+            <Label>Số tiền (VND) *</Label>
+            <MoneyInput name="amount" defaultValue={payment.amount} required autoFocus />
+          </div>
+          <div>
+            <Label htmlFor={`ep-method-${payment.id}`}>Hình thức</Label>
+            <Select id={`ep-method-${payment.id}`} name="method" defaultValue={payment.method}>
+              {Object.entries(PAYMENT_LABEL).map(([k, v]) => (
+                <option key={k} value={k}>{v}</option>
+              ))}
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor={`ep-note-${payment.id}`}>Ghi chú</Label>
+            <Input id={`ep-note-${payment.id}`} name="note" defaultValue={payment.note} />
+          </div>
+          {state.error && <p className="text-sm text-rose-600">{state.error}</p>}
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="secondary" onClick={() => setOpen(false)}>Hủy</Button>
+            <button type="submit" disabled={pending} className={buttonVariants()}>
+              {pending && <LoaderCircle className="h-4 w-4 animate-spin" />} Lưu
+            </button>
+          </div>
+        </form>
+      </Modal>
+    </>
+  );
+}
+
+// ===== Sửa vật tư trong hồ sơ =====
+export function EditMaterialUsageButton({
+  caseId,
+  usage,
+}: {
+  caseId: string;
+  usage: { id: string; name: string; unit: string; quantity: number; note: string };
+}) {
+  const [open, setOpen] = useState(false);
+  const [state, action, pending] = useActionState<CaseActionState, FormData>(updateMaterialUsage, {});
+  useEffect(() => {
+    if (state.ok) setOpen(false);
+  }, [state.ok]);
+  return (
+    <>
+      <button onClick={() => setOpen(true)} className="rounded-md p-1.5 text-slate-300 hover:bg-brand-50 hover:text-brand-600" aria-label="Sửa" title="Sửa">
+        <Pencil className="h-4 w-4" />
+      </button>
+      <Modal open={open} onClose={() => setOpen(false)} title="Sửa vật tư">
+        <form action={action} className="space-y-4">
+          <input type="hidden" name="id" value={usage.id} />
+          <input type="hidden" name="caseId" value={caseId} />
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="sm:col-span-2">
+              <Label htmlFor={`emu-name-${usage.id}`}>Tên vật tư *</Label>
+              <Input id={`emu-name-${usage.id}`} name="name" defaultValue={usage.name} required autoFocus />
+            </div>
+            <div>
+              <Label htmlFor={`emu-qty-${usage.id}`}>Số lượng *</Label>
+              <Input id={`emu-qty-${usage.id}`} name="quantity" type="number" step="0.01" min={0.01} defaultValue={usage.quantity} required />
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div>
+              <Label htmlFor={`emu-unit-${usage.id}`}>Đơn vị</Label>
+              <Input id={`emu-unit-${usage.id}`} name="unit" defaultValue={usage.unit} />
+            </div>
+            <div className="sm:col-span-2">
+              <Label htmlFor={`emu-note-${usage.id}`}>Ghi chú</Label>
+              <Input id={`emu-note-${usage.id}`} name="note" defaultValue={usage.note} />
+            </div>
+          </div>
+          {state.error && <p className="text-sm text-rose-600">{state.error}</p>}
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="secondary" onClick={() => setOpen(false)}>Hủy</Button>
+            <button type="submit" disabled={pending} className={buttonVariants()}>
+              {pending && <LoaderCircle className="h-4 w-4 animate-spin" />} Lưu
             </button>
           </div>
         </form>
