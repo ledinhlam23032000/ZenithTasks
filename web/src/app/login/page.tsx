@@ -64,7 +64,7 @@ export default async function LoginPage() {
           </div>
 
           <p className="mt-8 text-center text-xs leading-relaxed text-slate-400">
-            © {new Date().getFullYear()} Trung tâm Thẩm mỹ Hồng Phúc · Thiết kế: BS. Lê Đình Lam
+            © {new Date().getFullYear()} Trung tâm Phẫu thuật Tạo hình Thẩm mỹ — BVĐK Hồng Phúc · Thiết kế: BS. Lê Đình Lam
             <br />
             Hỗ trợ sự cố:{" "}
             <Link href="tel:0941567496" className="font-medium text-brand-600 hover:text-brand-700">

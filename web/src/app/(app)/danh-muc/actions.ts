@@ -96,3 +96,31 @@ export async function stockIn(formData: FormData): Promise<void> {
   revalidatePath("/danh-muc");
   revalidatePath("/kho");
 }
+
+export async function updateService(_prev: CatalogState, formData: FormData): Promise<CatalogState> {
+  await requireUser([...ROLES]);
+  const id = String(formData.get("id") ?? "");
+  if (!id) return { error: "Thiếu dịch vụ." };
+  const parsed = serviceSchema.safeParse({
+    name: formData.get("name") ?? "",
+    category: formData.get("category") ?? "",
+    defaultPrice: formData.get("defaultPrice") ?? 0,
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu không hợp lệ." };
+  await prisma.service
+    .update({ where: { id }, data: { name: parsed.data.name, category: parsed.data.category || null, defaultPrice: parsed.data.defaultPrice } })
+    .catch(() => {});
+  revalidatePath("/danh-muc");
+  return { ok: true };
+}
+
+export async function updateMaterial(_prev: CatalogState, formData: FormData): Promise<CatalogState> {
+  await requireUser([...ROLES]);
+  const id = String(formData.get("id") ?? "");
+  if (!id) return { error: "Thiếu vật tư." };
+  const parsed = materialSchema.safeParse({ name: formData.get("name") ?? "", unit: formData.get("unit") ?? "cái" });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu không hợp lệ." };
+  await prisma.material.update({ where: { id }, data: { name: parsed.data.name, unit: parsed.data.unit } }).catch(() => {});
+  revalidatePath("/danh-muc");
+  return { ok: true };
+}

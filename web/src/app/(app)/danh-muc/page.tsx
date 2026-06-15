@@ -7,7 +7,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, THead, TH, TR, TD } from "@/components/ui/table";
 import { DeleteButton } from "@/components/ui/delete-button";
-import { NewServiceButton, NewMaterialButton } from "./catalog-forms";
+import { NewServiceButton, NewMaterialButton, EditServiceButton, EditMaterialButton } from "./catalog-forms";
 import { toggleService, toggleMaterial, deleteService, deleteMaterial, stockIn } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -54,6 +54,7 @@ export default async function CatalogPage() {
                     <TD className="text-right font-semibold text-slate-800">{formatVND(s.defaultPrice)}</TD>
                     <TD className="text-right">
                       <div className="flex items-center justify-end gap-1">
+                        <EditServiceButton service={{ id: s.id, name: s.name, category: s.category, defaultPrice: toNum(s.defaultPrice) }} />
                         <form action={toggleService}>
                           <input type="hidden" name="id" value={s.id} />
                           <button className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100" title={s.active ? "Ẩn" : "Hiện"}>
@@ -105,6 +106,7 @@ export default async function CatalogPage() {
                     <TD>{m.active ? <Badge tone="green">Đang dùng</Badge> : <Badge tone="slate">Ẩn</Badge>}</TD>
                     <TD className="text-right">
                       <div className="flex items-center justify-end gap-1">
+                        <EditMaterialButton material={{ id: m.id, name: m.name, unit: m.unit }} />
                         <form action={stockIn} className="flex items-center gap-1">
                           <input type="hidden" name="id" value={m.id} />
                           <input

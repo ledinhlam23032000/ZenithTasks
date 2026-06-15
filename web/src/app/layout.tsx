@@ -13,13 +13,13 @@ const appSans = Be_Vietnam_Pro({
 export const metadata: Metadata = {
   title: {
     default: "Trung tâm Phẫu thuật Tạo hình Thẩm mỹ — Bệnh viện Đa khoa Hồng Phúc",
-    template: "%s · Thẩm mỹ Hồng Phúc",
+    template: "%s · BVĐK Hồng Phúc",
   },
   description:
     "Ứng dụng nội bộ quản trị Trung tâm Phẫu thuật Tạo hình Thẩm mỹ — Bệnh viện Đa khoa Hồng Phúc.",
   robots: { index: false, follow: false },
-  applicationName: "Thẩm mỹ Hồng Phúc",
-  appleWebApp: { capable: true, title: "Thẩm mỹ Hồng Phúc", statusBarStyle: "default" },
+  applicationName: "BVĐK Hồng Phúc",
+  appleWebApp: { capable: true, title: "BVĐK Hồng Phúc", statusBarStyle: "default" },
   icons: { icon: "/icons/icon-192.png", apple: "/icons/apple-touch-icon.png" },
 };
 

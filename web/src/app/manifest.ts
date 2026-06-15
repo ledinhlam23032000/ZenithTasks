@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Quản trị nội bộ — Thẩm mỹ Hồng Phúc",
-    short_name: "Thẩm mỹ HP",
+    name: "Trung tâm Phẫu thuật Tạo hình Thẩm mỹ — BVĐK Hồng Phúc",
+    short_name: "BVĐK Hồng Phúc",
     description: "Ứng dụng nội bộ quản trị Trung tâm Phẫu thuật Tạo hình Thẩm mỹ — BVĐK Hồng Phúc.",
     start_url: "/dashboard",
     scope: "/",
