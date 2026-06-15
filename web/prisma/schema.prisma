@@ -136,6 +136,7 @@ model User {
   stockMovements       StockMovement[]
   attendances          Attendance[]
   payrollEntries       PayrollEntry[]
+  cashTransactions     CashTransaction[]
 }
 
 // ============================ CHẤM CÔNG & LƯƠNG ============================
@@ -444,4 +445,28 @@ model AuditLog {
   at       DateTime @default(now())
 
   @@index([at])
+}
+
+// ============================ SỔ THU CHI (DÒNG TIỀN) ============================
+
+enum CashType {
+  INCOME // Thu
+  EXPENSE // Chi
+}
+
+model CashTransaction {
+  id          String        @id @default(cuid())
+  type        CashType
+  category    String // Mã hạng mục — xem web/src/lib/finance.ts
+  amount      Decimal       @db.Decimal(14, 0)
+  occurredAt  DateTime // Ngày phát sinh thực tế
+  method      PaymentMethod @default(CASH)
+  vendor      String? // Nhà cung cấp / nguồn / đối tác
+  note        String?
+  createdById String?
+  createdBy   User?         @relation(fields: [createdById], references: [id])
+  createdAt   DateTime      @default(now())
+
+  @@index([occurredAt])
+  @@index([type])
 }
