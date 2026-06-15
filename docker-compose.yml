@@ -40,6 +40,10 @@ services:
       # Khi chạy qua tên miền/Cloudflare Tunnel, điền tên miền vào đây (ngăn cách bằng dấu phẩy)
       # để đảm bảo các thao tác lưu/xóa hoạt động sau proxy.
       APP_ORIGINS: "${APP_ORIGINS:-trungtamphauthuattaohinhvathammybenhviendakhoahongphuc.xyz,www.trungtamphauthuattaohinhvathammybenhviendakhoahongphuc.xyz}"
+      # AI soạn/nhắn tin (Claude). Tạo key ở console.anthropic.com rồi điền vào .env.
+      # Để trống = tính năng AI tự ẩn.
+      ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:-}"
+      ANTHROPIC_MODEL: "${ANTHROPIC_MODEL:-}"
     ports:
       - "3000:3000"
     volumes:

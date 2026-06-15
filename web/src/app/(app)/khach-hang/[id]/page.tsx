@@ -19,6 +19,7 @@ import { differenceInYears, format } from "date-fns";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { maskPhone, decryptPhone } from "@/lib/phone";
+import { aiConfigured } from "@/lib/ai";
 import { toNum, formatVND } from "@/lib/money";
 import { fmtDate, fmtDateTime, fmtRelative } from "@/lib/format";
 import {
@@ -254,7 +255,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4 pt-0">
-              {canCare && <CareComposer customerId={customer.id} />}
+              {canCare && <CareComposer customerId={customer.id} aiEnabled={aiConfigured()} />}
               {customer.careMessages.length === 0 ? (
                 <p className="text-sm text-slate-400">Chưa có lịch sử chăm sóc.</p>
               ) : (

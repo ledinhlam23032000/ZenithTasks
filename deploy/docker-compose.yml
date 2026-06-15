@@ -34,6 +34,8 @@ services:
       APP_NAME: "Trung tâm Phẫu thuật Tạo hình Thẩm mỹ — BVĐK Hồng Phúc"
       TZ: "Asia/Ho_Chi_Minh"
       APP_ORIGINS: "${APP_ORIGINS:-trungtamphauthuattaohinhvathammybenhviendakhoahongphuc.xyz,www.trungtamphauthuattaohinhvathammybenhviendakhoahongphuc.xyz}"
+      ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:-}"
+      ANTHROPIC_MODEL: "${ANTHROPIC_MODEL:-}"
     volumes:
       - zenith_uploads:/app/public/uploads
       - zenith_secrets:/app/.runtime
