@@ -13,12 +13,16 @@ $cf=(Get-Command cloudflared -ErrorAction SilentlyContinue).Source
 if(-not $cf){$cf='cloudflared'}
 Write-Host ''
 Write-Host 'Mo Cloudflare > Zero Trust > Networks > Tunnels, tao 1 tunnel,' -ForegroundColor Yellow
-Write-Host 'chon Windows, COPY chuoi TOKEN (phan sau "service install").' -ForegroundColor Yellow
+Write-Host 'chon Windows. Co the COPY ca dong lenh hoac chi chuoi TOKEN (bat dau bang eyJ...).' -ForegroundColor Yellow
 Write-Host ''
-$token=Read-Host 'Dan TOKEN vao day roi Enter'
+$raw=Read-Host 'Dan TOKEN (hoac ca dong lenh) vao day roi Enter'
+$token=$raw.Trim()
+# Neu dan ca cau lenh "cloudflared ... service install <token>" thi chi lay phan token
+if($token -match 'service\s+install\s+(.+)$'){$token=$Matches[1].Trim()}
+$token=$token.Trim('"').Trim("'").Trim()
 if([string]::IsNullOrWhiteSpace($token)){Write-Host 'Chua co token. Thoat.' -ForegroundColor Red;Read-Host 'Nhan Enter';exit}
 & $cf service uninstall *>$null 2>$null
-& $cf service install $token.Trim()
+& $cf service install $token
 Write-Host ''
 Write-Host '================ DA CAI DICH VU ================' -ForegroundColor Green
 Write-Host ' Tunnel chay NEN 24/7 (ke ca khi dong cua so nay).' -ForegroundColor Green
