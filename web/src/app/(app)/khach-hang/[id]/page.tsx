@@ -41,6 +41,7 @@ import { receiveCustomer } from "../../tiep-nhan/actions";
 import { deleteCustomer } from "../actions";
 import { deleteCareMessage } from "../../cham-soc/actions";
 import { EditCustomerButton } from "../edit-customer";
+import { AdminPhone } from "./admin-phone";
 import { CareComposer } from "../../cham-soc/care-composer";
 import { PhotoTypeLabel } from "../../ho-so/[id]/photo-label";
 
@@ -107,13 +108,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
             <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-sm text-slate-600">
               <span className="inline-flex items-center gap-1.5">
                 <ShieldCheck className="h-4 w-4 text-brand-500" />
-                {fullPhone ? (
-                  <span className="font-medium text-slate-800" title="Số đầy đủ — chỉ quản trị viên xem được">
-                    {fullPhone}
-                  </span>
-                ) : (
-                  maskPhone(customer.phoneLast5)
-                )}
+                {fullPhone ? <AdminPhone phone={fullPhone} /> : maskPhone(customer.phoneLast5)}
               </span>
               <span>{customer.gender ? GENDER_LABEL[customer.gender] : "—"}</span>
               {customer.dob && (
