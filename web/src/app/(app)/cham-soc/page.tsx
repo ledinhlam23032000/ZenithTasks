@@ -16,19 +16,20 @@ import { buttonVariants } from "@/components/ui/button";
 import { DeleteButton } from "@/components/ui/delete-button";
 import { EditCareButton } from "./care-actions";
 import { deleteCareMessage } from "./actions";
-import type { Prisma } from "@/generated/prisma/client";
+import type { Prisma, CareChannel } from "@/generated/prisma/client";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Chăm sóc khách hàng" };
 
-export default async function CarePage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
+export default async function CarePage({ searchParams }: { searchParams: Promise<{ q?: string; kenh?: string }> }) {
   await requireUser(["ADMIN", "MANAGER", "CARE"]);
   const sp = await searchParams;
   const q = (sp.q ?? "").trim();
+  const kenh = (sp.kenh ?? "").trim();
 
-  const where: Prisma.CareMessageWhereInput = q
-    ? { customer: isValidLast5(q) ? { phoneLast5: q } : { fullName: { contains: q, mode: "insensitive" } } }
-    : {};
+  const where: Prisma.CareMessageWhereInput = {};
+  if (q) where.customer = isValidLast5(q) ? { phoneLast5: q } : { fullName: { contains: q, mode: "insensitive" } };
+  if (kenh && kenh in CARE_CHANNEL) where.channel = kenh as CareChannel;
 
   const [messages, todayCount, weekCount] = await Promise.all([
     prisma.careMessage.findMany({
@@ -70,6 +71,16 @@ export default async function CarePage({ searchParams }: { searchParams: Promise
                 className="h-10 w-full rounded-lg border border-slate-200 pl-9 pr-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
               />
             </div>
+            <select
+              name="kenh"
+              defaultValue={kenh}
+              className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-brand-500"
+            >
+              <option value="">Tất cả kênh</option>
+              {Object.entries(CARE_CHANNEL).map(([k, v]) => (
+                <option key={k} value={k}>{v.label}</option>
+              ))}
+            </select>
             <button className={buttonVariants({ variant: "secondary" })}>Lọc</button>
           </form>
         </div>
