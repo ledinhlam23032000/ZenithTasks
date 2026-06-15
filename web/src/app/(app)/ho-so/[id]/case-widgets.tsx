@@ -5,6 +5,7 @@ import { Plus, LoaderCircle, CheckCircle2, Wallet, Package, Camera, CalendarPlus
 import { Modal } from "@/components/ui/modal";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/field";
+import { MoneyInput } from "@/components/ui/money-input";
 import { formatVND } from "@/lib/money";
 import { CASE_STATUS, CONSULT_RESULT, PAYMENT_LABEL } from "@/lib/status";
 import {
@@ -182,7 +183,7 @@ function ServiceForm({ caseId, services, onDone }: { caseId: string; services: S
       <div className="grid gap-4 sm:grid-cols-3">
         <div>
           <Label htmlFor="unitPrice">Đơn giá (VND)</Label>
-          <Input id="unitPrice" name="unitPrice" type="number" min={0} value={price} onChange={(e) => setPrice(Number(e.target.value))} />
+          <MoneyInput id="unitPrice" name="unitPrice" value={price} onValueChange={setPrice} />
         </div>
         <div>
           <Label htmlFor="quantity">Số lượng</Label>
@@ -190,7 +191,7 @@ function ServiceForm({ caseId, services, onDone }: { caseId: string; services: S
         </div>
         <div>
           <Label htmlFor="discount">Giảm giá (VND)</Label>
-          <Input id="discount" name="discount" type="number" min={0} value={discount} onChange={(e) => setDiscount(Number(e.target.value))} />
+          <MoneyInput id="discount" name="discount" value={discount} onValueChange={setDiscount} />
         </div>
       </div>
       <div className="flex items-center justify-between rounded-lg bg-brand-50 px-4 py-2.5">
@@ -225,7 +226,7 @@ export function AddPaymentButton({ caseId, debt }: { caseId: string; debt: numbe
           <input type="hidden" name="caseId" value={caseId} />
           <div>
             <Label htmlFor="amount">Số tiền (VND) *</Label>
-            <Input id="amount" name="amount" type="number" min={1} defaultValue={debt > 0 ? debt : ""} placeholder="0" required autoFocus />
+            <MoneyInput id="amount" name="amount" defaultValue={debt > 0 ? debt : 0} required autoFocus />
             {debt > 0 && <p className="mt-1 text-xs text-slate-400">Công nợ hiện tại: {formatVND(debt)}</p>}
           </div>
           <div>

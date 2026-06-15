@@ -1,22 +1,24 @@
-# Zenith Clinic — chạy toàn bộ hệ thống (web + PostgreSQL) bằng 1 lệnh:
+# Trung tâm Phẫu thuật Tạo hình Thẩm mỹ — BVĐK Hồng Phúc
+# Chạy toàn bộ hệ thống (web + PostgreSQL) bằng 1 lệnh:
 #   docker compose up --build
-# Sau đó mở http://localhost:3000  (đăng nhập: admin / 123456)
+# Sau đó mở http://localhost:3000  (đăng nhập lần đầu: admin / 123456 — ĐỔI NGAY)
 #
-# ⚠️  Khoá bí mật dưới đây chỉ dùng cho DEMO. Hãy đổi AUTH_SECRET và
-#     PHONE_ENC_KEY trước khi chạy thật (xem web/DEPLOY.md).
+# 🔐 BẢO MẬT: AUTH_SECRET được tạo NGẪU NHIÊN tự động và lưu trong volume an toàn
+#    (không nằm trong mã nguồn). Muốn tự đặt khoá riêng, tạo file .env cạnh file này
+#    (xem .env.example). Đổi PHONE_ENC_KEY cần mã hoá lại dữ liệu SĐT — xem web/DEPLOY.md.
 
 services:
   db:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_USER: zenith
-      POSTGRES_PASSWORD: zenith_dev_pw
-      POSTGRES_DB: zenith_clinic
+      POSTGRES_USER: "${POSTGRES_USER:-zenith}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-zenith_dev_pw}"
+      POSTGRES_DB: "${POSTGRES_DB:-zenith_clinic}"
     volumes:
       - zenith_db:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U zenith -d zenith_clinic"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-zenith} -d ${POSTGRES_DB:-zenith_clinic}"]
       interval: 5s
       timeout: 5s
       retries: 12
@@ -28,19 +30,23 @@ services:
       db:
         condition: service_healthy
     environment:
-      DATABASE_URL: "postgresql://zenith:zenith_dev_pw@db:5432/zenith_clinic?schema=public"
-      AUTH_SECRET: "A63K8EjWA1sFCamrTWOEFEiifKx6jwoPm3+vmNA1eErg73ba1YS7DKvPMOZvlcpm"
-      PHONE_ENC_KEY: "QKuRqi5MjrXaJ6Dv5XwMQCD/0Dmyvc2TuTUEBf8nGM8="
-      APP_NAME: "Thẩm mỹ Hồng Phúc"
+      DATABASE_URL: "${DATABASE_URL:-postgresql://zenith:zenith_dev_pw@db:5432/zenith_clinic?schema=public}"
+      # Để trống = container tự sinh/đọc khoá trong volume (an toàn, không lộ trong Git).
+      # Muốn tự đặt: khai báo trong file .env cạnh docker-compose.yml.
+      AUTH_SECRET: "${AUTH_SECRET:-}"
+      PHONE_ENC_KEY: "${PHONE_ENC_KEY:-}"
+      APP_NAME: "${APP_NAME:-Trung tâm Phẫu thuật Tạo hình Thẩm mỹ — BVĐK Hồng Phúc}"
       TZ: "Asia/Ho_Chi_Minh"
       # Khi chạy qua tên miền/Cloudflare Tunnel, điền tên miền vào đây (ngăn cách bằng dấu phẩy)
       # để đảm bảo các thao tác lưu/xóa hoạt động sau proxy. VD: "app.phongkham.com"
-      APP_ORIGINS: ""
+      APP_ORIGINS: "${APP_ORIGINS:-}"
     ports:
       - "3000:3000"
     volumes:
       - zenith_uploads:/app/public/uploads
+      - zenith_secrets:/app/.runtime
 
 volumes:
   zenith_db:
   zenith_uploads:
+  zenith_secrets:

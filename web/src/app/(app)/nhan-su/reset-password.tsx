@@ -37,7 +37,7 @@ export function ResetPasswordButton({ userId, name }: { userId: string; name: st
             <input type="hidden" name="userId" value={userId} />
             <div>
               <Label htmlFor={`rp-${userId}`}>Mật khẩu mới</Label>
-              <Input id={`rp-${userId}`} name="next" type="text" placeholder="Tối thiểu 6 ký tự" required autoFocus />
+              <Input id={`rp-${userId}`} name="next" type="text" placeholder="Tối thiểu 8 ký tự" required autoFocus />
             </div>
             {state.error && <p className="text-sm text-rose-600">{state.error}</p>}
             <div className="flex justify-end gap-2">

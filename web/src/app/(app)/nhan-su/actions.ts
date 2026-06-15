@@ -15,7 +15,7 @@ const schema = z.object({
     .min(3, "Tên đăng nhập tối thiểu 3 ký tự.")
     .regex(/^[a-z0-9_.]+$/i, "Tên đăng nhập chỉ gồm chữ, số, dấu chấm hoặc gạch dưới."),
   role: z.enum(["ADMIN", "MANAGER", "TELESALE", "RECEPTION", "CONSULTANT", "DOCTOR", "NURSE", "CARE"]),
-  password: z.string().min(6, "Mật khẩu tối thiểu 6 ký tự."),
+  password: z.string().min(8, "Mật khẩu tối thiểu 8 ký tự."),
   phone: z.string().trim().optional(),
 });
 

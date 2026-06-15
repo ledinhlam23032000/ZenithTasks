@@ -23,7 +23,17 @@ function hashName(name: string): number {
   return h;
 }
 
-export function Avatar({ name, className }: { name: string; className?: string }) {
+export function Avatar({ name, src, className }: { name: string; src?: string | null; className?: string }) {
+  if (src) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return (
+      <img
+        src={src}
+        alt={name}
+        className={cn("inline-block shrink-0 rounded-full object-cover", "h-9 w-9", className)}
+      />
+    );
+  }
   const tone = palette[hashName(name) % palette.length];
   return (
     <span

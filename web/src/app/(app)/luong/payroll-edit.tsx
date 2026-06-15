@@ -6,6 +6,7 @@ import { Pencil, LoaderCircle } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/field";
+import { MoneyInput } from "@/components/ui/money-input";
 import { savePayroll } from "./actions";
 
 type Row = { id: string; name: string; role: string; baseFull: number; bonus: number; adjustment: number; nurseCases: number };
@@ -39,12 +40,12 @@ export function PayrollEditButton({ row, month }: { row: Row; month: string }) {
           <input type="hidden" name="month" value={month} />
           <div>
             <Label htmlFor="baseSalary">Lương cứng (VND / tháng)</Label>
-            <Input id="baseSalary" name="baseSalary" type="number" min={0} step={100000} defaultValue={row.baseFull} />
+            <MoneyInput id="baseSalary" name="baseSalary" defaultValue={row.baseFull} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label htmlFor="bonus">Thưởng nóng</Label>
-              <Input id="bonus" name="bonus" type="number" min={0} step={50000} defaultValue={row.bonus} />
+              <MoneyInput id="bonus" name="bonus" defaultValue={row.bonus} />
             </div>
             <div>
               <Label htmlFor="adjustment">Điều chỉnh (+/-)</Label>

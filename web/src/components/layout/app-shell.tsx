@@ -8,6 +8,7 @@ import {
   X,
   LogOut,
   KeyRound,
+  UserCog,
   ChevronDown,
   LayoutDashboard,
   CalendarClock,
@@ -46,7 +47,7 @@ const ICONS: Record<string, LucideIcon> = {
 };
 
 export type NavItemData = { href: string; label: string; icon: string };
-export type ShellUser = { fullName: string; roleLabel: string; username: string };
+export type ShellUser = { fullName: string; roleLabel: string; username: string; avatarUrl?: string | null };
 
 export function AppShell({
   user,
@@ -142,7 +143,7 @@ export function AppShell({
                 onClick={() => setMenuOpen((o) => !o)}
                 className="flex items-center gap-2.5 rounded-xl py-1.5 pl-1.5 pr-2.5 text-left hover:bg-slate-100"
               >
-                <Avatar name={user.fullName} />
+                <Avatar name={user.fullName} src={user.avatarUrl} />
                 <span className="hidden leading-tight sm:block">
                   <span className="block text-sm font-medium text-slate-800">{user.fullName}</span>
                   <span className="block text-xs text-slate-400">{user.roleLabel}</span>
@@ -159,6 +160,13 @@ export function AppShell({
                       <p className="text-xs text-slate-400">@{user.username} · {user.roleLabel}</p>
                     </div>
                     <div className="my-1 h-px bg-slate-100" />
+                    <Link
+                      href="/tai-khoan"
+                      onClick={() => setMenuOpen(false)}
+                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-100"
+                    >
+                      <UserCog className="h-4 w-4" /> Thông tin cá nhân
+                    </Link>
                     <button
                       onClick={() => {
                         setMenuOpen(false);

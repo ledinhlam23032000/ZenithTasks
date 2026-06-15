@@ -13,6 +13,9 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { EmptyState } from "@/components/ui/empty-state";
 import { buttonVariants } from "@/components/ui/button";
+import { DeleteButton } from "@/components/ui/delete-button";
+import { EditCareButton } from "./care-actions";
+import { deleteCareMessage } from "./actions";
 import type { Prisma } from "@/generated/prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -102,6 +105,16 @@ export default async function CarePage({ searchParams }: { searchParams: Promise
                       <p className="mt-1 text-xs text-slate-400" title={fmtDateTime(m.createdAt)}>
                         {m.createdBy?.fullName ?? "Hệ thống"} · {fmtRelative(m.createdAt)}
                       </p>
+                    </div>
+                    <div className="flex shrink-0 items-start gap-0.5">
+                      <EditCareButton message={{ id: m.id, channel: m.channel, direction: m.direction, content: m.content }} />
+                      <DeleteButton
+                        action={deleteCareMessage}
+                        id={m.id}
+                        label=""
+                        confirmText={`Xóa tin chăm sóc của ${m.customer.fullName}?`}
+                        className="rounded-md p-1.5 text-slate-300 hover:bg-rose-50 hover:text-rose-500"
+                      />
                     </div>
                   </li>
                 );

@@ -29,11 +29,12 @@ export type SafeUser = {
   username: string;
   role: Role;
   phone: string | null;
+  avatarUrl: string | null;
   active: boolean;
 };
 
 export async function hashPassword(plain: string): Promise<string> {
-  return bcrypt.hash(plain, 10);
+  return bcrypt.hash(plain, 12);
 }
 
 export async function verifyPassword(plain: string, hash: string): Promise<boolean> {
@@ -93,6 +94,7 @@ export const getCurrentUser = cache(async (): Promise<SafeUser | null> => {
       username: true,
       role: true,
       phone: true,
+      avatarUrl: true,
       active: true,
     },
   });

@@ -273,7 +273,8 @@ export async function removeMaterial(formData: FormData): Promise<void> {
 }
 
 // ---- Tải ảnh trước / sau / tái khám ----
-const ALLOWED_IMG = ["image/jpeg", "image/png", "image/webp", "image/svg+xml", "image/heic"];
+// KHÔNG nhận SVG (có thể chứa mã độc) — chỉ ảnh bitmap an toàn.
+const ALLOWED_IMG = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
 
 export async function uploadPhoto(_prev: CaseActionState, formData: FormData): Promise<CaseActionState> {
   const user = await requireUser([...CLINICAL]);
@@ -288,9 +289,12 @@ export async function uploadPhoto(_prev: CaseActionState, formData: FormData): P
   if (!caseId || !customerId) return { error: "Thiếu thông tin hồ sơ." };
   if (!(file instanceof File) || file.size === 0) return { error: "Vui lòng chọn ảnh." };
   if (file.size > 8 * 1024 * 1024) return { error: "Ảnh tối đa 8MB." };
-  if (file.type && !ALLOWED_IMG.includes(file.type)) return { error: "Định dạng ảnh không hỗ trợ." };
+  // Bắt buộc đúng định dạng ảnh (không cho phép thiếu/giả mạo kiểu tệp).
+  if (!ALLOWED_IMG.includes(file.type)) return { error: "Định dạng ảnh không hỗ trợ (chỉ JPG, PNG, WEBP, HEIC)." };
+  const ALLOWED_EXT = ["jpg", "jpeg", "png", "webp", "heic", "heif"];
 
-  const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
+  const rawExt = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
+  const ext = ALLOWED_EXT.includes(rawExt) ? rawExt : "jpg";
   const fname = `${caseId}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}.${ext}`;
   const dir = path.join(process.cwd(), "public", "uploads");
   await fs.mkdir(dir, { recursive: true });

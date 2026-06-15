@@ -362,3 +362,8 @@ MigrationBackup/
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
 ThamMyHongPhuc-MayCon.zip
+
+# Biến môi trường / khoá bí mật — KHÔNG đưa lên Git
+.env
+.env.*
+!.env.example

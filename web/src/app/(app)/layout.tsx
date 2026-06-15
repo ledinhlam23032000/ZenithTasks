@@ -8,7 +8,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <AppShell
-      user={{ fullName: user.fullName, roleLabel: ROLE_LABELS[user.role], username: user.username }}
+      user={{ fullName: user.fullName, roleLabel: ROLE_LABELS[user.role], username: user.username, avatarUrl: user.avatarUrl }}
       nav={nav}
     >
       {children}

@@ -80,6 +80,66 @@ export async function createAppointment(_prev: ApptFormState, formData: FormData
   return { ok: true };
 }
 
+const ALLOWED_EDIT = ["ADMIN", "MANAGER"] as const;
+
+/** Sửa toàn bộ thông tin lịch hẹn (quản trị / quản lý). */
+export async function updateAppointment(_prev: ApptFormState, formData: FormData): Promise<ApptFormState> {
+  await requireUser([...ALLOWED_EDIT]);
+
+  const id = String(formData.get("id") ?? "");
+  if (!id) return { error: "Thiếu mã lịch hẹn." };
+
+  const parsed = schema.safeParse({
+    guestName: formData.get("guestName") ?? "",
+    phoneLast5: formData.get("phoneLast5") ?? "",
+    scheduledAt: formData.get("scheduledAt") ?? "",
+    type: formData.get("type") ?? "NEW",
+    serviceInterest: formData.get("serviceInterest") ?? "",
+    source: formData.get("source") ?? "OTHER",
+    sourceDetail: formData.get("sourceDetail") ?? "",
+    consultantId: formData.get("consultantId") ?? "",
+    note: formData.get("note") ?? "",
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Dữ liệu không hợp lệ." };
+  }
+  const data = parsed.data;
+
+  const when = new Date(data.scheduledAt);
+  if (Number.isNaN(when.getTime())) return { error: "Ngày giờ hẹn không hợp lệ." };
+
+  // Nếu 5 số cuối khớp duy nhất một khách → liên kết lại hồ sơ (không tự gỡ liên kết cũ).
+  let customerId: string | undefined;
+  if (data.phoneLast5) {
+    const matches = await prisma.customer.findMany({
+      where: { phoneLast5: data.phoneLast5 },
+      select: { id: true },
+      take: 2,
+    });
+    if (matches.length === 1) customerId = matches[0].id;
+  }
+
+  await prisma.appointment.update({
+    where: { id },
+    data: {
+      guestName: data.guestName,
+      phoneLast5: data.phoneLast5 || null,
+      scheduledAt: when,
+      type: data.type,
+      serviceInterest: data.serviceInterest || null,
+      source: data.source,
+      sourceDetail: data.sourceDetail || null,
+      consultantId: data.consultantId || null,
+      note: data.note || null,
+      ...(customerId ? { customerId } : {}),
+    },
+  });
+
+  revalidatePath("/lich-hen");
+  revalidatePath("/dashboard");
+  return { ok: true };
+}
+
 const STATUS_VALUES: AppointmentStatus[] = [
   "BOOKED",
   "CONFIRMED",
@@ -92,7 +152,9 @@ const STATUS_VALUES: AppointmentStatus[] = [
 ];
 
 export async function updateAppointmentStatus(formData: FormData): Promise<void> {
-  await requireUser();
+  // Chỉ các vai trò có quyền với lịch hẹn mới được đổi trạng thái (tránh người
+  // dùng vai trò khác đổi trạng thái lịch của bất kỳ ai qua ID).
+  await requireUser(["ADMIN", "MANAGER", "TELESALE", "RECEPTION", "CONSULTANT", "NURSE"]);
   const id = String(formData.get("id") ?? "");
   const status = String(formData.get("status") ?? "") as AppointmentStatus;
   if (!id || !STATUS_VALUES.includes(status)) return;

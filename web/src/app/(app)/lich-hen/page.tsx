@@ -17,7 +17,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Avatar } from "@/components/ui/avatar";
 import { buttonVariants } from "@/components/ui/button";
 import { DeleteButton } from "@/components/ui/delete-button";
-import { NewAppointmentButton } from "./new-appointment";
+import { NewAppointmentButton, EditAppointmentButton } from "./new-appointment";
 import { AppointmentStatusControl } from "./appointment-status";
 import { deleteAppointment } from "./actions";
 import { MonthCalendar } from "./month-calendar";
@@ -250,13 +250,31 @@ export default async function AppointmentsPage({
                       </TD>
                       {canDelete && (
                         <TD className="text-right">
-                          <DeleteButton
-                            action={deleteAppointment}
-                            id={a.id}
-                            label=""
-                            confirmText={`Xóa lịch hẹn của ${name}? (Lịch thường nên đổi trạng thái "Hủy" thay vì xóa.)`}
-                            className="rounded-md p-1.5 text-slate-300 hover:bg-rose-50 hover:text-rose-500"
-                          />
+                          <div className="flex items-center justify-end gap-0.5">
+                            <EditAppointmentButton
+                              appointment={{
+                                id: a.id,
+                                guestName: a.guestName ?? a.customer?.fullName ?? "",
+                                phoneLast5: a.phoneLast5 ?? a.customer?.phoneLast5 ?? "",
+                                scheduledAt: toDatetimeLocal(a.scheduledAt),
+                                type: a.type,
+                                serviceInterest: a.serviceInterest ?? "",
+                                source: a.source,
+                                sourceDetail: a.sourceDetail ?? "",
+                                consultantId: a.consultantId ?? "",
+                                note: a.note ?? "",
+                              }}
+                              services={services.map((s) => ({ id: s.id, name: s.name }))}
+                              consultants={consultants}
+                            />
+                            <DeleteButton
+                              action={deleteAppointment}
+                              id={a.id}
+                              label=""
+                              confirmText={`Xóa lịch hẹn của ${name}? (Lịch thường nên đổi trạng thái "Hủy" thay vì xóa.)`}
+                              className="rounded-md p-1.5 text-slate-300 hover:bg-rose-50 hover:text-rose-500"
+                            />
+                          </div>
                         </TD>
                       )}
                     </TR>

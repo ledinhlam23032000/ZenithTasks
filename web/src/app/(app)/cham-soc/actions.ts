@@ -47,6 +47,38 @@ export async function addCareMessage(_prev: CareFormState, formData: FormData): 
   return { ok: true, nonce: Date.now() };
 }
 
+const editSchema = z.object({
+  id: z.string().min(1),
+  channel: z.enum(["NOTE", "ZALO", "SMS", "CALL", "EMAIL", "OTHER"]),
+  direction: z.enum(["OUT", "IN"]).default("OUT"),
+  content: z.string().trim().min(1, "Vui lòng nhập nội dung."),
+});
+
+export async function updateCareMessage(_prev: CareFormState, formData: FormData): Promise<CareFormState> {
+  await requireUser(["ADMIN", "MANAGER", "CARE"]);
+
+  const parsed = editSchema.safeParse({
+    id: formData.get("id") ?? "",
+    channel: formData.get("channel") ?? "ZALO",
+    direction: formData.get("direction") ?? "OUT",
+    content: formData.get("content") ?? "",
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Dữ liệu không hợp lệ." };
+  }
+  const { id, channel, direction, content } = parsed.data;
+
+  const m = await prisma.careMessage.update({
+    where: { id },
+    data: { channel, direction, content },
+    select: { customerId: true },
+  });
+
+  if (m.customerId) revalidatePath(`/khach-hang/${m.customerId}`);
+  revalidatePath("/cham-soc");
+  return { ok: true, nonce: Date.now() };
+}
+
 export async function deleteCareMessage(formData: FormData): Promise<void> {
   await requireUser(["ADMIN", "MANAGER", "CARE"]);
   const id = String(formData.get("id") ?? "");

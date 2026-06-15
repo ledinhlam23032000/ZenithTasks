@@ -2,22 +2,36 @@
 
 import { useEffect, useState } from "react";
 import { useActionState } from "react";
-import { Plus, LoaderCircle, ShieldCheck } from "lucide-react";
+import { Plus, Pencil, LoaderCircle, ShieldCheck } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input, Label, Select, Textarea, FieldHint } from "@/components/ui/field";
 import { APPT_TYPE, SOURCE_LABEL } from "@/lib/status";
-import { createAppointment, type ApptFormState } from "./actions";
+import { createAppointment, updateAppointment, type ApptFormState } from "./actions";
 
-type Opt = { id: string; name?: string; fullName?: string };
+type ServiceOpt = { id: string; name: string };
+type ConsultantOpt = { id: string; fullName: string };
+
+export type EditableAppointment = {
+  id: string;
+  guestName: string;
+  phoneLast5: string;
+  scheduledAt: string; // datetime-local
+  type: string;
+  serviceInterest: string;
+  source: string;
+  sourceDetail: string;
+  consultantId: string;
+  note: string;
+};
 
 export function NewAppointmentButton({
   services,
   consultants,
   defaultDateTime,
 }: {
-  services: { id: string; name: string }[];
-  consultants: { id: string; fullName: string }[];
+  services: ServiceOpt[];
+  consultants: ConsultantOpt[];
   defaultDateTime: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -38,18 +52,58 @@ export function NewAppointmentButton({
   );
 }
 
+export function EditAppointmentButton({
+  appointment,
+  services,
+  consultants,
+}: {
+  appointment: EditableAppointment;
+  services: ServiceOpt[];
+  consultants: ConsultantOpt[];
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        aria-label="Sửa lịch hẹn"
+        title="Sửa lịch hẹn"
+        className="rounded-md p-1.5 text-slate-300 hover:bg-brand-50 hover:text-brand-600"
+      >
+        <Pencil className="h-3.5 w-3.5" />
+      </button>
+      <Modal open={open} onClose={() => setOpen(false)} title="Sửa lịch hẹn" size="lg">
+        <AppointmentForm
+          services={services}
+          consultants={consultants}
+          defaultDateTime={appointment.scheduledAt}
+          appointment={appointment}
+          onSuccess={() => setOpen(false)}
+        />
+      </Modal>
+    </>
+  );
+}
+
 function AppointmentForm({
   services,
   consultants,
   defaultDateTime,
+  appointment,
   onSuccess,
 }: {
-  services: { id: string; name: string }[];
-  consultants: { id: string; fullName: string }[];
+  services: ServiceOpt[];
+  consultants: ConsultantOpt[];
   defaultDateTime: string;
+  appointment?: EditableAppointment;
   onSuccess: () => void;
 }) {
-  const [state, action, pending] = useActionState<ApptFormState, FormData>(createAppointment, {});
+  const isEdit = !!appointment;
+  const [state, action, pending] = useActionState<ApptFormState, FormData>(
+    isEdit ? updateAppointment : createAppointment,
+    {},
+  );
 
   useEffect(() => {
     if (state.ok) onSuccess();
@@ -57,14 +111,15 @@ function AppointmentForm({
 
   return (
     <form action={action} className="space-y-4">
+      {isEdit && <input type="hidden" name="id" value={appointment.id} />}
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <Label htmlFor="guestName">Tên khách *</Label>
-          <Input id="guestName" name="guestName" placeholder="Nguyễn Thị A" required />
+          <Input id="guestName" name="guestName" placeholder="Nguyễn Thị A" defaultValue={appointment?.guestName ?? ""} required />
         </div>
         <div>
           <Label htmlFor="phoneLast5">5 số cuối điện thoại</Label>
-          <Input id="phoneLast5" name="phoneLast5" inputMode="numeric" maxLength={5} placeholder="12345" />
+          <Input id="phoneLast5" name="phoneLast5" inputMode="numeric" maxLength={5} placeholder="12345" defaultValue={appointment?.phoneLast5 ?? ""} />
           <FieldHint>
             <span className="inline-flex items-center gap-1">
               <ShieldCheck className="h-3 w-3" /> Số điện thoại được bảo mật, chỉ lưu 5 số cuối để tra cứu.
@@ -80,7 +135,7 @@ function AppointmentForm({
         </div>
         <div>
           <Label htmlFor="type">Loại lịch</Label>
-          <Select id="type" name="type" defaultValue="NEW">
+          <Select id="type" name="type" defaultValue={appointment?.type ?? "NEW"}>
             {Object.entries(APPT_TYPE).map(([k, v]) => (
               <option key={k} value={k}>
                 {v.label}
@@ -92,8 +147,11 @@ function AppointmentForm({
 
       <div>
         <Label htmlFor="serviceInterest">Dịch vụ khách quan tâm</Label>
-        <Select id="serviceInterest" name="serviceInterest" defaultValue="">
+        <Select id="serviceInterest" name="serviceInterest" defaultValue={appointment?.serviceInterest ?? ""}>
           <option value="">— Chưa xác định —</option>
+          {appointment?.serviceInterest && !services.some((s) => s.name === appointment.serviceInterest) && (
+            <option value={appointment.serviceInterest}>{appointment.serviceInterest}</option>
+          )}
           {services.map((s) => (
             <option key={s.id} value={s.name}>
               {s.name}
@@ -105,7 +163,7 @@ function AppointmentForm({
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <Label htmlFor="source">Nguồn khách</Label>
-          <Select id="source" name="source" defaultValue="MARKETING">
+          <Select id="source" name="source" defaultValue={appointment?.source ?? "MARKETING"}>
             {Object.entries(SOURCE_LABEL).map(([k, v]) => (
               <option key={k} value={k}>
                 {v}
@@ -115,13 +173,13 @@ function AppointmentForm({
         </div>
         <div>
           <Label htmlFor="sourceDetail">Chi tiết nguồn</Label>
-          <Input id="sourceDetail" name="sourceDetail" placeholder="VD: CTV Ngọc Hân, chiến dịch Hè…" />
+          <Input id="sourceDetail" name="sourceDetail" placeholder="VD: CTV Ngọc Hân, chiến dịch Hè…" defaultValue={appointment?.sourceDetail ?? ""} />
         </div>
       </div>
 
       <div>
         <Label htmlFor="consultantId">Tư vấn viên phụ trách (nếu có)</Label>
-        <Select id="consultantId" name="consultantId" defaultValue="">
+        <Select id="consultantId" name="consultantId" defaultValue={appointment?.consultantId ?? ""}>
           <option value="">— Chưa phân công —</option>
           {consultants.map((c) => (
             <option key={c.id} value={c.id}>
@@ -133,7 +191,7 @@ function AppointmentForm({
 
       <div>
         <Label htmlFor="note">Ghi chú</Label>
-        <Textarea id="note" name="note" placeholder="Yêu cầu đặc biệt của khách…" />
+        <Textarea id="note" name="note" placeholder="Yêu cầu đặc biệt của khách…" defaultValue={appointment?.note ?? ""} />
       </div>
 
       {state.error && (
@@ -146,7 +204,7 @@ function AppointmentForm({
         </Button>
         <button type="submit" disabled={pending} className={buttonVariants()}>
           {pending && <LoaderCircle className="h-4 w-4 animate-spin" />}
-          {pending ? "Đang lưu…" : "Lưu lịch hẹn"}
+          {pending ? "Đang lưu…" : isEdit ? "Lưu thay đổi" : "Lưu lịch hẹn"}
         </button>
       </div>
     </form>

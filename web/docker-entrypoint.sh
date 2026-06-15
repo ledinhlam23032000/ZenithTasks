@@ -2,6 +2,34 @@
 # Khởi động container: chờ DB, chạy migration, nạp dữ liệu mẫu lần đầu, rồi start app.
 set -e
 
+# ---------------------------------------------------------------------------
+# KHOÁ BÍ MẬT — tự sinh & lưu trong volume (KHÔNG nằm trong mã nguồn/Git).
+# Nếu đã cấu hình qua biến môi trường (.env) thì ưu tiên dùng giá trị đó.
+# ---------------------------------------------------------------------------
+SECRET_DIR="/app/.runtime"
+mkdir -p "$SECRET_DIR"
+
+# AUTH_SECRET (khoá ký phiên đăng nhập) — sinh ngẫu nhiên, an toàn khi đổi
+# (chỉ khiến mọi người đăng nhập lại một lần).
+if [ -z "$AUTH_SECRET" ]; then
+  if [ ! -f "$SECRET_DIR/auth_secret" ]; then
+    node -e "process.stdout.write(require('crypto').randomBytes(48).toString('base64'))" > "$SECRET_DIR/auth_secret"
+    echo "🔐 Đã tạo AUTH_SECRET ngẫu nhiên (lưu trong volume an toàn)."
+  fi
+  AUTH_SECRET="$(cat "$SECRET_DIR/auth_secret")"
+  export AUTH_SECRET
+fi
+
+# PHONE_ENC_KEY (khoá mã hoá SĐT) — KHÔNG tự đổi để dữ liệu cũ vẫn giải mã được.
+# Lần đầu dùng khoá tương thích bản cũ; có thể thay bằng .env (cần mã hoá lại dữ liệu).
+if [ -z "$PHONE_ENC_KEY" ]; then
+  if [ ! -f "$SECRET_DIR/phone_key" ]; then
+    printf '%s' "QKuRqi5MjrXaJ6Dv5XwMQCD/0Dmyvc2TuTUEBf8nGM8=" > "$SECRET_DIR/phone_key"
+  fi
+  PHONE_ENC_KEY="$(cat "$SECRET_DIR/phone_key")"
+  export PHONE_ENC_KEY
+fi
+
 echo "⏳ Áp dụng migration (chờ cơ sở dữ liệu sẵn sàng)..."
 n=0
 until npx prisma migrate deploy; do

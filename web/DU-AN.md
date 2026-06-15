@@ -26,10 +26,23 @@
 - `next.config.ts`: `serverActions.bodySizeLimit: 12mb` (tải ảnh), `allowedOrigins` qua env `APP_ORIGINS`.
 - Sau khi đổi schema: `prisma migrate dev` + commit migration (entrypoint chạy `migrate deploy`).
 
+## Nhập tiền có dấu chấm ngăn cách
+- Dùng `MoneyInput` (`web/src/components/ui/money-input.tsx`): hiển thị `15.000.000` khi gõ, gửi số thuần qua input ẩn. Có 2 chế độ: không kiểm soát (`defaultValue`) và có kiểm soát (`value` + `onValueChange`, dùng khi cha cần tính tổng). Đã áp dụng: giá dịch vụ (danh mục), lương cứng/thưởng, đơn giá/giảm giá & thanh toán trong hồ sơ.
+
+## Thông tin cá nhân & ảnh đại diện
+- Trang `/tai-khoan` (`tai-khoan/page.tsx` + `profile-forms.tsx`): nhân viên tự sửa họ tên, SĐT, ảnh đại diện, đổi mật khẩu. Action ở `web/src/lib/account-actions.ts` (`updateMyProfile`, `updateMyAvatar`). Trường `User.avatarUrl` (migration `add_user_avatar`). `Avatar` nhận prop `src` để hiện ảnh. Link ở menu góc phải header.
+
+## Bảo mật (đã làm trong phiên này)
+- **Chống dò mật khẩu**: `web/src/lib/rate-limit.ts` (khoá tạm theo IP + tài khoản) gắn vào `login/actions.ts`.
+- **Phân quyền**: `updateAppointmentStatus` đã giới hạn vai trò (trước đây mọi tài khoản đăng nhập đều đổi được).
+- **Tải ảnh**: bỏ SVG, bắt buộc đúng định dạng JPG/PNG/WEBP/HEIC.
+- **Header bảo mật** trong `next.config.ts`; **bcrypt cost 12**; mật khẩu tối thiểu **8 ký tự**.
+- **Khoá bí mật**: `docker-compose.yml` KHÔNG còn nhúng AUTH_SECRET. Entrypoint tự sinh AUTH_SECRET ngẫu nhiên lưu trong volume `zenith_secrets`. Có thể đặt khoá riêng qua file `.env` (xem `.env.example`).
+- ⚠️ **Còn phải làm thủ công**: đổi `PHONE_ENC_KEY` (hiện vẫn dùng khoá tương thích cũ để không mất dữ liệu SĐT) → cần viết migration mã hoá lại; đổi mật khẩu `admin/123456`; bật rate-limit của Cloudflare cho `/login`. Cân nhắc đưa ảnh y khoa ra khỏi `public/` và phục vụ qua route có xác thực.
+
 ## CÒN LÀM (TODO) — thêm nút "Sửa" cho ADMIN ở các phần còn thiếu
-Đã có Sửa: Khách hàng, Hồ sơ (thông tin), **Dịch vụ & Vật tư (danh mục)**.
+Đã có Sửa: Khách hàng, Hồ sơ (thông tin), **Dịch vụ & Vật tư (danh mục)**, **Lịch hẹn**, **Chăm sóc khách hàng**, Lương.
 Chưa có Sửa (cần bổ sung):
-- **Lịch hẹn**: sửa giờ/dịch vụ/tư vấn/khách (hiện chỉ đổi trạng thái + xóa).
 - **Dịch vụ trong hồ sơ** (CaseService): sửa đơn giá/SL/giảm giá.
 - **Vật tư trong hồ sơ** (MaterialUsage): sửa số lượng.
 - **Thanh toán** (Payment): sửa số tiền/hình thức.

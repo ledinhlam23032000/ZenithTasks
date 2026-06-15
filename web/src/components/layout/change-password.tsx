@@ -32,7 +32,7 @@ export function ChangePasswordModal({ open, onClose }: { open: boolean; onClose:
           </div>
           <div>
             <Label htmlFor="cp-next">Mật khẩu mới</Label>
-            <Input id="cp-next" name="next" type="password" autoComplete="new-password" placeholder="Tối thiểu 6 ký tự" required />
+            <Input id="cp-next" name="next" type="password" autoComplete="new-password" placeholder="Tối thiểu 8 ký tự" required />
           </div>
           <div>
             <Label htmlFor="cp-confirm">Xác nhận mật khẩu mới</Label>

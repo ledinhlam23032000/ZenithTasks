@@ -5,6 +5,7 @@ import { Plus, LoaderCircle, Pencil } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/field";
+import { MoneyInput } from "@/components/ui/money-input";
 import { createService, createMaterial, updateService, updateMaterial, type CatalogState } from "./actions";
 
 export function EditServiceButton({ service }: { service: { id: string; name: string; category: string | null; defaultPrice: number } }) {
@@ -32,7 +33,7 @@ export function EditServiceButton({ service }: { service: { id: string; name: st
             </div>
             <div>
               <Label htmlFor="es-price">Giá mặc định (VND)</Label>
-              <Input id="es-price" name="defaultPrice" type="number" min={0} defaultValue={service.defaultPrice} />
+              <MoneyInput id="es-price" name="defaultPrice" defaultValue={service.defaultPrice} />
             </div>
           </div>
           {state.error && <p className="text-sm text-rose-600">{state.error}</p>}
@@ -109,7 +110,7 @@ export function NewServiceButton() {
             </div>
             <div>
               <Label htmlFor="s-price">Giá mặc định (VND)</Label>
-              <Input id="s-price" name="defaultPrice" type="number" min={0} defaultValue={0} />
+              <MoneyInput id="s-price" name="defaultPrice" />
             </div>
           </div>
           {state.error && <p className="text-sm text-rose-600">{state.error}</p>}
