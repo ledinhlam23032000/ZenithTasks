@@ -66,7 +66,7 @@ export function AppShell({
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
 
   const navList = (
-    <nav className="flex-1 space-y-1 px-3 py-4">
+    <nav className="flex-1 min-h-0 space-y-1 overflow-y-auto px-3 py-4">
       {nav.map((item) => {
         const Icon = ICONS[item.icon] ?? LayoutDashboard;
         const active = isActive(item.href);
