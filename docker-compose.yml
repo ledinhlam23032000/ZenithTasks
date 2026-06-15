@@ -38,8 +38,8 @@ services:
       APP_NAME: "${APP_NAME:-Trung tâm Phẫu thuật Tạo hình Thẩm mỹ — BVĐK Hồng Phúc}"
       TZ: "Asia/Ho_Chi_Minh"
       # Khi chạy qua tên miền/Cloudflare Tunnel, điền tên miền vào đây (ngăn cách bằng dấu phẩy)
-      # để đảm bảo các thao tác lưu/xóa hoạt động sau proxy. VD: "app.phongkham.com"
-      APP_ORIGINS: "${APP_ORIGINS:-}"
+      # để đảm bảo các thao tác lưu/xóa hoạt động sau proxy.
+      APP_ORIGINS: "${APP_ORIGINS:-trungtamphauthuattaohinhvathammybenhviendakhoahongphuc.xyz,www.trungtamphauthuattaohinhvathammybenhviendakhoahongphuc.xyz}"
     ports:
       - "3000:3000"
     volumes:
