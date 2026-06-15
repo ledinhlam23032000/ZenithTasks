@@ -1,0 +1,59 @@
+# Triển khai trên MÁY CHỦ ĐÁM MÂY (VPS Linux) + tên miền + HTTPS tự động.
+# Khác bản gốc (cho Windows): có thêm Caddy lo HTTPS, app không mở cổng ra ngoài.
+#
+# Cách dùng nhanh:  cd deploy && docker compose up -d --build
+# Hoặc chạy script:  bash deploy/cai-dat-vps.sh   (xem deploy/HUONG-DAN-VPS.md)
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: "${POSTGRES_USER:-zenith}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-zenith_dev_pw}"
+      POSTGRES_DB: "${POSTGRES_DB:-zenith_clinic}"
+    volumes:
+      - zenith_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-zenith} -d ${POSTGRES_DB:-zenith_clinic}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  app:
+    build: ../web
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: "${DATABASE_URL:-postgresql://zenith:zenith_dev_pw@db:5432/zenith_clinic?schema=public}"
+      # Để trống = container tự sinh/đọc khoá an toàn trong volume (không lộ trong Git).
+      AUTH_SECRET: "${AUTH_SECRET:-}"
+      PHONE_ENC_KEY: "${PHONE_ENC_KEY:-}"
+      APP_NAME: "Trung tâm Phẫu thuật Tạo hình Thẩm mỹ — BVĐK Hồng Phúc"
+      TZ: "Asia/Ho_Chi_Minh"
+      APP_ORIGINS: "${APP_ORIGINS:-trungtamphauthuattaohinhvathammybenhviendakhoahongphuc.xyz,www.trungtamphauthuattaohinhvathammybenhviendakhoahongphuc.xyz}"
+    volumes:
+      - zenith_uploads:/app/public/uploads
+      - zenith_secrets:/app/.runtime
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  zenith_db:
+  zenith_uploads:
+  zenith_secrets:
+  caddy_data:
+  caddy_config:
