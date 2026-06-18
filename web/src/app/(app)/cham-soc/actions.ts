@@ -5,6 +5,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { generateMessage } from "@/lib/ai";
+import { audit } from "@/lib/audit";
 
 export type CareFormState = { ok?: boolean; error?: string; nonce?: number };
 
@@ -81,11 +82,12 @@ export async function updateCareMessage(_prev: CareFormState, formData: FormData
 }
 
 export async function deleteCareMessage(formData: FormData): Promise<void> {
-  await requireUser(["ADMIN", "MANAGER", "CARE"]);
+  const user = await requireUser(["ADMIN", "MANAGER", "CARE"]);
   const id = String(formData.get("id") ?? "");
   if (!id) return;
   const m = await prisma.careMessage.findUnique({ where: { id }, select: { customerId: true } });
   await prisma.careMessage.delete({ where: { id } }).catch(() => {});
+  await audit(user.id, "DELETE_CARE", { entity: "CareMessage", entityId: id });
   if (m?.customerId) revalidatePath(`/khach-hang/${m.customerId}`);
   revalidatePath("/cham-soc");
 }

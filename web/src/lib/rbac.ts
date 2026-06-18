@@ -1,7 +1,8 @@
 import type { Role } from "@/generated/prisma/client";
 
 // ============================================================================
-// PHÂN QUYỀN THEO VAI TRÒ (Yêu cầu số 7: mỗi nhân sự chỉ thấy phần của mình)
+// NHÃN VAI TRÒ. Phân quyền chi tiết (mục/năng lực, thêm/bớt theo người) nằm ở
+// web/src/lib/permissions.ts.
 // ============================================================================
 
 export const ROLE_LABELS: Record<Role, string> = {
@@ -25,43 +26,6 @@ export const ROLE_SHORT: Record<Role, string> = {
   NURSE: "Điều dưỡng",
   CARE: "CSKH",
 };
-
-export type NavItem = {
-  href: string;
-  label: string;
-  icon: string; // tên icon lucide-react
-  roles: Role[];
-};
-
-const ALL: Role[] = ["ADMIN", "MANAGER", "TELESALE", "RECEPTION", "CONSULTANT", "DOCTOR", "NURSE", "CARE"];
-
-// Menu điều hướng. Mỗi mục khai báo vai trò được phép thấy.
-export const NAV_ITEMS: NavItem[] = [
-  { href: "/dashboard", label: "Tổng quan", icon: "LayoutDashboard", roles: ALL },
-  { href: "/cham-cong", label: "Chấm công", icon: "CalendarCheck", roles: ALL },
-  { href: "/lich-hen", label: "Lịch hẹn", icon: "CalendarClock", roles: ["ADMIN", "MANAGER", "TELESALE", "RECEPTION", "CONSULTANT", "NURSE"] },
-  { href: "/tiep-nhan", label: "Tiếp nhận khách", icon: "UserPlus", roles: ["ADMIN", "RECEPTION", "TELESALE"] },
-  { href: "/khach-hang", label: "Khách hàng", icon: "Users", roles: ["ADMIN", "MANAGER", "RECEPTION", "CONSULTANT", "DOCTOR", "NURSE", "CARE"] },
-  { href: "/ho-so", label: "Hồ sơ điều trị", icon: "FolderHeart", roles: ["ADMIN", "MANAGER", "CONSULTANT", "DOCTOR", "NURSE"] },
-  { href: "/cham-soc", label: "Chăm sóc KH", icon: "MessageCircleHeart", roles: ["ADMIN", "MANAGER", "CARE"] },
-  { href: "/bao-cao", label: "Báo cáo", icon: "TrendingUp", roles: ["ADMIN", "MANAGER"] },
-  { href: "/lich-lam-viec", label: "Lịch làm việc", icon: "CalendarDays", roles: ["ADMIN", "MANAGER", "RECEPTION", "CONSULTANT", "DOCTOR", "NURSE", "CARE", "TELESALE"] },
-  { href: "/luong", label: "Lương & hoa hồng", icon: "Wallet", roles: ["ADMIN", "MANAGER"] },
-  { href: "/thu-chi", label: "Thu chi", icon: "Coins", roles: ["ADMIN", "MANAGER"] },
-  { href: "/nhan-su", label: "Nhân sự", icon: "Contact", roles: ["ADMIN"] },
-  { href: "/danh-muc", label: "Danh mục dịch vụ", icon: "ListChecks", roles: ["ADMIN", "MANAGER"] },
-  { href: "/kho", label: "Kho vật tư", icon: "Boxes", roles: ["ADMIN", "MANAGER"] },
-];
-
-export function navForRole(role: Role): NavItem[] {
-  return NAV_ITEMS.filter((item) => item.roles.includes(role));
-}
-
-export function canAccess(role: Role, href: string): boolean {
-  const item = NAV_ITEMS.find((i) => href === i.href || href.startsWith(i.href + "/"));
-  if (!item) return true; // trang không nằm trong menu (vd: trang con) — kiểm soát tại trang
-  return item.roles.includes(role);
-}
 
 export function isManagerial(role: Role): boolean {
   return role === "ADMIN" || role === "MANAGER";

@@ -19,7 +19,7 @@ import { differenceInYears, format } from "date-fns";
 import { requireCap } from "@/lib/auth";
 import { userCan } from "@/lib/permissions";
 import { prisma } from "@/lib/db";
-import { maskPhone, decryptPhone } from "@/lib/phone";
+import { maskPhone } from "@/lib/phone";
 import { aiConfigured } from "@/lib/ai";
 import { toNum, formatVND } from "@/lib/money";
 import { fmtDate, fmtDateTime, fmtRelative } from "@/lib/format";
@@ -74,15 +74,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
 
   if (!customer) notFound();
 
-  // Quản trị + quản lý (hoặc người được cấp quyền) xem số đầy đủ; còn lại chỉ 5 số cuối.
-  let fullPhone: string | null = null;
-  if (userCan(user, "phone.full")) {
-    try {
-      fullPhone = decryptPhone(customer.phoneEnc);
-    } catch {
-      fullPhone = null;
-    }
-  }
+  const canSeePhone = userCan(user, "phone.full");
 
   const totalValue = customer.cases.reduce((s, c) => s + toNum(c.totalAmount), 0);
   const totalDebt = customer.cases.reduce((s, c) => s + toNum(c.debtAmount), 0);
@@ -110,7 +102,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
             <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-sm text-slate-600">
               <span className="inline-flex items-center gap-1.5">
                 <ShieldCheck className="h-4 w-4 text-brand-500" />
-                {fullPhone ? <AdminPhone phone={fullPhone} /> : maskPhone(customer.phoneLast5)}
+                {canSeePhone ? <AdminPhone customerId={customer.id} last5={customer.phoneLast5} /> : maskPhone(customer.phoneLast5)}
               </span>
               <span>{customer.gender ? GENDER_LABEL[customer.gender] : "—"}</span>
               {customer.dob && (

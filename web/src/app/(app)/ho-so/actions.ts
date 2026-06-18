@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireUser, requireCap } from "@/lib/auth";
+import { audit } from "@/lib/audit";
 import { toNum } from "@/lib/money";
 
 export type CaseActionState = { ok?: boolean; error?: string; nonce?: number };
@@ -250,6 +251,7 @@ export async function updateCaseVoucher(_prev: CaseActionState, formData: FormDa
     where: { id: d.caseId },
     data: { voucherAmount: amount, voucherCode: label },
   });
+  await audit(user.id, "APPLY_VOUCHER", { entity: "CaseRecord", entityId: d.caseId, meta: { amount, code: label ?? "" } });
   await recalc(d.caseId);
   refresh(d.caseId);
   return { ok: true, nonce: Date.now() };
@@ -306,6 +308,7 @@ export async function updatePayment(_prev: CaseActionState, formData: FormData):
     where: { id: d.id },
     data: { amount: d.amount, method: d.method, note: d.note || null },
   });
+  await audit(user.id, "UPDATE_PAYMENT", { entity: "Payment", entityId: d.id, meta: { amount: d.amount } });
   await recalc(d.caseId);
   refresh(d.caseId);
   return { ok: true, nonce: Date.now() };
@@ -521,7 +524,9 @@ export async function deletePayment(formData: FormData): Promise<void> {
   const id = String(formData.get("id") ?? "");
   const caseId = String(formData.get("caseId") ?? "");
   if (!id || (await isLockedFor(caseId, user.role))) return;
-  await prisma.payment.delete({ where: { id } }).catch(() => {});
+  const pay = await prisma.payment.findUnique({ where: { id }, select: { amount: true } });
+  await prisma.payment.delete({ where: { id } });
+  await audit(user.id, "DELETE_PAYMENT", { entity: "Payment", entityId: id, meta: { amount: toNum(pay?.amount), caseId } });
   if (caseId) {
     await recalc(caseId);
     refresh(caseId);
@@ -540,13 +545,14 @@ export async function deleteFollowUp(formData: FormData): Promise<void> {
 
 // ---- Xóa cả hồ sơ điều trị (CHỈ quản trị viên) ----
 export async function deleteCase(formData: FormData): Promise<void> {
-  await requireUser(["ADMIN"]);
+  const user = await requireUser(["ADMIN"]);
   const id = String(formData.get("id") ?? "");
   if (!id) return;
   const rec = await prisma.caseRecord.findUnique({ where: { id }, select: { customerId: true } });
   // Dịch vụ/thanh toán/vật tư/tái khám tự xóa theo (onDelete: Cascade); ảnh giữ lại cho khách.
   await prisma.photo.updateMany({ where: { caseId: id }, data: { caseId: null } });
-  await prisma.caseRecord.delete({ where: { id } }).catch(() => {});
+  await prisma.caseRecord.delete({ where: { id } });
+  await audit(user.id, "DELETE_CASE", { entity: "CaseRecord", entityId: id });
   if (rec?.customerId) revalidatePath(`/khach-hang/${rec.customerId}`);
   revalidatePath("/ho-so");
   revalidatePath("/dashboard");

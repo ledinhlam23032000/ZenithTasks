@@ -5,9 +5,27 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
-import { encryptPhone, normalizePhone, phoneLast5, hashPhone } from "@/lib/phone";
+import { userCan } from "@/lib/permissions";
+import { audit } from "@/lib/audit";
+import { encryptPhone, decryptPhone, normalizePhone, phoneLast5, hashPhone } from "@/lib/phone";
 
 export type EditCustomerState = { ok?: boolean; error?: string };
+export type RevealState = { phone?: string; error?: string };
+
+/** Hiện số điện thoại đầy đủ KHI BẤM (chỉ người có quyền) + ghi nhật ký REVEAL_PHONE. */
+export async function revealPhone(customerId: string): Promise<RevealState> {
+  const user = await requireUser();
+  if (!userCan(user, "phone.full")) return { error: "Bạn không có quyền xem số đầy đủ." };
+  const c = await prisma.customer.findUnique({ where: { id: customerId }, select: { phoneEnc: true } });
+  if (!c) return { error: "Không tìm thấy khách hàng." };
+  try {
+    const phone = decryptPhone(c.phoneEnc);
+    await audit(user.id, "REVEAL_PHONE", { entity: "Customer", entityId: customerId });
+    return { phone };
+  } catch {
+    return { error: "Không giải mã được số điện thoại." };
+  }
+}
 
 const ROLES = ["ADMIN", "MANAGER", "RECEPTION", "TELESALE"] as const;
 
