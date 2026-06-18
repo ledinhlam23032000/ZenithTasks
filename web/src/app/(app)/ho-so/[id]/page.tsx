@@ -41,6 +41,7 @@ import {
   EditCaseServiceButton,
   EditPaymentButton,
   EditMaterialUsageButton,
+  EditVoucherButton,
 } from "./case-widgets";
 import {
   removeCaseService,
@@ -90,7 +91,8 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
   const paid = toNum(record.paidAmount);
   const debt = toNum(record.debtAmount);
   const discount = toNum(record.discountAmount);
-  const gross = total + discount; // tổng trước giảm (totalAmount đã là số sau giảm)
+  const voucher = toNum(record.voucherAmount);
+  const gross = total + voucher + discount; // giá gốc trước ưu đãi & voucher (total = net sau voucher)
   const commissionRate = toNum(record.commissionRate);
   const commissionAmount = toNum(record.commissionAmount);
   const canVoidPayment = userCan(user, "payment.manage") && !lockedForMe;
@@ -223,7 +225,8 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
                     <TR className="hover:bg-transparent">
                       <TH>Dịch vụ</TH>
                       <TH className="text-center">SL</TH>
-                      <TH className="text-right">Đơn giá</TH>
+                      <TH className="text-right">Giá gốc</TH>
+                      <TH className="text-right">Ưu đãi</TH>
                       <TH className="text-right">Giảm</TH>
                       <TH className="text-right">Thành tiền</TH>
                       {canClinical && <TH />}
@@ -234,6 +237,9 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
                       <TR key={s.id}>
                         <TD className="font-medium text-slate-800">{s.name}</TD>
                         <TD className="text-center">{s.quantity}</TD>
+                        <TD className="text-right text-slate-400">
+                          {toNum(s.listPrice) > toNum(s.unitPrice) ? <span className="line-through">{formatVND(s.listPrice)}</span> : formatVND(s.listPrice)}
+                        </TD>
                         <TD className="text-right">{formatVND(s.unitPrice)}</TD>
                         <TD className="text-right text-rose-500">{toNum(s.discount) > 0 ? `-${formatVND(s.discount)}` : "—"}</TD>
                         <TD className="text-right font-semibold text-slate-800">{formatVND(s.finalPrice)}</TD>
@@ -242,7 +248,7 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
                             <div className="flex items-center justify-end gap-0.5">
                               <EditCaseServiceButton
                                 caseId={record.id}
-                                service={{ id: s.id, name: s.name, unitPrice: toNum(s.unitPrice), quantity: s.quantity, discount: toNum(s.discount) }}
+                                service={{ id: s.id, name: s.name, listPrice: toNum(s.listPrice), unitPrice: toNum(s.unitPrice), quantity: s.quantity, discount: toNum(s.discount) }}
                               />
                               <form action={removeCaseService}>
                                 <input type="hidden" name="id" value={s.id} />
@@ -364,9 +370,12 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <Row label="Tổng dịch vụ" value={formatVND(gross)} />
-              {discount > 0 && <Row label="Đã giảm giá" value={`-${formatVND(discount)}`} valueClass="text-rose-500" />}
-              {discount > 0 && <Row label="Thành tiền sau giảm" value={formatVND(total)} valueClass="text-slate-900" />}
+              <Row label="Tổng dịch vụ (giá gốc)" value={formatVND(gross)} />
+              {discount > 0 && <Row label="Đã giảm ưu đãi" value={`-${formatVND(discount)}`} valueClass="text-rose-500" />}
+              {voucher > 0 && (
+                <Row label={`Voucher${record.voucherCode ? ` · ${record.voucherCode}` : ""}`} value={`-${formatVND(voucher)}`} valueClass="text-violet-600" />
+              )}
+              {(discount > 0 || voucher > 0) && <Row label="Thành tiền" value={formatVND(total)} valueClass="text-slate-900" />}
               <Row label="Đã thanh toán" value={formatVND(paid)} valueClass="text-emerald-600" />
               <div className="my-1 h-px bg-slate-100" />
               <div className="flex items-center justify-between">
@@ -379,11 +388,10 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
                   <span className="font-semibold text-violet-600">{formatVND(commissionAmount)}</span>
                 </div>
               )}
-              {canPay && (
-                <div className="pt-1">
-                  <AddPaymentButton caseId={record.id} debt={debt} />
-                </div>
-              )}
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                {canPay && <AddPaymentButton caseId={record.id} debt={debt} />}
+                {canVoidPayment && <EditVoucherButton caseId={record.id} voucher={{ amount: voucher, code: record.voucherCode ?? "" }} />}
+              </div>
 
               {record.payments.length > 0 && (
                 <div className="mt-3 space-y-2 border-t border-slate-100 pt-3">

@@ -25,17 +25,19 @@ async function recalc(caseId: string): Promise<void> {
   const [services, payAgg, rec] = await Promise.all([
     prisma.caseService.findMany({ where: { caseId }, select: { finalPrice: true, discount: true } }),
     prisma.payment.aggregate({ where: { caseId }, _sum: { amount: true } }),
-    prisma.caseRecord.findUnique({ where: { id: caseId }, select: { commissionRate: true } }),
+    prisma.caseRecord.findUnique({ where: { id: caseId }, select: { commissionRate: true, voucherAmount: true } }),
   ]);
-  const total = services.reduce((s, x) => s + toNum(x.finalPrice), 0);
+  const subtotal = services.reduce((s, x) => s + toNum(x.finalPrice), 0);
   const discount = services.reduce((s, x) => s + toNum(x.discount), 0);
+  const voucher = Math.min(toNum(rec?.voucherAmount), subtotal);
+  const net = subtotal - voucher; // doanh thu sau voucher = cơ sở tính hoa hồng + công nợ
   const paid = toNum(payAgg._sum.amount);
-  const debt = Math.max(total - paid, 0);
+  const debt = Math.max(net - paid, 0);
   const rate = toNum(rec?.commissionRate);
-  const commissionAmount = Math.round((total * rate) / 100);
+  const commissionAmount = Math.round((net * rate) / 100);
   await prisma.caseRecord.update({
     where: { id: caseId },
-    data: { totalAmount: total, discountAmount: discount, paidAmount: paid, debtAmount: debt, commissionAmount },
+    data: { totalAmount: net, discountAmount: discount, paidAmount: paid, debtAmount: debt, commissionAmount },
   });
 }
 
@@ -122,6 +124,7 @@ const serviceSchema = z.object({
   caseId: z.string().min(1),
   serviceId: z.string().optional(),
   name: z.string().trim().min(1, "Vui lòng nhập tên dịch vụ."),
+  listPrice: z.coerce.number().min(0).default(0),
   unitPrice: z.coerce.number().min(0, "Đơn giá không hợp lệ."),
   quantity: z.coerce.number().int().min(1).default(1),
   discount: z.coerce.number().min(0).default(0),
@@ -136,6 +139,7 @@ export async function addCaseService(_prev: CaseActionState, formData: FormData)
     caseId,
     serviceId: formData.get("serviceId") ?? "",
     name: formData.get("name") ?? "",
+    listPrice: formData.get("listPrice") ?? 0,
     unitPrice: formData.get("unitPrice") ?? 0,
     quantity: formData.get("quantity") ?? 1,
     discount: formData.get("discount") ?? 0,
@@ -143,6 +147,7 @@ export async function addCaseService(_prev: CaseActionState, formData: FormData)
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu không hợp lệ." };
   const d = parsed.data;
   const finalPrice = Math.max(d.unitPrice * d.quantity - d.discount, 0);
+  const listPrice = d.listPrice > 0 ? d.listPrice : d.unitPrice; // không có giá gốc → lấy giá ưu đãi
 
   const c = await prisma.caseRecord.findUnique({ where: { id: d.caseId }, select: { doctorId: true } });
   await prisma.caseService.create({
@@ -150,6 +155,7 @@ export async function addCaseService(_prev: CaseActionState, formData: FormData)
       caseId: d.caseId,
       serviceId: d.serviceId || null,
       name: d.name,
+      listPrice,
       unitPrice: d.unitPrice,
       quantity: d.quantity,
       discount: d.discount,
@@ -187,6 +193,7 @@ export async function updateCaseService(_prev: CaseActionState, formData: FormDa
     caseId,
     serviceId: formData.get("serviceId") ?? "",
     name: formData.get("name") ?? "",
+    listPrice: formData.get("listPrice") ?? 0,
     unitPrice: formData.get("unitPrice") ?? 0,
     quantity: formData.get("quantity") ?? 1,
     discount: formData.get("discount") ?? 0,
@@ -194,10 +201,54 @@ export async function updateCaseService(_prev: CaseActionState, formData: FormDa
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu không hợp lệ." };
   const d = parsed.data;
   const finalPrice = Math.max(d.unitPrice * d.quantity - d.discount, 0);
+  const listPrice = d.listPrice > 0 ? d.listPrice : d.unitPrice;
 
   await prisma.caseService.update({
     where: { id: d.id },
-    data: { name: d.name, unitPrice: d.unitPrice, quantity: d.quantity, discount: d.discount, finalPrice },
+    data: { name: d.name, listPrice, unitPrice: d.unitPrice, quantity: d.quantity, discount: d.discount, finalPrice },
+  });
+  await recalc(d.caseId);
+  refresh(d.caseId);
+  return { ok: true, nonce: Date.now() };
+}
+
+// ---- Voucher giảm thêm (chỉ quản trị / quản lý — ảnh hưởng tiền & hoa hồng) ----
+const voucherSchema = z.object({
+  caseId: z.string().min(1),
+  voucherKind: z.enum(["VND", "PCT"]),
+  voucherValue: z.coerce.number().min(0).default(0),
+  voucherCode: z.string().trim().optional(),
+});
+
+export async function updateCaseVoucher(_prev: CaseActionState, formData: FormData): Promise<CaseActionState> {
+  const user = await requireCap("payment.manage");
+  const caseId = String(formData.get("caseId") ?? "");
+  if (await isLockedFor(caseId, user.role)) return { error: LOCKED_MSG };
+
+  const parsed = voucherSchema.safeParse({
+    caseId,
+    voucherKind: formData.get("voucherKind") ?? "VND",
+    voucherValue: formData.get("voucherValue") ?? 0,
+    voucherCode: formData.get("voucherCode") ?? "",
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu không hợp lệ." };
+  const d = parsed.data;
+
+  // Tổng sau ưu đãi từng dịch vụ (trước voucher) — để quy đổi % và kẹp.
+  const agg = await prisma.caseService.aggregate({ where: { caseId: d.caseId }, _sum: { finalPrice: true } });
+  const subtotal = toNum(agg._sum.finalPrice);
+
+  let amount = d.voucherKind === "PCT" ? Math.round((subtotal * d.voucherValue) / 100) : Math.round(d.voucherValue);
+  amount = Math.max(0, Math.min(amount, subtotal));
+
+  const label =
+    amount > 0
+      ? `${d.voucherCode || "Voucher"}${d.voucherKind === "PCT" ? ` (-${d.voucherValue}%)` : ""}`
+      : null;
+
+  await prisma.caseRecord.update({
+    where: { id: d.caseId },
+    data: { voucherAmount: amount, voucherCode: label },
   });
   await recalc(d.caseId);
   refresh(d.caseId);

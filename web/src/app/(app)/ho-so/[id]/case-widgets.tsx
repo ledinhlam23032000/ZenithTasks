@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
-import { Plus, LoaderCircle, CheckCircle2, Wallet, Package, Camera, CalendarPlus, Pencil } from "lucide-react";
+import { Plus, LoaderCircle, CheckCircle2, Wallet, Package, Camera, CalendarPlus, Pencil, Ticket } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/field";
@@ -18,6 +18,7 @@ import {
   updateCaseService,
   updatePayment,
   updateMaterialUsage,
+  updateCaseVoucher,
   type CaseActionState,
 } from "../actions";
 
@@ -145,6 +146,7 @@ function ServiceForm({ caseId, services, onDone }: { caseId: string; services: S
   const [state, action, pending] = useActionState<CaseActionState, FormData>(addCaseService, {});
   const [name, setName] = useState("");
   const [serviceId, setServiceId] = useState("");
+  const [listPrice, setListPrice] = useState(0);
   const [price, setPrice] = useState(0);
   const [qty, setQty] = useState(1);
   const [discount, setDiscount] = useState(0);
@@ -154,6 +156,7 @@ function ServiceForm({ caseId, services, onDone }: { caseId: string; services: S
   }, [state.ok, onDone]);
 
   const finalPrice = Math.max(price * qty - discount, 0);
+  const savings = Math.max((listPrice - price) * qty + discount, 0);
 
   return (
     <form action={action} className="space-y-4">
@@ -169,6 +172,7 @@ function ServiceForm({ caseId, services, onDone }: { caseId: string; services: S
             setServiceId(e.target.value);
             if (s) {
               setName(s.name);
+              setListPrice(s.defaultPrice);
               setPrice(s.defaultPrice);
             }
           }}
@@ -183,23 +187,37 @@ function ServiceForm({ caseId, services, onDone }: { caseId: string; services: S
         <Label htmlFor="svc-name">Tên dịch vụ *</Label>
         <Input id="svc-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="VD: Tiêm filler má" required />
       </div>
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2">
         <div>
-          <Label htmlFor="unitPrice">Đơn giá (VND)</Label>
+          <Label htmlFor="listPrice">Giá gốc (VND)</Label>
+          <MoneyInput id="listPrice" name="listPrice" value={listPrice} onValueChange={setListPrice} />
+        </div>
+        <div>
+          <Label htmlFor="unitPrice">Giá ưu đãi (VND)</Label>
           <MoneyInput id="unitPrice" name="unitPrice" value={price} onValueChange={setPrice} />
         </div>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <Label htmlFor="quantity">Số lượng</Label>
           <Input id="quantity" name="quantity" type="number" min={1} value={qty} onChange={(e) => setQty(Number(e.target.value))} />
         </div>
         <div>
-          <Label htmlFor="discount">Giảm giá (VND)</Label>
+          <Label htmlFor="discount">Giảm thêm (VND)</Label>
           <MoneyInput id="discount" name="discount" value={discount} onValueChange={setDiscount} />
         </div>
       </div>
-      <div className="flex items-center justify-between rounded-lg bg-brand-50 px-4 py-2.5">
-        <span className="text-sm text-slate-600">Thành tiền</span>
-        <span className="text-lg font-semibold text-brand-700">{formatVND(finalPrice)}</span>
+      <div className="space-y-1 rounded-lg bg-brand-50 px-4 py-2.5">
+        {savings > 0 && (
+          <div className="flex items-center justify-between text-sm text-emerald-600">
+            <span>Tiết kiệm cho khách</span>
+            <span className="font-medium">−{formatVND(savings)}</span>
+          </div>
+        )}
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-slate-600">Thành tiền</span>
+          <span className="text-lg font-semibold text-brand-700">{formatVND(finalPrice)}</span>
+        </div>
       </div>
       {state.error && <p className="text-sm text-rose-600">{state.error}</p>}
       <div className="flex justify-end gap-2">
@@ -428,11 +446,12 @@ export function EditCaseServiceButton({
   service,
 }: {
   caseId: string;
-  service: { id: string; name: string; unitPrice: number; quantity: number; discount: number };
+  service: { id: string; name: string; listPrice: number; unitPrice: number; quantity: number; discount: number };
 }) {
   const [open, setOpen] = useState(false);
   const [state, action, pending] = useActionState<CaseActionState, FormData>(updateCaseService, {});
   const [name, setName] = useState(service.name);
+  const [listPrice, setListPrice] = useState(service.listPrice);
   const [price, setPrice] = useState(service.unitPrice);
   const [qty, setQty] = useState(service.quantity);
   const [discount, setDiscount] = useState(service.discount);
@@ -440,6 +459,7 @@ export function EditCaseServiceButton({
     if (state.ok) setOpen(false);
   }, [state.ok]);
   const finalPrice = Math.max(price * qty - discount, 0);
+  const savings = Math.max((listPrice - price) * qty + discount, 0);
   return (
     <>
       <button onClick={() => setOpen(true)} className="rounded-md p-1.5 text-slate-300 hover:bg-brand-50 hover:text-brand-600" aria-label="Sửa" title="Sửa">
@@ -453,23 +473,37 @@ export function EditCaseServiceButton({
             <Label htmlFor={`es-name-${service.id}`}>Tên dịch vụ *</Label>
             <Input id={`es-name-${service.id}`} name="name" value={name} onChange={(e) => setName(e.target.value)} required />
           </div>
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <Label>Đơn giá (VND)</Label>
+              <Label>Giá gốc (VND)</Label>
+              <MoneyInput name="listPrice" value={listPrice} onValueChange={setListPrice} />
+            </div>
+            <div>
+              <Label>Giá ưu đãi (VND)</Label>
               <MoneyInput name="unitPrice" value={price} onValueChange={setPrice} />
             </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <Label htmlFor={`es-qty-${service.id}`}>Số lượng</Label>
               <Input id={`es-qty-${service.id}`} name="quantity" type="number" min={1} value={qty} onChange={(e) => setQty(Number(e.target.value))} />
             </div>
             <div>
-              <Label>Giảm giá (VND)</Label>
+              <Label>Giảm thêm (VND)</Label>
               <MoneyInput name="discount" value={discount} onValueChange={setDiscount} />
             </div>
           </div>
-          <div className="flex items-center justify-between rounded-lg bg-brand-50 px-4 py-2.5">
-            <span className="text-sm text-slate-600">Thành tiền</span>
-            <span className="text-lg font-semibold text-brand-700">{formatVND(finalPrice)}</span>
+          <div className="space-y-1 rounded-lg bg-brand-50 px-4 py-2.5">
+            {savings > 0 && (
+              <div className="flex items-center justify-between text-sm text-emerald-600">
+                <span>Tiết kiệm cho khách</span>
+                <span className="font-medium">−{formatVND(savings)}</span>
+              </div>
+            )}
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-slate-600">Thành tiền</span>
+              <span className="text-lg font-semibold text-brand-700">{formatVND(finalPrice)}</span>
+            </div>
           </div>
           {state.error && <p className="text-sm text-rose-600">{state.error}</p>}
           <div className="flex justify-end gap-2">
@@ -577,6 +611,69 @@ export function EditMaterialUsageButton({
               <Input id={`emu-note-${usage.id}`} name="note" defaultValue={usage.note} />
             </div>
           </div>
+          {state.error && <p className="text-sm text-rose-600">{state.error}</p>}
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="secondary" onClick={() => setOpen(false)}>Hủy</Button>
+            <button type="submit" disabled={pending} className={buttonVariants()}>
+              {pending && <LoaderCircle className="h-4 w-4 animate-spin" />} Lưu
+            </button>
+          </div>
+        </form>
+      </Modal>
+    </>
+  );
+}
+
+// ===== Voucher giảm thêm =====
+export function EditVoucherButton({ caseId, voucher }: { caseId: string; voucher: { amount: number; code: string } }) {
+  const [open, setOpen] = useState(false);
+  const [state, action, pending] = useActionState<CaseActionState, FormData>(updateCaseVoucher, {});
+  const [kind, setKind] = useState<"VND" | "PCT">("VND");
+  useEffect(() => {
+    if (state.ok) setOpen(false);
+  }, [state.ok]);
+  return (
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-violet-600 hover:bg-violet-50"
+        title="Voucher giảm thêm"
+      >
+        <Ticket className="h-3.5 w-3.5" /> {voucher.amount > 0 ? "Sửa voucher" : "Thêm voucher"}
+      </button>
+      <Modal open={open} onClose={() => setOpen(false)} title="Voucher giảm thêm">
+        <form action={action} className="space-y-4">
+          <input type="hidden" name="caseId" value={caseId} />
+          <input type="hidden" name="voucherKind" value={kind} />
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setKind("VND")}
+              className={`rounded-lg border px-3 py-2 text-sm font-medium ${kind === "VND" ? "border-brand-300 bg-brand-50 text-brand-700" : "border-slate-200 text-slate-500"}`}
+            >
+              Theo số tiền
+            </button>
+            <button
+              type="button"
+              onClick={() => setKind("PCT")}
+              className={`rounded-lg border px-3 py-2 text-sm font-medium ${kind === "PCT" ? "border-brand-300 bg-brand-50 text-brand-700" : "border-slate-200 text-slate-500"}`}
+            >
+              Theo phần trăm
+            </button>
+          </div>
+          <div>
+            <Label htmlFor="voucherValue">{kind === "PCT" ? "Phần trăm giảm (%)" : "Số tiền giảm (VND)"}</Label>
+            {kind === "PCT" ? (
+              <Input id="voucherValue" name="voucherValue" type="number" min={0} max={100} step={1} defaultValue={0} />
+            ) : (
+              <MoneyInput id="voucherValue" name="voucherValue" defaultValue={voucher.amount} />
+            )}
+          </div>
+          <div>
+            <Label htmlFor="voucherCode">Mã voucher (tuỳ chọn)</Label>
+            <Input id="voucherCode" name="voucherCode" placeholder="VD: HE2025" defaultValue={voucher.code} />
+          </div>
+          <p className="text-xs text-slate-400">Để 0 nếu muốn bỏ voucher. Voucher giảm cả công nợ lẫn doanh thu tính hoa hồng.</p>
           {state.error && <p className="text-sm text-rose-600">{state.error}</p>}
           <div className="flex justify-end gap-2">
             <Button type="button" variant="secondary" onClick={() => setOpen(false)}>Hủy</Button>

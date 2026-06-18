@@ -298,6 +298,9 @@ model CaseRecord {
   discountAmount Decimal       @default(0) @db.Decimal(14, 0)
   paidAmount     Decimal       @default(0) @db.Decimal(14, 0)
   debtAmount     Decimal       @default(0) @db.Decimal(14, 0) // = total - paid
+  // Voucher giảm thêm trên tổng hồ sơ (giảm cả công nợ lẫn doanh thu tính hoa hồng).
+  voucherCode    String?
+  voucherAmount  Decimal       @default(0) @db.Decimal(14, 0)
   createdById    String?
   createdBy      User?         @relation("CaseCreatedBy", fields: [createdById], references: [id])
   createdAt      DateTime      @default(now())
@@ -331,7 +334,8 @@ model CaseService {
   serviceId   String?
   service     Service?    @relation(fields: [serviceId], references: [id])
   name        String // Tên dịch vụ tại thời điểm chốt (snapshot)
-  unitPrice   Decimal     @default(0) @db.Decimal(14, 0)
+  listPrice   Decimal     @default(0) @db.Decimal(14, 0) // Giá gốc (niêm yết) tại thời điểm chốt
+  unitPrice   Decimal     @default(0) @db.Decimal(14, 0) // Giá ưu đãi thực thu (đơn giá)
   quantity    Int         @default(1)
   discount    Decimal     @default(0) @db.Decimal(14, 0)
   finalPrice  Decimal     @default(0) @db.Decimal(14, 0)
