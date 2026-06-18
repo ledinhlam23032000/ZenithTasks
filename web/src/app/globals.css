@@ -111,4 +111,15 @@
   body {
     background: #fff;
   }
+  /* Hóa đơn in: bỏ viền/bóng thẻ, đặt lề trang gọn gàng */
+  @page {
+    margin: 12mm;
+  }
+  .invoice-sheet,
+  .invoice-sheet * {
+    box-shadow: none !important;
+  }
+  .invoice-sheet .rounded-2xl {
+    border: none !important;
+  }
 }

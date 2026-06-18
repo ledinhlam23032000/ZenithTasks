@@ -30,6 +30,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Table, THead, TH, TR, TD } from "@/components/ui/table";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ConfirmButton } from "@/components/ui/confirm-button";
+import { buttonVariants } from "@/components/ui/button";
 import { PhotoTypeLabel } from "./photo-label";
 import {
   CaseInfoForm,
@@ -111,6 +112,9 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
           <div className="flex items-center gap-2">
             <Badge tone={CASE_STATUS[record.status].tone} dot>{CASE_STATUS[record.status].label}</Badge>
             <Badge tone={CONSULT_RESULT[record.consultResult].tone}>{CONSULT_RESULT[record.consultResult].label}</Badge>
+            <Link href={`/ho-so/${record.id}/hoa-don`} className={`${buttonVariants({ variant: "secondary", size: "sm" })} print-hide`}>
+              <Receipt className="h-3.5 w-3.5" /> In hóa đơn
+            </Link>
             {isAdmin && (
               <ConfirmButton
                 action={deleteCase}
