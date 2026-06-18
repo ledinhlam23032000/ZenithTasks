@@ -15,7 +15,7 @@ import {
 } from "date-fns";
 import { vi } from "date-fns/locale";
 import { CalendarDays, Clock, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
-import { requireUser } from "@/lib/auth";
+import { requireCap } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { isManagerial, ROLE_SHORT } from "@/lib/rbac";
 import { PageHeader } from "@/components/ui/page-header";
@@ -45,7 +45,7 @@ export default async function SchedulePage({
 }: {
   searchParams: Promise<{ view?: string; month?: string }>;
 }) {
-  const user = await requireUser();
+  const user = await requireCap("mod:lich-lam-viec");
   const managerial = isManagerial(user.role);
   const sp = await searchParams;
   const view = sp.view === "thang" ? "thang" : "tuan";

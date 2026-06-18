@@ -1,5 +1,5 @@
 import { ListChecks, Package, Power, PackagePlus } from "lucide-react";
-import { requireUser } from "@/lib/auth";
+import { requireCap } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { formatVND, toNum } from "@/lib/money";
 import { PageHeader } from "@/components/ui/page-header";
@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Danh mục dịch vụ" };
 
 export default async function CatalogPage() {
-  await requireUser(["ADMIN", "MANAGER"]);
+  await requireCap("mod:danh-muc");
   const [services, materials] = await Promise.all([
     prisma.service.findMany({ orderBy: [{ active: "desc" }, { category: "asc" }, { name: "asc" }] }),
     prisma.material.findMany({ orderBy: [{ active: "desc" }, { name: "asc" }] }),

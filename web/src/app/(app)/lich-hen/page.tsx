@@ -2,7 +2,7 @@ import Link from "next/link";
 import { addDays, addMonths, startOfMonth, endOfMonth, format, isToday, isTomorrow } from "date-fns";
 import { vi } from "date-fns/locale";
 import { CalendarClock, ChevronLeft, ChevronRight, Sun, CalendarDays } from "lucide-react";
-import { requireUser } from "@/lib/auth";
+import { requireCap } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { dayRange, todayRange, tomorrowRange } from "@/lib/dates";
 import { getActiveServices, getConsultants } from "@/lib/lookups";
@@ -25,7 +25,6 @@ import { MonthCalendar } from "./month-calendar";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Lịch hẹn" };
 
-const ROLES = ["ADMIN", "MANAGER", "TELESALE", "RECEPTION", "CONSULTANT"] as const;
 const CAN_CREATE = ["ADMIN", "MANAGER", "TELESALE", "RECEPTION"];
 
 export default async function AppointmentsPage({
@@ -33,7 +32,7 @@ export default async function AppointmentsPage({
 }: {
   searchParams: Promise<{ date?: string; view?: string }>;
 }) {
-  const user = await requireUser([...ROLES]);
+  const user = await requireCap("mod:lich-hen");
   const sp = await searchParams;
 
   const selected = sp.date ? new Date(`${sp.date}T00:00:00`) : new Date();

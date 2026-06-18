@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Search, UserPlus, UserCheck, ShieldCheck, ArrowRight, Clock, Info } from "lucide-react";
-import { requireUser } from "@/lib/auth";
+import { requireCap } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { isValidLast5, maskPhone } from "@/lib/phone";
 import { todayRange } from "@/lib/dates";
@@ -19,7 +19,7 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Tiếp nhận khách" };
 
 export default async function ReceptionPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
-  await requireUser(["ADMIN", "RECEPTION", "TELESALE"]);
+  await requireCap("mod:tiep-nhan");
   const sp = await searchParams;
   const q = (sp.q ?? "").trim();
   const validQuery = isValidLast5(q);

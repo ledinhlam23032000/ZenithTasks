@@ -6,12 +6,10 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { requireUser } from "@/lib/auth";
+import { requireUser, requireCap } from "@/lib/auth";
 import { toNum } from "@/lib/money";
 
 export type CaseActionState = { ok?: boolean; error?: string; nonce?: number };
-
-const CLINICAL = ["ADMIN", "MANAGER", "CONSULTANT", "DOCTOR"] as const;
 
 const LOCKED_MSG = "Hồ sơ đã khóa — không thể chỉnh sửa. Vui lòng liên hệ quản trị viên để mở lại.";
 
@@ -50,7 +48,7 @@ function refresh(caseId: string, customerId?: string) {
 
 // ---- Khóa / mở khóa hồ sơ ----
 export async function lockCase(formData: FormData): Promise<void> {
-  const user = await requireUser([...CLINICAL]);
+  const user = await requireCap("case.clinical");
   const id = String(formData.get("caseId") ?? "");
   if (!id) return;
   await prisma.caseRecord.update({
@@ -84,7 +82,7 @@ const infoSchema = z.object({
 });
 
 export async function updateCaseInfo(_prev: CaseActionState, formData: FormData): Promise<CaseActionState> {
-  const user = await requireUser([...CLINICAL]);
+  const user = await requireCap("case.clinical");
   const caseId = String(formData.get("caseId") ?? "");
   if (await isLockedFor(caseId, user.role)) return { error: LOCKED_MSG };
 
@@ -130,7 +128,7 @@ const serviceSchema = z.object({
 });
 
 export async function addCaseService(_prev: CaseActionState, formData: FormData): Promise<CaseActionState> {
-  const user = await requireUser([...CLINICAL]);
+  const user = await requireCap("case.clinical");
   const caseId = String(formData.get("caseId") ?? "");
   if (await isLockedFor(caseId, user.role)) return { error: LOCKED_MSG };
 
@@ -165,7 +163,7 @@ export async function addCaseService(_prev: CaseActionState, formData: FormData)
 }
 
 export async function removeCaseService(formData: FormData): Promise<void> {
-  const user = await requireUser([...CLINICAL]);
+  const user = await requireCap("case.clinical");
   const id = String(formData.get("id") ?? "");
   const caseId = String(formData.get("caseId") ?? "");
   if (!id || (await isLockedFor(caseId, user.role))) return;
@@ -180,7 +178,7 @@ export async function removeCaseService(formData: FormData): Promise<void> {
 const serviceEditSchema = serviceSchema.extend({ id: z.string().min(1) });
 
 export async function updateCaseService(_prev: CaseActionState, formData: FormData): Promise<CaseActionState> {
-  const user = await requireUser([...CLINICAL]);
+  const user = await requireCap("case.clinical");
   const caseId = String(formData.get("caseId") ?? "");
   if (await isLockedFor(caseId, user.role)) return { error: LOCKED_MSG };
 
@@ -215,7 +213,7 @@ const paymentSchema = z.object({
 });
 
 export async function addPayment(_prev: CaseActionState, formData: FormData): Promise<CaseActionState> {
-  const user = await requireUser([...CLINICAL, "RECEPTION"]);
+  const user = await requireCap("payment.add");
   const caseId = String(formData.get("caseId") ?? "");
   if (await isLockedFor(caseId, user.role)) return { error: LOCKED_MSG };
 
@@ -239,7 +237,7 @@ export async function addPayment(_prev: CaseActionState, formData: FormData): Pr
 const paymentEditSchema = paymentSchema.extend({ id: z.string().min(1) });
 
 export async function updatePayment(_prev: CaseActionState, formData: FormData): Promise<CaseActionState> {
-  const user = await requireUser(["ADMIN", "MANAGER"]);
+  const user = await requireCap("payment.manage");
   const caseId = String(formData.get("caseId") ?? "");
   if (await isLockedFor(caseId, user.role)) return { error: LOCKED_MSG };
 
@@ -273,7 +271,7 @@ const materialSchema = z.object({
 });
 
 export async function addMaterial(_prev: CaseActionState, formData: FormData): Promise<CaseActionState> {
-  const user = await requireUser([...CLINICAL]);
+  const user = await requireCap("case.clinical");
   const caseId = String(formData.get("caseId") ?? "");
   if (await isLockedFor(caseId, user.role)) return { error: LOCKED_MSG };
 
@@ -312,7 +310,7 @@ export async function addMaterial(_prev: CaseActionState, formData: FormData): P
 }
 
 export async function removeMaterial(formData: FormData): Promise<void> {
-  const user = await requireUser([...CLINICAL]);
+  const user = await requireCap("case.clinical");
   const id = String(formData.get("id") ?? "");
   const caseId = String(formData.get("caseId") ?? "");
   if (!id || (await isLockedFor(caseId, user.role))) return;
@@ -333,7 +331,7 @@ export async function removeMaterial(formData: FormData): Promise<void> {
 const materialEditSchema = materialSchema.extend({ id: z.string().min(1) });
 
 export async function updateMaterialUsage(_prev: CaseActionState, formData: FormData): Promise<CaseActionState> {
-  const user = await requireUser([...CLINICAL]);
+  const user = await requireCap("case.clinical");
   const caseId = String(formData.get("caseId") ?? "");
   if (await isLockedFor(caseId, user.role)) return { error: LOCKED_MSG };
 
@@ -388,7 +386,7 @@ export async function updateMaterialUsage(_prev: CaseActionState, formData: Form
 const ALLOWED_IMG = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
 
 export async function uploadPhoto(_prev: CaseActionState, formData: FormData): Promise<CaseActionState> {
-  const user = await requireUser([...CLINICAL]);
+  const user = await requireCap("case.clinical");
   const caseId = String(formData.get("caseId") ?? "");
   const customerId = String(formData.get("customerId") ?? "");
   if (await isLockedFor(caseId, user.role)) return { error: LOCKED_MSG };
@@ -427,7 +425,7 @@ export async function uploadPhoto(_prev: CaseActionState, formData: FormData): P
 }
 
 export async function deletePhoto(formData: FormData): Promise<void> {
-  const user = await requireUser([...CLINICAL]);
+  const user = await requireCap("case.clinical");
   const id = String(formData.get("id") ?? "");
   const caseId = String(formData.get("caseId") ?? "");
   if (!id || (await isLockedFor(caseId, user.role))) return;
@@ -444,7 +442,7 @@ const followSchema = z.object({
 });
 
 export async function addFollowUp(_prev: CaseActionState, formData: FormData): Promise<CaseActionState> {
-  const user = await requireUser([...CLINICAL]);
+  const user = await requireCap("case.clinical");
   const caseId = String(formData.get("caseId") ?? "");
   if (await isLockedFor(caseId, user.role)) return { error: LOCKED_MSG };
 
@@ -468,7 +466,7 @@ export async function addFollowUp(_prev: CaseActionState, formData: FormData): P
 
 // ---- Xóa thanh toán (quản trị / quản lý) ----
 export async function deletePayment(formData: FormData): Promise<void> {
-  const user = await requireUser(["ADMIN", "MANAGER"]);
+  const user = await requireCap("payment.manage");
   const id = String(formData.get("id") ?? "");
   const caseId = String(formData.get("caseId") ?? "");
   if (!id || (await isLockedFor(caseId, user.role))) return;
@@ -481,7 +479,7 @@ export async function deletePayment(formData: FormData): Promise<void> {
 
 // ---- Xóa lịch tái khám ----
 export async function deleteFollowUp(formData: FormData): Promise<void> {
-  const user = await requireUser([...CLINICAL]);
+  const user = await requireCap("case.clinical");
   const id = String(formData.get("id") ?? "");
   const caseId = String(formData.get("caseId") ?? "");
   if (!id || (await isLockedFor(caseId, user.role))) return;

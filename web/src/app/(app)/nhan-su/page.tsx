@@ -1,7 +1,8 @@
 import { Contact, Power } from "lucide-react";
-import { requireUser } from "@/lib/auth";
+import { requireCap } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { ROLE_LABELS } from "@/lib/rbac";
+import { permCatalog, effectiveKeys } from "@/lib/permissions";
 import { fmtDate } from "@/lib/format";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent } from "@/components/ui/card";
@@ -11,17 +12,19 @@ import { Table, THead, TH, TR, TD } from "@/components/ui/table";
 import { DeleteButton } from "@/components/ui/delete-button";
 import { NewStaffButton } from "./new-staff";
 import { ResetPasswordButton } from "./reset-password";
+import { PermissionEditorButton } from "./permission-editor";
 import { toggleStaffActive, deleteStaff } from "./actions";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Nhân sự" };
 
 export default async function StaffPage() {
-  const me = await requireUser(["ADMIN"]);
+  const me = await requireCap("mod:nhan-su");
   const users = await prisma.user.findMany({
     orderBy: [{ active: "desc" }, { role: "asc" }, { fullName: "asc" }],
-    select: { id: true, code: true, fullName: true, username: true, role: true, phone: true, active: true, createdAt: true },
+    select: { id: true, code: true, fullName: true, username: true, role: true, phone: true, permissions: true, active: true, createdAt: true },
   });
+  const catalog = permCatalog();
 
   return (
     <div className="space-y-6">
@@ -64,6 +67,14 @@ export default async function StaffPage() {
                   <TD className="text-slate-500">{fmtDate(u.createdAt)}</TD>
                   <TD className="text-right">
                     <div className="flex items-center justify-end gap-1">
+                      {u.id !== me.id && (
+                        <PermissionEditorButton
+                          userId={u.id}
+                          name={u.fullName}
+                          granted={effectiveKeys({ role: u.role, permissions: u.permissions })}
+                          catalog={catalog}
+                        />
+                      )}
                       <ResetPasswordButton userId={u.id} name={u.fullName} />
                       {u.id !== me.id && (
                         <form action={toggleStaffActive}>

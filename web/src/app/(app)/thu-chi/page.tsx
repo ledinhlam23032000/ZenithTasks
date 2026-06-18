@@ -2,7 +2,7 @@ import Link from "next/link";
 import { startOfMonth, endOfMonth, addMonths, format } from "date-fns";
 import { vi } from "date-fns/locale";
 import { Coins, ChevronLeft, ChevronRight, ArrowUpRight, ArrowDownRight, Scale, Trash2 } from "lucide-react";
-import { requireUser } from "@/lib/auth";
+import { requireCap } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { toNum, formatVND } from "@/lib/money";
 import { fmtDate } from "@/lib/format";
@@ -24,7 +24,7 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Thu chi" };
 
 export default async function CashPage({ searchParams }: { searchParams: Promise<{ month?: string; type?: string }> }) {
-  await requireUser(["ADMIN", "MANAGER"]);
+  await requireCap("mod:thu-chi");
   const sp = await searchParams;
 
   const monthRef = sp.month ? new Date(`${sp.month}-01T00:00:00`) : new Date();

@@ -4,6 +4,7 @@ import { cache } from "react";
 import bcrypt from "bcryptjs";
 import { SignJWT, jwtVerify } from "jose";
 import { prisma } from "./db";
+import { userCan } from "./permissions";
 import type { Role } from "@/generated/prisma/client";
 
 const COOKIE_NAME = "zsession";
@@ -30,6 +31,7 @@ export type SafeUser = {
   role: Role;
   phone: string | null;
   avatarUrl: string | null;
+  permissions: unknown;
   active: boolean;
 };
 
@@ -95,6 +97,7 @@ export const getCurrentUser = cache(async (): Promise<SafeUser | null> => {
       role: true,
       phone: true,
       avatarUrl: true,
+      permissions: true,
       active: true,
     },
   });
@@ -112,5 +115,16 @@ export async function requireUser(roles?: Role[]): Promise<SafeUser> {
   if (roles && roles.length > 0 && !roles.includes(user.role)) {
     redirect("/khong-co-quyen");
   }
+  return user;
+}
+
+/**
+ * Bắt buộc đăng nhập + có quyền (key). Dùng ở đầu trang/Server Action.
+ * Quyền tính theo mặc định vai trò + tuỳ chỉnh thêm/bớt của từng người.
+ */
+export async function requireCap(key: string): Promise<SafeUser> {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  if (!userCan(user, key)) redirect("/khong-co-quyen");
   return user;
 }

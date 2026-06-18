@@ -113,6 +113,8 @@ model User {
   role         Role
   phone        String? // SĐT nội bộ của nhân viên (không phải khách)
   avatarUrl    String? // Ảnh đại diện (nhân viên tự cập nhật)
+  // Quyền tuỳ chỉnh ngoài mặc định theo vai trò: { grant: string[], deny: string[] }
+  permissions  Json?
   baseSalary     Decimal @default(0) @db.Decimal(14, 0) // Lương cơ bản theo tháng
   commissionRate Decimal @default(0) @db.Decimal(5, 2) // % hoa hồng trên doanh thu phụ trách
   active       Boolean  @default(true)

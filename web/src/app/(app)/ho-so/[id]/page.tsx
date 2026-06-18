@@ -14,7 +14,8 @@ import {
   Lock,
   Unlock,
 } from "lucide-react";
-import { requireUser } from "@/lib/auth";
+import { requireCap } from "@/lib/auth";
+import { userCan } from "@/lib/permissions";
 import { prisma } from "@/lib/db";
 import { maskPhone } from "@/lib/phone";
 import { toNum, formatVND } from "@/lib/money";
@@ -55,7 +56,7 @@ import {
 export const dynamic = "force-dynamic";
 
 export default async function CaseDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const user = await requireUser(["ADMIN", "MANAGER", "CONSULTANT", "DOCTOR", "RECEPTION"]);
+  const user = await requireCap("mod:ho-so");
   const { id } = await params;
 
   const [record, services, materials, consultants, doctors] = await Promise.all([
@@ -82,16 +83,17 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
 
   const isAdmin = user.role === "ADMIN";
   const lockedForMe = record.locked && !isAdmin;
-  const canClinical = ["ADMIN", "MANAGER", "CONSULTANT", "DOCTOR"].includes(user.role) && !lockedForMe;
-  const canPay = !lockedForMe && (canClinical || user.role === "RECEPTION");
+  const canClinical = userCan(user, "case.clinical") && !lockedForMe;
+  const canPay = !lockedForMe && userCan(user, "payment.add");
 
   const total = toNum(record.totalAmount);
   const paid = toNum(record.paidAmount);
   const debt = toNum(record.debtAmount);
   const discount = toNum(record.discountAmount);
+  const gross = total + discount; // tổng trước giảm (totalAmount đã là số sau giảm)
   const commissionRate = toNum(record.commissionRate);
   const commissionAmount = toNum(record.commissionAmount);
-  const canVoidPayment = ["ADMIN", "MANAGER"].includes(user.role) && !lockedForMe;
+  const canVoidPayment = userCan(user, "payment.manage") && !lockedForMe;
 
   return (
     <div className="space-y-6">
@@ -362,8 +364,9 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <Row label="Tổng dịch vụ" value={formatVND(total)} />
-              {discount > 0 && <Row label="Đã giảm" value={`-${formatVND(discount)}`} valueClass="text-rose-500" />}
+              <Row label="Tổng dịch vụ" value={formatVND(gross)} />
+              {discount > 0 && <Row label="Đã giảm giá" value={`-${formatVND(discount)}`} valueClass="text-rose-500" />}
+              {discount > 0 && <Row label="Thành tiền sau giảm" value={formatVND(total)} valueClass="text-slate-900" />}
               <Row label="Đã thanh toán" value={formatVND(paid)} valueClass="text-emerald-600" />
               <div className="my-1 h-px bg-slate-100" />
               <div className="flex items-center justify-between">

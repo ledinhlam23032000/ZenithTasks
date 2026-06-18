@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { MessageCircleHeart, Search, Inbox } from "lucide-react";
-import { requireUser } from "@/lib/auth";
+import { requireCap } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { isValidLast5, maskPhone } from "@/lib/phone";
 import { todayRange } from "@/lib/dates";
@@ -22,7 +22,7 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Chăm sóc khách hàng" };
 
 export default async function CarePage({ searchParams }: { searchParams: Promise<{ q?: string; kenh?: string }> }) {
-  await requireUser(["ADMIN", "MANAGER", "CARE"]);
+  await requireCap("mod:cham-soc");
   const sp = await searchParams;
   const q = (sp.q ?? "").trim();
   const kenh = (sp.kenh ?? "").trim();

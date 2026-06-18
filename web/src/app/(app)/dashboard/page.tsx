@@ -11,7 +11,7 @@ import {
   ArrowRight,
   BarChart3,
 } from "lucide-react";
-import { requireUser } from "@/lib/auth";
+import { requireCap } from "@/lib/auth";
 import { isManagerial, ROLE_LABELS } from "@/lib/rbac";
 import { getAdminDashboard, getStaffSnapshot } from "@/lib/dashboard";
 import { fmtRelative, fmtTime } from "@/lib/format";
@@ -31,7 +31,7 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Tổng quan" };
 
 export default async function DashboardPage() {
-  const user = await requireUser();
+  const user = await requireCap("mod:dashboard");
   const greeting = getGreeting();
 
   if (!isManagerial(user.role)) {

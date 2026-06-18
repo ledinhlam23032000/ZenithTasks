@@ -1,6 +1,6 @@
 import { format } from "date-fns";
 import { Wallet, Coins, HandCoins, Banknote, FileSpreadsheet } from "lucide-react";
-import { requireUser } from "@/lib/auth";
+import { requireCap } from "@/lib/auth";
 import { getPayroll, STANDARD_DAYS_DEFAULT } from "@/lib/payroll";
 import { ROLE_LABELS } from "@/lib/rbac";
 import { formatVND } from "@/lib/money";
@@ -16,7 +16,7 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Lương & hoa hồng" };
 
 export default async function PayrollPage({ searchParams }: { searchParams: Promise<{ m?: string; d?: string }> }) {
-  const user = await requireUser(["ADMIN", "MANAGER"]);
+  const user = await requireCap("mod:luong");
   const isAdmin = user.role === "ADMIN";
   const sp = await searchParams;
 

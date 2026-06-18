@@ -1,5 +1,5 @@
 import { Boxes, ArrowUpFromLine, PackageX } from "lucide-react";
-import { requireUser } from "@/lib/auth";
+import { requireCap } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { toNum } from "@/lib/money";
 import { fmtDateTime } from "@/lib/format";
@@ -20,7 +20,7 @@ const MOVE = {
 };
 
 export default async function KhoPage() {
-  await requireUser(["ADMIN", "MANAGER"]);
+  await requireCap("mod:kho");
   const [materials, movements] = await Promise.all([
     prisma.material.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
     prisma.stockMovement.findMany({

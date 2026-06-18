@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { FolderHeart, Search, ShieldCheck } from "lucide-react";
-import { requireUser } from "@/lib/auth";
+import { requireCap } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { isValidLast5, maskPhone } from "@/lib/phone";
 import { toNum, formatVND } from "@/lib/money";
@@ -32,7 +32,7 @@ export default async function CasesPage({
 }: {
   searchParams: Promise<{ q?: string; status?: string }>;
 }) {
-  const user = await requireUser(["ADMIN", "MANAGER", "CONSULTANT", "DOCTOR"]);
+  const user = await requireCap("mod:ho-so");
   const sp = await searchParams;
   const q = (sp.q ?? "").trim();
   const status = (sp.status ?? "").trim();

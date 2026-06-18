@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireUser, hashPassword } from "@/lib/auth";
+import { diffFromDesired, ALL_PERM_KEYS } from "@/lib/permissions";
+import type { Role } from "@/generated/prisma/client";
 
 export type StaffFormState = { ok?: boolean; error?: string };
 
@@ -64,6 +66,21 @@ export async function createStaff(_prev: StaffFormState, formData: FormData): Pr
   }
 
   revalidatePath("/nhan-su");
+  return { ok: true };
+}
+
+/** Lưu phân quyền tuỳ chỉnh cho một nhân sự (thêm/bớt quyền ngoài mặc định vai trò). */
+export async function savePermissions(_prev: StaffFormState, formData: FormData): Promise<StaffFormState> {
+  await requireUser(["ADMIN"]);
+  const userId = String(formData.get("userId") ?? "");
+  if (!userId) return { error: "Thiếu nhân sự." };
+  const keys = formData.getAll("key").map(String).filter((k) => ALL_PERM_KEYS.includes(k));
+  const target = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
+  if (!target) return { error: "Không tìm thấy nhân sự." };
+  const override = diffFromDesired(target.role as Role, keys);
+  await prisma.user.update({ where: { id: userId }, data: { permissions: override } });
+  revalidatePath("/nhan-su");
+  revalidatePath("/", "layout");
   return { ok: true };
 }
 

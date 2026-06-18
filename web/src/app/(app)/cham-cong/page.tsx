@@ -1,7 +1,7 @@
 import { format, startOfMonth, endOfMonth } from "date-fns";
 import { CalendarCheck } from "lucide-react";
 import type { Role } from "@/generated/prisma/client";
-import { requireUser } from "@/lib/auth";
+import { requireCap } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { isManagerial, ROLE_LABELS } from "@/lib/rbac";
 import { vnDateOnly } from "@/lib/dates";
@@ -21,7 +21,7 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Chấm công" };
 
 export default async function ChamCongPage({ searchParams }: { searchParams: Promise<{ m?: string }> }) {
-  const user = await requireUser();
+  const user = await requireCap("mod:cham-cong");
   const sp = await searchParams;
   const parsed = sp.m ? new Date(`${sp.m}-01T00:00:00`) : new Date();
   const monthDate = Number.isNaN(parsed.getTime()) ? new Date() : parsed;

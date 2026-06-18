@@ -16,7 +16,8 @@ import {
   FilePlus2,
 } from "lucide-react";
 import { differenceInYears, format } from "date-fns";
-import { requireUser } from "@/lib/auth";
+import { requireCap } from "@/lib/auth";
+import { userCan } from "@/lib/permissions";
 import { prisma } from "@/lib/db";
 import { maskPhone, decryptPhone } from "@/lib/phone";
 import { aiConfigured } from "@/lib/ai";
@@ -49,7 +50,7 @@ import { PhotoTypeLabel } from "../../ho-so/[id]/photo-label";
 export const dynamic = "force-dynamic";
 
 export default async function CustomerDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const user = await requireUser(["ADMIN", "MANAGER", "RECEPTION", "CONSULTANT", "DOCTOR", "CARE"]);
+  const user = await requireCap("mod:khach-hang");
   const { id } = await params;
 
   const customer = await prisma.customer.findUnique({
@@ -73,9 +74,9 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
 
   if (!customer) notFound();
 
-  // Chỉ quản trị viên mới xem được số điện thoại đầy đủ (giải mã phía máy chủ).
+  // Quản trị + quản lý (hoặc người được cấp quyền) xem số đầy đủ; còn lại chỉ 5 số cuối.
   let fullPhone: string | null = null;
-  if (user.role === "ADMIN") {
+  if (userCan(user, "phone.full")) {
     try {
       fullPhone = decryptPhone(customer.phoneEnc);
     } catch {

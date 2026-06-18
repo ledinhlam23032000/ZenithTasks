@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { TrendingUp, Target, Receipt, Stethoscope, Sparkles, PieChart, ShieldCheck } from "lucide-react";
-import { requireUser } from "@/lib/auth";
+import { requireCap } from "@/lib/auth";
 import { getAdminDashboard } from "@/lib/dashboard";
 import { getReports } from "@/lib/reports";
 import { formatVND, formatVNDShort } from "@/lib/money";
@@ -20,7 +20,7 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Báo cáo" };
 
 export default async function ReportsPage() {
-  await requireUser(["ADMIN", "MANAGER"]);
+  await requireCap("mod:bao-cao");
   const [d, r] = await Promise.all([getAdminDashboard(), getReports()]);
 
   const maxSource = Math.max(...r.sources.map((s) => s.count), 1);

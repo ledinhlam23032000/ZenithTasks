@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { Users, Search, ShieldCheck } from "lucide-react";
-import { requireUser } from "@/lib/auth";
+import { Users, FolderHeart, Search, ShieldCheck, Stethoscope } from "lucide-react";
+import { requireCap } from "@/lib/auth";
+import { userCan } from "@/lib/permissions";
 import { prisma } from "@/lib/db";
 import { isValidLast5, maskPhone } from "@/lib/phone";
 import { fmtDate } from "@/lib/format";
@@ -16,10 +17,10 @@ import { NewCustomerButton } from "../tiep-nhan/new-customer";
 import type { Prisma } from "@/generated/prisma/client";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Khách hàng" };
+export const metadata = { title: "Hồ sơ khách hàng" };
 
 export default async function CustomersPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
-  const user = await requireUser(["ADMIN", "MANAGER", "RECEPTION", "CONSULTANT", "DOCTOR", "CARE"]);
+  const user = await requireCap("mod:khach-hang");
   const sp = await searchParams;
   const q = (sp.q ?? "").trim();
 
@@ -52,10 +53,19 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Khách hàng"
-        description={`${total} hồ sơ khách. Tra cứu theo tên hoặc 5 số cuối điện thoại.`}
-        icon={<Users className="h-5 w-5" />}
-        actions={canCreate ? <NewCustomerButton /> : undefined}
+        title="Hồ sơ khách hàng"
+        description={`${total} hồ sơ khách. Mỗi khách gồm thông tin + toàn bộ hồ sơ điều trị.`}
+        icon={<FolderHeart className="h-5 w-5" />}
+        actions={
+          <div className="flex items-center gap-2">
+            {userCan(user, "mod:ho-so") && (
+              <Link href="/ho-so" className={buttonVariants({ variant: "secondary" })}>
+                <Stethoscope className="h-4 w-4" /> Tất cả hồ sơ điều trị
+              </Link>
+            )}
+            {canCreate && <NewCustomerButton />}
+          </div>
+        }
       />
 
       <Card>
