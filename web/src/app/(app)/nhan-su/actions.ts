@@ -84,6 +84,15 @@ export async function savePermissions(_prev: StaffFormState, formData: FormData)
   return { ok: true };
 }
 
+/** Quản trị viên TẮT xác thực 2 lớp cho một nhân sự (khi họ mất app xác thực / bị khoá ngoài). */
+export async function adminDisable2FA(formData: FormData): Promise<void> {
+  await requireUser(["ADMIN"]);
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+  await prisma.user.update({ where: { id }, data: { totpEnabled: false, totpSecret: null } }).catch(() => {});
+  revalidatePath("/nhan-su");
+}
+
 export async function toggleStaffActive(formData: FormData): Promise<void> {
   const me = await requireUser(["ADMIN"]);
   const id = String(formData.get("id") ?? "");

@@ -25,6 +25,8 @@ const ACTION: Record<string, { label: string; tone: Tone }> = {
   APPLY_VOUCHER: { label: "Áp voucher", tone: "purple" },
   DELETE_CARE: { label: "Xóa tin chăm sóc", tone: "red" },
   REVEAL_PHONE: { label: "Xem SĐT đầy đủ", tone: "amber" },
+  ENABLE_2FA: { label: "Bật 2 lớp", tone: "green" },
+  DISABLE_2FA: { label: "Tắt 2 lớp", tone: "amber" },
 };
 
 function metaText(meta: unknown): string {

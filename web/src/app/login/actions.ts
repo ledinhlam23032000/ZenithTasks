@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { verifyPassword, createSession } from "@/lib/auth";
+import { totpVerify } from "@/lib/totp";
 import { checkLoginAllowed, registerLoginFailure, clearLoginFailures } from "@/lib/rate-limit";
 
 export type LoginState = { error?: string };
@@ -56,6 +57,15 @@ export async function loginAction(_prev: LoginState, formData: FormData): Promis
   if (!ok) {
     registerLoginFailure(ip, uname);
     return { error: "Sai mật khẩu. Vui lòng thử lại." };
+  }
+
+  // Xác thực 2 lớp (chỉ với tài khoản đã bật) — không ảnh hưởng tài khoản chưa bật.
+  if (user.totpEnabled) {
+    const code = String(formData.get("code") ?? "");
+    if (!user.totpSecret || !totpVerify(user.totpSecret, code)) {
+      registerLoginFailure(ip, uname);
+      return { error: code ? "Mã xác thực 2 lớp không đúng." : "Vui lòng nhập mã xác thực 2 lớp (6 số)." };
+    }
   }
 
   clearLoginFailures(ip, uname);

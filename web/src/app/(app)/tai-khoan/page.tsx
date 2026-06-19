@@ -1,16 +1,19 @@
-import { UserCog, ShieldCheck, IdCard } from "lucide-react";
+import { UserCog, ShieldCheck, IdCard, KeyRound } from "lucide-react";
 import { requireUser } from "@/lib/auth";
+import { prisma } from "@/lib/db";
 import { ROLE_LABELS } from "@/lib/rbac";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AvatarUploader, ProfileInfoForm, PasswordForm } from "./profile-forms";
+import { TwoFactor } from "./two-factor";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Thông tin cá nhân" };
 
 export default async function ProfilePage() {
   const user = await requireUser();
+  const me = await prisma.user.findUnique({ where: { id: user.id }, select: { totpEnabled: true } });
 
   return (
     <div className="space-y-6">
@@ -55,6 +58,19 @@ export default async function ProfilePage() {
         </CardHeader>
         <CardContent className="pt-2">
           <PasswordForm />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>
+            <span className="inline-flex items-center gap-2">
+              <KeyRound className="h-4 w-4 text-brand-600" /> Xác thực 2 lớp (2FA)
+            </span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-2">
+          <TwoFactor enabled={!!me?.totpEnabled} />
         </CardContent>
       </Card>
     </div>

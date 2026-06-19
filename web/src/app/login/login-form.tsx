@@ -45,6 +45,13 @@ export function LoginForm() {
         </div>
       </div>
 
+      {state.error?.includes("2 lớp") && (
+        <div>
+          <Label htmlFor="code">Mã xác thực 2 lớp</Label>
+          <Input id="code" name="code" inputMode="numeric" maxLength={6} placeholder="6 số từ ứng dụng xác thực" autoFocus />
+        </div>
+      )}
+
       {state.error && (
         <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-600 ring-1 ring-rose-600/10">{state.error}</p>
       )}

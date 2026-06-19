@@ -1,4 +1,4 @@
-import { Contact, Power } from "lucide-react";
+import { Contact, Power, KeyRound } from "lucide-react";
 import { requireCap } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { ROLE_LABELS } from "@/lib/rbac";
@@ -13,7 +13,7 @@ import { DeleteButton } from "@/components/ui/delete-button";
 import { NewStaffButton } from "./new-staff";
 import { ResetPasswordButton } from "./reset-password";
 import { PermissionEditorButton } from "./permission-editor";
-import { toggleStaffActive, deleteStaff } from "./actions";
+import { toggleStaffActive, deleteStaff, adminDisable2FA } from "./actions";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Nhân sự" };
@@ -22,7 +22,7 @@ export default async function StaffPage() {
   const me = await requireCap("mod:nhan-su");
   const users = await prisma.user.findMany({
     orderBy: [{ active: "desc" }, { role: "asc" }, { fullName: "asc" }],
-    select: { id: true, code: true, fullName: true, username: true, role: true, phone: true, permissions: true, active: true, createdAt: true },
+    select: { id: true, code: true, fullName: true, username: true, role: true, phone: true, permissions: true, totpEnabled: true, active: true, createdAt: true },
   });
   const catalog = permCatalog();
 
@@ -74,6 +74,17 @@ export default async function StaffPage() {
                           granted={effectiveKeys({ role: u.role, permissions: u.permissions })}
                           catalog={catalog}
                         />
+                      )}
+                      {u.totpEnabled && (
+                        <form action={adminDisable2FA}>
+                          <input type="hidden" name="id" value={u.id} />
+                          <button
+                            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-amber-600 hover:bg-amber-50"
+                            title="Tắt xác thực 2 lớp cho nhân sự này"
+                          >
+                            <KeyRound className="h-3.5 w-3.5" /> Tắt 2FA
+                          </button>
+                        </form>
                       )}
                       <ResetPasswordButton userId={u.id} name={u.fullName} />
                       {u.id !== me.id && (

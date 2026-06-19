@@ -115,6 +115,9 @@ model User {
   avatarUrl    String? // Ảnh đại diện (nhân viên tự cập nhật)
   // Quyền tuỳ chỉnh ngoài mặc định theo vai trò: { grant: string[], deny: string[] }
   permissions  Json?
+  // Xác thực 2 lớp (TOTP). Mặc định tắt — không ảnh hưởng đăng nhập hiện tại.
+  totpSecret   String?
+  totpEnabled  Boolean  @default(false)
   baseSalary     Decimal @default(0) @db.Decimal(14, 0) // Lương cơ bản theo tháng
   commissionRate Decimal @default(0) @db.Decimal(5, 2) // % hoa hồng trên doanh thu phụ trách
   active       Boolean  @default(true)

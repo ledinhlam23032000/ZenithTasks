@@ -6,6 +6,8 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireUser, verifyPassword, hashPassword } from "@/lib/auth";
+import { generateSecret, totpVerify, otpauthURL } from "@/lib/totp";
+import { audit } from "@/lib/audit";
 
 export type PasswordState = { ok?: boolean; error?: string };
 export type ProfileState = { ok?: boolean; error?: string; nonce?: number };
@@ -102,5 +104,39 @@ export async function resetStaffPassword(_prev: PasswordState, formData: FormDat
     .create({ data: { actorId: admin.id, action: "RESET_PASSWORD", entity: "User", entityId: userId } })
     .catch(() => {});
   revalidatePath("/nhan-su");
+  return { ok: true };
+}
+
+// ===== Xác thực 2 lớp (TOTP) =====
+export type TwoFAState = { ok?: boolean; error?: string; secret?: string; otpauth?: string };
+
+/** Khởi tạo bí mật 2FA (chưa bật) — trả về secret + chuỗi otpauth để nhập vào app xác thực. */
+export async function start2FA(): Promise<TwoFAState> {
+  const user = await requireUser();
+  const secret = generateSecret();
+  await prisma.user.update({ where: { id: user.id }, data: { totpSecret: secret, totpEnabled: false } });
+  return { secret, otpauth: otpauthURL(secret, user.username) };
+}
+
+/** Bật 2FA sau khi người dùng nhập đúng mã từ app xác thực. */
+export async function enable2FA(_prev: TwoFAState, formData: FormData): Promise<TwoFAState> {
+  const user = await requireUser();
+  const code = String(formData.get("code") ?? "");
+  const rec = await prisma.user.findUnique({ where: { id: user.id }, select: { totpSecret: true } });
+  if (!rec?.totpSecret) return { error: "Chưa khởi tạo. Bấm “Bật” để lấy mã trước." };
+  if (!totpVerify(rec.totpSecret, code)) return { error: "Mã không đúng. Vui lòng thử lại." };
+  await prisma.user.update({ where: { id: user.id }, data: { totpEnabled: true } });
+  await audit(user.id, "ENABLE_2FA");
+  return { ok: true };
+}
+
+/** Tắt 2FA (yêu cầu mật khẩu hiện tại để an toàn). */
+export async function disable2FA(_prev: TwoFAState, formData: FormData): Promise<TwoFAState> {
+  const user = await requireUser();
+  const pwd = String(formData.get("current") ?? "");
+  const rec = await prisma.user.findUnique({ where: { id: user.id }, select: { passwordHash: true } });
+  if (!rec || !(await verifyPassword(pwd, rec.passwordHash))) return { error: "Mật khẩu không đúng." };
+  await prisma.user.update({ where: { id: user.id }, data: { totpEnabled: false, totpSecret: null } });
+  await audit(user.id, "DISABLE_2FA");
   return { ok: true };
 }
