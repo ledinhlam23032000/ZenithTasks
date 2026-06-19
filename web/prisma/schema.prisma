@@ -246,13 +246,16 @@ model Service {
 }
 
 model Material {
-  id        String          @id @default(cuid())
-  name      String
-  unit      String          @default("cái")
-  sku       String?
-  active    Boolean         @default(true)
-  stock     Decimal         @default(0) @db.Decimal(12, 2) // Tồn kho hiện tại
-  createdAt DateTime        @default(now())
+  id         String          @id @default(cuid())
+  name       String
+  unit       String          @default("cái")
+  sku        String?
+  minStock   Decimal         @default(0) @db.Decimal(12, 2) // Mức tồn tối thiểu (cảnh báo khi tồn ≤ mức này)
+  lotNo      String? // Số lô của đợt nhập hiện tại
+  expiryDate DateTime? // Hạn dùng của đợt hiện tại
+  active     Boolean         @default(true)
+  stock      Decimal         @default(0) @db.Decimal(12, 2) // Tồn kho hiện tại
+  createdAt  DateTime        @default(now())
   usages    MaterialUsage[]
   movements StockMovement[]
 }

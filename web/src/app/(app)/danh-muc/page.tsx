@@ -106,7 +106,16 @@ export default async function CatalogPage() {
                     <TD>{m.active ? <Badge tone="green">Đang dùng</Badge> : <Badge tone="slate">Ẩn</Badge>}</TD>
                     <TD className="text-right">
                       <div className="flex items-center justify-end gap-1">
-                        <EditMaterialButton material={{ id: m.id, name: m.name, unit: m.unit }} />
+                        <EditMaterialButton
+                          material={{
+                            id: m.id,
+                            name: m.name,
+                            unit: m.unit,
+                            minStock: toNum(m.minStock),
+                            lotNo: m.lotNo ?? "",
+                            expiryDate: m.expiryDate ? m.expiryDate.toISOString().slice(0, 10) : "",
+                          }}
+                        />
                         <form action={stockIn} className="flex items-center gap-1">
                           <input type="hidden" name="id" value={m.id} />
                           <input

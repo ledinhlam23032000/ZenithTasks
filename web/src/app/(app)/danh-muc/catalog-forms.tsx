@@ -49,7 +49,11 @@ export function EditServiceButton({ service }: { service: { id: string; name: st
   );
 }
 
-export function EditMaterialButton({ material }: { material: { id: string; name: string; unit: string } }) {
+export function EditMaterialButton({
+  material,
+}: {
+  material: { id: string; name: string; unit: string; minStock: number; lotNo: string; expiryDate: string };
+}) {
   const [open, setOpen] = useState(false);
   const [state, action, pending] = useActionState<CatalogState, FormData>(updateMaterial, {});
   useEffect(() => {
@@ -71,6 +75,20 @@ export function EditMaterialButton({ material }: { material: { id: string; name:
             <div>
               <Label htmlFor="em-unit">Đơn vị</Label>
               <Input id="em-unit" name="unit" defaultValue={material.unit} />
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div>
+              <Label htmlFor="em-min">Mức tồn tối thiểu</Label>
+              <Input id="em-min" name="minStock" type="number" min={0} step="any" defaultValue={material.minStock} />
+            </div>
+            <div>
+              <Label htmlFor="em-lot">Số lô</Label>
+              <Input id="em-lot" name="lotNo" defaultValue={material.lotNo} placeholder="VD: LO2025A" />
+            </div>
+            <div>
+              <Label htmlFor="em-exp">Hạn dùng</Label>
+              <Input id="em-exp" name="expiryDate" type="date" defaultValue={material.expiryDate} />
             </div>
           </div>
           {state.error && <p className="text-sm text-rose-600">{state.error}</p>}
@@ -147,6 +165,20 @@ export function NewMaterialButton() {
             <div>
               <Label htmlFor="m-unit">Đơn vị</Label>
               <Input id="m-unit" name="unit" defaultValue="cái" />
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div>
+              <Label htmlFor="m-min">Mức tồn tối thiểu</Label>
+              <Input id="m-min" name="minStock" type="number" min={0} step="any" defaultValue={0} />
+            </div>
+            <div>
+              <Label htmlFor="m-lot">Số lô</Label>
+              <Input id="m-lot" name="lotNo" placeholder="VD: LO2025A" />
+            </div>
+            <div>
+              <Label htmlFor="m-exp">Hạn dùng</Label>
+              <Input id="m-exp" name="expiryDate" type="date" />
             </div>
           </div>
           {state.error && <p className="text-sm text-rose-600">{state.error}</p>}

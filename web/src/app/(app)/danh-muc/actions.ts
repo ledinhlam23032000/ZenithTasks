@@ -32,16 +32,35 @@ export async function createService(_prev: CatalogState, formData: FormData): Pr
 const materialSchema = z.object({
   name: z.string().trim().min(1, "Vui lòng nhập tên vật tư."),
   unit: z.string().trim().min(1, "Nhập đơn vị.").default("cái"),
+  minStock: z.coerce.number().min(0).default(0),
+  lotNo: z.string().trim().optional(),
+  expiryDate: z.string().trim().optional(), // yyyy-MM-dd
 });
+
+function toDate(s?: string): Date | null {
+  if (!s) return null;
+  const d = new Date(s);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function parseMaterial(formData: FormData) {
+  return materialSchema.safeParse({
+    name: formData.get("name") ?? "",
+    unit: formData.get("unit") ?? "cái",
+    minStock: formData.get("minStock") ?? 0,
+    lotNo: formData.get("lotNo") ?? "",
+    expiryDate: formData.get("expiryDate") ?? "",
+  });
+}
 
 export async function createMaterial(_prev: CatalogState, formData: FormData): Promise<CatalogState> {
   await requireUser([...ROLES]);
-  const parsed = materialSchema.safeParse({
-    name: formData.get("name") ?? "",
-    unit: formData.get("unit") ?? "cái",
-  });
+  const parsed = parseMaterial(formData);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu không hợp lệ." };
-  await prisma.material.create({ data: parsed.data });
+  const d = parsed.data;
+  await prisma.material.create({
+    data: { name: d.name, unit: d.unit, minStock: d.minStock, lotNo: d.lotNo || null, expiryDate: toDate(d.expiryDate) },
+  });
   revalidatePath("/danh-muc");
   return { ok: true };
 }
@@ -118,9 +137,15 @@ export async function updateMaterial(_prev: CatalogState, formData: FormData): P
   await requireUser([...ROLES]);
   const id = String(formData.get("id") ?? "");
   if (!id) return { error: "Thiếu vật tư." };
-  const parsed = materialSchema.safeParse({ name: formData.get("name") ?? "", unit: formData.get("unit") ?? "cái" });
+  const parsed = parseMaterial(formData);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu không hợp lệ." };
-  await prisma.material.update({ where: { id }, data: { name: parsed.data.name, unit: parsed.data.unit } }).catch(() => {});
+  const d = parsed.data;
+  await prisma.material
+    .update({
+      where: { id },
+      data: { name: d.name, unit: d.unit, minStock: d.minStock, lotNo: d.lotNo || null, expiryDate: toDate(d.expiryDate) },
+    })
+    .catch(() => {});
   revalidatePath("/danh-muc");
   return { ok: true };
 }
