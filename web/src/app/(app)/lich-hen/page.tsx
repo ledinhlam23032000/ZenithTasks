@@ -3,6 +3,7 @@ import { addDays, addMonths, startOfMonth, endOfMonth, format, isToday, isTomorr
 import { vi } from "date-fns/locale";
 import { CalendarClock, ChevronLeft, ChevronRight, Sun, CalendarDays } from "lucide-react";
 import { requireCap } from "@/lib/auth";
+import { AutoRefresh } from "@/components/ui/auto-refresh";
 import { prisma } from "@/lib/db";
 import { dayRange, todayRange, tomorrowRange } from "@/lib/dates";
 import { getActiveServices, getConsultants } from "@/lib/lookups";
@@ -87,6 +88,7 @@ export default async function AppointmentsPage({
 
   return (
     <div className="space-y-6">
+      <AutoRefresh />
       <PageHeader
         title="Lịch hẹn"
         description="Tiếp nhận và quản lý lịch hẹn khách từ telesale, marketing, cộng tác viên…"

@@ -25,6 +25,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { EmptyState } from "@/components/ui/empty-state";
 import { BarList } from "@/components/charts/charts";
 import { RevenueChart } from "@/components/charts/revenue-chart";
+import { AutoRefresh } from "@/components/ui/auto-refresh";
 import { CARE_CHANNEL, APPT_STATUS } from "@/lib/status";
 
 export const dynamic = "force-dynamic";
@@ -46,6 +47,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-6">
+      <AutoRefresh seconds={45} />
       <PageHeader
         title={`${greeting}, ${shortName(user.fullName)} 👋`}
         description="Bức tranh toàn cảnh hoạt động phòng khám hôm nay và tháng này."
@@ -292,6 +294,7 @@ async function StaffDashboard({
 
   return (
     <div className="space-y-6">
+      <AutoRefresh seconds={45} />
       <PageHeader
         title={`${greeting}, ${shortName(user.fullName)} 👋`}
         description={`Vai trò của bạn: ${ROLE_LABELS[user.role]}. Chúc một ngày làm việc hiệu quả!`}

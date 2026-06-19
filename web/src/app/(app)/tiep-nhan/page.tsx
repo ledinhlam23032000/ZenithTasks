@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Search, UserPlus, UserCheck, ShieldCheck, ArrowRight, Clock, Info } from "lucide-react";
 import { requireCap } from "@/lib/auth";
+import { AutoRefresh } from "@/components/ui/auto-refresh";
 import { prisma } from "@/lib/db";
 import { isValidLast5, maskPhone } from "@/lib/phone";
 import { todayRange } from "@/lib/dates";
@@ -51,6 +52,7 @@ export default async function ReceptionPage({ searchParams }: { searchParams: Pr
 
   return (
     <div className="space-y-6">
+      <AutoRefresh />
       <PageHeader
         title="Tiếp nhận khách"
         description="Tra cứu khách theo 5 số cuối điện thoại. Nếu chưa có, lập hồ sơ mới và chuyển cho tư vấn — bác sĩ."
