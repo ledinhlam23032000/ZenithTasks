@@ -22,6 +22,22 @@ Set-Content -Path $cfgFile -Value $dest -Encoding UTF8
 Write-Host "Se luu vao: $dest" -ForegroundColor Green
 Write-Host ''
 
+# Noi luu NGOAI (tuy chon) - thuong la thu muc Google Drive de phong chay/mat may
+$offFile = Join-Path $env:USERPROFILE 'zenith-sao-luu-offsite.txt'
+Write-Host 'NOI LUU NGOAI (tuy chon) - de an toan khi chay/mat/hong may.' -ForegroundColor Yellow
+Write-Host 'Cach de nhat: cai "Google Drive for desktop", roi nhap duong dan trong Drive,'
+Write-Host 'vi du:  G:\My Drive\ZenithBackup   (de TRONG neu chua dung)'
+$off = Read-Host 'Thu muc Google Drive / o ngoai (tuy chon)'
+if (-not [string]::IsNullOrWhiteSpace($off)) {
+  Set-Content -Path $offFile -Value $off -Encoding UTF8
+  Write-Host "Se dong bo ra: $off" -ForegroundColor Green
+}
+else {
+  Remove-Item $offFile -ErrorAction SilentlyContinue
+  Write-Host 'Chua dung noi luu ngoai (co the cai sau).' -ForegroundColor DarkGray
+}
+Write-Host ''
+
 # Hen lich chay hang ngay luc 1h sang
 $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$ps1`""
 $trigger = New-ScheduledTaskTrigger -Daily -At 1am

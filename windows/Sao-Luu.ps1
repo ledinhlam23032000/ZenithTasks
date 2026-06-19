@@ -47,6 +47,25 @@ try {
     Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-30) } |
     Remove-Item -Force -ErrorAction SilentlyContinue
 
+  # 5) Sao chep ra NOI LUU NGOAI (Google Drive / USB / o mang) neu da cau hinh
+  $offFile = Join-Path $env:USERPROFILE 'zenith-sao-luu-offsite.txt'
+  if (Test-Path $offFile) {
+    $offsite = (Get-Content $offFile -Raw).Trim()
+    if (-not [string]::IsNullOrWhiteSpace($offsite)) {
+      try {
+        New-Item -ItemType Directory -Force -Path $offsite | Out-Null
+        Copy-Item -Path $zip -Destination $offsite -Force
+        Get-ChildItem (Join-Path $offsite 'zenith-*.zip') |
+          Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-30) } |
+          Remove-Item -Force -ErrorAction SilentlyContinue
+        Log "Da dong bo ra noi luu ngoai: $offsite"
+      }
+      catch {
+        Log "CANH BAO: khong sao chep duoc ra noi luu ngoai ($offsite): $_"
+      }
+    }
+  }
+
   Log "Hoan tat sao luu."
 }
 catch {
