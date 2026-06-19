@@ -30,6 +30,7 @@ export const MODULES: ModuleDef[] = [
   { key: "luong", href: "/luong", label: "Lương & hoa hồng", icon: "Wallet", roles: ["ADMIN", "MANAGER"] },
   { key: "thu-chi", href: "/thu-chi", label: "Thu chi", icon: "Coins", roles: ["ADMIN", "MANAGER"] },
   { key: "nhan-su", href: "/nhan-su", label: "Nhân sự", icon: "Contact", roles: ["ADMIN"] },
+  { key: "nhat-ky", href: "/nhat-ky", label: "Nhật ký hệ thống", icon: "ScrollText", roles: ["ADMIN"] },
   { key: "danh-muc", href: "/danh-muc", label: "Danh mục dịch vụ", icon: "ListChecks", roles: ["ADMIN", "MANAGER"] },
   { key: "kho", href: "/kho", label: "Kho vật tư", icon: "Boxes", roles: ["ADMIN", "MANAGER"] },
 ];

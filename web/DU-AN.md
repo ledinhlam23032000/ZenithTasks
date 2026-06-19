@@ -88,6 +88,13 @@
 - Mobile: Sổ thu chi có **bản thẻ** (`sm:hidden`) song song bảng (`hidden sm:block`); bảng dịch vụ trong hồ sơ ẩn cột "Giá gốc" trên màn nhỏ.
 - Dọn mã chết `rbac.ts`; `receiveCustomer` luôn điều hướng (không "im lặng").
 
+## Lộ trình nâng cấp (đang làm lần lượt)
+- ✅ **#1 Sao lưu offsite**: `windows/Sao-Luu.ps1` đẩy bản .zip ra thư mục Google Drive/USB (config `zenith-sao-luu-offsite.txt`).
+- ✅ **#2 Cảnh báo kho**: `Material.minStock/lotNo/expiryDate`; trang Kho cảnh báo tồn thấp + sắp/đã hết hạn.
+- ✅ **#3 Lãi/Lỗ + Excel**: Sổ thu chi có thẻ Doanh thu dịch vụ/Thu khác/Chi/Lãi‑Lỗ; route `/thu-chi/export` xuất CSV.
+- ✅ **#4 Nhật ký hệ thống**: trang `/nhat-ky` (ADMIN) xem AuditLog. (Thùng rác/xóa mềm: chưa làm — thay đổi lớn, để sau.)
+- ⏳ **#5 Đặt lịch online** (khách tự đặt) · **#6 Zalo OA + nhắc tự động** (cần lập OA) · **#7 AI tự trả lời** (cần API key + OA).
+
 ## CÒN LÀM (TODO) — thêm nút "Sửa" cho ADMIN ở các phần còn thiếu
 Đã có Sửa: Khách hàng, Hồ sơ (thông tin), Dịch vụ & Vật tư (danh mục), Lịch hẹn, Chăm sóc khách hàng, Lương, **Dịch vụ/Vật tư/Thanh toán trong hồ sơ** (`updateCaseService`/`updateMaterialUsage`/`updatePayment` — sửa vật tư tự điều chỉnh tồn kho theo chênh lệch; sửa giá/thu tiền tự `recalc`).
 Chưa có Sửa (cần bổ sung):
