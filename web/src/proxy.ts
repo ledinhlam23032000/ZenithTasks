@@ -4,7 +4,7 @@ import type { NextRequest } from "next/server";
 // Next.js 16: "proxy" thay cho "middleware". Ở đây chỉ kiểm tra NHANH sự tồn tại
 // của cookie phiên để chuyển hướng. Việc xác thực & phân quyền THỰC SỰ nằm trong
 // requireUser() ở từng trang / Server Action (theo khuyến nghị bảo mật của Next).
-const PUBLIC_PATHS = ["/login"];
+const PUBLIC_PATHS = ["/login", "/dat-lich"];
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;

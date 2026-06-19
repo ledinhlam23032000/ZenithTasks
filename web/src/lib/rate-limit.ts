@@ -63,3 +63,19 @@ export function clearLoginFailures(ip: string, username: string): void {
   buckets.delete(`u:${ip}:${username}`);
   buckets.delete(`ip:${ip}`);
 }
+
+// ---- Bộ đếm chung (vd: chống spam đặt lịch online) ----
+const hits = new Map<string, { n: number; first: number }>();
+
+/** Tăng bộ đếm cho 1 khoá; trả về TRUE nếu đã VƯỢT giới hạn trong cửa sổ. */
+export function bump(key: string, max: number, windowMs = 15 * 60 * 1000): boolean {
+  const now = Date.now();
+  let b = hits.get(key);
+  if (!b || now - b.first > windowMs) b = { n: 0, first: now };
+  b.n += 1;
+  hits.set(key, b);
+  if (hits.size > 5000) {
+    for (const [k, v] of hits) if (now - v.first > windowMs) hits.delete(k);
+  }
+  return b.n > max;
+}

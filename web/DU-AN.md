@@ -93,7 +93,8 @@
 - ✅ **#2 Cảnh báo kho**: `Material.minStock/lotNo/expiryDate`; trang Kho cảnh báo tồn thấp + sắp/đã hết hạn.
 - ✅ **#3 Lãi/Lỗ + Excel**: Sổ thu chi có thẻ Doanh thu dịch vụ/Thu khác/Chi/Lãi‑Lỗ; route `/thu-chi/export` xuất CSV.
 - ✅ **#4 Nhật ký hệ thống**: trang `/nhat-ky` (ADMIN) xem AuditLog. (Thùng rác/xóa mềm: chưa làm — thay đổi lớn, để sau.)
-- ⏳ **#5 Đặt lịch online** (khách tự đặt) · **#6 Zalo OA + nhắc tự động** (cần lập OA) · **#7 AI tự trả lời** (cần API key + OA).
+- ✅ **#5 Đặt lịch online**: trang công khai `/dat-lich` (proxy.ts cho phép) — khách tự đặt → tạo Appointment (source "Đặt lịch online", SĐT đầy đủ lưu ở ghi chú để lễ tân gọi lại) → hiện ở Lịch hẹn. Chống spam: honeypot + giới hạn theo IP (`bump` trong rate-limit.ts).
+- ⏳ **#6 Zalo OA + nhắc tự động** (cần lập OA lấy token) · **#7 AI tự trả lời** (cần API key + OA).
 
 ## CÒN LÀM (TODO) — thêm nút "Sửa" cho ADMIN ở các phần còn thiếu
 Đã có Sửa: Khách hàng, Hồ sơ (thông tin), Dịch vụ & Vật tư (danh mục), Lịch hẹn, Chăm sóc khách hàng, Lương, **Dịch vụ/Vật tư/Thanh toán trong hồ sơ** (`updateCaseService`/`updateMaterialUsage`/`updatePayment` — sửa vật tư tự điều chỉnh tồn kho theo chênh lệch; sửa giá/thu tiền tự `recalc`).
