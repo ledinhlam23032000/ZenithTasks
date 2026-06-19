@@ -35,16 +35,16 @@ export async function updateMyProfile(_prev: ProfileState, formData: FormData): 
   return { ok: true, nonce: Date.now() };
 }
 
-const AVATAR_TYPES = ["image/jpeg", "image/png", "image/webp"];
-const AVATAR_EXT = ["jpg", "jpeg", "png", "webp"];
+const AVATAR_EXT = ["jpg", "jpeg", "png", "webp", "heic", "heif", "gif"];
 
 /** Nhân viên tự đổi ảnh đại diện. */
 export async function updateMyAvatar(_prev: ProfileState, formData: FormData): Promise<ProfileState> {
   const user = await requireUser();
   const file = formData.get("avatar");
   if (!(file instanceof File) || file.size === 0) return { error: "Vui lòng chọn ảnh." };
-  if (file.size > 4 * 1024 * 1024) return { error: "Ảnh đại diện tối đa 4MB." };
-  if (!AVATAR_TYPES.includes(file.type)) return { error: "Chỉ nhận ảnh JPG, PNG hoặc WEBP." };
+  if (file.size > 8 * 1024 * 1024) return { error: "Ảnh đại diện tối đa 8MB." };
+  // Nhận mọi định dạng ảnh (điện thoại có thể gửi HEIC; trình duyệt iOS tự đổi sang JPG).
+  if (file.type && !file.type.startsWith("image/")) return { error: "Tệp tải lên phải là ảnh." };
 
   const rawExt = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
   const ext = AVATAR_EXT.includes(rawExt) ? rawExt : "jpg";

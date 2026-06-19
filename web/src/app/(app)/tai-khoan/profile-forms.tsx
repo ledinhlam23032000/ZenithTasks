@@ -40,7 +40,7 @@ export function AvatarUploader({ name, avatarUrl }: { name: string; avatarUrl: s
           ref={inputRef}
           type="file"
           name="avatar"
-          accept="image/jpeg,image/png,image/webp"
+          accept="image/*"
           className="hidden"
           onChange={(e) => {
             const f = e.target.files?.[0];
@@ -60,7 +60,7 @@ export function AvatarUploader({ name, avatarUrl }: { name: string; avatarUrl: s
           </button>
           <Saved ok={state.ok} nonce={state.nonce} />
         </div>
-        <p className="text-xs text-slate-400">JPG, PNG hoặc WEBP · tối đa 4MB.</p>
+        <p className="text-xs text-slate-400">Ảnh JPG, PNG, WEBP hoặc ảnh từ điện thoại · tối đa 8MB.</p>
         {state.error && <p className="text-sm text-rose-600">{state.error}</p>}
       </div>
     </form>
