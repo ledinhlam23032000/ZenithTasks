@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { startOfMonth, endOfMonth, addMonths, format } from "date-fns";
 import { vi } from "date-fns/locale";
-import { Coins, ChevronLeft, ChevronRight, ArrowUpRight, ArrowDownRight, Scale, Trash2 } from "lucide-react";
+import { Coins, ChevronLeft, ChevronRight, ArrowUpRight, ArrowDownRight, Scale, Trash2, FileSpreadsheet } from "lucide-react";
 import { requireCap } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { toNum, formatVND } from "@/lib/money";
@@ -39,7 +39,7 @@ export default async function CashPage({ searchParams }: { searchParams: Promise
     ...(typeFilter ? { type: typeFilter } : {}),
   };
 
-  const [txs, monthAll] = await Promise.all([
+  const [txs, monthAll, payAgg] = await Promise.all([
     prisma.cashTransaction.findMany({
       where,
       orderBy: { occurredAt: "desc" },
@@ -49,6 +49,7 @@ export default async function CashPage({ searchParams }: { searchParams: Promise
       where: { occurredAt: { gte: from, lte: to } },
       select: { type: true, amount: true, category: true },
     }),
+    prisma.payment.aggregate({ where: { paidAt: { gte: from, lte: to } }, _sum: { amount: true } }),
   ]);
 
   let income = 0;
@@ -62,7 +63,8 @@ export default async function CashPage({ searchParams }: { searchParams: Promise
       byCat.set(t.category, (byCat.get(t.category) ?? 0) + a);
     }
   }
-  const balance = income - expense;
+  const serviceRevenue = toNum(payAgg._sum.amount); // tiền thực thu từ hồ sơ
+  const profit = serviceRevenue + income - expense; // lãi/lỗ
   const topCats = [...byCat.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6);
 
   const prevMonth = format(addMonths(month, -1), "yyyy-MM");
@@ -81,13 +83,25 @@ export default async function CashPage({ searchParams }: { searchParams: Promise
         title="Sổ thu chi"
         description="Ghi nhận mọi khoản tiền ra – vào của trung tâm (mua vật tư, máy móc, tiếp khách, thu khác…)."
         icon={<Coins className="h-5 w-5" />}
-        actions={<NewCashButton defaultDate={today} />}
+        actions={
+          <div className="flex items-center gap-2">
+            <Link
+              href={`/thu-chi/export?month=${monthKey}${typeFilter ? `&type=${typeFilter}` : ""}`}
+              className={buttonVariants({ variant: "secondary" })}
+            >
+              <FileSpreadsheet className="h-4 w-4" /> Xuất Excel
+            </Link>
+            <NewCashButton defaultDate={today} />
+          </div>
+        }
       />
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <StatCard label={`Tổng thu ${format(month, "MM/yyyy")}`} value={formatVND(income)} icon={<ArrowUpRight className="h-5 w-5" />} tone="green" />
-        <StatCard label={`Tổng chi ${format(month, "MM/yyyy")}`} value={formatVND(expense)} icon={<ArrowDownRight className="h-5 w-5" />} tone="pink" />
-        <StatCard label="Số dư (Thu − Chi)" value={formatVND(balance)} icon={<Scale className="h-5 w-5" />} tone={balance >= 0 ? "brand" : "slate"} />
+      {/* Lãi / Lỗ tháng */}
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard label={`Doanh thu dịch vụ ${format(month, "MM/yyyy")}`} value={formatVND(serviceRevenue)} sub="Tiền thực thu từ hồ sơ" icon={<ArrowUpRight className="h-5 w-5" />} tone="green" />
+        <StatCard label="Thu khác" value={formatVND(income)} sub="Ghi ở sổ thu chi" icon={<ArrowUpRight className="h-5 w-5" />} tone="brand" />
+        <StatCard label="Tổng chi" value={formatVND(expense)} sub="Chi phí vận hành" icon={<ArrowDownRight className="h-5 w-5" />} tone="pink" />
+        <StatCard label="Lãi / Lỗ" value={formatVND(profit)} sub="Doanh thu + thu khác − chi" icon={<Scale className="h-5 w-5" />} tone={profit >= 0 ? "brand" : "red"} />
       </div>
 
       {topCats.length > 0 && (
