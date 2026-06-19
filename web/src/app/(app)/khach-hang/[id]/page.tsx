@@ -15,6 +15,7 @@ import {
   Stethoscope,
   FilePlus2,
   Crown,
+  Share2,
 } from "lucide-react";
 import { differenceInYears, format } from "date-fns";
 import { requireCap } from "@/lib/auth";
@@ -46,6 +47,7 @@ import { deleteCustomer } from "../actions";
 import { deleteCareMessage } from "../../cham-soc/actions";
 import { EditCustomerButton } from "../edit-customer";
 import { AdminPhone } from "./admin-phone";
+import { PortalLink } from "./portal-link";
 import { CareComposer } from "../../cham-soc/care-composer";
 import { PhotoTypeLabel } from "../../ho-so/[id]/photo-label";
 
@@ -199,6 +201,20 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
           )}
         </CardContent>
       </Card>
+
+      {/* Cổng khách hàng (link riêng cho khách) */}
+      {canEdit && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Share2 className="h-4 w-4 text-brand-500" /> Cổng khách hàng
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <PortalLink customerId={customer.id} token={customer.portalToken} />
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-5">
         {/* Hồ sơ điều trị */}

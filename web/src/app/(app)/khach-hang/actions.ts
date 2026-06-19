@@ -1,5 +1,6 @@
 "use server";
 
+import crypto from "node:crypto";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -109,6 +110,25 @@ export async function updateCustomer(_prev: EditCustomerState, formData: FormDat
   revalidatePath(`/khach-hang/${d.customerId}`);
   revalidatePath("/khach-hang");
   return { ok: true };
+}
+
+/** Tạo (hoặc đổi) link Cổng khách hàng — link riêng để khách tự xem lịch sử/ảnh. */
+export async function genPortalLink(formData: FormData): Promise<void> {
+  await requireUser([...ROLES]);
+  const id = String(formData.get("customerId") ?? "");
+  if (!id) return;
+  const token = crypto.randomBytes(24).toString("base64url");
+  await prisma.customer.update({ where: { id }, data: { portalToken: token } }).catch(() => {});
+  revalidatePath(`/khach-hang/${id}`);
+}
+
+/** Thu hồi link Cổng khách hàng. */
+export async function revokePortalLink(formData: FormData): Promise<void> {
+  await requireUser([...ROLES]);
+  const id = String(formData.get("customerId") ?? "");
+  if (!id) return;
+  await prisma.customer.update({ where: { id }, data: { portalToken: null } }).catch(() => {});
+  revalidatePath(`/khach-hang/${id}`);
 }
 
 /**
