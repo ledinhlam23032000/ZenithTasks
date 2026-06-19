@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { Table, THead, TH, TR, TD } from "@/components/ui/table";
 import { EmptyState } from "@/components/ui/empty-state";
-import { PrintButton } from "@/components/ui/print-button";
+import { ExportMenu } from "@/components/ui/export-menu";
 import { RevenueChart } from "./revenue-chart";
 
 export const dynamic = "force-dynamic";
@@ -31,7 +31,7 @@ export default async function ReportsPage() {
         title="Báo cáo &amp; phân tích"
         description="Doanh thu, tăng trưởng, hiệu suất nhân viên và công nợ của phòng khám."
         icon={<TrendingUp className="h-5 w-5" />}
-        actions={<PrintButton label="In / Xuất PDF" />}
+        actions={<ExportMenu excelHref="/bao-cao/export?format=xlsx" wordHref="/bao-cao/export?format=doc" />}
       />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

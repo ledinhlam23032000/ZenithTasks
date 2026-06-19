@@ -1,5 +1,5 @@
 import { format } from "date-fns";
-import { Wallet, Coins, HandCoins, Banknote, FileSpreadsheet } from "lucide-react";
+import { Wallet, Coins, HandCoins, Banknote } from "lucide-react";
 import { requireCap } from "@/lib/auth";
 import { getPayroll, STANDARD_DAYS_DEFAULT } from "@/lib/payroll";
 import { ROLE_LABELS } from "@/lib/rbac";
@@ -9,7 +9,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { StatCard } from "@/components/ui/stat-card";
 import { Table, THead, TH, TR, TD } from "@/components/ui/table";
 import { EmptyState } from "@/components/ui/empty-state";
-import { PrintButton } from "@/components/ui/print-button";
+import { ExportMenu } from "@/components/ui/export-menu";
 import { PayrollEditButton } from "./payroll-edit";
 
 export const dynamic = "force-dynamic";
@@ -39,10 +39,10 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
               <input type="number" name="d" defaultValue={standardDays} min={1} max={31} title="Ngày công chuẩn/tháng" className="w-16 rounded-lg border border-slate-200 px-2 py-1.5 text-right text-sm focus:border-brand-400 focus:outline-none" />
               <button className="rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700">Xem</button>
             </form>
-            <a href={`/luong/export?m=${monthValue}&d=${standardDays}`} className="print-hide inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50">
-              <FileSpreadsheet className="h-4 w-4" /> Xuất Excel
-            </a>
-            <PrintButton />
+            <ExportMenu
+              excelHref={`/luong/export?format=xlsx&m=${monthValue}&d=${standardDays}`}
+              wordHref={`/luong/export?format=doc&m=${monthValue}&d=${standardDays}`}
+            />
           </div>
         }
       />

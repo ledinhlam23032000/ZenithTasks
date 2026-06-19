@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { startOfMonth, endOfMonth, addMonths, format } from "date-fns";
 import { vi } from "date-fns/locale";
-import { Coins, ChevronLeft, ChevronRight, ArrowUpRight, ArrowDownRight, Scale, Trash2, FileSpreadsheet } from "lucide-react";
+import { Coins, ChevronLeft, ChevronRight, ArrowUpRight, ArrowDownRight, Scale } from "lucide-react";
 import { requireCap } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { toNum, formatVND } from "@/lib/money";
@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, THead, TH, TR, TD } from "@/components/ui/table";
 import { EmptyState } from "@/components/ui/empty-state";
 import { buttonVariants } from "@/components/ui/button";
+import { ExportMenu } from "@/components/ui/export-menu";
 import { DeleteButton } from "@/components/ui/delete-button";
 import { NewCashButton, EditCashButton } from "./cash-forms";
 import { deleteCashTransaction } from "./actions";
@@ -85,12 +86,10 @@ export default async function CashPage({ searchParams }: { searchParams: Promise
         icon={<Coins className="h-5 w-5" />}
         actions={
           <div className="flex items-center gap-2">
-            <Link
-              href={`/thu-chi/export?month=${monthKey}${typeFilter ? `&type=${typeFilter}` : ""}`}
-              className={buttonVariants({ variant: "secondary" })}
-            >
-              <FileSpreadsheet className="h-4 w-4" /> Xuất Excel
-            </Link>
+            <ExportMenu
+              excelHref={`/thu-chi/export?format=xlsx&month=${monthKey}${typeFilter ? `&type=${typeFilter}` : ""}`}
+              wordHref={`/thu-chi/export?format=doc&month=${monthKey}${typeFilter ? `&type=${typeFilter}` : ""}`}
+            />
             <NewCashButton defaultDate={today} />
           </div>
         }
