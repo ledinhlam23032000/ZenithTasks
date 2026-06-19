@@ -1,0 +1,16 @@
+-- AlterTable
+ALTER TABLE "User" ADD COLUMN     "address" TEXT,
+ADD COLUMN     "bankAccount" TEXT,
+ADD COLUMN     "bankHolder" TEXT,
+ADD COLUMN     "bankName" TEXT,
+ADD COLUMN     "department" TEXT,
+ADD COLUMN     "dob" TIMESTAMP(3),
+ADD COLUMN     "emergencyName" TEXT,
+ADD COLUMN     "emergencyPhone" TEXT,
+ADD COLUMN     "gender" "Gender",
+ADD COLUMN     "hireDate" TIMESTAMP(3),
+ADD COLUMN     "hometown" TEXT,
+ADD COLUMN     "nationalId" TEXT,
+ADD COLUMN     "notes" TEXT,
+ADD COLUMN     "position" TEXT,
+ADD COLUMN     "qualification" TEXT;

@@ -113,6 +113,22 @@ model User {
   role         Role
   phone        String? // SĐT nội bộ của nhân viên (không phải khách)
   avatarUrl    String? // Ảnh đại diện (nhân viên tự cập nhật)
+  // ----- Hồ sơ nhân sự (HR) — quản trị xem/sửa -----
+  dob            DateTime? // Ngày sinh
+  gender         Gender?
+  address        String? // Địa chỉ
+  hometown       String? // Quê quán
+  nationalId     String? // CCCD / CMND
+  bankAccount    String? // Số tài khoản
+  bankName       String? // Ngân hàng
+  bankHolder     String? // Chủ tài khoản
+  emergencyName  String? // Người liên hệ khẩn cấp
+  emergencyPhone String? // SĐT khẩn cấp
+  position       String? // Chức danh
+  department     String? // Phòng / bộ phận
+  hireDate       DateTime? // Ngày vào làm
+  qualification  String? // Bằng cấp / chứng chỉ
+  notes          String? // Ghi chú nội bộ
   // Quyền tuỳ chỉnh ngoài mặc định theo vai trò: { grant: string[], deny: string[] }
   permissions  Json?
   // Xác thực 2 lớp (TOTP). Mặc định tắt — không ảnh hưởng đăng nhập hiện tại.

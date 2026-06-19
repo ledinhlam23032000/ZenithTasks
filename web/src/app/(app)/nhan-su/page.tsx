@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Contact, Power, KeyRound } from "lucide-react";
 import { requireCap } from "@/lib/auth";
 import { prisma } from "@/lib/db";
@@ -22,7 +23,7 @@ export default async function StaffPage() {
   const me = await requireCap("mod:nhan-su");
   const users = await prisma.user.findMany({
     orderBy: [{ active: "desc" }, { role: "asc" }, { fullName: "asc" }],
-    select: { id: true, code: true, fullName: true, username: true, role: true, phone: true, permissions: true, totpEnabled: true, active: true, createdAt: true },
+    select: { id: true, code: true, fullName: true, username: true, role: true, phone: true, avatarUrl: true, permissions: true, totpEnabled: true, active: true, createdAt: true },
   });
   const catalog = permCatalog();
 
@@ -53,10 +54,12 @@ export default async function StaffPage() {
               {users.map((u) => (
                 <TR key={u.id}>
                   <TD>
-                    <div className="flex items-center gap-2.5">
-                      <Avatar name={u.fullName} className="h-8 w-8" />
-                      <span className="font-medium text-slate-800">{u.fullName}</span>
-                    </div>
+                    <Link href={`/nhan-su/${u.id}`} className="flex items-center gap-2.5 group">
+                      <Avatar name={u.fullName} src={u.avatarUrl} className="h-8 w-8" />
+                      <span className="font-medium text-slate-800 group-hover:text-brand-600 group-hover:underline">
+                        {u.fullName}
+                      </span>
+                    </Link>
                   </TD>
                   <TD><Badge tone="slate">{u.code ?? "—"}</Badge></TD>
                   <TD className="font-mono text-xs text-slate-500">@{u.username}</TD>

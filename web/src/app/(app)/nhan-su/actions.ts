@@ -118,3 +118,95 @@ export async function deleteStaff(formData: FormData): Promise<void> {
   ]);
   revalidatePath("/nhan-su");
 }
+
+const ROLE_ENUM = ["ADMIN", "MANAGER", "TELESALE", "RECEPTION", "CONSULTANT", "DOCTOR", "NURSE", "CARE"] as const;
+
+const editSchema = z.object({
+  id: z.string().min(1),
+  fullName: z.string().trim().min(1, "Vui lòng nhập họ tên."),
+  role: z.enum(ROLE_ENUM),
+  phone: z.string().trim().optional(),
+  dob: z.string().trim().optional(),
+  gender: z.enum(["MALE", "FEMALE", "OTHER"]).optional(),
+  address: z.string().trim().optional(),
+  hometown: z.string().trim().optional(),
+  nationalId: z.string().trim().optional(),
+  bankAccount: z.string().trim().optional(),
+  bankName: z.string().trim().optional(),
+  bankHolder: z.string().trim().optional(),
+  emergencyName: z.string().trim().optional(),
+  emergencyPhone: z.string().trim().optional(),
+  position: z.string().trim().optional(),
+  department: z.string().trim().optional(),
+  hireDate: z.string().trim().optional(),
+  qualification: z.string().trim().optional(),
+  notes: z.string().trim().optional(),
+  baseSalary: z.coerce.number().min(0).default(0),
+  commissionRate: z.coerce.number().min(0).max(100).default(0),
+});
+
+function toDate(s?: string): Date | null {
+  if (!s) return null;
+  const d = new Date(s);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/** Quản trị viên cập nhật hồ sơ nhân sự (thông tin cá nhân, ngân hàng, công việc, lương). */
+export async function updateStaff(_prev: StaffFormState, formData: FormData): Promise<StaffFormState> {
+  await requireUser(["ADMIN"]);
+  const get = (k: string) => formData.get(k) ?? "";
+  const parsed = editSchema.safeParse({
+    id: get("id"),
+    fullName: get("fullName"),
+    role: get("role") || "RECEPTION",
+    phone: get("phone"),
+    dob: get("dob"),
+    gender: (formData.get("gender") as string) || undefined,
+    address: get("address"),
+    hometown: get("hometown"),
+    nationalId: get("nationalId"),
+    bankAccount: get("bankAccount"),
+    bankName: get("bankName"),
+    bankHolder: get("bankHolder"),
+    emergencyName: get("emergencyName"),
+    emergencyPhone: get("emergencyPhone"),
+    position: get("position"),
+    department: get("department"),
+    hireDate: get("hireDate"),
+    qualification: get("qualification"),
+    notes: get("notes"),
+    baseSalary: get("baseSalary"),
+    commissionRate: get("commissionRate"),
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu không hợp lệ." };
+  const d = parsed.data;
+
+  await prisma.user.update({
+    where: { id: d.id },
+    data: {
+      fullName: d.fullName,
+      role: d.role,
+      phone: d.phone || null,
+      dob: toDate(d.dob),
+      gender: d.gender ?? null,
+      address: d.address || null,
+      hometown: d.hometown || null,
+      nationalId: d.nationalId || null,
+      bankAccount: d.bankAccount || null,
+      bankName: d.bankName || null,
+      bankHolder: d.bankHolder || null,
+      emergencyName: d.emergencyName || null,
+      emergencyPhone: d.emergencyPhone || null,
+      position: d.position || null,
+      department: d.department || null,
+      hireDate: toDate(d.hireDate),
+      qualification: d.qualification || null,
+      notes: d.notes || null,
+      baseSalary: d.baseSalary,
+      commissionRate: d.commissionRate,
+    },
+  });
+  revalidatePath("/nhan-su");
+  revalidatePath(`/nhan-su/${d.id}`);
+  return { ok: true };
+}
