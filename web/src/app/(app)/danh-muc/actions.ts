@@ -11,19 +11,28 @@ const ROLES = ["ADMIN", "MANAGER"] as const;
 const serviceSchema = z.object({
   name: z.string().trim().min(1, "Vui lòng nhập tên dịch vụ."),
   category: z.string().trim().optional(),
+  listPrice: z.coerce.number().min(0, "Giá không hợp lệ.").default(0),
   defaultPrice: z.coerce.number().min(0, "Giá không hợp lệ.").default(0),
 });
 
-export async function createService(_prev: CatalogState, formData: FormData): Promise<CatalogState> {
-  await requireUser([...ROLES]);
-  const parsed = serviceSchema.safeParse({
+function parseService(formData: FormData) {
+  return serviceSchema.safeParse({
     name: formData.get("name") ?? "",
     category: formData.get("category") ?? "",
+    listPrice: formData.get("listPrice") ?? 0,
     defaultPrice: formData.get("defaultPrice") ?? 0,
   });
+}
+
+export async function createService(_prev: CatalogState, formData: FormData): Promise<CatalogState> {
+  await requireUser([...ROLES]);
+  const parsed = parseService(formData);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu không hợp lệ." };
+  const d = parsed.data;
+  // Giá niêm yết để trống → mặc định = giá ưu đãi (không tạo "tiết kiệm" ảo).
+  const listPrice = d.listPrice > 0 ? d.listPrice : d.defaultPrice;
   await prisma.service.create({
-    data: { name: parsed.data.name, category: parsed.data.category || null, defaultPrice: parsed.data.defaultPrice },
+    data: { name: d.name, category: d.category || null, listPrice, defaultPrice: d.defaultPrice },
   });
   revalidatePath("/danh-muc");
   return { ok: true };
@@ -120,14 +129,12 @@ export async function updateService(_prev: CatalogState, formData: FormData): Pr
   await requireUser([...ROLES]);
   const id = String(formData.get("id") ?? "");
   if (!id) return { error: "Thiếu dịch vụ." };
-  const parsed = serviceSchema.safeParse({
-    name: formData.get("name") ?? "",
-    category: formData.get("category") ?? "",
-    defaultPrice: formData.get("defaultPrice") ?? 0,
-  });
+  const parsed = parseService(formData);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu không hợp lệ." };
+  const d = parsed.data;
+  const listPrice = d.listPrice > 0 ? d.listPrice : d.defaultPrice;
   await prisma.service
-    .update({ where: { id }, data: { name: parsed.data.name, category: parsed.data.category || null, defaultPrice: parsed.data.defaultPrice } })
+    .update({ where: { id }, data: { name: d.name, category: d.category || null, listPrice, defaultPrice: d.defaultPrice } })
     .catch(() => {});
   revalidatePath("/danh-muc");
   return { ok: true };

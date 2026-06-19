@@ -22,7 +22,7 @@ import {
   type CaseActionState,
 } from "../actions";
 
-type Svc = { id: string; name: string; defaultPrice: number; category: string | null };
+type Svc = { id: string; name: string; listPrice: number; defaultPrice: number; category: string | null };
 type Mat = { id: string; name: string; unit: string };
 type Person = { id: string; fullName: string };
 
@@ -172,7 +172,8 @@ function ServiceForm({ caseId, services, onDone }: { caseId: string; services: S
             setServiceId(e.target.value);
             if (s) {
               setName(s.name);
-              setListPrice(s.defaultPrice);
+              // Giá gốc = giá niêm yết của danh mục; giá ưu đãi = giá thực thu mặc định.
+              setListPrice(s.listPrice > 0 ? s.listPrice : s.defaultPrice);
               setPrice(s.defaultPrice);
             }
           }}

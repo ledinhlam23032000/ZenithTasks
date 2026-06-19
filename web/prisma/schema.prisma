@@ -260,7 +260,8 @@ model Service {
   id           String        @id @default(cuid())
   name         String
   category     String?
-  defaultPrice Decimal       @default(0) @db.Decimal(14, 0)
+  listPrice    Decimal       @default(0) @db.Decimal(14, 0) // Giá niêm yết (giá gốc)
+  defaultPrice Decimal       @default(0) @db.Decimal(14, 0) // Giá ưu đãi (thực thu mặc định)
   active       Boolean       @default(true)
   createdAt    DateTime      @default(now())
   caseServices CaseService[]

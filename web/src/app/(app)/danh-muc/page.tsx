@@ -42,7 +42,8 @@ export default async function CatalogPage() {
                 <TR className="hover:bg-transparent">
                   <TH>Tên dịch vụ</TH>
                   <TH>Nhóm</TH>
-                  <TH className="text-right">Giá</TH>
+                  <TH className="text-right">Niêm yết</TH>
+                  <TH className="text-right">Ưu đãi</TH>
                   <TH />
                 </TR>
               </THead>
@@ -51,10 +52,25 @@ export default async function CatalogPage() {
                   <TR key={s.id} className={s.active ? "" : "opacity-50"}>
                     <TD className="font-medium text-slate-800">{s.name}</TD>
                     <TD className="text-slate-500">{s.category ?? "—"}</TD>
-                    <TD className="text-right font-semibold text-slate-800">{formatVND(s.defaultPrice)}</TD>
+                    <TD className="text-right tabular-nums text-slate-400">
+                      {toNum(s.listPrice) > toNum(s.defaultPrice) ? (
+                        <span className="line-through">{formatVND(s.listPrice)}</span>
+                      ) : (
+                        "—"
+                      )}
+                    </TD>
+                    <TD className="text-right font-semibold tabular-nums text-slate-800">{formatVND(s.defaultPrice)}</TD>
                     <TD className="text-right">
                       <div className="flex items-center justify-end gap-1">
-                        <EditServiceButton service={{ id: s.id, name: s.name, category: s.category, defaultPrice: toNum(s.defaultPrice) }} />
+                        <EditServiceButton
+                          service={{
+                            id: s.id,
+                            name: s.name,
+                            category: s.category,
+                            listPrice: toNum(s.listPrice),
+                            defaultPrice: toNum(s.defaultPrice),
+                          }}
+                        />
                         <form action={toggleService}>
                           <input type="hidden" name="id" value={s.id} />
                           <button className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100" title={s.active ? "Ẩn" : "Hiện"}>

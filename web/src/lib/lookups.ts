@@ -5,9 +5,9 @@ export async function getActiveServices() {
   const rows = await prisma.service.findMany({
     where: { active: true },
     orderBy: [{ category: "asc" }, { name: "asc" }],
-    select: { id: true, name: true, category: true, defaultPrice: true },
+    select: { id: true, name: true, category: true, listPrice: true, defaultPrice: true },
   });
-  return rows.map((r) => ({ ...r, defaultPrice: toNum(r.defaultPrice) }));
+  return rows.map((r) => ({ ...r, listPrice: toNum(r.listPrice), defaultPrice: toNum(r.defaultPrice) }));
 }
 
 export async function getConsultants() {

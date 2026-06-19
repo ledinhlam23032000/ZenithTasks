@@ -8,7 +8,11 @@ import { Input, Label } from "@/components/ui/field";
 import { MoneyInput } from "@/components/ui/money-input";
 import { createService, createMaterial, updateService, updateMaterial, type CatalogState } from "./actions";
 
-export function EditServiceButton({ service }: { service: { id: string; name: string; category: string | null; defaultPrice: number } }) {
+export function EditServiceButton({
+  service,
+}: {
+  service: { id: string; name: string; category: string | null; listPrice: number; defaultPrice: number };
+}) {
   const [open, setOpen] = useState(false);
   const [state, action, pending] = useActionState<CatalogState, FormData>(updateService, {});
   useEffect(() => {
@@ -26,13 +30,17 @@ export function EditServiceButton({ service }: { service: { id: string; name: st
             <Label htmlFor="es-name">Tên dịch vụ *</Label>
             <Input id="es-name" name="name" defaultValue={service.name} required autoFocus />
           </div>
+          <div>
+            <Label htmlFor="es-cat">Nhóm</Label>
+            <Input id="es-cat" name="category" defaultValue={service.category ?? ""} />
+          </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <Label htmlFor="es-cat">Nhóm</Label>
-              <Input id="es-cat" name="category" defaultValue={service.category ?? ""} />
+              <Label htmlFor="es-list">Giá niêm yết (VND)</Label>
+              <MoneyInput id="es-list" name="listPrice" defaultValue={service.listPrice} />
             </div>
             <div>
-              <Label htmlFor="es-price">Giá mặc định (VND)</Label>
+              <Label htmlFor="es-price">Giá ưu đãi (VND)</Label>
               <MoneyInput id="es-price" name="defaultPrice" defaultValue={service.defaultPrice} />
             </div>
           </div>
@@ -121,16 +129,23 @@ export function NewServiceButton() {
             <Label htmlFor="s-name">Tên dịch vụ *</Label>
             <Input id="s-name" name="name" placeholder="VD: Tiêm filler má baby" required autoFocus />
           </div>
+          <div>
+            <Label htmlFor="s-cat">Nhóm</Label>
+            <Input id="s-cat" name="category" placeholder="VD: Tiêm chất làm đầy" />
+          </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <Label htmlFor="s-cat">Nhóm</Label>
-              <Input id="s-cat" name="category" placeholder="VD: Tiêm chất làm đầy" />
+              <Label htmlFor="s-list">Giá niêm yết (VND)</Label>
+              <MoneyInput id="s-list" name="listPrice" />
             </div>
             <div>
-              <Label htmlFor="s-price">Giá mặc định (VND)</Label>
+              <Label htmlFor="s-price">Giá ưu đãi (VND)</Label>
               <MoneyInput id="s-price" name="defaultPrice" />
             </div>
           </div>
+          <p className="text-xs text-slate-400">
+            VD: nâng mũi niêm yết 10.000.000, ưu đãi 6.000.000. Để trống giá niêm yết sẽ lấy bằng giá ưu đãi.
+          </p>
           {state.error && <p className="text-sm text-rose-600">{state.error}</p>}
           <div className="flex justify-end gap-2">
             <Button type="button" variant="secondary" onClick={() => setOpen(false)}>Hủy</Button>
