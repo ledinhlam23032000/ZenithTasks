@@ -14,10 +14,12 @@ import {
   CalendarClock,
   Stethoscope,
   FilePlus2,
+  Crown,
 } from "lucide-react";
 import { differenceInYears, format } from "date-fns";
 import { requireCap } from "@/lib/auth";
 import { userCan } from "@/lib/permissions";
+import { tierFor, pointsFor, nextTier } from "@/lib/loyalty";
 import { prisma } from "@/lib/db";
 import { maskPhone } from "@/lib/phone";
 import { aiConfigured } from "@/lib/ai";
@@ -79,6 +81,12 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
   const totalValue = customer.cases.reduce((s, c) => s + toNum(c.totalAmount), 0);
   const totalDebt = customer.cases.reduce((s, c) => s + toNum(c.debtAmount), 0);
   const age = customer.dob ? differenceInYears(new Date(), customer.dob) : null;
+
+  // Thẻ thành viên: hạng & điểm theo tổng chi tiêu thực (tiền đã thanh toán)
+  const lifetimePaid = customer.cases.reduce((s, c) => s + toNum(c.paidAmount), 0);
+  const tier = tierFor(lifetimePaid);
+  const points = pointsFor(lifetimePaid);
+  const nxt = nextTier(lifetimePaid);
 
   const canReceive = ["ADMIN", "RECEPTION", "CONSULTANT", "DOCTOR", "MANAGER"].includes(user.role);
   const canCare = ["ADMIN", "MANAGER", "CARE"].includes(user.role);
@@ -165,6 +173,32 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
         <StatCard label="Tổng giá trị dịch vụ" value={formatVND(totalValue)} icon={<Wallet className="h-5 w-5" />} tone="green" />
         <StatCard label="Công nợ còn lại" value={formatVND(totalDebt)} icon={<Receipt className="h-5 w-5" />} tone={totalDebt > 0 ? "red" : "slate"} />
       </div>
+
+      {/* Thẻ thành viên */}
+      <Card>
+        <CardContent className="flex flex-wrap items-center justify-between gap-4 py-4">
+          <div className="flex items-center gap-3">
+            <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
+              <Crown className="h-5 w-5" />
+            </span>
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-sm text-slate-500">Hạng thành viên:</span>
+                <Badge tone={tier.tone}>{tier.label}</Badge>
+                {tier.discount > 0 && <span className="text-xs font-medium text-emerald-600">Ưu đãi {tier.discount}%</span>}
+              </div>
+              <p className="mt-0.5 text-xs text-slate-400">
+                Điểm tích lũy: <b className="text-slate-700">{points.toLocaleString("vi-VN")}</b> · Tổng chi tiêu: {formatVND(lifetimePaid)}
+              </p>
+            </div>
+          </div>
+          {nxt && (
+            <p className="text-xs text-slate-400">
+              Còn <b className="text-slate-600">{formatVND(nxt.min - lifetimePaid)}</b> để lên hạng {nxt.label}
+            </p>
+          )}
+        </CardContent>
+      </Card>
 
       <div className="grid gap-6 lg:grid-cols-5">
         {/* Hồ sơ điều trị */}
