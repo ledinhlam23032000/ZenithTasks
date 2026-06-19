@@ -221,7 +221,12 @@ export default async function ReportsPage() {
                       {dbt.customer.code} · <ShieldCheck className="inline h-3 w-3" /> {maskPhone(dbt.customer.phoneLast5)}
                     </p>
                   </div>
-                  <span className="font-semibold text-rose-600">{formatVND(dbt.debt)}</span>
+                  <div className="text-right">
+                    <span className="block font-semibold text-rose-600">{formatVND(dbt.debt)}</span>
+                    <Link href={`/ho-so/${dbt.id}`} className="text-xs font-medium text-brand-600 hover:underline">
+                      Mở hồ sơ thu nợ →
+                    </Link>
+                  </div>
                 </li>
               ))}
             </ul>

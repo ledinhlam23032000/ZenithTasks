@@ -143,6 +143,8 @@ export default async function CashPage({ searchParams }: { searchParams: Promise
           {txs.length === 0 ? (
             <EmptyState icon={<Coins className="h-6 w-6" />} title="Chưa có giao dịch trong tháng này" description="Bấm “Thêm thu / chi” để ghi nhận khoản tiền đầu tiên." />
           ) : (
+            <>
+            <div className="hidden sm:block">
             <Table>
               <THead>
                 <TR className="hover:bg-transparent">
@@ -204,6 +206,52 @@ export default async function CashPage({ searchParams }: { searchParams: Promise
                 })}
               </tbody>
             </Table>
+            </div>
+            <div className="space-y-2 sm:hidden">
+              {txs.map((t) => {
+                const a = toNum(t.amount);
+                const isIncome = t.type === "INCOME";
+                return (
+                  <div key={t.id} className="rounded-xl border border-slate-100 p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge tone={CASH_TYPE[t.type].tone}>{CASH_TYPE[t.type].label}</Badge>
+                        <span className="font-medium text-slate-700">{categoryLabel(t.category)}</span>
+                      </div>
+                      <span className={`font-semibold tabular-nums ${isIncome ? "text-emerald-600" : "text-rose-600"}`}>
+                        {isIncome ? "+" : "−"}{formatVND(a)}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-xs text-slate-400">
+                      {fmtDate(t.occurredAt)} · {PAYMENT_LABEL[t.method]}
+                      {t.vendor || t.note ? ` · ${[t.vendor, t.note].filter(Boolean).join(" · ")}` : ""}
+                    </p>
+                    <div className="mt-2 flex items-center justify-end gap-0.5">
+                      <EditCashButton
+                        tx={{
+                          id: t.id,
+                          type: t.type,
+                          category: t.category,
+                          amount: a,
+                          occurredAt: format(t.occurredAt, "yyyy-MM-dd"),
+                          method: t.method,
+                          vendor: t.vendor ?? "",
+                          note: t.note ?? "",
+                        }}
+                      />
+                      <DeleteButton
+                        action={deleteCashTransaction}
+                        id={t.id}
+                        label=""
+                        confirmText={`Xóa giao dịch ${categoryLabel(t.category)} ${formatVND(a)}?`}
+                        className="rounded-md p-1.5 text-slate-300 hover:bg-rose-50 hover:text-rose-500"
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            </>
           )}
         </CardContent>
       </Card>

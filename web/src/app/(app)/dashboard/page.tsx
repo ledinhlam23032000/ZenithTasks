@@ -54,59 +54,73 @@ export default async function DashboardPage() {
 
       {/* KPI hôm nay */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          label="Lịch hẹn hôm nay"
-          value={d.today.total}
-          sub={`${d.today.byStatus["ARRIVED"] ?? 0} đã đến · ${d.today.byStatus["BOOKED"] ?? 0} chờ đến`}
-          icon={<CalendarClock className="h-5 w-5" />}
-          tone="blue"
-        />
-        <StatCard
-          label="Khách làm dịch vụ"
-          value={d.today.serviced}
-          sub="Chốt dịch vụ hôm nay"
-          icon={<Stethoscope className="h-5 w-5" />}
-          tone="green"
-        />
-        <StatCard
-          label="Tái khám hôm nay"
-          value={d.today.followups}
-          sub="Lịch tái khám đã hẹn"
-          icon={<RefreshCw className="h-5 w-5" />}
-          tone="purple"
-        />
-        <StatCard
-          label="Hủy / Không đến"
-          value={d.today.cancelled}
-          sub="Lịch hôm nay bị hủy"
-          icon={<XCircle className="h-5 w-5" />}
-          tone="red"
-        />
+        <Link href="/lich-hen" className="block transition hover:-translate-y-0.5">
+          <StatCard
+            label="Lịch hẹn hôm nay"
+            value={d.today.total}
+            sub={`${d.today.byStatus["ARRIVED"] ?? 0} đã đến · ${d.today.byStatus["BOOKED"] ?? 0} chờ đến`}
+            icon={<CalendarClock className="h-5 w-5" />}
+            tone="blue"
+          />
+        </Link>
+        <Link href="/ho-so" className="block transition hover:-translate-y-0.5">
+          <StatCard
+            label="Khách làm dịch vụ"
+            value={d.today.serviced}
+            sub="Chốt dịch vụ hôm nay"
+            icon={<Stethoscope className="h-5 w-5" />}
+            tone="green"
+          />
+        </Link>
+        <Link href="/lich-hen" className="block transition hover:-translate-y-0.5">
+          <StatCard
+            label="Tái khám hôm nay"
+            value={d.today.followups}
+            sub="Lịch tái khám đã hẹn"
+            icon={<RefreshCw className="h-5 w-5" />}
+            tone="purple"
+          />
+        </Link>
+        <Link href="/lich-hen" className="block transition hover:-translate-y-0.5">
+          <StatCard
+            label="Hủy / Không đến"
+            value={d.today.cancelled}
+            sub="Lịch hôm nay bị hủy"
+            icon={<XCircle className="h-5 w-5" />}
+            tone="red"
+          />
+        </Link>
       </div>
 
       {/* Doanh thu & tỉ lệ chốt */}
       <div className="grid gap-4 lg:grid-cols-3">
-        <StatCard
-          label="Doanh thu tháng này"
-          value={formatVNDShort(d.revenue.thisMonth)}
-          icon={<TrendingUp className="h-5 w-5" />}
-          tone="brand"
-          trend={{ value: d.revenue.growth, label: `Tháng trước: ${formatVND(d.revenue.lastMonth)}` }}
-        />
-        <StatCard
-          label="Tỉ lệ chốt tư vấn"
-          value={`${d.consultRate.rate}%`}
-          sub={`${d.consultRate.agreed}/${d.consultRate.total} ca tư vấn chốt dịch vụ`}
-          icon={<Target className="h-5 w-5" />}
-          tone="amber"
-        />
-        <StatCard
-          label="Khách hàng mới"
-          value={d.customers.thisMonth}
-          icon={<UserPlus className="h-5 w-5" />}
-          tone="pink"
-          trend={{ value: d.customers.growth, label: "So với tháng trước" }}
-        />
+        <Link href="/bao-cao" className="block transition hover:-translate-y-0.5">
+          <StatCard
+            label="Doanh thu tháng này"
+            value={formatVNDShort(d.revenue.thisMonth)}
+            icon={<TrendingUp className="h-5 w-5" />}
+            tone="brand"
+            trend={{ value: d.revenue.growth, label: `Tháng trước: ${formatVND(d.revenue.lastMonth)}` }}
+          />
+        </Link>
+        <Link href="/bao-cao" className="block transition hover:-translate-y-0.5">
+          <StatCard
+            label="Tỉ lệ chốt tư vấn"
+            value={`${d.consultRate.rate}%`}
+            sub={`${d.consultRate.agreed}/${d.consultRate.total} ca tư vấn chốt dịch vụ`}
+            icon={<Target className="h-5 w-5" />}
+            tone="amber"
+          />
+        </Link>
+        <Link href="/khach-hang" className="block transition hover:-translate-y-0.5">
+          <StatCard
+            label="Khách hàng mới"
+            value={d.customers.thisMonth}
+            icon={<UserPlus className="h-5 w-5" />}
+            tone="pink"
+            trend={{ value: d.customers.growth, label: "So với tháng trước" }}
+          />
+        </Link>
       </div>
 
       {/* Biểu đồ: doanh thu 6 tháng + cơ cấu lịch hôm nay */}

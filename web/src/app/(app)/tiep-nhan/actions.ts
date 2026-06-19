@@ -96,10 +96,10 @@ export async function createCustomer(_prev: CustomerFormState, formData: FormDat
 export async function receiveCustomer(formData: FormData): Promise<void> {
   const user = await requireUser([...RECEPTION_ROLES, "CONSULTANT", "DOCTOR", "MANAGER"]);
   const customerId = String(formData.get("customerId") ?? "");
-  if (!customerId) return;
+  if (!customerId) redirect("/tiep-nhan");
 
   const customer = await prisma.customer.findUnique({ where: { id: customerId }, select: { id: true } });
-  if (!customer) return;
+  if (!customer) redirect("/tiep-nhan");
 
   const serviceInterest = String(formData.get("serviceInterest") ?? "").trim();
   const consultantId = String(formData.get("consultantId") ?? "").trim() || null;

@@ -229,7 +229,7 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
                     <TR className="hover:bg-transparent">
                       <TH>Dịch vụ</TH>
                       <TH className="text-center">SL</TH>
-                      <TH className="text-right">Giá gốc</TH>
+                      <TH className="hidden text-right sm:table-cell">Giá gốc</TH>
                       <TH className="text-right">Ưu đãi</TH>
                       <TH className="text-right">Giảm</TH>
                       <TH className="text-right">Thành tiền</TH>
@@ -241,7 +241,7 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
                       <TR key={s.id}>
                         <TD className="font-medium text-slate-800">{s.name}</TD>
                         <TD className="text-center">{s.quantity}</TD>
-                        <TD className="text-right text-slate-400">
+                        <TD className="hidden text-right text-slate-400 sm:table-cell">
                           {toNum(s.listPrice) > toNum(s.unitPrice) ? <span className="line-through">{formatVND(s.listPrice)}</span> : formatVND(s.listPrice)}
                         </TD>
                         <TD className="text-right">{formatVND(s.unitPrice)}</TD>
