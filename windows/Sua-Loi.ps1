@@ -1,82 +1,68 @@
 # ============================================================================
-#  SỬA LỖI / CẬP NHẬT SẠCH — Zenith Clinic (Trung tâm PTTH Thẩm mỹ, BVĐK Hồng Phúc)
-#
-#  Dùng khi: ứng dụng báo "lỗi máy chủ", không mở được hồ sơ, hoặc cập nhật bị
-#  lỡ dở. Script này TẢI LẠI mã mới nhất, BUILD LẠI TỪ ĐẦU (không dùng cache) và
-#  KHỞI ĐỘNG LẠI container — đảm bảo mã nguồn, Prisma client và cơ sở dữ liệu khớp nhau.
-#
-#  KHÔNG mất dữ liệu: chỉ dựng lại ứng dụng, dữ liệu nằm trong volume Docker riêng.
+#  SUA LOI / CAP NHAT SACH - Zenith Clinic (Trung tam PTTH Tham my, BVDK Hong Phuc)
+#  Tai lai ma moi nhat + dung lai tu dau (khong cache) + ap dung cap nhat CSDL.
+#  KHONG mat du lieu (du lieu nam trong volume Docker rieng).
 # ============================================================================
-$ErrorActionPreference = "Stop"
 $Repo   = "https://github.com/ledinhlam23032000/ZenithTasks.git"
 $Branch = "claude/lucid-cori-fg136w"
 $Dir    = Join-Path $HOME "ZenithTasks"
 
-function Step($m) { Write-Host "`n=> $m" -ForegroundColor Cyan }
+function EndHere($code) { Write-Host ""; Read-Host "Nhan Enter de dong cua so"; exit $code }
 
 Write-Host "==================================================" -ForegroundColor Cyan
-Write-Host "  SỬA LỖI / CẬP NHẬT SẠCH - ZENITH CLINIC" -ForegroundColor Cyan
+Write-Host "  SUA LOI / CAP NHAT SACH - ZENITH CLINIC" -ForegroundColor Cyan
 Write-Host "==================================================" -ForegroundColor Cyan
 
-# --- Kiểm tra công cụ ---
 foreach ($t in @("git", "docker")) {
   if (-not (Get-Command $t -ErrorAction SilentlyContinue)) {
-    Write-Host "Thiếu '$t'. Hãy chạy file Chay-Zenith.bat một lần để cài đầy đủ." -ForegroundColor Red
-    Read-Host "Nhấn Enter để thoát"; exit 1
+    Write-Host "Thieu '$t'. Hay chay Chay-Zenith.bat mot lan de cai day du." -ForegroundColor Red
+    EndHere 1
   }
 }
 
-# --- Docker phải đang chạy ---
 docker info *> $null
 if ($LASTEXITCODE -ne 0) {
-  Write-Host "Docker Desktop chưa chạy. Mở Docker Desktop, đợi biểu tượng cá voi xanh rồi chạy lại file này." -ForegroundColor Yellow
-  Read-Host "Nhấn Enter để thoát"; exit 1
+  Write-Host "Docker Desktop chua chay. Mo Docker Desktop, doi bieu tuong ca voi mau xanh roi chay lai file nay." -ForegroundColor Yellow
+  EndHere 1
 }
 
-# --- Lấy mã mới nhất (ép khớp đúng bản trên máy chủ, tránh kẹt do xung đột) ---
-Step "[1/4] Tải lại mã nguồn mới nhất..."
+Write-Host "`n[1/4] Tai lai ma nguon moi nhat..." -ForegroundColor Cyan
 if (Test-Path $Dir) {
-  git -C $Dir fetch origin $Branch
-  git -C $Dir reset --hard "origin/$Branch"
+  git -C $Dir fetch origin $Branch 2>&1 | Write-Host
+  git -C $Dir reset --hard "origin/$Branch" 2>&1 | Write-Host
 } else {
-  git clone $Repo $Dir
-  git -C $Dir checkout $Branch
+  git clone $Repo $Dir 2>&1 | Write-Host
+  git -C $Dir checkout $Branch 2>&1 | Write-Host
 }
-if ($LASTEXITCODE -ne 0) { Write-Host "Tải mã thất bại (kiểm tra mạng/GitHub)." -ForegroundColor Red; Read-Host "Nhấn Enter để thoát"; exit 1 }
-
 Set-Location $Dir
 
-# --- Build lại TỪ ĐẦU (không cache) — tạo lại Prisma client + bản build mới ---
-Step "[2/4] Dựng lại ứng dụng từ đầu (lâu ~5-15 phút lần đầu)..."
+Write-Host "`n[2/4] Dung lai ung dung tu dau (lau ~5-15 phut, vui long cho - dung tat)..." -ForegroundColor Cyan
 docker compose build --no-cache app
 if ($LASTEXITCODE -ne 0) {
-  Write-Host "`n❌ BUILD THẤT BẠI — ứng dụng VẪN đang chạy bản cũ (không bị hỏng thêm)." -ForegroundColor Red
-  Write-Host "   Thường do máy thiếu RAM khi build. Hãy đóng bớt ứng dụng rồi chạy lại file này," -ForegroundColor Yellow
-  Write-Host "   hoặc báo kỹ thuật. KHÔNG mất dữ liệu." -ForegroundColor Yellow
-  Read-Host "Nhấn Enter để thoát"; exit 1
+  Write-Host "`nBUILD THAT BAI - ung dung VAN chay ban cu (khong hong them)." -ForegroundColor Red
+  Write-Host "Thuong do may thieu RAM khi build. Dong bot ung dung roi chay lai, hoac bao ky thuat." -ForegroundColor Yellow
+  EndHere 1
 }
 
-# --- Khởi động lại container (migration tự chạy khi khởi động) ---
-Step "[3/4] Khởi động lại (tự áp dụng cập nhật cơ sở dữ liệu)..."
+Write-Host "`n[3/4] Khoi dong lai + ap dung cap nhat co so du lieu..." -ForegroundColor Cyan
 docker compose up -d --force-recreate
-if ($LASTEXITCODE -ne 0) { Write-Host "Khởi động thất bại. Xem log: docker compose logs app" -ForegroundColor Red; Read-Host "Nhấn Enter để thoát"; exit 1 }
+Start-Sleep -Seconds 10
+Write-Host "Ap dung migration:" -ForegroundColor Cyan
+docker compose exec -T app npx prisma migrate deploy 2>&1 | Write-Host
 
-# --- Chờ ứng dụng phản hồi ---
-Step "[4/4] Kiểm tra ứng dụng đã chạy..."
+Write-Host "`n[4/4] Kiem tra ung dung..." -ForegroundColor Cyan
 $ok = $false
 for ($i = 0; $i -lt 60; $i++) {
   try { Invoke-WebRequest "http://localhost:3000/login" -UseBasicParsing -TimeoutSec 3 | Out-Null; $ok = $true; break }
-  catch { Start-Sleep 3 }
+  catch { Start-Sleep -Seconds 3 }
 }
 
 Write-Host ""
 if ($ok) {
-  Write-Host "================ ĐÃ SỬA XONG ================" -ForegroundColor Green
-  Write-Host " Mở:  http://localhost:3000" -ForegroundColor Green
-  Write-Host " Nếu vẫn lỗi 1 trang, bấm Ctrl+F5 để tải lại." -ForegroundColor Green
+  Write-Host "================ DA XONG ================" -ForegroundColor Green
+  Write-Host " Mo: http://localhost:3000  (bam Ctrl+F5 de tai lai trang)" -ForegroundColor Green
   try { Start-Process "http://localhost:3000" } catch {}
 } else {
-  Write-Host "Ứng dụng chưa phản hồi. Xem log để biết chi tiết:" -ForegroundColor Yellow
-  Write-Host "   docker compose logs --tail=50 app" -ForegroundColor Yellow
+  Write-Host "Ung dung chua phan hoi. Hay chay Xem-Loi.bat va gui ket qua cho ky thuat." -ForegroundColor Yellow
 }
-Read-Host "Nhấn Enter để đóng"
+EndHere 0
