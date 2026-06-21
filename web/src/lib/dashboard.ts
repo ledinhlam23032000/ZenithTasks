@@ -50,7 +50,7 @@ export async function getAdminDashboard() {
     prisma.caseRecord.count({ where: { createdAt: month, consultResult: "AGREED" } }),
     prisma.caseRecord.groupBy({
       by: ["consultantId"],
-      where: { createdAt: month, consultantId: { not: null } },
+      where: { createdAt: month },
       _count: { _all: true },
       _sum: { totalAmount: true, debtAmount: true },
     }),
@@ -83,7 +83,7 @@ export async function getAdminDashboard() {
   // Số agreed theo từng tư vấn để tính tỉ lệ chốt
   const agreedByConsultant = await prisma.caseRecord.groupBy({
     by: ["consultantId"],
-    where: { createdAt: month, consultResult: "AGREED", consultantId: { not: null } },
+    where: { createdAt: month, consultResult: "AGREED" },
     _count: { _all: true },
   });
   const agreedMap = new Map(agreedByConsultant.map((g) => [g.consultantId, g._count._all]));
@@ -94,8 +94,8 @@ export async function getAdminDashboard() {
       const totalConsults = g._count._all;
       const agreed = agreedMap.get(g.consultantId) ?? 0;
       return {
-        id: g.consultantId as string,
-        name: nameMap.get(g.consultantId as string) ?? "—",
+        id: (g.consultantId as string) ?? "none",
+        name: g.consultantId ? (nameMap.get(g.consultantId) ?? "—") : "Chưa gán tư vấn",
         consults: totalConsults,
         agreed,
         rate: totalConsults > 0 ? Math.round((agreed / totalConsults) * 100) : 0,
