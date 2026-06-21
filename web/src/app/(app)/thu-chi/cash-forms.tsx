@@ -5,6 +5,7 @@ import { Plus, Pencil, LoaderCircle } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/field";
+import { Combobox } from "@/components/ui/combobox";
 import { MoneyInput } from "@/components/ui/money-input";
 import { PAYMENT_LABEL } from "@/lib/status";
 import { categoriesFor } from "@/lib/finance";
@@ -58,13 +59,14 @@ function CashForm({ tx, defaultDate, onDone }: { tx?: CashTx; defaultDate: strin
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
-          <Label htmlFor="cf-cat">Hạng mục *</Label>
-          <Select id="cf-cat" name="category" value={category} onChange={(e) => setCategory(e.target.value)} required>
-            <option value="" disabled>— Chọn hạng mục —</option>
-            {cats.map((c) => (
-              <option key={c.code} value={c.code}>{c.label}</option>
-            ))}
-          </Select>
+          <Label>Hạng mục * (gõ để tìm)</Label>
+          <Combobox
+            name="category"
+            value={category}
+            onChange={setCategory}
+            placeholder="— Chọn hạng mục —"
+            options={cats.map((c) => ({ value: c.code, label: c.label }))}
+          />
         </div>
         <div>
           <Label htmlFor="cf-amount">Số tiền (VND) *</Label>

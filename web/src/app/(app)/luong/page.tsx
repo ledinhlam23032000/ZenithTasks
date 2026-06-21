@@ -57,7 +57,7 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
       <Card>
         <CardHeader>
           <CardTitle>Bảng lương — {format(monthDate, "MM/yyyy")}</CardTitle>
-          {isAdmin && <span className="text-xs text-slate-400">Bấm “Sửa” để nhập lương cứng / thưởng nóng / điều chỉnh.</span>}
+          {isAdmin && <span className="text-xs text-slate-400">Bấm “Sửa” để nhập lương cứng / hoa hồng / thưởng / điều chỉnh.</span>}
         </CardHeader>
         <CardContent className="overflow-x-auto pt-0">
           <Table>
@@ -80,16 +80,13 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
                   <TD className="text-slate-500">{ROLE_LABELS[r.role]}</TD>
                   <TD className="text-center tabular-nums">{r.daysWorked}/{standardDays}</TD>
                   <TD className="text-right tabular-nums">{formatVND(r.baseActual)}</TD>
-                  <TD className="text-right tabular-nums text-amber-600">
-                    {formatVND(r.commission)}
-                    {r.commissionNote !== "—" && <div className="text-[10px] font-normal text-slate-400">{r.commissionNote}</div>}
-                  </TD>
+                  <TD className="text-right tabular-nums text-amber-600">{formatVND(r.commission)}</TD>
                   <TD className="text-right tabular-nums text-slate-600">{formatVND(r.bonus + r.adjustment)}</TD>
                   <TD className="text-right font-semibold tabular-nums text-slate-900">{formatVND(r.total)}</TD>
                   {isAdmin && (
                     <TD className="text-right">
                       <PayrollEditButton
-                        row={{ id: r.id, name: r.name, role: r.role, baseFull: r.baseFull, bonus: r.bonus, adjustment: r.adjustment, nurseCases: r.nurseCases }}
+                        row={{ id: r.id, name: r.name, role: r.role, baseFull: r.baseFull, commission: r.commission, bonus: r.bonus, adjustment: r.adjustment }}
                         month={monthValue}
                       />
                     </TD>

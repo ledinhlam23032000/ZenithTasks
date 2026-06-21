@@ -1,7 +1,50 @@
-import { startOfDay, subDays, format } from "date-fns";
+import { startOfDay, subDays, subMonths, subYears, startOfYear, format } from "date-fns";
 import { prisma } from "@/lib/db";
 import { toNum } from "@/lib/money";
 import { monthRange, lastMonthRange, growthPct } from "@/lib/dates";
+
+export type SalesPoint = { label: string; value: number };
+
+/**
+ * Doanh số tư vấn (giá trị hồ sơ chốt) theo 3 mốc thời gian để so sánh:
+ * 7 ngày gần nhất, 12 tháng gần nhất, 5 năm gần nhất.
+ */
+export async function getSalesSeries() {
+  const now = new Date();
+  const since = startOfYear(subYears(now, 4)); // bao trùm cả 3 mốc
+  const cases = await prisma.caseRecord.findMany({
+    where: { createdAt: { gte: since } },
+    select: { createdAt: true, totalAmount: true },
+  });
+
+  function build(keys: { key: string; label: string }[], keyOf: (d: Date) => string): SalesPoint[] {
+    const m = new Map(keys.map((k) => [k.key, 0]));
+    for (const c of cases) {
+      const k = keyOf(c.createdAt);
+      if (m.has(k)) m.set(k, (m.get(k) ?? 0) + toNum(c.totalAmount));
+    }
+    return keys.map((k) => ({ label: k.label, value: m.get(k.key) ?? 0 }));
+  }
+
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const d = subDays(now, 6 - i);
+    return { key: format(d, "yyyy-MM-dd"), label: format(d, "dd/MM") };
+  });
+  const months = Array.from({ length: 12 }, (_, i) => {
+    const d = subMonths(now, 11 - i);
+    return { key: format(d, "yyyy-MM"), label: format(d, "MM/yy") };
+  });
+  const years = Array.from({ length: 5 }, (_, i) => {
+    const d = subYears(now, 4 - i);
+    return { key: format(d, "yyyy"), label: format(d, "yyyy") };
+  });
+
+  return {
+    d7: build(days, (d) => format(d, "yyyy-MM-dd")),
+    m12: build(months, (d) => format(d, "yyyy-MM")),
+    y5: build(years, (d) => format(d, "yyyy")),
+  };
+}
 
 export type Reports = Awaited<ReturnType<typeof getReports>>;
 

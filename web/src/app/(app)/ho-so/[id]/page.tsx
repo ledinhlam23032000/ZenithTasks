@@ -94,7 +94,6 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
   const discount = toNum(record.discountAmount);
   const voucher = toNum(record.voucherAmount);
   const gross = total + voucher + discount; // giá gốc trước ưu đãi & voucher (total = net sau voucher)
-  const commissionRate = toNum(record.commissionRate);
   const commissionAmount = toNum(record.commissionAmount);
   const canVoidPayment = userCan(user, "payment.manage") && !lockedForMe;
 
@@ -203,7 +202,7 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
                     consultResult: record.consultResult,
                     consultantId: record.consultantId,
                     doctorId: record.doctorId,
-                    commissionRate,
+                    commissionAmount,
                     chiefComplaint: record.chiefComplaint,
                     note: record.note,
                   }}
@@ -386,9 +385,9 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
                 <span className="text-sm font-medium text-slate-600">Còn nợ</span>
                 <span className={`text-xl font-bold ${debt > 0 ? "text-rose-600" : "text-emerald-600"}`}>{formatVND(debt)}</span>
               </div>
-              {commissionRate > 0 && (
+              {commissionAmount > 0 && (
                 <div className="flex items-center justify-between border-t border-dashed border-slate-100 pt-2 text-sm">
-                  <span className="text-slate-500">Hoa hồng CTV ({commissionRate}%)</span>
+                  <span className="text-slate-500">Hoa hồng CTV</span>
                   <span className="font-semibold text-violet-600">{formatVND(commissionAmount)}</span>
                 </div>
               )}

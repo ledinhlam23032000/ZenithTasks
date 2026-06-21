@@ -6,6 +6,7 @@ import { Plus, Pencil, LoaderCircle, ShieldCheck } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input, Label, Select, Textarea, FieldHint } from "@/components/ui/field";
+import { Combobox, type ComboOption } from "@/components/ui/combobox";
 import { APPT_TYPE, SOURCE_LABEL } from "@/lib/status";
 import { createAppointment, updateAppointment, type ApptFormState } from "./actions";
 
@@ -146,18 +147,19 @@ function AppointmentForm({
       </div>
 
       <div>
-        <Label htmlFor="serviceInterest">Dịch vụ khách quan tâm</Label>
-        <Select id="serviceInterest" name="serviceInterest" defaultValue={appointment?.serviceInterest ?? ""}>
-          <option value="">— Chưa xác định —</option>
-          {appointment?.serviceInterest && !services.some((s) => s.name === appointment.serviceInterest) && (
-            <option value={appointment.serviceInterest}>{appointment.serviceInterest}</option>
-          )}
-          {services.map((s) => (
-            <option key={s.id} value={s.name}>
-              {s.name}
-            </option>
-          ))}
-        </Select>
+        <Label>Dịch vụ khách quan tâm (gõ để tìm)</Label>
+        <Combobox
+          name="serviceInterest"
+          defaultValue={appointment?.serviceInterest ?? ""}
+          placeholder="— Chưa xác định —"
+          options={[
+            { value: "", label: "— Chưa xác định —" },
+            ...(appointment?.serviceInterest && !services.some((s) => s.name === appointment.serviceInterest)
+              ? [{ value: appointment.serviceInterest, label: appointment.serviceInterest } as ComboOption]
+              : []),
+            ...services.map((s) => ({ value: s.name, label: s.name })),
+          ]}
+        />
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
@@ -178,15 +180,16 @@ function AppointmentForm({
       </div>
 
       <div>
-        <Label htmlFor="consultantId">Tư vấn viên phụ trách (nếu có)</Label>
-        <Select id="consultantId" name="consultantId" defaultValue={appointment?.consultantId ?? ""}>
-          <option value="">— Chưa phân công —</option>
-          {consultants.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.fullName}
-            </option>
-          ))}
-        </Select>
+        <Label>Người tư vấn phụ trách (nếu có)</Label>
+        <Combobox
+          name="consultantId"
+          defaultValue={appointment?.consultantId ?? ""}
+          placeholder="— Chưa phân công —"
+          options={[
+            { value: "", label: "— Chưa phân công —" },
+            ...consultants.map((c) => ({ value: c.id, label: c.fullName })),
+          ]}
+        />
       </div>
 
       <div>

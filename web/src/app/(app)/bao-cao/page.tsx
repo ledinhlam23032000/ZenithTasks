@@ -2,7 +2,7 @@ import Link from "next/link";
 import { TrendingUp, Target, Receipt, Stethoscope, Sparkles, PieChart, ShieldCheck } from "lucide-react";
 import { requireCap } from "@/lib/auth";
 import { getAdminDashboard } from "@/lib/dashboard";
-import { getReports } from "@/lib/reports";
+import { getReports, getSalesSeries } from "@/lib/reports";
 import { formatVND, formatVNDShort } from "@/lib/money";
 import { maskPhone } from "@/lib/phone";
 import { SOURCE_LABEL } from "@/lib/status";
@@ -15,13 +15,14 @@ import { Table, THead, TH, TR, TD } from "@/components/ui/table";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ExportMenu } from "@/components/ui/export-menu";
 import { RevenueChart } from "./revenue-chart";
+import { SalesChart } from "./sales-chart";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Báo cáo" };
 
 export default async function ReportsPage() {
   await requireCap("mod:bao-cao");
-  const [d, r] = await Promise.all([getAdminDashboard(), getReports()]);
+  const [d, r, sales] = await Promise.all([getAdminDashboard(), getReports(), getSalesSeries()]);
 
   const maxSource = Math.max(...r.sources.map((s) => s.count), 1);
 
@@ -59,11 +60,22 @@ export default async function ReportsPage() {
         <StatCard label="Công nợ tồn" value={formatVNDShort(r.outstandingDebt)} icon={<Receipt className="h-5 w-5" />} tone="red" />
       </div>
 
+      {/* Doanh số tư vấn theo thời gian (cột + đường xu hướng) */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Doanh số tư vấn theo thời gian</CardTitle>
+          <span className="text-sm text-slate-400">Giá trị hồ sơ chốt · so sánh 7 ngày / 12 tháng / 5 năm</span>
+        </CardHeader>
+        <CardContent>
+          <SalesChart d7={sales.d7} m12={sales.m12} y5={sales.y5} />
+        </CardContent>
+      </Card>
+
       {/* Biểu đồ doanh thu */}
       <Card>
         <CardHeader>
           <CardTitle>Doanh thu 14 ngày gần nhất</CardTitle>
-          <span className="text-sm text-slate-400">Tổng thu theo ngày</span>
+          <span className="text-sm text-slate-400">Tiền thực thu theo ngày</span>
         </CardHeader>
         <CardContent>
           <RevenueChart data={r.revenueSeries} />

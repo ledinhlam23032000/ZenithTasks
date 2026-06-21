@@ -21,24 +21,22 @@ async function isLockedFor(caseId: string, role: string): Promise<boolean> {
   return !!c?.locked;
 }
 
-/** Tính lại tổng tiền / đã trả / công nợ / hoa hồng cho hồ sơ. */
+/** Tính lại tổng tiền / đã trả / công nợ cho hồ sơ (hoa hồng nhập tay, không tự tính). */
 async function recalc(caseId: string): Promise<void> {
   const [services, payAgg, rec] = await Promise.all([
     prisma.caseService.findMany({ where: { caseId }, select: { finalPrice: true, discount: true } }),
     prisma.payment.aggregate({ where: { caseId }, _sum: { amount: true } }),
-    prisma.caseRecord.findUnique({ where: { id: caseId }, select: { commissionRate: true, voucherAmount: true } }),
+    prisma.caseRecord.findUnique({ where: { id: caseId }, select: { voucherAmount: true } }),
   ]);
   const subtotal = services.reduce((s, x) => s + toNum(x.finalPrice), 0);
   const discount = services.reduce((s, x) => s + toNum(x.discount), 0);
   const voucher = Math.min(toNum(rec?.voucherAmount), subtotal);
-  const net = subtotal - voucher; // doanh thu sau voucher = cơ sở tính hoa hồng + công nợ
+  const net = subtotal - voucher; // doanh thu sau voucher = công nợ
   const paid = toNum(payAgg._sum.amount);
   const debt = Math.max(net - paid, 0);
-  const rate = toNum(rec?.commissionRate);
-  const commissionAmount = Math.round((net * rate) / 100);
   await prisma.caseRecord.update({
     where: { id: caseId },
-    data: { totalAmount: net, discountAmount: discount, paidAmount: paid, debtAmount: debt, commissionAmount },
+    data: { totalAmount: net, discountAmount: discount, paidAmount: paid, debtAmount: debt },
   });
 }
 
@@ -79,7 +77,7 @@ const infoSchema = z.object({
   doctorId: z.string().optional(),
   status: z.enum(["OPEN", "CONSULTED", "SERVICED", "COMPLETED", "CANCELLED"]),
   consultResult: z.enum(["PENDING", "AGREED", "CONSIDERING", "DECLINED"]),
-  commissionRate: z.coerce.number().min(0, "Hoa hồng không hợp lệ.").max(100, "Hoa hồng tối đa 100%.").default(0),
+  commissionAmount: z.coerce.number().min(0, "Hoa hồng không hợp lệ.").default(0),
   chiefComplaint: z.string().trim().optional(),
   note: z.string().trim().optional(),
 });
@@ -95,7 +93,7 @@ export async function updateCaseInfo(_prev: CaseActionState, formData: FormData)
     doctorId: formData.get("doctorId") ?? "",
     status: formData.get("status") ?? "OPEN",
     consultResult: formData.get("consultResult") ?? "PENDING",
-    commissionRate: formData.get("commissionRate") ?? 0,
+    commissionAmount: formData.get("commissionAmount") ?? 0,
     chiefComplaint: formData.get("chiefComplaint") ?? "",
     note: formData.get("note") ?? "",
   });
@@ -109,13 +107,12 @@ export async function updateCaseInfo(_prev: CaseActionState, formData: FormData)
       doctorId: d.doctorId || null,
       status: d.status,
       consultResult: d.consultResult,
-      commissionRate: d.commissionRate,
+      commissionAmount: d.commissionAmount,
       chiefComplaint: d.chiefComplaint || null,
       note: d.note || null,
       completedAt: d.status === "COMPLETED" ? new Date() : null,
     },
   });
-  await recalc(d.caseId); // cập nhật lại tiền hoa hồng theo tỉ lệ mới
   refresh(d.caseId);
   return { ok: true, nonce: Date.now() };
 }

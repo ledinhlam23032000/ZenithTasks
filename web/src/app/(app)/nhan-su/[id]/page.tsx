@@ -61,7 +61,6 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
     qualification: u.qualification ?? "",
     notes: u.notes ?? "",
     baseSalary: toNum(u.baseSalary),
-    commissionRate: toNum(u.commissionRate),
   };
 
   return (
@@ -158,7 +157,6 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
               <Row icon={<CalendarClock className="h-4 w-4" />} label="Ngày vào làm" value={u.hireDate ? fmtDate(u.hireDate) : null} />
               <Row icon={<GraduationCap className="h-4 w-4" />} label="Bằng cấp / chứng chỉ" value={u.qualification} />
               <Row label="Lương cứng" value={toNum(u.baseSalary) > 0 ? formatVND(u.baseSalary) : null} />
-              <Row label="Hoa hồng" value={toNum(u.commissionRate) > 0 ? `${toNum(u.commissionRate)}%` : null} />
             </dl>
           </CardContent>
         </Card>

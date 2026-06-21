@@ -5,6 +5,7 @@ import { Plus, LoaderCircle, CheckCircle2, Wallet, Package, Camera, CalendarPlus
 import { Modal } from "@/components/ui/modal";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/field";
+import { Combobox, type ComboOption } from "@/components/ui/combobox";
 import { MoneyInput } from "@/components/ui/money-input";
 import { formatVND } from "@/lib/money";
 import { CASE_STATUS, CONSULT_RESULT, PAYMENT_LABEL } from "@/lib/status";
@@ -50,33 +51,31 @@ export function CaseInfoForm({
     consultResult: string;
     consultantId: string | null;
     doctorId: string | null;
-    commissionRate: number;
+    commissionAmount: number;
     chiefComplaint: string | null;
     note: string | null;
   };
 }) {
   const [state, action, pending] = useActionState<CaseActionState, FormData>(updateCaseInfo, {});
+  const consultantOpts: ComboOption[] = [
+    { value: "", label: "— Chưa phân công —" },
+    ...consultants.map((c) => ({ value: c.id, label: c.fullName })),
+  ];
+  const doctorOpts: ComboOption[] = [
+    { value: "", label: "— Chưa phân công —" },
+    ...doctors.map((c) => ({ value: c.id, label: c.fullName })),
+  ];
   return (
     <form action={action} className="space-y-4">
       <input type="hidden" name="caseId" value={caseId} />
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
-          <Label htmlFor="consultantId">Tư vấn viên</Label>
-          <Select id="consultantId" name="consultantId" defaultValue={initial.consultantId ?? ""}>
-            <option value="">— Chưa phân công —</option>
-            {consultants.map((c) => (
-              <option key={c.id} value={c.id}>{c.fullName}</option>
-            ))}
-          </Select>
+          <Label>Người tư vấn</Label>
+          <Combobox name="consultantId" defaultValue={initial.consultantId ?? ""} options={consultantOpts} />
         </div>
         <div>
-          <Label htmlFor="doctorId">Bác sĩ thực hiện</Label>
-          <Select id="doctorId" name="doctorId" defaultValue={initial.doctorId ?? ""}>
-            <option value="">— Chưa phân công —</option>
-            {doctors.map((c) => (
-              <option key={c.id} value={c.id}>{c.fullName}</option>
-            ))}
-          </Select>
+          <Label>Bác sĩ thực hiện</Label>
+          <Combobox name="doctorId" defaultValue={initial.doctorId ?? ""} options={doctorOpts} />
         </div>
         <div>
           <Label htmlFor="consultResult">Kết quả tư vấn</Label>
@@ -96,17 +95,8 @@ export function CaseInfoForm({
         </div>
       </div>
       <div>
-        <Label htmlFor="commissionRate">Hoa hồng cộng tác viên (% trên tổng tiền)</Label>
-        <Input
-          id="commissionRate"
-          name="commissionRate"
-          type="number"
-          min={0}
-          max={100}
-          step={0.5}
-          defaultValue={initial.commissionRate}
-          placeholder="0"
-        />
+        <Label htmlFor="commissionAmount">Hoa hồng cộng tác viên (VND)</Label>
+        <MoneyInput id="commissionAmount" name="commissionAmount" defaultValue={initial.commissionAmount} />
       </div>
       <div>
         <Label htmlFor="chiefComplaint">Nhu cầu của khách</Label>
@@ -164,12 +154,12 @@ function ServiceForm({ caseId, services, onDone }: { caseId: string; services: S
       <input type="hidden" name="serviceId" value={serviceId} />
       <input type="hidden" name="name" value={name} />
       <div>
-        <Label>Chọn dịch vụ</Label>
-        <Select
+        <Label>Chọn dịch vụ (gõ để tìm)</Label>
+        <Combobox
           value={serviceId}
-          onChange={(e) => {
-            const s = services.find((x) => x.id === e.target.value);
-            setServiceId(e.target.value);
+          onChange={(v) => {
+            const s = services.find((x) => x.id === v);
+            setServiceId(v);
             if (s) {
               setName(s.name);
               // Giá gốc = giá niêm yết của danh mục; giá ưu đãi = giá thực thu mặc định.
@@ -177,12 +167,12 @@ function ServiceForm({ caseId, services, onDone }: { caseId: string; services: S
               setPrice(s.defaultPrice);
             }
           }}
-        >
-          <option value="">— Nhập thủ công —</option>
-          {services.map((s) => (
-            <option key={s.id} value={s.id}>{s.name}{s.category ? ` (${s.category})` : ""}</option>
-          ))}
-        </Select>
+          placeholder="— Nhập thủ công —"
+          options={[
+            { value: "", label: "— Nhập thủ công —" },
+            ...services.map((s) => ({ value: s.id, label: s.name, hint: s.category ?? undefined })),
+          ]}
+        />
       </div>
       <div>
         <Label htmlFor="svc-name">Tên dịch vụ *</Label>
@@ -296,22 +286,21 @@ export function AddMaterialButton({ caseId, materials }: { caseId: string; mater
           <input type="hidden" name="name" value={name} />
           <input type="hidden" name="unit" value={unit} />
           <div>
-            <Label>Chọn vật tư</Label>
-            <Select
-              defaultValue=""
-              onChange={(e) => {
-                const m = materials.find((x) => x.id === e.target.value);
+            <Label>Chọn vật tư (gõ để tìm)</Label>
+            <Combobox
+              onChange={(v) => {
+                const m = materials.find((x) => x.id === v);
                 if (m) {
                   setName(m.name);
                   setUnit(m.unit);
                 }
               }}
-            >
-              <option value="">— Nhập thủ công —</option>
-              {materials.map((m) => (
-                <option key={m.id} value={m.id}>{m.name} ({m.unit})</option>
-              ))}
-            </Select>
+              placeholder="— Nhập thủ công —"
+              options={[
+                { value: "", label: "— Nhập thủ công —" },
+                ...materials.map((m) => ({ value: m.id, label: m.name, hint: m.unit })),
+              ]}
+            />
           </div>
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="sm:col-span-2">

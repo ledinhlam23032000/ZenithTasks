@@ -135,7 +135,6 @@ model User {
   totpSecret   String?
   totpEnabled  Boolean  @default(false)
   baseSalary     Decimal @default(0) @db.Decimal(14, 0) // Lương cơ bản theo tháng
-  commissionRate Decimal @default(0) @db.Decimal(5, 2) // % hoa hồng trên doanh thu phụ trách
   active       Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -180,9 +179,10 @@ model PayrollEntry {
   userId     String
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   month      String // "YYYY-MM"
+  commission Decimal  @default(0) @db.Decimal(14, 0) // Hoa hồng (nhập tay)
   bonus      Decimal  @default(0) @db.Decimal(14, 0) // Thưởng nóng
   adjustment Decimal  @default(0) @db.Decimal(14, 0) // Điều chỉnh (+/-)
-  nurseCases Int      @default(0) // Số ca dịch vụ (điều dưỡng) × 100k
+  nurseCases Int      @default(0) // (không còn dùng — giữ để tương thích dữ liệu cũ)
   note       String?
   updatedAt  DateTime @updatedAt
 
@@ -335,8 +335,7 @@ model CaseRecord {
   locked           Boolean   @default(false)
   lockedAt         DateTime?
   lockedById       String?
-  // Hoa hồng cộng tác viên giới thiệu khách (tính trên tổng tiền hồ sơ).
-  commissionRate   Decimal   @default(0) @db.Decimal(5, 2)
+  // Hoa hồng cộng tác viên giới thiệu khách (số tiền nhập tay).
   commissionAmount Decimal   @default(0) @db.Decimal(14, 0)
 
   services    CaseService[]

@@ -9,7 +9,7 @@ import { Input, Label } from "@/components/ui/field";
 import { MoneyInput } from "@/components/ui/money-input";
 import { savePayroll } from "./actions";
 
-type Row = { id: string; name: string; role: string; baseFull: number; bonus: number; adjustment: number; nurseCases: number };
+type Row = { id: string; name: string; role: string; baseFull: number; commission: number; bonus: number; adjustment: number };
 
 export function PayrollEditButton({ row, month }: { row: Row; month: string }) {
   const [open, setOpen] = useState(false);
@@ -42,6 +42,10 @@ export function PayrollEditButton({ row, month }: { row: Row; month: string }) {
             <Label htmlFor="baseSalary">Lương cứng (VND / tháng)</Label>
             <MoneyInput id="baseSalary" name="baseSalary" defaultValue={row.baseFull} />
           </div>
+          <div>
+            <Label htmlFor="commission">Hoa hồng (tự nhập)</Label>
+            <MoneyInput id="commission" name="commission" defaultValue={row.commission} />
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label htmlFor="bonus">Thưởng nóng</Label>
@@ -52,12 +56,6 @@ export function PayrollEditButton({ row, month }: { row: Row; month: string }) {
               <Input id="adjustment" name="adjustment" type="number" step={50000} defaultValue={row.adjustment} />
             </div>
           </div>
-          {row.role === "NURSE" && (
-            <div>
-              <Label htmlFor="nurseCases">Số ca dịch vụ (×100k)</Label>
-              <Input id="nurseCases" name="nurseCases" type="number" min={0} defaultValue={row.nurseCases} />
-            </div>
-          )}
           <div className="flex justify-end gap-2">
             <Button type="button" variant="secondary" onClick={() => setOpen(false)} disabled={pending}>
               Hủy

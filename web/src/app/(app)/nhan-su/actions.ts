@@ -142,7 +142,6 @@ const editSchema = z.object({
   qualification: z.string().trim().optional(),
   notes: z.string().trim().optional(),
   baseSalary: z.coerce.number().min(0).default(0),
-  commissionRate: z.coerce.number().min(0).max(100).default(0),
 });
 
 function toDate(s?: string): Date | null {
@@ -176,7 +175,6 @@ export async function updateStaff(_prev: StaffFormState, formData: FormData): Pr
     qualification: get("qualification"),
     notes: get("notes"),
     baseSalary: get("baseSalary"),
-    commissionRate: get("commissionRate"),
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu không hợp lệ." };
   const d = parsed.data;
@@ -203,7 +201,6 @@ export async function updateStaff(_prev: StaffFormState, formData: FormData): Pr
       qualification: d.qualification || null,
       notes: d.notes || null,
       baseSalary: d.baseSalary,
-      commissionRate: d.commissionRate,
     },
   });
   revalidatePath("/nhan-su");

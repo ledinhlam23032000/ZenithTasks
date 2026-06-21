@@ -11,9 +11,10 @@ export async function getActiveServices() {
 }
 
 export async function getConsultants() {
+  // Bất kỳ nhân sự đang hoạt động nào cũng có thể là người tư vấn (không bắt buộc vai trò Tư vấn viên).
   return prisma.user.findMany({
-    where: { role: "CONSULTANT", active: true },
-    orderBy: { fullName: "asc" },
+    where: { active: true },
+    orderBy: [{ role: "asc" }, { fullName: "asc" }],
     select: { id: true, fullName: true },
   });
 }

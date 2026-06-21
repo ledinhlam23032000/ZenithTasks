@@ -31,7 +31,6 @@ export type EditableStaff = {
   qualification: string;
   notes: string;
   baseSalary: number;
-  commissionRate: number;
 };
 
 export function EditStaffButton({ staff }: { staff: EditableStaff }) {
@@ -104,7 +103,6 @@ export function EditStaffButton({ staff }: { staff: EditableStaff }) {
               <Field label="Phòng / bộ phận"><Input name="department" defaultValue={staff.department} /></Field>
               <Field label="Ngày vào làm"><Input type="date" name="hireDate" defaultValue={staff.hireDate} /></Field>
               <Field label="Lương cứng (VND/tháng)"><MoneyInput name="baseSalary" defaultValue={staff.baseSalary} /></Field>
-              <Field label="Hoa hồng (%)"><Input name="commissionRate" type="number" min={0} max={100} step={0.5} defaultValue={staff.commissionRate} /></Field>
               <div className="sm:col-span-2">
                 <Field label="Bằng cấp / chứng chỉ"><Input name="qualification" defaultValue={staff.qualification} /></Field>
               </div>
