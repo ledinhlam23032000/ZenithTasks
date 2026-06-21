@@ -42,7 +42,7 @@ export default async function CashPage({ searchParams }: { searchParams: Promise
     ...(typeFilter ? { type: typeFilter } : {}),
   };
 
-  const [txs, monthAll, payAgg] = await Promise.all([
+  const [txs, monthAll] = await Promise.all([
     prisma.cashTransaction.findMany({
       where,
       orderBy: { occurredAt: "desc" },
@@ -52,7 +52,6 @@ export default async function CashPage({ searchParams }: { searchParams: Promise
       where: { occurredAt: { gte: from, lte: to } },
       select: { type: true, amount: true, category: true },
     }),
-    prisma.payment.aggregate({ where: { paidAt: { gte: from, lte: to } }, _sum: { amount: true } }),
   ]);
 
   let income = 0;
@@ -66,8 +65,7 @@ export default async function CashPage({ searchParams }: { searchParams: Promise
       byCat.set(t.category, (byCat.get(t.category) ?? 0) + a);
     }
   }
-  const serviceRevenue = toNum(payAgg._sum.amount); // tiền thực thu từ hồ sơ
-  const profit = serviceRevenue + income - expense; // lãi/lỗ
+  const balance = income - expense; // số dư dòng tiền của sổ (KHÔNG gồm doanh thu dịch vụ)
   const topCats = [...byCat.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6);
 
   const prevMonth = format(addMonths(month, -1), "yyyy-MM");
@@ -97,12 +95,11 @@ export default async function CashPage({ searchParams }: { searchParams: Promise
         }
       />
 
-      {/* Lãi / Lỗ tháng */}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label={`Doanh thu dịch vụ ${format(month, "MM/yyyy")}`} value={formatVND(serviceRevenue)} sub="Tiền thực thu từ hồ sơ" icon={<ArrowUpRight className="h-5 w-5" />} tone="green" />
-        <StatCard label="Thu khác" value={formatVND(income)} sub="Ghi ở sổ thu chi" icon={<ArrowUpRight className="h-5 w-5" />} tone="brand" />
+      {/* Dòng tiền của sổ thu chi (doanh thu dịch vụ & lãi/lỗ xem ở Báo cáo) */}
+      <div className="grid gap-4 sm:grid-cols-3">
+        <StatCard label={`Tổng thu ${format(month, "MM/yyyy")}`} value={formatVND(income)} sub="Tiền vào sổ (gồm ứng từ doanh thu)" icon={<ArrowUpRight className="h-5 w-5" />} tone="green" />
         <StatCard label="Tổng chi" value={formatVND(expense)} sub="Chi phí vận hành" icon={<ArrowDownRight className="h-5 w-5" />} tone="pink" />
-        <StatCard label="Lãi / Lỗ" value={formatVND(profit)} sub="Doanh thu + thu khác − chi" icon={<Scale className="h-5 w-5" />} tone={profit >= 0 ? "brand" : "red"} />
+        <StatCard label="Số dư sổ" value={formatVND(balance)} sub="Tổng thu − tổng chi" icon={<Scale className="h-5 w-5" />} tone={balance >= 0 ? "brand" : "red"} />
       </div>
 
       {topCats.length > 0 && (

@@ -2,6 +2,28 @@ import { startOfDay, subDays, subMonths, subYears, startOfYear, format } from "d
 import { prisma } from "@/lib/db";
 import { toNum } from "@/lib/money";
 import { monthRange, lastMonthRange, growthPct } from "@/lib/dates";
+import { REVENUE_TRANSFER_CODES } from "@/lib/finance";
+
+/** Lãi/Lỗ tháng hiện tại: doanh thu dịch vụ (từ hồ sơ) + thu khác − tổng chi (sổ thu chi). */
+export async function getMonthlyPnl() {
+  const m = monthRange();
+  const [payAgg, cash] = await Promise.all([
+    prisma.payment.aggregate({ where: { paidAt: m }, _sum: { amount: true } }),
+    prisma.cashTransaction.findMany({ where: { occurredAt: m }, select: { type: true, amount: true, category: true } }),
+  ]);
+  const serviceRevenue = toNum(payAgg._sum.amount);
+  let otherIncome = 0;
+  let totalExpense = 0;
+  for (const t of cash) {
+    const a = toNum(t.amount);
+    if (t.type === "INCOME") {
+      if (!REVENUE_TRANSFER_CODES.includes(t.category)) otherIncome += a; // bỏ "ứng từ doanh thu" để khỏi tính trùng
+    } else {
+      totalExpense += a;
+    }
+  }
+  return { serviceRevenue, otherIncome, totalExpense, profit: serviceRevenue + otherIncome - totalExpense };
+}
 
 export type SalesPoint = { label: string; value: number };
 

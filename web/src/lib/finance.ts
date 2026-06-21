@@ -27,21 +27,33 @@ export const EXPENSE_CATEGORIES: CashCat[] = [
   { code: "OTHER_EXP", label: "Chi khác" },
 ];
 
-// Hạng mục THU (ngoài doanh thu dịch vụ đã ghi ở hồ sơ)
+// Hạng mục THU (dòng tiền vào sổ vận hành — KHÔNG phải doanh thu dịch vụ; doanh
+// thu dịch vụ được tính tự động từ hồ sơ và xem ở Báo cáo).
 export const INCOME_CATEGORIES: CashCat[] = [
-  { code: "SERVICE", label: "Doanh thu dịch vụ" },
+  { code: "ADVANCE_REVENUE", label: "Ứng từ doanh thu để chi trả" },
   { code: "DEPOSIT", label: "Tiền đặt cọc" },
   { code: "SELL_PRODUCT", label: "Bán sản phẩm/mỹ phẩm" },
   { code: "REFUND_IN", label: "Hoàn tiền từ nhà cung cấp" },
   { code: "OTHER_INC", label: "Thu khác" },
 ];
 
+/**
+ * Các mã THU chỉ là "luân chuyển" tiền từ doanh thu (không phải thu nhập mới)
+ * → KHÔNG cộng vào Lãi/Lỗ để tránh tính trùng với doanh thu dịch vụ.
+ * (Giữ "SERVICE" cho dữ liệu cũ từng ghi "Doanh thu dịch vụ" trong sổ.)
+ */
+export const REVENUE_TRANSFER_CODES = ["ADVANCE_REVENUE", "SERVICE"];
+
 export function categoriesFor(type: "INCOME" | "EXPENSE"): CashCat[] {
   return type === "INCOME" ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
 }
 
 export const CATEGORY_LABEL: Record<string, string> = Object.fromEntries(
-  [...EXPENSE_CATEGORIES, ...INCOME_CATEGORIES].map((c) => [c.code, c.label]),
+  [
+    ...EXPENSE_CATEGORIES,
+    ...INCOME_CATEGORIES,
+    { code: "SERVICE", label: "Doanh thu dịch vụ (cũ)" }, // nhãn cho dữ liệu cũ
+  ].map((c) => [c.code, c.label]),
 );
 
 export function categoryLabel(code: string): string {

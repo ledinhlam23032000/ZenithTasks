@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { TrendingUp, Target, Receipt, Stethoscope, Sparkles, PieChart, ShieldCheck } from "lucide-react";
+import { TrendingUp, Target, Receipt, Stethoscope, Sparkles, PieChart, ShieldCheck, ArrowUpRight, ArrowDownRight, Scale, Coins } from "lucide-react";
 import { requireCap } from "@/lib/auth";
 import { getAdminDashboard } from "@/lib/dashboard";
-import { getReports, getSalesSeries } from "@/lib/reports";
+import { getReports, getSalesSeries, getMonthlyPnl } from "@/lib/reports";
 import { formatVND, formatVNDShort } from "@/lib/money";
 import { maskPhone } from "@/lib/phone";
 import { SOURCE_LABEL } from "@/lib/status";
@@ -22,9 +22,10 @@ export const metadata = { title: "Báo cáo" };
 
 export default async function ReportsPage() {
   await requireCap("mod:bao-cao");
-  const [d, r, sales] = await Promise.all([getAdminDashboard(), getReports(), getSalesSeries()]);
+  const [d, r, sales, pnl] = await Promise.all([getAdminDashboard(), getReports(), getSalesSeries(), getMonthlyPnl()]);
 
   const maxSource = Math.max(...r.sources.map((s) => s.count), 1);
+  const monthLabel = new Date().toLocaleDateString("vi-VN", { month: "2-digit", year: "numeric" });
 
   return (
     <div className="space-y-6">
@@ -59,6 +60,22 @@ export default async function ReportsPage() {
         />
         <StatCard label="Công nợ tồn" value={formatVNDShort(r.outstandingDebt)} icon={<Receipt className="h-5 w-5" />} tone="red" />
       </div>
+
+      {/* Lãi / Lỗ tháng (chuyển từ Sổ thu chi sang đây — chỉ quản trị/quản lý/cổ đông xem) */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Lãi / Lỗ tháng {monthLabel}</CardTitle>
+          <span className="text-sm text-slate-400">Doanh thu dịch vụ + thu khác − tổng chi</span>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <StatCard label="Doanh thu dịch vụ" value={formatVND(pnl.serviceRevenue)} sub="Tiền thực thu từ hồ sơ" icon={<ArrowUpRight className="h-5 w-5" />} tone="green" />
+            <StatCard label="Thu khác" value={formatVND(pnl.otherIncome)} sub="Ghi ở sổ thu chi" icon={<Coins className="h-5 w-5" />} tone="brand" />
+            <StatCard label="Tổng chi" value={formatVND(pnl.totalExpense)} sub="Chi phí vận hành" icon={<ArrowDownRight className="h-5 w-5" />} tone="pink" />
+            <StatCard label="Lãi / Lỗ" value={formatVND(pnl.profit)} sub="Doanh thu + thu khác − chi" icon={<Scale className="h-5 w-5" />} tone={pnl.profit >= 0 ? "brand" : "red"} />
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Doanh số tư vấn theo thời gian (cột + đường xu hướng) */}
       <Card>
