@@ -6,7 +6,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { encryptPhone, normalizePhone, phoneLast5, hashPhone } from "@/lib/phone";
-import { nextCustomerCode, nextCaseCode } from "@/lib/codes";
+import { nextCustomerCode, nextCaseCode, isUniqueViolation } from "@/lib/codes";
 
 export type CustomerFormState = { ok?: boolean; error?: string };
 
@@ -64,23 +64,34 @@ export async function createCustomer(_prev: CustomerFormState, formData: FormDat
     if (!Number.isNaN(d.getTime())) dob = d;
   }
 
-  const code = await nextCustomerCode();
-  const customer = await prisma.customer.create({
-    data: {
-      code,
-      fullName: data.fullName,
-      gender: data.gender ?? null,
-      dob,
-      phoneEnc: encryptPhone(normalized),
-      phoneLast5: phoneLast5(normalized),
-      phoneHash: hashPhone(normalized),
-      source: data.source,
-      sourceDetail: data.sourceDetail || null,
-      address: data.address || null,
-      note: data.note || null,
-      createdById: user.id,
-    },
-  });
+  // Sinh mã + tạo, thử lại nếu mã bị trùng (đề phòng tạo đồng thời).
+  let customer: { id: string } | null = null;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const code = await nextCustomerCode();
+    try {
+      customer = await prisma.customer.create({
+        data: {
+          code,
+          fullName: data.fullName,
+          gender: data.gender ?? null,
+          dob,
+          phoneEnc: encryptPhone(normalized),
+          phoneLast5: phoneLast5(normalized),
+          phoneHash: hashPhone(normalized),
+          source: data.source,
+          sourceDetail: data.sourceDetail || null,
+          address: data.address || null,
+          note: data.note || null,
+          createdById: user.id,
+        },
+      });
+      break;
+    } catch (e) {
+      if (isUniqueViolation(e) && attempt < 4) continue;
+      throw e;
+    }
+  }
+  if (!customer) return { error: "Không tạo được hồ sơ khách. Vui lòng thử lại." };
 
   await prisma.auditLog
     .create({ data: { actorId: user.id, action: "CREATE_CUSTOMER", entity: "Customer", entityId: customer.id } })
@@ -104,17 +115,28 @@ export async function receiveCustomer(formData: FormData): Promise<void> {
   const serviceInterest = String(formData.get("serviceInterest") ?? "").trim();
   const consultantId = String(formData.get("consultantId") ?? "").trim() || null;
 
-  const code = await nextCaseCode();
-  const created = await prisma.caseRecord.create({
-    data: {
-      code,
-      customerId,
-      status: "OPEN",
-      consultantId,
-      chiefComplaint: serviceInterest || null,
-      createdById: user.id,
-    },
-  });
+  // Sinh mã hồ sơ + tạo, thử lại nếu mã bị trùng (mã = số lớn nhất + 1; an toàn cả khi đã xóa hồ sơ).
+  let created: { id: string } | null = null;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const code = await nextCaseCode();
+    try {
+      created = await prisma.caseRecord.create({
+        data: {
+          code,
+          customerId,
+          status: "OPEN",
+          consultantId,
+          chiefComplaint: serviceInterest || null,
+          createdById: user.id,
+        },
+      });
+      break;
+    } catch (e) {
+      if (isUniqueViolation(e) && attempt < 4) continue;
+      throw e;
+    }
+  }
+  if (!created) redirect(`/khach-hang/${customerId}`);
 
   revalidatePath("/ho-so");
   revalidatePath(`/khach-hang/${customerId}`);

@@ -1,13 +1,16 @@
 import { prisma } from "@/lib/db";
+import { nextSeq } from "@/lib/seq";
 
-/** Sinh mã khách hàng dạng KH00001. */
+export { nextSeq, isUniqueViolation } from "@/lib/seq";
+
+/** Sinh mã khách hàng dạng KH00001 (không trùng kể cả sau khi xóa). */
 export async function nextCustomerCode(): Promise<string> {
-  const count = await prisma.customer.count();
-  return `KH${String(count + 1).padStart(5, "0")}`;
+  const rows = await prisma.customer.findMany({ select: { code: true } });
+  return `KH${String(nextSeq(rows.map((r) => r.code), "KH")).padStart(5, "0")}`;
 }
 
-/** Sinh mã hồ sơ dạng HS00001. */
+/** Sinh mã hồ sơ điều trị dạng HS00001 (không trùng kể cả sau khi xóa). */
 export async function nextCaseCode(): Promise<string> {
-  const count = await prisma.caseRecord.count();
-  return `HS${String(count + 1).padStart(5, "0")}`;
+  const rows = await prisma.caseRecord.findMany({ select: { code: true } });
+  return `HS${String(nextSeq(rows.map((r) => r.code), "HS")).padStart(5, "0")}`;
 }
