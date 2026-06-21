@@ -1,9 +1,11 @@
 import Link from "next/link";
+import { format } from "date-fns";
 import { Contact, Power, KeyRound } from "lucide-react";
 import { requireCap } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { ROLE_LABELS } from "@/lib/rbac";
 import { permCatalog, effectiveKeys } from "@/lib/permissions";
+import { toNum } from "@/lib/money";
 import { fmtDate } from "@/lib/format";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,7 +16,10 @@ import { DeleteButton } from "@/components/ui/delete-button";
 import { NewStaffButton } from "./new-staff";
 import { ResetPasswordButton } from "./reset-password";
 import { PermissionEditorButton } from "./permission-editor";
+import { EditStaffButton, type EditableStaff } from "./[id]/staff-edit";
 import { toggleStaffActive, deleteStaff, adminDisable2FA } from "./actions";
+
+const ymd = (d: Date | null) => (d ? format(new Date(d), "yyyy-MM-dd") : "");
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Nhân sự" };
@@ -23,9 +28,31 @@ export default async function StaffPage() {
   const me = await requireCap("mod:nhan-su");
   const users = await prisma.user.findMany({
     orderBy: [{ active: "desc" }, { role: "asc" }, { fullName: "asc" }],
-    select: { id: true, code: true, fullName: true, username: true, role: true, phone: true, avatarUrl: true, permissions: true, totpEnabled: true, active: true, createdAt: true },
   });
   const catalog = permCatalog();
+
+  const editableOf = (u: (typeof users)[number]): EditableStaff => ({
+    id: u.id,
+    fullName: u.fullName,
+    role: u.role,
+    phone: u.phone ?? "",
+    dob: ymd(u.dob),
+    gender: u.gender ?? "",
+    address: u.address ?? "",
+    hometown: u.hometown ?? "",
+    nationalId: u.nationalId ?? "",
+    bankAccount: u.bankAccount ?? "",
+    bankName: u.bankName ?? "",
+    bankHolder: u.bankHolder ?? "",
+    emergencyName: u.emergencyName ?? "",
+    emergencyPhone: u.emergencyPhone ?? "",
+    position: u.position ?? "",
+    department: u.department ?? "",
+    hireDate: ymd(u.hireDate),
+    qualification: u.qualification ?? "",
+    notes: u.notes ?? "",
+    baseSalary: toNum(u.baseSalary),
+  });
 
   return (
     <div className="space-y-6">
@@ -70,6 +97,7 @@ export default async function StaffPage() {
                   <TD className="text-slate-500">{fmtDate(u.createdAt)}</TD>
                   <TD className="text-right">
                     <div className="flex items-center justify-end gap-1">
+                      <EditStaffButton staff={editableOf(u)} />
                       {u.id !== me.id && (
                         <PermissionEditorButton
                           userId={u.id}

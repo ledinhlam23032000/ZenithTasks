@@ -182,7 +182,16 @@ export default async function ReceptionPage({ searchParams }: { searchParams: Pr
                         </button>
                       </form>
                     ) : (
-                      <Badge tone="amber">Chưa có hồ sơ</Badge>
+                      <NewCustomerButton
+                        label="Tạo hồ sơ"
+                        variant="secondary"
+                        prefill={{
+                          fullName: a.guestName ?? "",
+                          source: a.source,
+                          sourceDetail: a.sourceDetail ?? "",
+                          note: [a.serviceInterest, a.note].filter(Boolean).join(" · "),
+                        }}
+                      />
                     )}
                   </li>
                 );

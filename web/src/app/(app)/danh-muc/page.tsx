@@ -1,4 +1,5 @@
-import { ListChecks, Package, Power, PackagePlus } from "lucide-react";
+import Link from "next/link";
+import { ListChecks, Package, Power, PackagePlus, Search } from "lucide-react";
 import { requireCap } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { formatVND, toNum } from "@/lib/money";
@@ -6,20 +7,29 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, THead, TH, TR, TD } from "@/components/ui/table";
+import { buttonVariants } from "@/components/ui/button";
 import { DeleteButton } from "@/components/ui/delete-button";
 import { isShareholder } from "@/lib/rbac";
 import { NewServiceButton, NewMaterialButton, EditServiceButton, EditMaterialButton } from "./catalog-forms";
 import { toggleService, toggleMaterial, deleteService, deleteMaterial, stockIn } from "./actions";
+import type { Prisma } from "@/generated/prisma/client";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Danh mục dịch vụ" };
 
-export default async function CatalogPage() {
+export default async function CatalogPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
   const user = await requireCap("mod:danh-muc");
   const canManage = !isShareholder(user.role);
+  const q = ((await searchParams).q ?? "").trim();
+
+  const svcWhere: Prisma.ServiceWhereInput = q
+    ? { OR: [{ name: { contains: q, mode: "insensitive" } }, { category: { contains: q, mode: "insensitive" } }] }
+    : {};
+  const matWhere: Prisma.MaterialWhereInput = q ? { name: { contains: q, mode: "insensitive" } } : {};
+
   const [services, materials] = await Promise.all([
-    prisma.service.findMany({ orderBy: [{ active: "desc" }, { category: "asc" }, { name: "asc" }] }),
-    prisma.material.findMany({ orderBy: [{ active: "desc" }, { name: "asc" }] }),
+    prisma.service.findMany({ where: svcWhere, orderBy: [{ active: "desc" }, { category: "asc" }, { name: "asc" }] }),
+    prisma.material.findMany({ where: matWhere, orderBy: [{ active: "desc" }, { name: "asc" }] }),
   ]);
 
   return (
@@ -29,6 +39,24 @@ export default async function CatalogPage() {
         description="Cấu hình các dịch vụ và vật tư sử dụng trong hồ sơ điều trị."
         icon={<ListChecks className="h-5 w-5" />}
       />
+
+      <form action="/danh-muc" className="flex items-center gap-2">
+        <div className="relative flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <input
+            name="q"
+            defaultValue={q}
+            placeholder="Tìm dịch vụ hoặc vật tư theo tên…"
+            className="h-10 w-full rounded-lg border border-slate-200 pl-9 pr-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
+          />
+        </div>
+        <button className={buttonVariants({ variant: "secondary" })}>Tìm</button>
+        {q && (
+          <Link href="/danh-muc" className={buttonVariants({ variant: "ghost", size: "sm" })}>
+            Xóa lọc
+          </Link>
+        )}
+      </form>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>

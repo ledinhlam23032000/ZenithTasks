@@ -8,12 +8,22 @@ import { Input, Label, Select, Textarea, FieldHint } from "@/components/ui/field
 import { SOURCE_LABEL, GENDER_LABEL } from "@/lib/status";
 import { createCustomer, type CustomerFormState } from "./actions";
 
+export type CustomerPrefill = {
+  fullName?: string;
+  phone?: string;
+  source?: string;
+  sourceDetail?: string;
+  note?: string;
+};
+
 export function NewCustomerButton({
   label = "Tạo hồ sơ khách mới",
   variant = "primary",
+  prefill,
 }: {
   label?: string;
   variant?: "primary" | "secondary";
+  prefill?: CustomerPrefill;
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -28,13 +38,13 @@ export function NewCustomerButton({
         description="Nhập thông tin cơ bản. Số điện thoại sẽ được mã hoá và ẩn 100%."
         size="lg"
       >
-        <CustomerForm onCancel={() => setOpen(false)} />
+        <CustomerForm onCancel={() => setOpen(false)} prefill={prefill} />
       </Modal>
     </>
   );
 }
 
-function CustomerForm({ onCancel }: { onCancel: () => void }) {
+function CustomerForm({ onCancel, prefill }: { onCancel: () => void; prefill?: CustomerPrefill }) {
   const [state, action, pending] = useActionState<CustomerFormState, FormData>(createCustomer, {});
 
   return (
@@ -42,11 +52,11 @@ function CustomerForm({ onCancel }: { onCancel: () => void }) {
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <Label htmlFor="fullName">Họ và tên *</Label>
-          <Input id="fullName" name="fullName" placeholder="Nguyễn Thị A" required autoFocus />
+          <Input id="fullName" name="fullName" defaultValue={prefill?.fullName ?? ""} placeholder="Nguyễn Thị A" required autoFocus />
         </div>
         <div>
           <Label htmlFor="phone">Số điện thoại *</Label>
-          <Input id="phone" name="phone" inputMode="tel" placeholder="09xx xxx xxx" required />
+          <Input id="phone" name="phone" inputMode="tel" defaultValue={prefill?.phone ?? ""} placeholder="09xx xxx xxx" required />
           <FieldHint>
             <span className="inline-flex items-center gap-1">
               <ShieldCheck className="h-3 w-3" /> Mã hoá AES-256, chỉ hiển thị 5 số cuối về sau.
@@ -72,7 +82,7 @@ function CustomerForm({ onCancel }: { onCancel: () => void }) {
         </div>
         <div>
           <Label htmlFor="source">Nguồn khách</Label>
-          <Select id="source" name="source" defaultValue="WALK_IN">
+          <Select id="source" name="source" defaultValue={prefill?.source ?? "WALK_IN"}>
             {Object.entries(SOURCE_LABEL).map(([k, v]) => (
               <option key={k} value={k}>
                 {v}
@@ -85,7 +95,7 @@ function CustomerForm({ onCancel }: { onCancel: () => void }) {
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <Label htmlFor="sourceDetail">Chi tiết nguồn</Label>
-          <Input id="sourceDetail" name="sourceDetail" placeholder="VD: CTV Ngọc Hân…" />
+          <Input id="sourceDetail" name="sourceDetail" defaultValue={prefill?.sourceDetail ?? ""} placeholder="VD: CTV Ngọc Hân…" />
         </div>
         <div>
           <Label htmlFor="address">Địa chỉ</Label>
@@ -95,7 +105,7 @@ function CustomerForm({ onCancel }: { onCancel: () => void }) {
 
       <div>
         <Label htmlFor="note">Ghi chú</Label>
-        <Textarea id="note" name="note" placeholder="Tiền sử, lưu ý, mong muốn của khách…" />
+        <Textarea id="note" name="note" defaultValue={prefill?.note ?? ""} placeholder="Tiền sử, lưu ý, mong muốn của khách…" />
       </div>
 
       {state.error && (

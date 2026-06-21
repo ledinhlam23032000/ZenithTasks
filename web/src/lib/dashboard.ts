@@ -46,7 +46,7 @@ export async function getAdminDashboard() {
     prisma.appointment.count({ where: { scheduledAt: today, status: { in: ["CANCELLED", "NO_SHOW"] } } }),
     prisma.payment.aggregate({ where: { paidAt: month }, _sum: { amount: true } }),
     prisma.payment.aggregate({ where: { paidAt: last }, _sum: { amount: true } }),
-    prisma.caseRecord.count({ where: { createdAt: month, consultResult: { not: "PENDING" } } }),
+    prisma.caseRecord.count({ where: { createdAt: month } }),
     prisma.caseRecord.count({ where: { createdAt: month, consultResult: "AGREED" } }),
     prisma.caseRecord.groupBy({
       by: ["consultantId"],
@@ -54,7 +54,7 @@ export async function getAdminDashboard() {
       _count: { _all: true },
       _sum: { totalAmount: true, debtAmount: true },
     }),
-    prisma.user.findMany({ where: { role: "CONSULTANT" }, select: { id: true, fullName: true } }),
+    prisma.user.findMany({ select: { id: true, fullName: true } }),
     prisma.careMessage.findMany({
       where: {},
       orderBy: { createdAt: "desc" },

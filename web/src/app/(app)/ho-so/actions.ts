@@ -44,6 +44,8 @@ function refresh(caseId: string, customerId?: string) {
   revalidatePath(`/ho-so/${caseId}`);
   revalidatePath("/ho-so");
   revalidatePath("/dashboard");
+  revalidatePath("/bao-cao");
+  revalidatePath("/khach-hang");
   if (customerId) revalidatePath(`/khach-hang/${customerId}`);
 }
 
