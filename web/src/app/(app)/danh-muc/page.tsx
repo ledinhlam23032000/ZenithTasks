@@ -7,6 +7,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, THead, TH, TR, TD } from "@/components/ui/table";
 import { DeleteButton } from "@/components/ui/delete-button";
+import { isShareholder } from "@/lib/rbac";
 import { NewServiceButton, NewMaterialButton, EditServiceButton, EditMaterialButton } from "./catalog-forms";
 import { toggleService, toggleMaterial, deleteService, deleteMaterial, stockIn } from "./actions";
 
@@ -14,7 +15,8 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Danh mục dịch vụ" };
 
 export default async function CatalogPage() {
-  await requireCap("mod:danh-muc");
+  const user = await requireCap("mod:danh-muc");
+  const canManage = !isShareholder(user.role);
   const [services, materials] = await Promise.all([
     prisma.service.findMany({ orderBy: [{ active: "desc" }, { category: "asc" }, { name: "asc" }] }),
     prisma.material.findMany({ orderBy: [{ active: "desc" }, { name: "asc" }] }),
@@ -34,7 +36,7 @@ export default async function CatalogPage() {
             <CardTitle className="flex items-center gap-2">
               <ListChecks className="h-4 w-4 text-brand-500" /> Dịch vụ ({services.length})
             </CardTitle>
-            <NewServiceButton />
+            {canManage && <NewServiceButton />}
           </CardHeader>
           <CardContent className="pt-0">
             <Table>
@@ -61,6 +63,7 @@ export default async function CatalogPage() {
                     </TD>
                     <TD className="text-right font-semibold tabular-nums text-slate-800">{formatVND(s.defaultPrice)}</TD>
                     <TD className="text-right">
+                      {canManage && (
                       <div className="flex items-center justify-end gap-1">
                         <EditServiceButton
                           service={{
@@ -85,6 +88,7 @@ export default async function CatalogPage() {
                           className="rounded-md p-1.5 text-slate-300 hover:bg-rose-50 hover:text-rose-500"
                         />
                       </div>
+                      )}
                     </TD>
                   </TR>
                 ))}
@@ -98,7 +102,7 @@ export default async function CatalogPage() {
             <CardTitle className="flex items-center gap-2">
               <Package className="h-4 w-4 text-brand-500" /> Vật tư ({materials.length})
             </CardTitle>
-            <NewMaterialButton />
+            {canManage && <NewMaterialButton />}
           </CardHeader>
           <CardContent className="pt-0">
             <Table>
@@ -121,6 +125,7 @@ export default async function CatalogPage() {
                     </TD>
                     <TD>{m.active ? <Badge tone="green">Đang dùng</Badge> : <Badge tone="slate">Ẩn</Badge>}</TD>
                     <TD className="text-right">
+                      {canManage && (
                       <div className="flex items-center justify-end gap-1">
                         <EditMaterialButton
                           material={{
@@ -163,6 +168,7 @@ export default async function CatalogPage() {
                           className="rounded-md p-1.5 text-slate-300 hover:bg-rose-50 hover:text-rose-500"
                         />
                       </div>
+                      )}
                     </TD>
                   </TR>
                 ))}

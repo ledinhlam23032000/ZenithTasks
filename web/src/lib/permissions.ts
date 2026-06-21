@@ -16,23 +16,26 @@ const ALL: Role[] = ["ADMIN", "MANAGER", "TELESALE", "RECEPTION", "CONSULTANT", 
 export type ModuleDef = { key: string; href: string; label: string; icon: string; roles: Role[]; hidden?: boolean };
 
 // Các mục (menu) — đây cũng là nguồn duy nhất cho thanh điều hướng.
+// SHAREHOLDER (Cổ đông) được THÊM vào các mục CHỈ-XEM về kinh doanh; KHÔNG thêm vào
+// nhân sự / lương / chấm công / lịch làm việc / tiếp nhận / nhật ký (lộ danh sách &
+// quy mô nhân sự). Cổ đông không có năng lực thao tác nào (xem CAPABILITIES bên dưới).
 export const MODULES: ModuleDef[] = [
-  { key: "dashboard", href: "/dashboard", label: "Tổng quan", icon: "LayoutDashboard", roles: ALL },
+  { key: "dashboard", href: "/dashboard", label: "Tổng quan", icon: "LayoutDashboard", roles: [...ALL, "SHAREHOLDER"] },
   { key: "cham-cong", href: "/cham-cong", label: "Chấm công", icon: "CalendarCheck", roles: ALL },
-  { key: "lich-hen", href: "/lich-hen", label: "Lịch hẹn", icon: "CalendarClock", roles: ["ADMIN", "MANAGER", "TELESALE", "RECEPTION", "CONSULTANT"] },
+  { key: "lich-hen", href: "/lich-hen", label: "Lịch hẹn", icon: "CalendarClock", roles: ["ADMIN", "MANAGER", "TELESALE", "RECEPTION", "CONSULTANT", "SHAREHOLDER"] },
   { key: "tiep-nhan", href: "/tiep-nhan", label: "Tiếp nhận khách", icon: "UserPlus", roles: ["ADMIN", "RECEPTION", "TELESALE"] },
-  { key: "khach-hang", href: "/khach-hang", label: "Hồ sơ khách hàng", icon: "FolderHeart", roles: ["ADMIN", "MANAGER", "RECEPTION", "CONSULTANT", "DOCTOR", "CARE"] },
+  { key: "khach-hang", href: "/khach-hang", label: "Hồ sơ khách hàng", icon: "FolderHeart", roles: ["ADMIN", "MANAGER", "RECEPTION", "CONSULTANT", "DOCTOR", "CARE", "SHAREHOLDER"] },
   // "Hồ sơ điều trị" gộp vào "Hồ sơ khách hàng" — ẩn khỏi menu, vẫn là 1 module để phân quyền.
-  { key: "ho-so", href: "/ho-so", label: "Hồ sơ điều trị", icon: "FolderHeart", roles: ["ADMIN", "MANAGER", "CONSULTANT", "DOCTOR", "RECEPTION"], hidden: true },
-  { key: "cham-soc", href: "/cham-soc", label: "Chăm sóc KH", icon: "MessageCircleHeart", roles: ["ADMIN", "MANAGER", "CARE"] },
-  { key: "bao-cao", href: "/bao-cao", label: "Báo cáo", icon: "TrendingUp", roles: ["ADMIN", "MANAGER"] },
+  { key: "ho-so", href: "/ho-so", label: "Hồ sơ điều trị", icon: "FolderHeart", roles: ["ADMIN", "MANAGER", "CONSULTANT", "DOCTOR", "RECEPTION", "SHAREHOLDER"], hidden: true },
+  { key: "cham-soc", href: "/cham-soc", label: "Chăm sóc KH", icon: "MessageCircleHeart", roles: ["ADMIN", "MANAGER", "CARE", "SHAREHOLDER"] },
+  { key: "bao-cao", href: "/bao-cao", label: "Báo cáo", icon: "TrendingUp", roles: ["ADMIN", "MANAGER", "SHAREHOLDER"] },
   { key: "lich-lam-viec", href: "/lich-lam-viec", label: "Lịch làm việc", icon: "CalendarDays", roles: ALL },
   { key: "luong", href: "/luong", label: "Lương & hoa hồng", icon: "Wallet", roles: ["ADMIN", "MANAGER"] },
-  { key: "thu-chi", href: "/thu-chi", label: "Thu chi", icon: "Coins", roles: ["ADMIN", "MANAGER"] },
+  { key: "thu-chi", href: "/thu-chi", label: "Thu chi", icon: "Coins", roles: ["ADMIN", "MANAGER", "SHAREHOLDER"] },
   { key: "nhan-su", href: "/nhan-su", label: "Nhân sự", icon: "Contact", roles: ["ADMIN"] },
   { key: "nhat-ky", href: "/nhat-ky", label: "Nhật ký hệ thống", icon: "ScrollText", roles: ["ADMIN"] },
-  { key: "danh-muc", href: "/danh-muc", label: "Danh mục dịch vụ", icon: "ListChecks", roles: ["ADMIN", "MANAGER"] },
-  { key: "kho", href: "/kho", label: "Kho vật tư", icon: "Boxes", roles: ["ADMIN", "MANAGER"] },
+  { key: "danh-muc", href: "/danh-muc", label: "Danh mục dịch vụ", icon: "ListChecks", roles: ["ADMIN", "MANAGER", "SHAREHOLDER"] },
+  { key: "kho", href: "/kho", label: "Kho vật tư", icon: "Boxes", roles: ["ADMIN", "MANAGER", "SHAREHOLDER"] },
 ];
 
 export type CapDef = { key: string; label: string; group: string; roles: Role[] };

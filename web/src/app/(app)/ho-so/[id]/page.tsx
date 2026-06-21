@@ -43,6 +43,7 @@ import {
   EditPaymentButton,
   EditMaterialUsageButton,
   EditVoucherButton,
+  EditCaseDateButton,
 } from "./case-widgets";
 import {
   removeCaseService,
@@ -114,6 +115,7 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
             <Link href={`/ho-so/${record.id}/hoa-don`} className={`${buttonVariants({ variant: "secondary", size: "sm" })} print-hide`}>
               <Receipt className="h-3.5 w-3.5" /> In hóa đơn
             </Link>
+            {isAdmin && <EditCaseDateButton caseId={record.id} createdAt={toDatetimeLocal(record.createdAt)} />}
             {isAdmin && (
               <ConfirmButton
                 action={deleteCase}

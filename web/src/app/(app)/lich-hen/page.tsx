@@ -9,7 +9,8 @@ import { dayRange, todayRange, tomorrowRange } from "@/lib/dates";
 import { getActiveServices, getConsultants } from "@/lib/lookups";
 import { maskPhone } from "@/lib/phone";
 import { fmtTime, fmtDayLabel, toDatetimeLocal } from "@/lib/format";
-import { APPT_TYPE, SOURCE_LABEL } from "@/lib/status";
+import { APPT_TYPE, APPT_STATUS, SOURCE_LABEL } from "@/lib/status";
+import { isShareholder } from "@/lib/rbac";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -85,6 +86,7 @@ export default async function AppointmentsPage({
 
   const arrived = appts.filter((a) => ["ARRIVED", "IN_CONSULT", "IN_SERVICE", "DONE"].includes(a.status)).length;
   const canDelete = ["ADMIN", "MANAGER"].includes(user.role);
+  const canManage = !isShareholder(user.role);
 
   return (
     <div className="space-y-6">
@@ -247,7 +249,11 @@ export default async function AppointmentsPage({
                       </TD>
                       <TD className="text-slate-600">{a.consultant?.fullName ?? "—"}</TD>
                       <TD>
-                        <AppointmentStatusControl id={a.id} status={a.status} />
+                        {canManage ? (
+                          <AppointmentStatusControl id={a.id} status={a.status} />
+                        ) : (
+                          <Badge tone={APPT_STATUS[a.status].tone}>{APPT_STATUS[a.status].label}</Badge>
+                        )}
                       </TD>
                       {canDelete && (
                         <TD className="text-right">

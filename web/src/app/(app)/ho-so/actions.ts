@@ -117,6 +117,24 @@ export async function updateCaseInfo(_prev: CaseActionState, formData: FormData)
   return { ok: true, nonce: Date.now() };
 }
 
+// ---- Sửa NGÀY TẠO hồ sơ (CHỈ quản trị viên) ----
+// Dùng khi khách đông, hồ sơ tạo sau ngày khách thực đến. Chỉ ADMIN để tránh gian lận.
+export async function updateCaseDate(_prev: CaseActionState, formData: FormData): Promise<CaseActionState> {
+  const me = await requireUser(["ADMIN"]);
+  const caseId = String(formData.get("caseId") ?? "");
+  const raw = String(formData.get("createdAt") ?? "").trim();
+  if (!caseId) return { error: "Thiếu hồ sơ." };
+  if (!raw) return { error: "Vui lòng chọn ngày." };
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return { error: "Ngày không hợp lệ." };
+  if (d.getTime() > Date.now() + 60_000) return { error: "Ngày tạo không thể ở tương lai." };
+
+  await prisma.caseRecord.update({ where: { id: caseId }, data: { createdAt: d } });
+  await audit(me.id, "EDIT_CASE_DATE", { entity: "CaseRecord", entityId: caseId, meta: { createdAt: raw } });
+  refresh(caseId);
+  return { ok: true, nonce: Date.now() };
+}
+
 // ---- Thêm dịch vụ vào hồ sơ ----
 const serviceSchema = z.object({
   caseId: z.string().min(1),

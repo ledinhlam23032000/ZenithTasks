@@ -23,6 +23,7 @@ enum Role {
   DOCTOR // Bác sĩ thực hiện dịch vụ
   NURSE // Điều dưỡng
   CARE // Chăm sóc khách hàng (CSKH)
+  SHAREHOLDER // Cổ đông — chỉ XEM toàn bộ, không thao tác; không xem SĐT đầy đủ; không xem nhân sự
 }
 
 enum Gender {

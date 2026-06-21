@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
-import { Plus, LoaderCircle, CheckCircle2, Wallet, Package, Camera, CalendarPlus, Pencil, Ticket } from "lucide-react";
+import { Plus, LoaderCircle, CheckCircle2, Wallet, Package, Camera, CalendarPlus, Pencil, Ticket, CalendarCog } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/field";
@@ -20,6 +20,7 @@ import {
   updatePayment,
   updateMaterialUsage,
   updateCaseVoucher,
+  updateCaseDate,
   type CaseActionState,
 } from "../actions";
 
@@ -664,6 +665,43 @@ export function EditVoucherButton({ caseId, voucher }: { caseId: string; voucher
             <Input id="voucherCode" name="voucherCode" placeholder="VD: HE2025" defaultValue={voucher.code} />
           </div>
           <p className="text-xs text-slate-400">Để 0 nếu muốn bỏ voucher. Voucher giảm cả công nợ lẫn doanh thu tính hoa hồng.</p>
+          {state.error && <p className="text-sm text-rose-600">{state.error}</p>}
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="secondary" onClick={() => setOpen(false)}>Hủy</Button>
+            <button type="submit" disabled={pending} className={buttonVariants()}>
+              {pending && <LoaderCircle className="h-4 w-4 animate-spin" />} Lưu
+            </button>
+          </div>
+        </form>
+      </Modal>
+    </>
+  );
+}
+
+// ===== Sửa NGÀY TẠO hồ sơ (chỉ quản trị) =====
+export function EditCaseDateButton({ caseId, createdAt }: { caseId: string; createdAt: string }) {
+  const [open, setOpen] = useState(false);
+  const [state, action, pending] = useActionState<CaseActionState, FormData>(updateCaseDate, {});
+  useEffect(() => {
+    if (state.ok) setOpen(false);
+  }, [state.ok]);
+  return (
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1 text-sm font-medium text-slate-600 hover:bg-slate-50"
+        title="Sửa ngày tạo hồ sơ"
+      >
+        <CalendarCog className="h-3.5 w-3.5" /> Sửa ngày tạo
+      </button>
+      <Modal open={open} onClose={() => setOpen(false)} title="Sửa ngày tạo hồ sơ" description="Dùng khi tạo hồ sơ sau ngày khách thực đến. Chỉ quản trị viên.">
+        <form action={action} className="space-y-4">
+          <input type="hidden" name="caseId" value={caseId} />
+          <div>
+            <Label htmlFor="cd-date">Ngày & giờ tạo</Label>
+            <Input id="cd-date" name="createdAt" type="datetime-local" defaultValue={createdAt} required autoFocus />
+          </div>
+          <p className="text-xs text-slate-400">Lưu ý: thay đổi ảnh hưởng tới báo cáo & lương theo tháng (vì tính theo ngày tạo hồ sơ).</p>
           {state.error && <p className="text-sm text-rose-600">{state.error}</p>}
           <div className="flex justify-end gap-2">
             <Button type="button" variant="secondary" onClick={() => setOpen(false)}>Hủy</Button>

@@ -16,7 +16,7 @@ const schema = z.object({
     .trim()
     .min(3, "Tên đăng nhập tối thiểu 3 ký tự.")
     .regex(/^[a-z0-9_.]+$/i, "Tên đăng nhập chỉ gồm chữ, số, dấu chấm hoặc gạch dưới."),
-  role: z.enum(["ADMIN", "MANAGER", "TELESALE", "RECEPTION", "CONSULTANT", "DOCTOR", "NURSE", "CARE"]),
+  role: z.enum(["ADMIN", "MANAGER", "TELESALE", "RECEPTION", "CONSULTANT", "DOCTOR", "NURSE", "CARE", "SHAREHOLDER"]),
   password: z.string().min(8, "Mật khẩu tối thiểu 8 ký tự."),
   phone: z.string().trim().optional(),
 });
@@ -119,7 +119,7 @@ export async function deleteStaff(formData: FormData): Promise<void> {
   revalidatePath("/nhan-su");
 }
 
-const ROLE_ENUM = ["ADMIN", "MANAGER", "TELESALE", "RECEPTION", "CONSULTANT", "DOCTOR", "NURSE", "CARE"] as const;
+const ROLE_ENUM = ["ADMIN", "MANAGER", "TELESALE", "RECEPTION", "CONSULTANT", "DOCTOR", "NURSE", "CARE", "SHAREHOLDER"] as const;
 
 const editSchema = z.object({
   id: z.string().min(1),

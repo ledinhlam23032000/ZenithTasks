@@ -14,6 +14,7 @@ export const ROLE_LABELS: Record<Role, string> = {
   DOCTOR: "Bác sĩ",
   NURSE: "Điều dưỡng",
   CARE: "Chăm sóc khách hàng",
+  SHAREHOLDER: "Cổ đông",
 };
 
 export const ROLE_SHORT: Record<Role, string> = {
@@ -25,8 +26,14 @@ export const ROLE_SHORT: Record<Role, string> = {
   DOCTOR: "Bác sĩ",
   NURSE: "Điều dưỡng",
   CARE: "CSKH",
+  SHAREHOLDER: "Cổ đông",
 };
 
 export function isManagerial(role: Role): boolean {
   return role === "ADMIN" || role === "MANAGER";
+}
+
+/** Cổ đông: chỉ XEM, không được thao tác (ẩn các nút thêm/sửa/xóa). */
+export function isShareholder(role: Role): boolean {
+  return role === "SHAREHOLDER";
 }

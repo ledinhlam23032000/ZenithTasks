@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { MessageCircleHeart, Search, Inbox } from "lucide-react";
 import { requireCap } from "@/lib/auth";
+import { isShareholder } from "@/lib/rbac";
 import { prisma } from "@/lib/db";
 import { isValidLast5, maskPhone } from "@/lib/phone";
 import { todayRange } from "@/lib/dates";
@@ -22,7 +23,8 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Chăm sóc khách hàng" };
 
 export default async function CarePage({ searchParams }: { searchParams: Promise<{ q?: string; kenh?: string }> }) {
-  await requireCap("mod:cham-soc");
+  const user = await requireCap("mod:cham-soc");
+  const canManage = !isShareholder(user.role);
   const sp = await searchParams;
   const q = (sp.q ?? "").trim();
   const kenh = (sp.kenh ?? "").trim();
@@ -117,6 +119,7 @@ export default async function CarePage({ searchParams }: { searchParams: Promise
                         {m.createdBy?.fullName ?? "Hệ thống"} · {fmtRelative(m.createdAt)}
                       </p>
                     </div>
+                    {canManage && (
                     <div className="flex shrink-0 items-start gap-0.5">
                       <EditCareButton message={{ id: m.id, channel: m.channel, direction: m.direction, content: m.content }} />
                       <DeleteButton
@@ -127,6 +130,7 @@ export default async function CarePage({ searchParams }: { searchParams: Promise
                         className="rounded-md p-1.5 text-slate-300 hover:bg-rose-50 hover:text-rose-500"
                       />
                     </div>
+                    )}
                   </li>
                 );
               })}

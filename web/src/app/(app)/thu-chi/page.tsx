@@ -8,6 +8,7 @@ import { toNum, formatVND } from "@/lib/money";
 import { fmtDate } from "@/lib/format";
 import { PAYMENT_LABEL } from "@/lib/status";
 import { CASH_TYPE, categoryLabel } from "@/lib/finance";
+import { isShareholder } from "@/lib/rbac";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatCard } from "@/components/ui/stat-card";
@@ -25,7 +26,8 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Thu chi" };
 
 export default async function CashPage({ searchParams }: { searchParams: Promise<{ month?: string; type?: string }> }) {
-  await requireCap("mod:thu-chi");
+  const user = await requireCap("mod:thu-chi");
+  const canManage = !isShareholder(user.role);
   const sp = await searchParams;
 
   const monthRef = sp.month ? new Date(`${sp.month}-01T00:00:00`) : new Date();
@@ -90,7 +92,7 @@ export default async function CashPage({ searchParams }: { searchParams: Promise
               excelHref={`/thu-chi/export?format=xlsx&month=${monthKey}${typeFilter ? `&type=${typeFilter}` : ""}`}
               wordHref={`/thu-chi/export?format=doc&month=${monthKey}${typeFilter ? `&type=${typeFilter}` : ""}`}
             />
-            <NewCashButton defaultDate={today} />
+            {canManage && <NewCashButton defaultDate={today} />}
           </div>
         }
       />
@@ -192,6 +194,7 @@ export default async function CashPage({ searchParams }: { searchParams: Promise
                         {isIncome ? "+" : "−"}{formatVND(a)}
                       </TD>
                       <TD className="text-right">
+                        {canManage && (
                         <div className="flex items-center justify-end gap-0.5">
                           <EditCashButton
                             tx={{
@@ -213,6 +216,7 @@ export default async function CashPage({ searchParams }: { searchParams: Promise
                             className="rounded-md p-1.5 text-slate-300 hover:bg-rose-50 hover:text-rose-500"
                           />
                         </div>
+                        )}
                       </TD>
                     </TR>
                   );
@@ -239,6 +243,7 @@ export default async function CashPage({ searchParams }: { searchParams: Promise
                       {fmtDate(t.occurredAt)} · {PAYMENT_LABEL[t.method]}
                       {t.vendor || t.note ? ` · ${[t.vendor, t.note].filter(Boolean).join(" · ")}` : ""}
                     </p>
+                    {canManage && (
                     <div className="mt-2 flex items-center justify-end gap-0.5">
                       <EditCashButton
                         tx={{
@@ -260,6 +265,7 @@ export default async function CashPage({ searchParams }: { searchParams: Promise
                         className="rounded-md p-1.5 text-slate-300 hover:bg-rose-50 hover:text-rose-500"
                       />
                     </div>
+                    )}
                   </div>
                 );
               })}
