@@ -1,33 +1,38 @@
 "use client";
 
 import { useState } from "react";
-import {
-  ResponsiveContainer,
-  ComposedChart,
-  Bar,
-  Line,
-  XAxis,
-  YAxis,
-  Tooltip,
-  CartesianGrid,
-} from "recharts";
 import { TrendingUp, TrendingDown } from "lucide-react";
-import { formatVND, formatVNDShort } from "@/lib/money";
+import { formatVND } from "@/lib/money";
+import { MultiChart } from "@/components/ui/multi-chart";
 import type { SalesPoint } from "@/lib/reports";
 
-type Range = "d7" | "m12" | "y5";
+type Range = "thisWeek" | "weeksOfMonth" | "d7" | "m12" | "y5";
 const TABS: { key: Range; label: string }[] = [
+  { key: "thisWeek", label: "Tuần này" },
+  { key: "weeksOfMonth", label: "Tuần / tháng" },
   { key: "d7", label: "7 ngày" },
   { key: "m12", label: "12 tháng" },
   { key: "y5", label: "5 năm" },
 ];
 
-export function SalesChart({ d7, m12, y5 }: { d7: SalesPoint[]; m12: SalesPoint[]; y5: SalesPoint[] }) {
-  const [range, setRange] = useState<Range>("m12");
-  const data = range === "d7" ? d7 : range === "m12" ? m12 : y5;
+export function SalesChart({
+  d7,
+  thisWeek,
+  weeksOfMonth,
+  m12,
+  y5,
+}: {
+  d7: SalesPoint[];
+  thisWeek: SalesPoint[];
+  weeksOfMonth: SalesPoint[];
+  m12: SalesPoint[];
+  y5: SalesPoint[];
+}) {
+  const [range, setRange] = useState<Range>("weeksOfMonth");
+  const series: Record<Range, SalesPoint[]> = { thisWeek, weeksOfMonth, d7, m12, y5 };
+  const data = series[range];
 
   const total = data.reduce((s, p) => s + p.value, 0);
-  // Xu hướng: so kỳ cuối với kỳ trước đó (tăng/giảm).
   const last = data[data.length - 1]?.value ?? 0;
   const prev = data[data.length - 2]?.value ?? 0;
   const up = last >= prev;
@@ -41,11 +46,7 @@ export function SalesChart({ d7, m12, y5 }: { d7: SalesPoint[]; m12: SalesPoint[
           <p className="text-xl font-bold text-slate-900">{formatVND(total)}</p>
         </div>
         <div className="flex items-center gap-3">
-          <span
-            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${
-              up ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"
-            }`}
-          >
+          <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${up ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}`}>
             {up ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
             {up ? "+" : ""}
             {pct}% kỳ cuối
@@ -55,9 +56,7 @@ export function SalesChart({ d7, m12, y5 }: { d7: SalesPoint[]; m12: SalesPoint[
               <button
                 key={t.key}
                 onClick={() => setRange(t.key)}
-                className={`rounded-md px-3 py-1 ${
-                  range === t.key ? "bg-white text-brand-700 shadow-sm" : "text-slate-500 hover:text-slate-700"
-                }`}
+                className={`rounded-md px-3 py-1 ${range === t.key ? "bg-white text-brand-700 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
               >
                 {t.label}
               </button>
@@ -66,22 +65,7 @@ export function SalesChart({ d7, m12, y5 }: { d7: SalesPoint[]; m12: SalesPoint[
         </div>
       </div>
 
-      <div className="h-64 w-full">
-        <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={data} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eef2f7" />
-            <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
-            <YAxis tickFormatter={(v) => formatVNDShort(v)} tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} width={48} />
-            <Tooltip
-              cursor={{ fill: "#f1f5f9" }}
-              formatter={(v) => [formatVND(Number(v) || 0), "Doanh số"]}
-              contentStyle={{ borderRadius: 12, border: "1px solid #e7ebf0", fontSize: 13 }}
-            />
-            <Bar dataKey="value" radius={[6, 6, 0, 0]} maxBarSize={40} fill="#fca5a5" />
-            <Line type="monotone" dataKey="value" stroke="#dc2626" strokeWidth={2.5} dot={{ r: 3, fill: "#dc2626" }} />
-          </ComposedChart>
-        </ResponsiveContainer>
-      </div>
+      <MultiChart data={data} valueLabel="Doanh số" trend defaultType="bar" />
     </div>
   );
 }

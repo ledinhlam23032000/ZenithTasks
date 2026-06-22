@@ -4,8 +4,9 @@ import { requireCap } from "@/lib/auth";
 import { getCollaborators, rangeBounds } from "@/lib/performance";
 import { formatVND } from "@/lib/money";
 import { PageHeader } from "@/components/ui/page-header";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatCard } from "@/components/ui/stat-card";
+import { MultiChart } from "@/components/ui/multi-chart";
 import { Avatar } from "@/components/ui/avatar";
 import { Table, THead, TH, TR, TD } from "@/components/ui/table";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -65,6 +66,23 @@ export default async function CollaboratorsPage({ searchParams }: { searchParams
         <StatCard label="Tổng hoa hồng" value={formatVND(totalCommission)} icon={<Coins className="h-5 w-5" />} tone="amber" />
         <StatCard label="Tổng khách giới thiệu" value={totalCustomers} icon={<Users className="h-5 w-5" />} tone="brand" />
       </div>
+
+      {rows.some((r) => r.revenue > 0) && (
+        <Card>
+          <CardHeader>
+            <CardTitle>So sánh doanh số cộng tác viên · {label}</CardTitle>
+            <span className="text-sm text-slate-400">Top 10 theo doanh số mang về</span>
+          </CardHeader>
+          <CardContent>
+            <MultiChart
+              data={rows.filter((r) => r.revenue > 0).slice(0, 10).map((r) => ({ label: r.name, value: r.revenue }))}
+              types={["bar", "pie"]}
+              defaultType="bar"
+              valueLabel="Doanh số"
+            />
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardContent className="overflow-x-auto pt-5">

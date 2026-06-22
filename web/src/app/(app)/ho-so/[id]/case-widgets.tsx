@@ -513,9 +513,11 @@ export function EditCaseServiceButton({
 export function EditPaymentButton({
   caseId,
   payment,
+  isAdmin,
 }: {
   caseId: string;
-  payment: { id: string; amount: number; method: string; note: string };
+  payment: { id: string; amount: number; method: string; note: string; paidAt: string };
+  isAdmin?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [state, action, pending] = useActionState<CaseActionState, FormData>(updatePayment, {});
@@ -535,6 +537,13 @@ export function EditPaymentButton({
             <Label>Số tiền (VND) *</Label>
             <MoneyInput name="amount" defaultValue={payment.amount} required autoFocus />
           </div>
+          {isAdmin && (
+            <div>
+              <Label htmlFor={`ep-date-${payment.id}`}>Ngày thu tiền</Label>
+              <Input id={`ep-date-${payment.id}`} name="paidAt" type="datetime-local" defaultValue={payment.paidAt} />
+              <p className="mt-1 text-xs text-slate-400">Chỉ quản trị viên — sửa để cập nhật số liệu cũ cho báo cáo đúng kỳ.</p>
+            </div>
+          )}
           <div>
             <Label htmlFor={`ep-method-${payment.id}`}>Hình thức</Label>
             <Select id={`ep-method-${payment.id}`} name="method" defaultValue={payment.method}>

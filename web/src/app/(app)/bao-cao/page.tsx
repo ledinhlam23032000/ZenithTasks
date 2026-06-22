@@ -14,7 +14,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Table, THead, TH, TR, TD } from "@/components/ui/table";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ExportMenu } from "@/components/ui/export-menu";
-import { RevenueChart } from "./revenue-chart";
+import { MultiChart } from "@/components/ui/multi-chart";
 import { SalesChart } from "./sales-chart";
 
 export const dynamic = "force-dynamic";
@@ -84,7 +84,7 @@ export default async function ReportsPage() {
           <span className="text-sm text-slate-400">Giá trị hồ sơ chốt · so sánh 7 ngày / 12 tháng / 5 năm</span>
         </CardHeader>
         <CardContent>
-          <SalesChart d7={sales.d7} m12={sales.m12} y5={sales.y5} />
+          <SalesChart d7={sales.d7} thisWeek={sales.thisWeek} weeksOfMonth={sales.weeksOfMonth} m12={sales.m12} y5={sales.y5} />
         </CardContent>
       </Card>
 
@@ -95,7 +95,7 @@ export default async function ReportsPage() {
           <span className="text-sm text-slate-400">Tiền thực thu theo ngày</span>
         </CardHeader>
         <CardContent>
-          <RevenueChart data={r.revenueSeries} />
+          <MultiChart data={r.revenueSeries} valueLabel="Doanh thu" defaultType="bar" />
         </CardContent>
       </Card>
 

@@ -1,7 +1,9 @@
-import { startOfMonth, endOfMonth } from "date-fns";
+import { startOfMonth, endOfMonth, subMonths, format } from "date-fns";
 import { prisma } from "@/lib/db";
 import { toNum } from "@/lib/money";
 import type { Role } from "@/generated/prisma/client";
+
+export type TrendPoint = { label: string; value: number };
 
 // ============================================================================
 // HIỆU SUẤT NHÂN SỰ — gộp số liệu tư vấn, mổ (bác sĩ), ngày công, chăm sóc.
@@ -147,6 +149,26 @@ export async function getCollaboratorDetail(name: string, gte: Date, lte: Date) 
   const revenue = cases.reduce((s, c) => s + toNum(c.totalAmount), 0);
   const commission = cases.reduce((s, c) => s + toNum(c.commissionAmount), 0);
   return { name, profile, cases, customers: customers.size, revenue, commission };
+}
+
+/** Doanh số CTV 12 tháng gần nhất (để xem xu hướng tăng/giảm). */
+export async function getCollaboratorTrend(name: string): Promise<TrendPoint[]> {
+  const now = new Date();
+  const since = startOfMonth(subMonths(now, 11));
+  const cases = await prisma.caseRecord.findMany({
+    where: { createdAt: { gte: since }, customer: { source: "COLLABORATOR", sourceDetail: name } },
+    select: { createdAt: true, totalAmount: true },
+  });
+  const months = Array.from({ length: 12 }, (_, i) => {
+    const d = subMonths(now, 11 - i);
+    return { key: format(d, "yyyy-MM"), label: format(d, "MM/yy") };
+  });
+  const m = new Map(months.map((k) => [k.key, 0]));
+  for (const c of cases) {
+    const k = format(c.createdAt, "yyyy-MM");
+    if (m.has(k)) m.set(k, (m.get(k) ?? 0) + toNum(c.totalAmount));
+  }
+  return months.map((k) => ({ label: k.label, value: m.get(k.key) ?? 0 }));
 }
 
 /** Khoảng thời gian theo khóa range cho trang Cộng tác viên. */

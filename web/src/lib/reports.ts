@@ -1,4 +1,5 @@
-import { startOfDay, subDays, subMonths, subYears, startOfYear, format } from "date-fns";
+import { startOfDay, subDays, subMonths, subYears, startOfYear, startOfWeek, startOfMonth, endOfMonth, addDays, getDate, format } from "date-fns";
+import { vi } from "date-fns/locale";
 import { prisma } from "@/lib/db";
 import { toNum } from "@/lib/money";
 import { monthRange, lastMonthRange, growthPct } from "@/lib/dates";
@@ -61,8 +62,29 @@ export async function getSalesSeries() {
     return { key: format(d, "yyyy"), label: format(d, "yyyy") };
   });
 
+  // Tuần này (T2..CN)
+  const ws = startOfWeek(now, { weekStartsOn: 1 });
+  const weekDays = Array.from({ length: 7 }, (_, i) => {
+    const d = addDays(ws, i);
+    return { key: format(d, "yyyy-MM-dd"), label: format(d, "EEEEEE dd/MM", { locale: vi }) };
+  });
+
+  // Các tuần trong tháng này (Tuần 1..N)
+  const mStart = startOfMonth(now);
+  const mEnd = endOfMonth(now);
+  const weekCount = Math.ceil(getDate(mEnd) / 7);
+  const weeksOfMonth: SalesPoint[] = Array.from({ length: weekCount }, (_, i) => ({ label: `Tuần ${i + 1}`, value: 0 }));
+  for (const c of cases) {
+    if (c.createdAt >= mStart && c.createdAt <= mEnd) {
+      const wi = Math.floor((getDate(c.createdAt) - 1) / 7);
+      if (weeksOfMonth[wi]) weeksOfMonth[wi].value += toNum(c.totalAmount);
+    }
+  }
+
   return {
     d7: build(days, (d) => format(d, "yyyy-MM-dd")),
+    thisWeek: build(weekDays, (d) => format(d, "yyyy-MM-dd")),
+    weeksOfMonth,
     m12: build(months, (d) => format(d, "yyyy-MM")),
     y5: build(years, (d) => format(d, "yyyy")),
   };

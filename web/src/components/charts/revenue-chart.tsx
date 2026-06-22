@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ColumnChart } from "./charts";
-import { formatVNDShort } from "@/lib/money";
+import { MultiChart } from "@/components/ui/multi-chart";
 
 type Point = { label: string; value: number };
 export type RevenueSeries = { day: Point[]; week: Point[]; month: Point[]; year: Point[] };
@@ -32,7 +31,7 @@ export function RevenueChart({ series }: { series: RevenueSeries }) {
           </button>
         ))}
       </div>
-      <ColumnChart data={series[tab]} formatValue={formatVNDShort} />
+      <MultiChart data={series[tab]} valueLabel="Doanh thu" defaultType="bar" trend />
     </div>
   );
 }

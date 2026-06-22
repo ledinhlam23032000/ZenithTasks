@@ -321,11 +321,24 @@ export async function updatePayment(_prev: CaseActionState, formData: FormData):
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu không hợp lệ." };
   const d = parsed.data;
 
+  // Chỉ ADMIN được sửa NGÀY thu tiền (để cập nhật số liệu cũ cho báo cáo trung thực).
+  let paidAt: Date | undefined;
+  if (user.role === "ADMIN") {
+    const raw = String(formData.get("paidAt") ?? "").trim();
+    if (raw) {
+      const dt = new Date(raw);
+      if (!Number.isNaN(dt.getTime())) {
+        if (dt.getTime() > Date.now() + 60_000) return { error: "Ngày thu không thể ở tương lai." };
+        paidAt = dt;
+      }
+    }
+  }
+
   await prisma.payment.update({
     where: { id: d.id },
-    data: { amount: d.amount, method: d.method, note: d.note || null },
+    data: { amount: d.amount, method: d.method, note: d.note || null, ...(paidAt ? { paidAt } : {}) },
   });
-  await audit(user.id, "UPDATE_PAYMENT", { entity: "Payment", entityId: d.id, meta: { amount: d.amount } });
+  await audit(user.id, "UPDATE_PAYMENT", { entity: "Payment", entityId: d.id, meta: { amount: d.amount, paidAt: paidAt?.toISOString() } });
   await recalc(d.caseId);
   refresh(d.caseId);
   return { ok: true, nonce: Date.now() };

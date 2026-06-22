@@ -413,7 +413,8 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
                           <>
                             <EditPaymentButton
                               caseId={record.id}
-                              payment={{ id: p.id, amount: toNum(p.amount), method: p.method, note: p.note ?? "" }}
+                              isAdmin={isAdmin}
+                              payment={{ id: p.id, amount: toNum(p.amount), method: p.method, note: p.note ?? "", paidAt: toDatetimeLocal(p.paidAt) }}
                             />
                             <ConfirmButton
                               action={deletePayment}
