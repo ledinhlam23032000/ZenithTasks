@@ -501,3 +501,18 @@ model CashTransaction {
   @@index([occurredAt])
   @@index([type])
 }
+
+// Hồ sơ Cộng tác viên (đối tác giới thiệu khách). Khớp với khách qua TÊN
+// (Customer.sourceDetail khi nguồn = COLLABORATOR). Hiệu suất tính theo tên.
+model Collaborator {
+  id          String   @id @default(cuid())
+  name        String   @unique // trùng với "Chi tiết nguồn" của khách
+  phone       String?
+  bankAccount String?
+  bankName    String?
+  bankHolder  String?
+  note        String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}

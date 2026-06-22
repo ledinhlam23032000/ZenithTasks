@@ -1,7 +1,9 @@
+import Link from "next/link";
 import { format } from "date-fns";
 import { Wallet, Coins, HandCoins, Banknote } from "lucide-react";
 import { requireCap } from "@/lib/auth";
 import { getPayroll, STANDARD_DAYS_DEFAULT } from "@/lib/payroll";
+import { getStaffPerformance } from "@/lib/performance";
 import { ROLE_LABELS } from "@/lib/rbac";
 import { formatVND } from "@/lib/money";
 import { PageHeader } from "@/components/ui/page-header";
@@ -24,7 +26,8 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
   const monthDate = Number.isNaN(parsed.getTime()) ? new Date() : parsed;
   const monthValue = format(monthDate, "yyyy-MM");
   const standardDays = Math.max(1, Math.min(31, Number(sp.d) || STANDARD_DAYS_DEFAULT));
-  const p = await getPayroll(monthDate, standardDays);
+  const [p, perf] = await Promise.all([getPayroll(monthDate, standardDays), getStaffPerformance(monthDate)]);
+  const revMap = new Map(perf.map((x) => [x.id, x.totalRevenue]));
 
   return (
     <div className="space-y-6">
@@ -66,6 +69,7 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
                 <TH>Nhân viên</TH>
                 <TH>Vai trò</TH>
                 <TH className="text-center">Ngày công</TH>
+                <TH className="text-right">Doanh số</TH>
                 <TH className="text-right">Lương cứng</TH>
                 <TH className="text-right">Hoa hồng</TH>
                 <TH className="text-right">Thưởng/ĐC</TH>
@@ -76,9 +80,14 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
             <tbody>
               {p.rows.map((r) => (
                 <TR key={r.id}>
-                  <TD className="font-medium text-slate-800">{r.name}</TD>
+                  <TD>
+                    <Link href={`/hieu-suat/${r.id}?m=${monthValue}`} className="font-medium text-slate-800 hover:text-brand-600 hover:underline">
+                      {r.name}
+                    </Link>
+                  </TD>
                   <TD className="text-slate-500">{ROLE_LABELS[r.role]}</TD>
                   <TD className="text-center tabular-nums">{r.daysWorked}/{standardDays}</TD>
+                  <TD className="text-right tabular-nums text-slate-600">{formatVND(revMap.get(r.id) ?? 0)}</TD>
                   <TD className="text-right tabular-nums">{formatVND(r.baseActual)}</TD>
                   <TD className="text-right tabular-nums text-amber-600">{formatVND(r.commission)}</TD>
                   <TD className="text-right tabular-nums text-slate-600">{formatVND(r.bonus + r.adjustment)}</TD>

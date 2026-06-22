@@ -9,6 +9,10 @@ import { StatCard } from "@/components/ui/stat-card";
 import { Avatar } from "@/components/ui/avatar";
 import { Table, THead, TH, TR, TD } from "@/components/ui/table";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Badge } from "@/components/ui/badge";
+import { ExportMenu } from "@/components/ui/export-menu";
+import { isShareholder } from "@/lib/rbac";
+import { NewCollaboratorButton } from "./ctv-forms";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Cộng tác viên" };
@@ -21,7 +25,8 @@ const RANGES = [
 ];
 
 export default async function CollaboratorsPage({ searchParams }: { searchParams: Promise<{ range?: string }> }) {
-  await requireCap("mod:cong-tac-vien");
+  const user = await requireCap("mod:cong-tac-vien");
+  const canManage = !isShareholder(user.role);
   const range = (await searchParams).range ?? "month";
   const { gte, lte, label } = rangeBounds(range);
   const rows = await getCollaborators(gte, lte);
@@ -37,16 +42,20 @@ export default async function CollaboratorsPage({ searchParams }: { searchParams
         description="Hiệu suất cộng tác viên giới thiệu khách — doanh số mang về, số khách và hoa hồng. So sánh theo thời gian."
         icon={<Handshake className="h-5 w-5" />}
         actions={
-          <div className="inline-flex rounded-lg bg-slate-100 p-0.5 text-xs font-medium">
-            {RANGES.map((r) => (
-              <Link
-                key={r.key}
-                href={`/cong-tac-vien?range=${r.key}`}
-                className={`rounded-md px-3 py-1 ${range === r.key ? "bg-white text-brand-700 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
-              >
-                {r.label}
-              </Link>
-            ))}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="inline-flex rounded-lg bg-slate-100 p-0.5 text-xs font-medium">
+              {RANGES.map((r) => (
+                <Link
+                  key={r.key}
+                  href={`/cong-tac-vien?range=${r.key}`}
+                  className={`rounded-md px-3 py-1 ${range === r.key ? "bg-white text-brand-700 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+                >
+                  {r.label}
+                </Link>
+              ))}
+            </div>
+            <ExportMenu excelHref={`/cong-tac-vien/export?format=xlsx&range=${range}`} wordHref={`/cong-tac-vien/export?format=doc&range=${range}`} />
+            {canManage && <NewCollaboratorButton />}
           </div>
         }
       />
@@ -81,11 +90,14 @@ export default async function CollaboratorsPage({ searchParams }: { searchParams
                 {rows.map((r, i) => (
                   <TR key={r.name}>
                     <TD>
-                      <Link href={`/cong-tac-vien/${encodeURIComponent(r.name)}?range=${range}`} className="flex items-center gap-2.5 group">
+                      <div className="flex items-center gap-2.5">
                         <span className="flex h-6 w-6 items-center justify-center rounded-md bg-brand-50 text-xs font-semibold text-brand-700">{i + 1}</span>
                         <Avatar name={r.name} className="h-8 w-8" />
-                        <span className="font-medium text-slate-800 group-hover:text-brand-600 group-hover:underline">{r.name}</span>
-                      </Link>
+                        <Link href={`/cong-tac-vien/${encodeURIComponent(r.name)}?range=${range}`} className="font-medium text-slate-800 hover:text-brand-600 hover:underline">
+                          {r.name}
+                        </Link>
+                        {!r.registered && <Badge tone="amber">Chưa đăng ký</Badge>}
+                      </div>
                     </TD>
                     <TD className="text-center tabular-nums text-slate-700">{r.customers}</TD>
                     <TD className="text-center tabular-nums text-slate-700">{r.cases}</TD>

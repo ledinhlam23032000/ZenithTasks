@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { Table, THead, TH, TR, TD } from "@/components/ui/table";
 import { EmptyState } from "@/components/ui/empty-state";
+import { ExportMenu } from "@/components/ui/export-menu";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Hiệu suất nhân sự" };
@@ -31,10 +32,13 @@ export default async function StaffPerfPage({ searchParams }: { searchParams: Pr
         description="Doanh số tư vấn / mổ, tỉ lệ chốt, ngày công và mức độ chăm chỉ của từng người. Bấm vào một người để xem chi tiết từng ca."
         icon={<Activity className="h-5 w-5" />}
         actions={
-          <form method="GET" className="flex items-center gap-2">
-            <input type="month" name="m" defaultValue={monthValue} className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-brand-400 focus:outline-none" />
-            <button className="rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700">Xem</button>
-          </form>
+          <div className="flex flex-wrap items-center gap-2">
+            <form method="GET" className="flex items-center gap-2">
+              <input type="month" name="m" defaultValue={monthValue} className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-brand-400 focus:outline-none" />
+              <button className="rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700">Xem</button>
+            </form>
+            <ExportMenu excelHref={`/hieu-suat/export?format=xlsx&m=${monthValue}`} wordHref={`/hieu-suat/export?format=doc&m=${monthValue}`} />
+          </div>
         }
       />
 

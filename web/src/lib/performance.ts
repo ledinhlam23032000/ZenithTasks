@@ -91,6 +91,7 @@ export async function getStaffDetail(userId: string, monthDate: Date) {
 
 export type CollaboratorRow = {
   name: string;
+  registered: boolean;
   customers: number;
   cases: number;
   revenue: number;
@@ -98,10 +99,13 @@ export type CollaboratorRow = {
 };
 
 export async function getCollaborators(gte: Date, lte: Date): Promise<CollaboratorRow[]> {
-  const cases = await prisma.caseRecord.findMany({
-    where: { createdAt: { gte, lte }, customer: { source: "COLLABORATOR" } },
-    select: { totalAmount: true, commissionAmount: true, customerId: true, customer: { select: { sourceDetail: true } } },
-  });
+  const [cases, profiles] = await Promise.all([
+    prisma.caseRecord.findMany({
+      where: { createdAt: { gte, lte }, customer: { source: "COLLABORATOR" } },
+      select: { totalAmount: true, commissionAmount: true, customerId: true, customer: { select: { sourceDetail: true } } },
+    }),
+    prisma.collaborator.findMany({ where: { active: true }, select: { name: true } }),
+  ]);
   const map = new Map<string, { customers: Set<string>; cases: number; revenue: number; commission: number }>();
   for (const c of cases) {
     const name = c.customer?.sourceDetail?.trim() || "CTV chưa ghi tên";
@@ -112,21 +116,37 @@ export async function getCollaborators(gte: Date, lte: Date): Promise<Collaborat
     e.commission += toNum(c.commissionAmount);
     map.set(name, e);
   }
-  return [...map.entries()]
-    .map(([name, e]) => ({ name, customers: e.customers.size, cases: e.cases, revenue: e.revenue, commission: e.commission }))
-    .sort((a, b) => b.revenue - a.revenue);
+  const registered = new Set(profiles.map((p) => p.name));
+  // Gộp cả CTV đã đăng ký (kể cả chưa có ca trong kỳ) lẫn tên xuất hiện trong hồ sơ.
+  const names = new Set<string>([...map.keys(), ...registered]);
+  return [...names]
+    .map((name) => {
+      const e = map.get(name);
+      return {
+        name,
+        registered: registered.has(name),
+        customers: e ? e.customers.size : 0,
+        cases: e?.cases ?? 0,
+        revenue: e?.revenue ?? 0,
+        commission: e?.commission ?? 0,
+      };
+    })
+    .sort((a, b) => b.revenue - a.revenue || b.cases - a.cases);
 }
 
 export async function getCollaboratorDetail(name: string, gte: Date, lte: Date) {
-  const cases = await prisma.caseRecord.findMany({
-    where: { createdAt: { gte, lte }, customer: { source: "COLLABORATOR", sourceDetail: name } },
-    include: { customer: { select: { id: true, fullName: true, code: true } } },
-    orderBy: { createdAt: "desc" },
-  });
+  const [profile, cases] = await Promise.all([
+    prisma.collaborator.findUnique({ where: { name } }),
+    prisma.caseRecord.findMany({
+      where: { createdAt: { gte, lte }, customer: { source: "COLLABORATOR", sourceDetail: name } },
+      include: { customer: { select: { id: true, fullName: true, code: true } } },
+      orderBy: { createdAt: "desc" },
+    }),
+  ]);
   const customers = new Set(cases.map((c) => c.customerId));
   const revenue = cases.reduce((s, c) => s + toNum(c.totalAmount), 0);
   const commission = cases.reduce((s, c) => s + toNum(c.commissionAmount), 0);
-  return { name, cases, customers: customers.size, revenue, commission };
+  return { name, profile, cases, customers: customers.size, revenue, commission };
 }
 
 /** Khoảng thời gian theo khóa range cho trang Cộng tác viên. */

@@ -1,7 +1,9 @@
 import Link from "next/link";
-import { ArrowLeft, Handshake, Users, Wallet, Coins, Receipt } from "lucide-react";
+import { ArrowLeft, Handshake, Users, Wallet, Coins, Receipt, Phone, Landmark, StickyNote } from "lucide-react";
 import { requireCap } from "@/lib/auth";
+import { isShareholder } from "@/lib/rbac";
 import { getCollaboratorDetail, rangeBounds } from "@/lib/performance";
+import { NewCollaboratorButton, EditCollaboratorButton } from "../ctv-forms";
 import { formatVND, toNum } from "@/lib/money";
 import { fmtDate } from "@/lib/format";
 import { CASE_STATUS } from "@/lib/status";
@@ -29,11 +31,13 @@ export default async function CollaboratorDetail({
   params: Promise<{ name: string }>;
   searchParams: Promise<{ range?: string }>;
 }) {
-  await requireCap("mod:cong-tac-vien");
+  const user = await requireCap("mod:cong-tac-vien");
+  const canManage = !isShareholder(user.role);
   const name = decodeURIComponent((await params).name);
   const range = (await searchParams).range ?? "month";
   const { gte, lte, label } = rangeBounds(range);
   const d = await getCollaboratorDetail(name, gte, lte);
+  const p = d.profile;
 
   return (
     <div className="space-y-6">
@@ -67,10 +71,53 @@ export default async function CollaboratorDetail({
         <StatCard label="Hoa hồng" value={formatVND(d.commission)} icon={<Coins className="h-5 w-5" />} tone="amber" />
       </div>
 
+      {/* Hồ sơ cộng tác viên */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Handshake className="h-4 w-4 text-brand-500" /> Hồ sơ khách do CTV giới thiệu
+            <Handshake className="h-4 w-4 text-brand-500" /> Hồ sơ cộng tác viên
+          </CardTitle>
+          {canManage &&
+            (p ? (
+              <EditCollaboratorButton
+                ctv={{ id: p.id, name: p.name, phone: p.phone ?? "", bankAccount: p.bankAccount ?? "", bankName: p.bankName ?? "", bankHolder: p.bankHolder ?? "", note: p.note ?? "" }}
+              />
+            ) : (
+              <NewCollaboratorButton defaultName={name} />
+            ))}
+        </CardHeader>
+        <CardContent className="pt-0">
+          {p ? (
+            <dl className="grid gap-3 sm:grid-cols-2">
+              <div className="flex items-center gap-2 text-sm">
+                <Phone className="h-4 w-4 text-slate-400" />
+                <span className="text-slate-500">SĐT:</span>
+                <span className="font-medium text-slate-800">{p.phone || "—"}</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <Landmark className="h-4 w-4 text-slate-400" />
+                <span className="text-slate-500">Ngân hàng:</span>
+                <span className="font-medium text-slate-800">{[p.bankName, p.bankAccount, p.bankHolder].filter(Boolean).join(" · ") || "—"}</span>
+              </div>
+              {p.note && (
+                <div className="flex items-start gap-2 text-sm sm:col-span-2">
+                  <StickyNote className="mt-0.5 h-4 w-4 text-slate-400" />
+                  <span className="whitespace-pre-wrap text-slate-600">{p.note}</span>
+                </div>
+              )}
+            </dl>
+          ) : (
+            <p className="text-sm text-slate-500">
+              Chưa có hồ sơ cho CTV này.{canManage ? ' Bấm "Đăng ký CTV" để lưu SĐT, số tài khoản, ghi chú…' : ""}
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Receipt className="h-4 w-4 text-brand-500" /> Hồ sơ khách do CTV giới thiệu
           </CardTitle>
         </CardHeader>
         <CardContent className="overflow-x-auto pt-0">
