@@ -86,8 +86,6 @@ export async function getReports() {
         where: { case: { createdAt: month } },
         _count: { _all: true },
         _sum: { finalPrice: true },
-        orderBy: { _sum: { finalPrice: "desc" } },
-        take: 8,
       }),
       prisma.customer.groupBy({ by: ["source"], _count: { _all: true } }),
       prisma.caseRecord.aggregate({ _sum: { debtAmount: true } }),
@@ -128,7 +126,10 @@ export async function getReports() {
     revenueSeries,
     revenue: { thisMonth: revenueThisMonth, lastMonth: revenueLastMonth, growth: growthPct(revenueThisMonth, revenueLastMonth) },
     cases: { thisMonth: casesThis, lastMonth: casesLast, growth: growthPct(casesThis, casesLast) },
-    topServices: topServicesRaw.map((s) => ({ name: s.name, count: s._count._all, revenue: toNum(s._sum.finalPrice) })),
+    topServices: topServicesRaw
+      .map((s) => ({ name: s.name, count: s._count._all, revenue: toNum(s._sum.finalPrice) }))
+      .sort((a, b) => b.count - a.count || b.revenue - a.revenue) // xếp theo SỐ LƯỢT, rồi doanh thu
+      .slice(0, 8),
     sources: sourceRaw.map((s) => ({ source: s.source, count: s._count._all })).sort((a, b) => b.count - a.count),
     outstandingDebt: toNum(debtAgg._sum.debtAmount),
     topDebtors: topDebtors.map((c) => ({

@@ -122,9 +122,16 @@ export default async function ReportsPage() {
                   {d.consultants.map((c) => (
                     <TR key={c.id}>
                       <TD>
-                        <div className="flex items-center gap-2">
-                          <Avatar name={c.name} className="h-7 w-7 text-[10px]" /> <span className="font-medium text-slate-800">{c.name}</span>
-                        </div>
+                        {c.id === "none" ? (
+                          <div className="flex items-center gap-2">
+                            <Avatar name={c.name} className="h-7 w-7 text-[10px]" /> <span className="font-medium text-slate-500">{c.name}</span>
+                          </div>
+                        ) : (
+                          <Link href={`/hieu-suat/${c.id}`} className="flex items-center gap-2 group">
+                            <Avatar name={c.name} className="h-7 w-7 text-[10px]" />{" "}
+                            <span className="font-medium text-slate-800 group-hover:text-brand-600 group-hover:underline">{c.name}</span>
+                          </Link>
+                        )}
                       </TD>
                       <TD className="text-center">{c.consults}</TD>
                       <TD className="text-center">
@@ -160,9 +167,10 @@ export default async function ReportsPage() {
                   {r.doctors.map((c) => (
                     <TR key={c.id}>
                       <TD>
-                        <div className="flex items-center gap-2">
-                          <Avatar name={c.name} className="h-7 w-7 text-[10px]" /> <span className="font-medium text-slate-800">{c.name}</span>
-                        </div>
+                        <Link href={`/hieu-suat/${c.id}`} className="flex items-center gap-2 group">
+                          <Avatar name={c.name} className="h-7 w-7 text-[10px]" />{" "}
+                          <span className="font-medium text-slate-800 group-hover:text-brand-600 group-hover:underline">{c.name}</span>
+                        </Link>
                       </TD>
                       <TD className="text-center">{c.cases}</TD>
                       <TD className="text-right font-semibold text-slate-800">{formatVND(c.revenue)}</TD>
