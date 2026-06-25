@@ -4,9 +4,12 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireCap } from "@/lib/auth";
+import { isShareholder } from "@/lib/rbac";
 import { CATEGORY_LABEL } from "@/lib/finance";
 
 export type CashState = { ok?: boolean; error?: string };
+
+const NO_WRITE = "Bạn chỉ có quyền xem sổ thu chi.";
 
 const schema = z.object({
   type: z.enum(["INCOME", "EXPENSE"]),
@@ -31,7 +34,8 @@ function parse(formData: FormData) {
 }
 
 export async function createCashTransaction(_prev: CashState, formData: FormData): Promise<CashState> {
-  const user = await requireCap("cash.write");
+  const user = await requireCap("mod:thu-chi");
+  if (isShareholder(user.role)) return { error: NO_WRITE };
   const parsed = parse(formData);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu không hợp lệ." };
   const d = parsed.data;
@@ -56,7 +60,8 @@ export async function createCashTransaction(_prev: CashState, formData: FormData
 }
 
 export async function updateCashTransaction(_prev: CashState, formData: FormData): Promise<CashState> {
-  await requireCap("cash.write");
+  const user = await requireCap("mod:thu-chi");
+  if (isShareholder(user.role)) return { error: NO_WRITE };
   const id = String(formData.get("id") ?? "");
   if (!id) return { error: "Thiếu mã giao dịch." };
   const parsed = parse(formData);
@@ -83,7 +88,8 @@ export async function updateCashTransaction(_prev: CashState, formData: FormData
 }
 
 export async function deleteCashTransaction(formData: FormData): Promise<void> {
-  await requireCap("cash.write");
+  const user = await requireCap("mod:thu-chi");
+  if (isShareholder(user.role)) return;
   const id = String(formData.get("id") ?? "");
   if (!id) return;
   await prisma.cashTransaction.delete({ where: { id } }).catch(() => {});

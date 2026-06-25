@@ -47,7 +47,6 @@ export const CAPABILITIES: CapDef[] = [
   { key: "case.clinical", label: "Thao tác hồ sơ (thêm/sửa dịch vụ, vật tư, ảnh, tư vấn)", group: "Hồ sơ điều trị", roles: ["ADMIN", "MANAGER", "CONSULTANT", "DOCTOR"] },
   { key: "payment.add", label: "Thu tiền cho hồ sơ", group: "Tài chính", roles: ["ADMIN", "MANAGER", "CONSULTANT", "DOCTOR", "RECEPTION"] },
   { key: "payment.manage", label: "Sửa / xóa khoản thu", group: "Tài chính", roles: ["ADMIN", "MANAGER"] },
-  { key: "cash.write", label: "Ghi sổ thu chi (thêm/sửa/xóa giao dịch)", group: "Tài chính", roles: ["ADMIN", "MANAGER"] },
   { key: "phone.full", label: "Xem số điện thoại đầy đủ của khách", group: "Bảo mật", roles: ["ADMIN", "MANAGER"] },
 ];
 

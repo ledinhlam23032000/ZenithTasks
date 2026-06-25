@@ -175,8 +175,8 @@ Chưa có Sửa (cần bổ sung):
 - **Biểu đồ CTV**: trang `/cong-tac-vien` có biểu đồ so sánh top 10 CTV theo doanh số (cột/tròn); trang chi tiết CTV có biểu đồ **xu hướng 12 tháng** (`getCollaboratorTrend`).
 - Đã bỏ `bao-cao/revenue-chart.tsx` cũ (thay bằng MultiChart).
 
-## Quyền "Ghi sổ thu chi" (cash.write) — cấp cho tư vấn/lễ tân
-- Thêm CAPABILITY `cash.write` ("Ghi sổ thu chi (thêm/sửa/xóa giao dịch)", nhóm Tài chính, mặc định ADMIN/MANAGER) trong `permissions.ts`.
-- `thu-chi/actions.ts` (create/update/delete) đổi từ `requireUser([ADMIN,MANAGER])` → `requireCap("cash.write")`.
-- `thu-chi/page.tsx`: `canManage = userCan(user, "cash.write")` (nút Thêm/Sửa/Xóa chỉ hiện khi có quyền ghi).
-- Cách dùng: Nhân sự → Phân quyền → cấp **"Thu chi"** (mod:thu-chi, để vào trang) + **"Ghi sổ thu chi"** (cash.write, để nhập) cho tư vấn/lễ tân. Cổ đông có mod:thu-chi nhưng KHÔNG có cash.write → chỉ xem.
+## Quyền Thu chi cho tư vấn/lễ tân — GỘP 1 quyền (đơn giản)
+- Bỏ ý tưởng `cash.write` riêng (gây rắc rối phải cấp 2 quyền). Nay **chỉ cần cấp 1 quyền "Thu chi" (`mod:thu-chi`)** là nhân sự VÀO được + GHI được.
+- `thu-chi/actions.ts` (create/update/delete): `requireCap("mod:thu-chi")` + chặn nếu `isShareholder` (cổ đông chỉ xem).
+- `thu-chi/page.tsx`: `canManage = !isShareholder(user.role)` (ai có mod:thu-chi & không phải cổ đông thì thấy nút Thêm/Sửa/Xóa).
+- Cách dùng: Nhân sự → Phân quyền → bật **"Thu chi"** cho tư vấn/lễ tân là họ nhập được ngay. Cổ đông có mod:thu-chi nhưng là view-only → chỉ xem.
