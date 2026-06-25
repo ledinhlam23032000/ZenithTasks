@@ -8,7 +8,7 @@ import { toNum, formatVND } from "@/lib/money";
 import { fmtDate } from "@/lib/format";
 import { PAYMENT_LABEL } from "@/lib/status";
 import { CASH_TYPE, categoryLabel } from "@/lib/finance";
-import { isShareholder } from "@/lib/rbac";
+import { userCan } from "@/lib/permissions";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatCard } from "@/components/ui/stat-card";
@@ -27,7 +27,7 @@ export const metadata = { title: "Thu chi" };
 
 export default async function CashPage({ searchParams }: { searchParams: Promise<{ month?: string; type?: string }> }) {
   const user = await requireCap("mod:thu-chi");
-  const canManage = !isShareholder(user.role);
+  const canManage = userCan(user, "cash.write");
   const sp = await searchParams;
 
   const monthRef = sp.month ? new Date(`${sp.month}-01T00:00:00`) : new Date();

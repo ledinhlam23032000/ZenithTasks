@@ -174,3 +174,9 @@ Chưa có Sửa (cần bổ sung):
 - **Mốc tuần**: `getSalesSeries()` thêm `thisWeek` (T2..CN) + `weeksOfMonth` (Tuần 1..N của tháng). SalesChart có tab: Tuần này / Tuần-tháng / 7 ngày / 12 tháng / 5 năm + kèm % tăng/giảm kỳ cuối.
 - **Biểu đồ CTV**: trang `/cong-tac-vien` có biểu đồ so sánh top 10 CTV theo doanh số (cột/tròn); trang chi tiết CTV có biểu đồ **xu hướng 12 tháng** (`getCollaboratorTrend`).
 - Đã bỏ `bao-cao/revenue-chart.tsx` cũ (thay bằng MultiChart).
+
+## Quyền "Ghi sổ thu chi" (cash.write) — cấp cho tư vấn/lễ tân
+- Thêm CAPABILITY `cash.write` ("Ghi sổ thu chi (thêm/sửa/xóa giao dịch)", nhóm Tài chính, mặc định ADMIN/MANAGER) trong `permissions.ts`.
+- `thu-chi/actions.ts` (create/update/delete) đổi từ `requireUser([ADMIN,MANAGER])` → `requireCap("cash.write")`.
+- `thu-chi/page.tsx`: `canManage = userCan(user, "cash.write")` (nút Thêm/Sửa/Xóa chỉ hiện khi có quyền ghi).
+- Cách dùng: Nhân sự → Phân quyền → cấp **"Thu chi"** (mod:thu-chi, để vào trang) + **"Ghi sổ thu chi"** (cash.write, để nhập) cho tư vấn/lễ tân. Cổ đông có mod:thu-chi nhưng KHÔNG có cash.write → chỉ xem.
