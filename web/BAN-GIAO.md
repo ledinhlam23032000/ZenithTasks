@@ -84,6 +84,7 @@ Chỉ 3 trang KHÔNG dynamic: `/` (redirect), `/login`, `/khong-co-quyen`. **H�
 - **ai.ts** — gọi Claude API soạn tin chăm sóc (ẩn nếu thiếu `ANTHROPIC_API_KEY`). KHÔNG gửi dữ liệu nhạy cảm (chỉ tên + mục đích + dịch vụ gần nhất).
 - **rate-limit.ts** — chống dò mật khẩu + chống spam đặt lịch (theo IP + tài khoản).
 - **case-math.ts** — `computeCaseTotals()` toán tiền hồ sơ THUẦN (có test). `recalc()` trong `ho-so/actions.ts` dùng hàm này.
+- **inventory-cost.ts** — giá vốn kho THUẦN (có test, B5): `weightedAvgCost` (bình quân gia quyền; chưa có giá vốn thì lấy luôn giá nhập), `stockValue`, `totalStockValue`. Dùng ở `danh-muc` (nhập kho) + `/kho` (giá trị tồn).
 - **media-token.ts** — ký/kiểm "vé" xem ảnh ngắn hạn (A1): `signMediaToken/verifyMediaToken/withMediaToken`.
 - **security-status.ts** — `securityWarnings()` (A2): cảnh báo khoá mã hoá demo → banner ADMIN.
 - **workqueue.ts** — `getWorkqueue()` (B1): tổng hợp "Việc cần làm hôm nay" từ dữ liệu sẵn có.
@@ -99,7 +100,7 @@ Chỉ 3 trang KHÔNG dynamic: `/` (redirect), `/login`, `/khong-co-quyen`. **H�
 - **Customer** — `phoneEnc`(mã hoá)/`phoneLast5`, `source`/`sourceDetail` (CTV gắn ở đây), `portalToken`, `code`.
 - **Appointment**, **CaseRecord** (hồ sơ điều trị: `code`, `status`, `consultResult`, `consultantId`, `doctorId`, `totalAmount`, `paidAmount`, `debtAmount`, `discountAmount`, `commissionAmount` (nhập tay), `voucherCode`, `voucherAmount`, `locked/lockedAt/lockedById`, `completedAt`).
 - **CaseService** (`listPrice`=giá gốc, `unitPrice`=giá ưu đãi, `quantity`, `discount`, `finalPrice`), **Payment** (`amount`, `method`, `paidAt`, `receivedById`), **MaterialUsage**, **Photo** (`type`, `url`, `caption`, `followUpIndex`, `caseId` nullable — giữ ảnh khi xóa hồ sơ).
-- **Service** (`listPrice` niêm yết + `defaultPrice` ưu đãi), **Material** (`stock`, `minStock`, `lotNo`, `expiryDate`), **StockMovement**.
+- **Service** (`listPrice` niêm yết + `defaultPrice` ưu đãi), **Material** (`stock`, `minStock`, `lotNo`, `expiryDate`, `avgCost` = giá vốn bình quân), **StockMovement** (`type`, `quantity`, `unitCost` = đơn giá tại thời điểm GD). Khi thêm/sửa/xóa vật tư trong hồ sơ → tự trừ/hoàn tồn + ghi `StockMovement` (nguyên tử, xem `ho-so/actions.ts`). Giá vốn: xem `lib/inventory-cost.ts`.
 - **Attendance** (chấm công theo ngày), **Shift** (ca làm), **PayrollEntry** (theo tháng: `baseSalary`, `commission` nhập tay, `bonus`, `adjustment`…).
 - **CareMessage** (nhật ký chăm sóc: `channel`, `direction`), **FollowUp** (hẹn tái khám), **AuditLog**, **CashTransaction** (sổ thu chi), **Collaborator** (hồ sơ CTV: `name @unique`, `phone`, `bank*`, `note`, `active`).
 

@@ -398,9 +398,11 @@ export async function addMaterial(_prev: CaseActionState, formData: FormData): P
 
   // Chỉ trừ kho khi vật tư còn TỒN TẠI trong danh mục (tránh FK lỗi nếu vật tư vừa bị xóa).
   let materialId: string | null = d.materialId || null;
+  let outUnitCost: number | null = null; // giá vốn bình quân tại thời điểm xuất (ghi nhận COGS)
   if (materialId) {
-    const mat = await prisma.material.findUnique({ where: { id: materialId }, select: { id: true } });
+    const mat = await prisma.material.findUnique({ where: { id: materialId }, select: { avgCost: true } });
     if (!mat) materialId = null; // vật tư đã bị xóa → lưu như nhập tay (snapshot tên), không trừ kho
+    else outUnitCost = toNum(mat.avgCost) > 0 ? toNum(mat.avgCost) : null;
   }
 
   // Ghi nhận sử dụng + xuất kho (trừ tồn + nhật ký) trong CÙNG một giao dịch → không bao giờ
@@ -420,7 +422,7 @@ export async function addMaterial(_prev: CaseActionState, formData: FormData): P
     if (materialId) {
       await tx.material.update({ where: { id: materialId }, data: { stock: { decrement: d.quantity } } });
       await tx.stockMovement.create({
-        data: { materialId, type: "OUT", quantity: d.quantity, note: "Dùng cho hồ sơ", createdById: user.id },
+        data: { materialId, type: "OUT", quantity: d.quantity, unitCost: outUnitCost, note: "Dùng cho hồ sơ", createdById: user.id },
       });
     }
   });
@@ -439,9 +441,11 @@ export async function removeMaterial(formData: FormData): Promise<void> {
     await tx.materialUsage.delete({ where: { id } });
     if (usage.materialId) {
       const q = toNum(usage.quantity);
+      const mat = await tx.material.findUnique({ where: { id: usage.materialId }, select: { avgCost: true } });
+      const uc = mat && toNum(mat.avgCost) > 0 ? toNum(mat.avgCost) : null;
       await tx.material.update({ where: { id: usage.materialId }, data: { stock: { increment: q } } });
       await tx.stockMovement.create({
-        data: { materialId: usage.materialId, type: "IN", quantity: q, note: "Hoàn kho (xóa vật tư)", createdById: user.id },
+        data: { materialId: usage.materialId, type: "IN", quantity: q, unitCost: uc, note: "Hoàn kho (xóa vật tư)", createdById: user.id },
       });
     }
   });
@@ -484,12 +488,15 @@ export async function updateMaterialUsage(_prev: CaseActionState, formData: Form
       data: { name: d.name, unit: d.unit, quantity: d.quantity, note: d.note || null },
     });
     if (existing.materialId && delta !== 0) {
+      const mat = await tx.material.findUnique({ where: { id: existing.materialId }, select: { avgCost: true } });
+      const uc = mat && toNum(mat.avgCost) > 0 ? toNum(mat.avgCost) : null;
       await tx.material.update({ where: { id: existing.materialId }, data: { stock: { decrement: delta } } });
       await tx.stockMovement.create({
         data: {
           materialId: existing.materialId,
           type: delta > 0 ? "OUT" : "IN",
           quantity: Math.abs(delta),
+          unitCost: uc,
           note: "Điều chỉnh vật tư (sửa hồ sơ)",
           createdById: user.id,
         },

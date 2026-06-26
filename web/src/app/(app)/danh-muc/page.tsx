@@ -173,7 +173,16 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
                             min={1}
                             step="any"
                             placeholder="SL"
-                            className="w-16 rounded-md border border-slate-200 px-1.5 py-1 text-right text-xs focus:border-brand-400 focus:outline-none"
+                            className="w-14 rounded-md border border-slate-200 px-1.5 py-1 text-right text-xs focus:border-brand-400 focus:outline-none"
+                          />
+                          <input
+                            name="unitCost"
+                            type="number"
+                            min={0}
+                            step="any"
+                            placeholder="Giá vốn"
+                            title="Đơn giá nhập (VND/đơn vị). Để trống nếu không cập nhật giá vốn."
+                            className="w-20 rounded-md border border-slate-200 px-1.5 py-1 text-right text-xs focus:border-brand-400 focus:outline-none"
                           />
                           <button
                             className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-100"

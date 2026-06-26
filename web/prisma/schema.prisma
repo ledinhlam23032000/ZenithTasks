@@ -279,6 +279,7 @@ model Material {
   expiryDate DateTime? // Hạn dùng của đợt hiện tại
   active     Boolean         @default(true)
   stock      Decimal         @default(0) @db.Decimal(12, 2) // Tồn kho hiện tại
+  avgCost    Decimal         @default(0) @db.Decimal(12, 2) // Giá vốn bình quân gia quyền (VND/đơn vị)
   createdAt  DateTime        @default(now())
   usages    MaterialUsage[]
   movements StockMovement[]
@@ -296,6 +297,7 @@ model StockMovement {
   material    Material  @relation(fields: [materialId], references: [id], onDelete: Cascade)
   type        StockType
   quantity    Decimal   @db.Decimal(12, 2)
+  unitCost    Decimal?  @db.Decimal(12, 2) // Đơn giá tại thời điểm GD (nhập = giá mua; xuất = giá vốn bình quân)
   note        String?
   createdById String?
   createdBy   User?     @relation(fields: [createdById], references: [id])

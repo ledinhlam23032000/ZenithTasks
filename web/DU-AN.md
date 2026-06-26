@@ -19,6 +19,16 @@
 - **A5 — Sao lưu tự động**: `scripts/backup.mjs` (`pg_dump -Fc` + ảnh `tar.gz` + giữ 14 bản + ghi `backup-status.json`); `npm run backup`; `docker-entrypoint.sh` chạy nền 1 lần lúc khởi động rồi mỗi 24h. Sao lưu OFFSITE vẫn là `windows/Sao-Luu.ps1`.
 - Lưu ý kỹ thuật: trong sandbox Postgres có thể tự dừng (stale pid) → `pg_ctlcluster 16 main start`. DB sandbox cần `npm run db:seed` để có dữ liệu thử (admin/123456).
 
+## Đợt kho theo chuẩn y tế (giá vốn) — "Đợt 4"
+> Bắt nguồn từ lỗi kho không trừ tồn (mục ngay dưới), sau đó nâng kho lên "có giá vốn" để tính giá trị tồn kho & giá vốn vật tư đã dùng (COGS). TSC pass, **49/49 test** (+9 test giá vốn), smoke test thật bằng trình duyệt (Playwright + Chromium pre-installed).
+- **Schema** (migration `20260626140000_inventory_costing`, viết tay): `Material.avgCost` (giá vốn bình quân gia quyền) + `StockMovement.unitCost` (đơn giá theo từng giao dịch kho).
+- **`lib/inventory-cost.ts`** (toán THUẦN, có test `inventory-cost.test.ts`): `weightedAvgCost` (bình quân gia quyền; nếu CHƯA từng ghi giá vốn → LẤY luôn giá nhập, không pha loãng với tồn "giá 0"; nhập không khai báo giá → giữ nguyên giá cũ), `stockValue`, `totalStockValue`.
+- **Nhập kho** (`danh-muc/actions.ts` `stockIn` + form ở `danh-muc/page.tsx`): thêm ô "Giá vốn" → cập nhật `avgCost` bình quân + lưu `unitCost` vào dòng IN. Gói trong `$transaction`.
+- **Xuất/hoàn kho cho hồ sơ** (`ho-so/actions.ts`): `addMaterial`/`removeMaterial`/`updateMaterialUsage` ghi `unitCost` = giá vốn bình quân tại thời điểm đó (truy vết COGS).
+- **Trang Kho** (`/kho`): thẻ "Giá trị tồn kho" (Σ tồn×giá vốn) + "Giá vốn đã xuất 30 ngày" (COGS); cột "Giá vốn tồn" trong bảng. Cảnh báo FEFO/hạn dùng đã có sẵn từ trước.
+- **Smoke test thật**: nhập 10 @ 500.000 cho Botox (tồn 47→57, giá vốn 0→500.000, giá trị tồn 28.500.000, dòng IN unitCost=500.000); thêm 3 vào hồ sơ → OUT ghi unitCost=500.000, tồn 57→54.
+- ⚠️ **Cố ý KHÔNG** cộng COGS vật tư vào Lãi/Lỗ (Báo cáo) để tránh **tính trùng** với chi phí mua vật tư chủ có thể đã ghi tay ở Sổ thu chi. Giá vốn ở đây là thông tin tham khảo trên trang Kho. Nếu sau này muốn đưa vào P&L thì phải thống nhất 1 nguồn (kho HOẶC sổ thu chi), không cả hai.
+
 ## Sửa lỗi — Kho không trừ tồn khi thêm vật tư vào hồ sơ
 > Phát hiện khi chủ test thực tế: thêm vật tư cho khách nhưng tồn kho không giảm.
 - **Nguyên nhân**: form "Thêm vật tư" (`ho-so/[id]/case-widgets.tsx`) chọn vật tư qua `Combobox` chỉ điền sẵn TÊN/ĐƠN VỊ, **không gửi `materialId`** (thiếu input ẩn) → server action `addMaterial` luôn nhận `materialId` rỗng → nhánh trừ kho `if (d.materialId)` không bao giờ chạy.

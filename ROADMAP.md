@@ -35,7 +35,7 @@ phần "Đánh giá" trong lịch sử hội thoại + `web/DU-AN.md`.
 | B2 | **Kênh giao tiếp** (Zalo/SMS/Email) | ⏳ Chưa làm | Bậc 1 (deep-link) làm được ngay. 🔑 Bậc 2–3 cần tài khoản SMS/Email/Zalo OA. |
 | B3 | **Sổ công nợ chủ động** | ⏳ Chưa làm | Lọc theo tuổi nợ, kế hoạch trả góp, cảnh báo vượt ngưỡng. |
 | B4 | **Lịch hẹn nâng cao** | ⏳ Chưa làm | Chống trùng lịch, tài nguyên phòng/giường, link khách tự xác nhận. |
-| B5 | **Kho theo chuẩn y tế** | ⏳ Chưa làm | FEFO theo hạn dùng, phiếu nhập kho + giá vốn, định mức vật tư/dịch vụ. |
+| B5 | **Kho theo chuẩn y tế** | ✅ Một phần | ✅ Giá vốn bình quân + giá trị tồn kho + COGS (Đợt 4). ✅ Cảnh báo FEFO/hạn dùng (đã có ở B1). ⏳ Còn: định mức vật tư/dịch vụ (BOM), phiếu nhập kho nhiều dòng. |
 | B6 | **Hồ sơ y khoa chuẩn** | ⏳ Chưa làm | Phiếu đồng ý (consent) ký số, tiền sử/dị ứng/chống chỉ định, mẫu hồ sơ. |
 
 ## NHÓM C — PHÂN TÍCH & RA QUYẾT ĐỊNH (BI)
@@ -177,6 +177,33 @@ phần "Đánh giá" trong lịch sử hội thoại + `web/DU-AN.md`.
   `updateAppointmentStatus` đã có sẵn ở `lich-hen/actions.ts` (KHÔNG tạo action mới — tái dùng
   100%, chỉ thêm `revalidatePath("/dau-ca")` vào action đó).
 - KHÔNG đổi schema: dùng nguyên `Appointment.arrivedAt` đã có sẵn từ trước.
+
+## CHI TIẾT ĐỢT 4 — Đã làm (kho theo chuẩn y tế — giai đoạn giá vốn)
+
+> Bắt đầu từ một LỖI chủ phát hiện khi test thật: thêm vật tư cho khách nhưng kho không trừ.
+> Sửa lỗi đó (xem changelog `web/DU-AN.md`) rồi nâng kho lên "có giá vốn" để tính được giá trị
+> tồn kho & giá vốn vật tư đã dùng. TSC pass, **49/49 test** (thêm 9 test giá vốn), smoke test
+> THẬT bằng trình duyệt (Playwright + Chromium pre-installed): nhập 10 @ 500.000 → tồn 47→57,
+> giá vốn 0→500.000, giá trị tồn 28.500.000; thêm 3 vào hồ sơ → OUT ghi unitCost 500.000 (COGS).
+
+### Sửa lỗi nền tảng — Kho không trừ tồn (xem chi tiết ở `DU-AN.md`)
+- Form "Thêm vật tư" thiếu input ẩn `materialId` → `addMaterial` không trừ kho. Đã sửa + gói
+  usage/tồn/nhật ký vào `$transaction` (add/remove/update).
+
+### B5 (giai đoạn 1) — Giá vốn & giá trị tồn kho
+- **Schema** (migration `20260626140000_inventory_costing`): `Material.avgCost` (giá vốn bình
+  quân) + `StockMovement.unitCost` (đơn giá theo từng giao dịch).
+- **`lib/inventory-cost.ts`** (THUẦN, có test): `weightedAvgCost` (bình quân gia quyền; nếu
+  CHƯA từng ghi giá vốn thì LẤY luôn giá nhập, không pha loãng với tồn "giá 0"; nhập không khai
+  báo giá thì giữ nguyên), `stockValue`, `totalStockValue`.
+- **Nhập kho** (`danh-muc`): thêm ô "Giá vốn" (đơn giá nhập) → cập nhật `avgCost` bình quân +
+  lưu `unitCost` vào dòng nhập.
+- **Xuất kho cho hồ sơ** (`ho-so/actions.ts`): mỗi lần trừ/hoàn kho ghi `unitCost` = giá vốn bình
+  quân tại thời điểm đó (để truy vết COGS).
+- **Trang Kho** (`/kho`): thẻ "Giá trị tồn kho" (Σ tồn×giá vốn) + "Giá vốn đã xuất 30 ngày"
+  (COGS); cột "Giá vốn tồn" trong bảng tồn kho.
+- ⚠️ **KHÔNG** tự cộng COGS vật tư vào Lãi/Lỗ (Báo cáo) để **tránh tính trùng** với chi phí mua
+  vật tư mà chủ có thể đã ghi tay ở Sổ thu chi. Giá vốn ở đây là THÔNG TIN tham khảo trên trang Kho.
 
 ## QUY TRÌNH LÀM VIỆC (cho phiên sau)
 1. Chạy `web/BAN-GIAO.md` mục 10 để dựng sandbox. **Lưu ý proxy:** trong môi trường này, tải

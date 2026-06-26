@@ -1,7 +1,9 @@
-import { Boxes, ArrowUpFromLine, PackageX, AlertTriangle, CalendarClock } from "lucide-react";
+import { Boxes, PackageX, AlertTriangle, CalendarClock, Wallet } from "lucide-react";
+import { subDays } from "date-fns";
 import { requireCap } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { toNum } from "@/lib/money";
+import { toNum, formatVND, formatVNDShort } from "@/lib/money";
+import { stockValue, totalStockValue } from "@/lib/inventory-cost";
 import { fmtDate, fmtDateTime } from "@/lib/format";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -21,12 +23,17 @@ const MOVE = {
 
 export default async function KhoPage() {
   await requireCap("mod:kho");
-  const [materials, movements] = await Promise.all([
+  const [materials, movements, outMoves] = await Promise.all([
     prisma.material.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
     prisma.stockMovement.findMany({
       orderBy: { createdAt: "desc" },
       take: 60,
       include: { material: { select: { name: true, unit: true } }, createdBy: { select: { fullName: true } } },
+    }),
+    // Giá vốn vật tư đã xuất dùng trong 30 ngày (COGS vật tư) — chỉ tính dòng có đơn giá.
+    prisma.stockMovement.findMany({
+      where: { type: "OUT", unitCost: { not: null }, createdAt: { gte: subDays(new Date(), 30) } },
+      select: { quantity: true, unitCost: true },
     }),
   ]);
 
@@ -55,6 +62,10 @@ export default async function KhoPage() {
     return s.expired || s.expiringSoon;
   }).length;
 
+  // Giá vốn tồn kho + COGS vật tư 30 ngày.
+  const totalValue = totalStockValue(materials.map((m) => ({ stock: toNum(m.stock), avgCost: toNum(m.avgCost) })));
+  const cogs30 = outMoves.reduce((s, mv) => s + toNum(mv.quantity) * toNum(mv.unitCost), 0);
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -63,8 +74,15 @@ export default async function KhoPage() {
         icon={<Boxes className="h-5 w-5" />}
       />
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Số mặt hàng" value={materials.length} icon={<Boxes className="h-5 w-5" />} tone="brand" />
+        <StatCard
+          label="Giá trị tồn kho"
+          value={formatVNDShort(totalValue)}
+          sub={cogs30 > 0 ? `Giá vốn đã xuất 30 ngày: ${formatVNDShort(cogs30)}` : "Theo giá vốn bình quân"}
+          icon={<Wallet className="h-5 w-5" />}
+          tone="green"
+        />
         <StatCard label="Cần nhập (tồn thấp)" value={lowCount} icon={<PackageX className="h-5 w-5" />} tone={lowCount > 0 ? "red" : "slate"} />
         <StatCard label="Cảnh báo hạn dùng" value={expCount} icon={<CalendarClock className="h-5 w-5" />} tone={expCount > 0 ? "amber" : "slate"} />
       </div>
@@ -109,18 +127,31 @@ export default async function KhoPage() {
                   <TR className="hover:bg-transparent">
                     <TH>Vật tư</TH>
                     <TH className="text-right">Tồn / Tối thiểu</TH>
+                    <TH className="text-right">Giá vốn tồn</TH>
                     <TH>Hạn dùng (lô)</TH>
                   </TR>
                 </THead>
                 <tbody>
                   {materials.map((m) => {
                     const s = status(m);
+                    const avg = toNum(m.avgCost);
+                    const val = stockValue(s.stock, avg);
                     return (
                       <TR key={m.id}>
                         <TD className="font-medium text-slate-800">{m.name}</TD>
                         <TD className={`text-right font-semibold tabular-nums ${s.low ? "text-rose-500" : "text-slate-800"}`}>
                           {s.stock} {m.unit}
                           {s.min > 0 && <span className="font-normal text-slate-400"> / {s.min}</span>}
+                        </TD>
+                        <TD className="text-right tabular-nums">
+                          {avg > 0 ? (
+                            <>
+                              <div className="text-slate-700">{formatVNDShort(val)}</div>
+                              <div className="text-xs text-slate-400">{formatVND(avg)}/{m.unit}</div>
+                            </>
+                          ) : (
+                            <span className="text-slate-300">—</span>
+                          )}
                         </TD>
                         <TD>
                           {m.expiryDate ? (
