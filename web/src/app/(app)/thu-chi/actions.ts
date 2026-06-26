@@ -54,8 +54,6 @@ export async function createCashTransaction(_prev: CashState, formData: FormData
       createdById: user.id,
     },
   });
-  revalidatePath("/thu-chi");
-  revalidatePath("/dashboard");
   return { ok: true };
 }
 
@@ -82,8 +80,6 @@ export async function updateCashTransaction(_prev: CashState, formData: FormData
       note: d.note || null,
     },
   });
-  revalidatePath("/thu-chi");
-  revalidatePath("/dashboard");
   return { ok: true };
 }
 

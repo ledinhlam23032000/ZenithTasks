@@ -1,11 +1,12 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useState } from "react";
 import { Pencil, CalendarPlus, LoaderCircle } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/field";
-import { upsertAttendance, type AttState } from "./actions";
+import { useFormAction } from "@/lib/use-form-action";
+import { upsertAttendance } from "./actions";
 
 export type StaffOption = { id: string; name: string };
 export type AttendanceRecord = {
@@ -77,10 +78,7 @@ function Footer({ pending, onClose }: { pending: boolean; onClose: () => void })
 
 export function AddAttendanceButton({ staff }: { staff: StaffOption[] }) {
   const [open, setOpen] = useState(false);
-  const [state, action, pending] = useActionState<AttState, FormData>(upsertAttendance, {});
-  useEffect(() => {
-    if (state.ok) setOpen(false);
-  }, [state.ok]);
+  const [state, action, pending] = useFormAction(upsertAttendance, () => setOpen(false));
 
   return (
     <>
@@ -105,10 +103,7 @@ export function AddAttendanceButton({ staff }: { staff: StaffOption[] }) {
 
 export function EditAttendanceButton({ record }: { record: AttendanceRecord }) {
   const [open, setOpen] = useState(false);
-  const [state, action, pending] = useActionState<AttState, FormData>(upsertAttendance, {});
-  useEffect(() => {
-    if (state.ok) setOpen(false);
-  }, [state.ok]);
+  const [state, action, pending] = useFormAction(upsertAttendance, () => setOpen(false));
 
   return (
     <>

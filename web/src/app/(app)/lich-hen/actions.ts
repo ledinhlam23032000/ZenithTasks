@@ -75,8 +75,6 @@ export async function createAppointment(_prev: ApptFormState, formData: FormData
     },
   });
 
-  revalidatePath("/lich-hen");
-  revalidatePath("/dashboard");
   return { ok: true };
 }
 
@@ -135,8 +133,6 @@ export async function updateAppointment(_prev: ApptFormState, formData: FormData
     },
   });
 
-  revalidatePath("/lich-hen");
-  revalidatePath("/dashboard");
   return { ok: true };
 }
 

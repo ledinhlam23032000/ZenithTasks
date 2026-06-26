@@ -1,12 +1,12 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { Pencil, LoaderCircle, UserPlus } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input, Label, Textarea } from "@/components/ui/field";
-import { createCollaborator, updateCollaborator, type CtvState } from "./actions";
+import { useFormAction } from "@/lib/use-form-action";
+import { createCollaborator, updateCollaborator } from "./actions";
 
 export type CtvProfile = {
   id: string;
@@ -54,14 +54,7 @@ function Fields({ ctv, lockName }: { ctv?: Partial<CtvProfile>; lockName?: boole
 
 export function NewCollaboratorButton({ defaultName }: { defaultName?: string }) {
   const [open, setOpen] = useState(false);
-  const router = useRouter();
-  const [state, action, pending] = useActionState<CtvState, FormData>(createCollaborator, {});
-  useEffect(() => {
-    if (state.ok) {
-      setOpen(false);
-      router.refresh();
-    }
-  }, [state.ok, router]);
+  const [state, action, pending] = useFormAction(createCollaborator, () => setOpen(false));
   return (
     <>
       <Button onClick={() => setOpen(true)}>
@@ -85,14 +78,7 @@ export function NewCollaboratorButton({ defaultName }: { defaultName?: string })
 
 export function EditCollaboratorButton({ ctv, small }: { ctv: CtvProfile; small?: boolean }) {
   const [open, setOpen] = useState(false);
-  const router = useRouter();
-  const [state, action, pending] = useActionState<CtvState, FormData>(updateCollaborator, {});
-  useEffect(() => {
-    if (state.ok) {
-      setOpen(false);
-      router.refresh();
-    }
-  }, [state.ok, router]);
+  const [state, action, pending] = useFormAction(updateCollaborator, () => setOpen(false));
   return (
     <>
       {small ? (

@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useState } from "react";
+import { useFormAction } from "@/lib/use-form-action";
 import { Plus, LoaderCircle, CheckCircle2, Wallet, Package, Camera, CalendarPlus, Pencil, Ticket, CalendarCog } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -8,6 +9,7 @@ import { Input, Label, Select, Textarea } from "@/components/ui/field";
 import { Combobox, type ComboOption } from "@/components/ui/combobox";
 import { MoneyInput } from "@/components/ui/money-input";
 import { formatVND } from "@/lib/money";
+import { compressImage } from "@/lib/compress-image";
 import { CASE_STATUS, CONSULT_RESULT, PAYMENT_LABEL } from "@/lib/status";
 import {
   updateCaseInfo,
@@ -21,7 +23,6 @@ import {
   updateMaterialUsage,
   updateCaseVoucher,
   updateCaseDate,
-  type CaseActionState,
 } from "../actions";
 
 type Svc = { id: string; name: string; listPrice: number; defaultPrice: number; category: string | null };
@@ -57,7 +58,7 @@ export function CaseInfoForm({
     note: string | null;
   };
 }) {
-  const [state, action, pending] = useActionState<CaseActionState, FormData>(updateCaseInfo, {});
+  const [state, action, pending] = useFormAction(updateCaseInfo);
   const consultantOpts: ComboOption[] = [
     { value: "", label: "— Chưa phân công —" },
     ...consultants.map((c) => ({ value: c.id, label: c.fullName })),
@@ -134,17 +135,13 @@ export function AddServiceButton({ caseId, services }: { caseId: string; service
 }
 
 function ServiceForm({ caseId, services, onDone }: { caseId: string; services: Svc[]; onDone: () => void }) {
-  const [state, action, pending] = useActionState<CaseActionState, FormData>(addCaseService, {});
+  const [state, action, pending] = useFormAction(addCaseService, onDone);
   const [name, setName] = useState("");
   const [serviceId, setServiceId] = useState("");
   const [listPrice, setListPrice] = useState(0);
   const [price, setPrice] = useState(0);
   const [qty, setQty] = useState(1);
   const [discount, setDiscount] = useState(0);
-
-  useEffect(() => {
-    if (state.ok) onDone();
-  }, [state.ok, onDone]);
 
   const finalPrice = Math.max(price * qty - discount, 0);
   const savings = Math.max((listPrice - price) * qty + discount, 0);
@@ -225,10 +222,7 @@ function ServiceForm({ caseId, services, onDone }: { caseId: string; services: S
 // ===== Thêm thanh toán =====
 export function AddPaymentButton({ caseId, debt }: { caseId: string; debt: number }) {
   const [open, setOpen] = useState(false);
-  const [state, action, pending] = useActionState<CaseActionState, FormData>(addPayment, {});
-  useEffect(() => {
-    if (state.ok) setOpen(false);
-  }, [state.ok]);
+  const [state, action, pending] = useFormAction(addPayment, () => setOpen(false));
   return (
     <>
       <Button size="sm" onClick={() => setOpen(true)}>
@@ -270,12 +264,9 @@ export function AddPaymentButton({ caseId, debt }: { caseId: string; debt: numbe
 // ===== Thêm vật tư =====
 export function AddMaterialButton({ caseId, materials }: { caseId: string; materials: Mat[] }) {
   const [open, setOpen] = useState(false);
-  const [state, action, pending] = useActionState<CaseActionState, FormData>(addMaterial, {});
+  const [state, action, pending] = useFormAction(addMaterial, () => setOpen(false));
   const [name, setName] = useState("");
   const [unit, setUnit] = useState("cái");
-  useEffect(() => {
-    if (state.ok) setOpen(false);
-  }, [state.ok]);
   return (
     <>
       <Button size="sm" variant="subtle" onClick={() => setOpen(true)}>
@@ -339,17 +330,31 @@ export function AddMaterialButton({ caseId, materials }: { caseId: string; mater
 // ===== Tải ảnh =====
 export function UploadPhotoButton({ caseId, customerId }: { caseId: string; customerId: string }) {
   const [open, setOpen] = useState(false);
-  const [state, action, pending] = useActionState<CaseActionState, FormData>(uploadPhoto, {});
-  useEffect(() => {
-    if (state.ok) setOpen(false);
-  }, [state.ok]);
+  const [busy, setBusy] = useState(false);
+  const [state, action, pending] = useFormAction(uploadPhoto, () => setOpen(false));
+
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    const file = fd.get("file");
+    if (file instanceof File && file.size > 0) {
+      setBusy(true);
+      try {
+        fd.set("file", await compressImage(file));
+      } finally {
+        setBusy(false);
+      }
+    }
+    action(fd);
+  }
+
   return (
     <>
       <Button size="sm" variant="subtle" onClick={() => setOpen(true)}>
         <Camera className="h-4 w-4" /> Tải ảnh
       </Button>
-      <Modal open={open} onClose={() => setOpen(false)} title="Tải ảnh trước / sau / tái khám">
-        <form action={action} className="space-y-4">
+      <Modal open={open} onClose={() => setOpen(false)} title="Tải ảnh (trước / sau / tái khám / cận lâm sàng)">
+        <form onSubmit={onSubmit} className="space-y-4">
           <input type="hidden" name="caseId" value={caseId} />
           <input type="hidden" name="customerId" value={customerId} />
           <div className="grid gap-4 sm:grid-cols-2">
@@ -359,6 +364,7 @@ export function UploadPhotoButton({ caseId, customerId }: { caseId: string; cust
                 <option value="BEFORE">Ảnh trước làm</option>
                 <option value="AFTER">Ảnh sau làm</option>
                 <option value="FOLLOW_UP">Ảnh tái khám</option>
+                <option value="CLINICAL">Cận lâm sàng (X-quang/CT/siêu âm)</option>
               </Select>
             </div>
             <div>
@@ -376,16 +382,17 @@ export function UploadPhotoButton({ caseId, customerId }: { caseId: string; cust
               required
               className="block w-full text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-brand-50 file:px-3 file:py-2 file:text-sm file:font-medium file:text-brand-700 hover:file:bg-brand-100"
             />
+            <p className="mt-1 text-xs text-slate-400">Ảnh được nén tự động cho nhẹ trước khi tải lên (nhanh hơn).</p>
           </div>
           <div>
             <Label htmlFor="caption">Chú thích</Label>
-            <Input id="caption" name="caption" placeholder="Góc chụp, ghi chú…" />
+            <Input id="caption" name="caption" placeholder="Góc chụp, vùng chụp, ghi chú…" />
           </div>
           {state.error && <p className="text-sm text-rose-600">{state.error}</p>}
           <div className="flex justify-end gap-2">
             <Button type="button" variant="secondary" onClick={() => setOpen(false)}>Hủy</Button>
-            <button type="submit" disabled={pending} className={buttonVariants()}>
-              {pending && <LoaderCircle className="h-4 w-4 animate-spin" />} Tải lên
+            <button type="submit" disabled={pending || busy} className={buttonVariants()}>
+              {(pending || busy) && <LoaderCircle className="h-4 w-4 animate-spin" />} {busy ? "Đang nén ảnh…" : "Tải lên"}
             </button>
           </div>
         </form>
@@ -397,10 +404,7 @@ export function UploadPhotoButton({ caseId, customerId }: { caseId: string; cust
 // ===== Hẹn tái khám =====
 export function AddFollowUpButton({ caseId, customerId, defaultDateTime }: { caseId: string; customerId: string; defaultDateTime: string }) {
   const [open, setOpen] = useState(false);
-  const [state, action, pending] = useActionState<CaseActionState, FormData>(addFollowUp, {});
-  useEffect(() => {
-    if (state.ok) setOpen(false);
-  }, [state.ok]);
+  const [state, action, pending] = useFormAction(addFollowUp, () => setOpen(false));
   return (
     <>
       <Button size="sm" variant="subtle" onClick={() => setOpen(true)}>
@@ -440,15 +444,12 @@ export function EditCaseServiceButton({
   service: { id: string; name: string; listPrice: number; unitPrice: number; quantity: number; discount: number };
 }) {
   const [open, setOpen] = useState(false);
-  const [state, action, pending] = useActionState<CaseActionState, FormData>(updateCaseService, {});
+  const [state, action, pending] = useFormAction(updateCaseService, () => setOpen(false));
   const [name, setName] = useState(service.name);
   const [listPrice, setListPrice] = useState(service.listPrice);
   const [price, setPrice] = useState(service.unitPrice);
   const [qty, setQty] = useState(service.quantity);
   const [discount, setDiscount] = useState(service.discount);
-  useEffect(() => {
-    if (state.ok) setOpen(false);
-  }, [state.ok]);
   const finalPrice = Math.max(price * qty - discount, 0);
   const savings = Math.max((listPrice - price) * qty + discount, 0);
   return (
@@ -520,10 +521,7 @@ export function EditPaymentButton({
   isAdmin?: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const [state, action, pending] = useActionState<CaseActionState, FormData>(updatePayment, {});
-  useEffect(() => {
-    if (state.ok) setOpen(false);
-  }, [state.ok]);
+  const [state, action, pending] = useFormAction(updatePayment, () => setOpen(false));
   return (
     <>
       <button onClick={() => setOpen(true)} className="text-slate-300 hover:text-brand-600" aria-label="Sửa" title="Sửa">
@@ -578,10 +576,7 @@ export function EditMaterialUsageButton({
   usage: { id: string; name: string; unit: string; quantity: number; note: string };
 }) {
   const [open, setOpen] = useState(false);
-  const [state, action, pending] = useActionState<CaseActionState, FormData>(updateMaterialUsage, {});
-  useEffect(() => {
-    if (state.ok) setOpen(false);
-  }, [state.ok]);
+  const [state, action, pending] = useFormAction(updateMaterialUsage, () => setOpen(false));
   return (
     <>
       <button onClick={() => setOpen(true)} className="rounded-md p-1.5 text-slate-300 hover:bg-brand-50 hover:text-brand-600" aria-label="Sửa" title="Sửa">
@@ -627,11 +622,8 @@ export function EditMaterialUsageButton({
 // ===== Voucher giảm thêm =====
 export function EditVoucherButton({ caseId, voucher }: { caseId: string; voucher: { amount: number; code: string } }) {
   const [open, setOpen] = useState(false);
-  const [state, action, pending] = useActionState<CaseActionState, FormData>(updateCaseVoucher, {});
+  const [state, action, pending] = useFormAction(updateCaseVoucher, () => setOpen(false));
   const [kind, setKind] = useState<"VND" | "PCT">("VND");
-  useEffect(() => {
-    if (state.ok) setOpen(false);
-  }, [state.ok]);
   return (
     <>
       <button
@@ -690,10 +682,7 @@ export function EditVoucherButton({ caseId, voucher }: { caseId: string; voucher
 // ===== Sửa NGÀY TẠO hồ sơ (chỉ quản trị) =====
 export function EditCaseDateButton({ caseId, createdAt }: { caseId: string; createdAt: string }) {
   const [open, setOpen] = useState(false);
-  const [state, action, pending] = useActionState<CaseActionState, FormData>(updateCaseDate, {});
-  useEffect(() => {
-    if (state.ok) setOpen(false);
-  }, [state.ok]);
+  const [state, action, pending] = useFormAction(updateCaseDate, () => setOpen(false));
   return (
     <>
       <button

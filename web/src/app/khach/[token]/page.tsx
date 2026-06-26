@@ -2,16 +2,14 @@ import { notFound } from "next/navigation";
 import { Crown, FolderHeart, Images, CalendarClock, Receipt } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { toNum, formatVND } from "@/lib/money";
-import { photoSrc } from "@/lib/media";
 import { fmtDate, fmtDateTime } from "@/lib/format";
 import { CASE_STATUS } from "@/lib/status";
 import { tierFor, pointsFor } from "@/lib/loyalty";
 import { Badge } from "@/components/ui/badge";
+import { PhotoGallery } from "@/components/ui/photo-gallery";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Hồ sơ của tôi" };
-
-const PHOTO_LABEL: Record<string, string> = { BEFORE: "Trước", AFTER: "Sau", FOLLOW_UP: "Tái khám" };
 
 export default async function CustomerPortalPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
@@ -98,15 +96,7 @@ export default async function CustomerPortalPage({ params }: { params: Promise<{
         {/* Ảnh trước - sau */}
         {customer.photos.length > 0 && (
           <Section icon={<Images className="h-4 w-4 text-brand-500" />} title="Ảnh trước - sau">
-            <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-              {customer.photos.map((p) => (
-                <figure key={p.id} className="overflow-hidden rounded-xl border border-slate-200">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={photoSrc(p.url)} alt={p.caption ?? "Ảnh"} className="aspect-square w-full object-cover" />
-                  <figcaption className="px-1.5 py-1 text-center text-[11px] text-slate-500">{PHOTO_LABEL[p.type] ?? ""}</figcaption>
-                </figure>
-              ))}
-            </div>
+            <PhotoGallery photos={customer.photos} cols={4} />
           </Section>
         )}
 

@@ -115,7 +115,6 @@ export async function updateCaseInfo(_prev: CaseActionState, formData: FormData)
       completedAt: d.status === "COMPLETED" ? new Date() : null,
     },
   });
-  refresh(d.caseId);
   return { ok: true, nonce: Date.now() };
 }
 
@@ -133,7 +132,6 @@ export async function updateCaseDate(_prev: CaseActionState, formData: FormData)
 
   await prisma.caseRecord.update({ where: { id: caseId }, data: { createdAt: d } });
   await audit(me.id, "EDIT_CASE_DATE", { entity: "CaseRecord", entityId: caseId, meta: { createdAt: raw } });
-  refresh(caseId);
   return { ok: true, nonce: Date.now() };
 }
 
@@ -182,7 +180,6 @@ export async function addCaseService(_prev: CaseActionState, formData: FormData)
     },
   });
   await recalc(d.caseId);
-  refresh(d.caseId);
   return { ok: true, nonce: Date.now() };
 }
 
@@ -226,7 +223,6 @@ export async function updateCaseService(_prev: CaseActionState, formData: FormDa
     data: { name: d.name, listPrice, unitPrice: d.unitPrice, quantity: d.quantity, discount: d.discount, finalPrice },
   });
   await recalc(d.caseId);
-  refresh(d.caseId);
   return { ok: true, nonce: Date.now() };
 }
 
@@ -270,7 +266,6 @@ export async function updateCaseVoucher(_prev: CaseActionState, formData: FormDa
   });
   await audit(user.id, "APPLY_VOUCHER", { entity: "CaseRecord", entityId: d.caseId, meta: { amount, code: label ?? "" } });
   await recalc(d.caseId);
-  refresh(d.caseId);
   return { ok: true, nonce: Date.now() };
 }
 
@@ -299,7 +294,6 @@ export async function addPayment(_prev: CaseActionState, formData: FormData): Pr
     data: { caseId: d.caseId, amount: d.amount, method: d.method, note: d.note || null, receivedById: user.id },
   });
   await recalc(d.caseId);
-  refresh(d.caseId);
   return { ok: true, nonce: Date.now() };
 }
 
@@ -340,7 +334,6 @@ export async function updatePayment(_prev: CaseActionState, formData: FormData):
   });
   await audit(user.id, "UPDATE_PAYMENT", { entity: "Payment", entityId: d.id, meta: { amount: d.amount, paidAt: paidAt?.toISOString() } });
   await recalc(d.caseId);
-  refresh(d.caseId);
   return { ok: true, nonce: Date.now() };
 }
 
@@ -389,7 +382,6 @@ export async function addMaterial(_prev: CaseActionState, formData: FormData): P
       .create({ data: { materialId: d.materialId, type: "OUT", quantity: d.quantity, note: "Dùng cho hồ sơ", createdById: user.id } })
       .catch(() => {});
   }
-  refresh(d.caseId);
   return { ok: true, nonce: Date.now() };
 }
 
@@ -461,7 +453,6 @@ export async function updateMaterialUsage(_prev: CaseActionState, formData: Form
         .catch(() => {});
     }
   }
-  refresh(d.caseId);
   return { ok: true, nonce: Date.now() };
 }
 
@@ -497,14 +488,13 @@ export async function uploadPhoto(_prev: CaseActionState, formData: FormData): P
     data: {
       customerId,
       caseId,
-      type: type as "BEFORE" | "AFTER" | "FOLLOW_UP",
+      type: type as "BEFORE" | "AFTER" | "FOLLOW_UP" | "CLINICAL",
       url: `/media/${fname}`,
       caption: caption || null,
       followUpIndex,
       uploadedById: user.id,
     },
   });
-  refresh(caseId, customerId);
   return { ok: true, nonce: Date.now() };
 }
 
@@ -544,7 +534,6 @@ export async function addFollowUp(_prev: CaseActionState, formData: FormData): P
   await prisma.followUp.create({
     data: { caseId: d.caseId, customerId: d.customerId, scheduledAt: when, note: d.note || null, createdById: user.id },
   });
-  refresh(d.caseId, d.customerId);
   return { ok: true, nonce: Date.now() };
 }
 

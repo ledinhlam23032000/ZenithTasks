@@ -43,9 +43,6 @@ export async function addCareMessage(_prev: CareFormState, formData: FormData): 
     },
   });
 
-  revalidatePath("/cham-soc");
-  revalidatePath(`/khach-hang/${data.customerId}`);
-  revalidatePath("/dashboard");
   return { ok: true, nonce: Date.now() };
 }
 
@@ -76,8 +73,6 @@ export async function updateCareMessage(_prev: CareFormState, formData: FormData
     select: { customerId: true },
   });
 
-  if (m.customerId) revalidatePath(`/khach-hang/${m.customerId}`);
-  revalidatePath("/cham-soc");
   return { ok: true, nonce: Date.now() };
 }
 

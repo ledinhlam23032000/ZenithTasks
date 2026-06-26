@@ -1,17 +1,13 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { LoaderCircle, CheckCircle2, Camera, Save } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Input, Label } from "@/components/ui/field";
 import { buttonVariants } from "@/components/ui/button";
-import {
-  updateMyProfile,
-  updateMyAvatar,
-  changePassword,
-  type ProfileState,
-  type PasswordState,
-} from "@/lib/account-actions";
+import { compressImage } from "@/lib/compress-image";
+import { useFormAction } from "@/lib/use-form-action";
+import { updateMyProfile, updateMyAvatar, changePassword } from "@/lib/account-actions";
 
 function Saved({ nonce, ok }: { nonce?: number; ok?: boolean }) {
   if (!ok && !nonce) return null;
@@ -23,17 +19,32 @@ function Saved({ nonce, ok }: { nonce?: number; ok?: boolean }) {
 }
 
 export function AvatarUploader({ name, avatarUrl }: { name: string; avatarUrl: string | null }) {
-  const [state, action, pending] = useActionState<ProfileState, FormData>(updateMyAvatar, {});
   const [preview, setPreview] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
+  const [state, action, pending] = useFormAction(updateMyAvatar, () => {
+    setPreview(null);
+    formRef.current?.reset();
+  });
 
-  useEffect(() => {
-    if (state.ok) setPreview(null);
-  }, [state.ok, state.nonce]);
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    const file = fd.get("avatar");
+    if (file instanceof File && file.size > 0) {
+      setBusy(true);
+      try {
+        fd.set("avatar", await compressImage(file));
+      } finally {
+        setBusy(false);
+      }
+    }
+    action(fd);
+  }
 
   return (
-    <form ref={formRef} action={action} className="flex items-center gap-5">
+    <form ref={formRef} onSubmit={onSubmit} className="flex items-center gap-5">
       <Avatar name={name} src={preview ?? avatarUrl} className="h-20 w-20 text-2xl" />
       <div className="space-y-2">
         <input
@@ -55,12 +66,12 @@ export function AvatarUploader({ name, avatarUrl }: { name: string; avatarUrl: s
           >
             <Camera className="h-4 w-4" /> Chọn ảnh
           </button>
-          <button type="submit" disabled={pending || !preview} className={buttonVariants({ size: "sm" })}>
-            {pending && <LoaderCircle className="h-4 w-4 animate-spin" />} Lưu ảnh
+          <button type="submit" disabled={pending || busy || !preview} className={buttonVariants({ size: "sm" })}>
+            {(pending || busy) && <LoaderCircle className="h-4 w-4 animate-spin" />} {busy ? "Đang nén…" : "Lưu ảnh"}
           </button>
           <Saved ok={state.ok} nonce={state.nonce} />
         </div>
-        <p className="text-xs text-slate-400">Ảnh JPG, PNG, WEBP hoặc ảnh từ điện thoại · tối đa 8MB.</p>
+        <p className="text-xs text-slate-400">Ảnh JPG, PNG, WEBP hoặc ảnh từ điện thoại · tự nén cho nhẹ · tối đa 8MB.</p>
         {state.error && <p className="text-sm text-rose-600">{state.error}</p>}
       </div>
     </form>
@@ -68,7 +79,7 @@ export function AvatarUploader({ name, avatarUrl }: { name: string; avatarUrl: s
 }
 
 export function ProfileInfoForm({ fullName, phone }: { fullName: string; phone: string }) {
-  const [state, action, pending] = useActionState<ProfileState, FormData>(updateMyProfile, {});
+  const [state, action, pending] = useFormAction(updateMyProfile);
   return (
     <form action={action} className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-2">
@@ -93,11 +104,8 @@ export function ProfileInfoForm({ fullName, phone }: { fullName: string; phone: 
 }
 
 export function PasswordForm() {
-  const [state, action, pending] = useActionState<PasswordState, FormData>(changePassword, {});
   const formRef = useRef<HTMLFormElement>(null);
-  useEffect(() => {
-    if (state.ok) formRef.current?.reset();
-  }, [state.ok]);
+  const [state, action, pending] = useFormAction(changePassword, () => formRef.current?.reset());
 
   return (
     <form ref={formRef} action={action} className="space-y-4">

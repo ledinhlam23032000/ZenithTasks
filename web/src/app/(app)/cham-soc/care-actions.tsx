@@ -1,12 +1,13 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useState } from "react";
 import { Pencil, LoaderCircle } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Label, Select, Textarea } from "@/components/ui/field";
 import { CARE_CHANNEL } from "@/lib/status";
-import { updateCareMessage, type CareFormState } from "./actions";
+import { useFormAction } from "@/lib/use-form-action";
+import { updateCareMessage } from "./actions";
 
 export type EditableCareMessage = {
   id: string;
@@ -17,10 +18,7 @@ export type EditableCareMessage = {
 
 export function EditCareButton({ message }: { message: EditableCareMessage }) {
   const [open, setOpen] = useState(false);
-  const [state, action, pending] = useActionState<CareFormState, FormData>(updateCareMessage, {});
-  useEffect(() => {
-    if (state.ok) setOpen(false);
-  }, [state.ok, state.nonce]);
+  const [state, action, pending] = useFormAction(updateCareMessage, () => setOpen(false));
 
   return (
     <>

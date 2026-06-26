@@ -107,8 +107,6 @@ export async function updateCustomer(_prev: EditCustomerState, formData: FormDat
     .create({ data: { actorId: user.id, action: "UPDATE_CUSTOMER", entity: "Customer", entityId: d.customerId } })
     .catch(() => {});
 
-  revalidatePath(`/khach-hang/${d.customerId}`);
-  revalidatePath("/khach-hang");
   return { ok: true };
 }
 

@@ -1,13 +1,14 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useState } from "react";
 import { Pencil, LoaderCircle } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/field";
 import { MoneyInput } from "@/components/ui/money-input";
 import { ROLE_LABELS } from "@/lib/rbac";
-import { updateStaff, type StaffFormState } from "../actions";
+import { useFormAction } from "@/lib/use-form-action";
+import { updateStaff } from "../actions";
 import type { Role } from "@/generated/prisma/client";
 
 export type EditableStaff = {
@@ -35,10 +36,7 @@ export type EditableStaff = {
 
 export function EditStaffButton({ staff }: { staff: EditableStaff }) {
   const [open, setOpen] = useState(false);
-  const [state, action, pending] = useActionState<StaffFormState, FormData>(updateStaff, {});
-  useEffect(() => {
-    if (state.ok) setOpen(false);
-  }, [state.ok]);
+  const [state, action, pending] = useFormAction(updateStaff, () => setOpen(false));
 
   return (
     <>

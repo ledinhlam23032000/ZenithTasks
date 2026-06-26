@@ -1,12 +1,13 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useState } from "react";
 import { Plus, LoaderCircle, Pencil } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/field";
 import { MoneyInput } from "@/components/ui/money-input";
-import { createService, createMaterial, updateService, updateMaterial, type CatalogState } from "./actions";
+import { useFormAction } from "@/lib/use-form-action";
+import { createService, createMaterial, updateService, updateMaterial } from "./actions";
 
 export function EditServiceButton({
   service,
@@ -14,10 +15,7 @@ export function EditServiceButton({
   service: { id: string; name: string; category: string | null; listPrice: number; defaultPrice: number };
 }) {
   const [open, setOpen] = useState(false);
-  const [state, action, pending] = useActionState<CatalogState, FormData>(updateService, {});
-  useEffect(() => {
-    if (state.ok) setOpen(false);
-  }, [state.ok]);
+  const [state, action, pending] = useFormAction(updateService, () => setOpen(false));
   return (
     <>
       <button onClick={() => setOpen(true)} className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100" title="Sửa">
@@ -63,10 +61,7 @@ export function EditMaterialButton({
   material: { id: string; name: string; unit: string; minStock: number; lotNo: string; expiryDate: string };
 }) {
   const [open, setOpen] = useState(false);
-  const [state, action, pending] = useActionState<CatalogState, FormData>(updateMaterial, {});
-  useEffect(() => {
-    if (state.ok) setOpen(false);
-  }, [state.ok]);
+  const [state, action, pending] = useFormAction(updateMaterial, () => setOpen(false));
   return (
     <>
       <button onClick={() => setOpen(true)} className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100" title="Sửa">
@@ -114,10 +109,7 @@ export function EditMaterialButton({
 
 export function NewServiceButton() {
   const [open, setOpen] = useState(false);
-  const [state, action, pending] = useActionState<CatalogState, FormData>(createService, {});
-  useEffect(() => {
-    if (state.ok) setOpen(false);
-  }, [state.ok]);
+  const [state, action, pending] = useFormAction(createService, () => setOpen(false));
   return (
     <>
       <Button size="sm" onClick={() => setOpen(true)}>
@@ -161,10 +153,7 @@ export function NewServiceButton() {
 
 export function NewMaterialButton() {
   const [open, setOpen] = useState(false);
-  const [state, action, pending] = useActionState<CatalogState, FormData>(createMaterial, {});
-  useEffect(() => {
-    if (state.ok) setOpen(false);
-  }, [state.ok]);
+  const [state, action, pending] = useFormAction(createMaterial, () => setOpen(false));
   return (
     <>
       <Button size="sm" variant="secondary" onClick={() => setOpen(true)}>

@@ -1,14 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useActionState } from "react";
+import { useState } from "react";
 import { Plus, Pencil, LoaderCircle, ShieldCheck } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input, Label, Select, Textarea, FieldHint } from "@/components/ui/field";
 import { Combobox, type ComboOption } from "@/components/ui/combobox";
 import { APPT_TYPE, SOURCE_LABEL } from "@/lib/status";
-import { createAppointment, updateAppointment, type ApptFormState } from "./actions";
+import { useFormAction } from "@/lib/use-form-action";
+import { createAppointment, updateAppointment } from "./actions";
 
 type ServiceOpt = { id: string; name: string };
 type ConsultantOpt = { id: string; fullName: string };
@@ -101,14 +101,10 @@ function AppointmentForm({
   onSuccess: () => void;
 }) {
   const isEdit = !!appointment;
-  const [state, action, pending] = useActionState<ApptFormState, FormData>(
+  const [state, action, pending] = useFormAction(
     isEdit ? updateAppointment : createAppointment,
-    {},
+    onSuccess,
   );
-
-  useEffect(() => {
-    if (state.ok) onSuccess();
-  }, [state.ok, onSuccess]);
 
   return (
     <form action={action} className="space-y-4">

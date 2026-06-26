@@ -87,6 +87,7 @@ enum PhotoType {
   BEFORE // Ảnh trước làm
   AFTER // Ảnh sau làm
   FOLLOW_UP // Ảnh tái khám theo tháng/lần
+  CLINICAL // Ảnh cận lâm sàng (X-quang, CT, siêu âm…)
 }
 
 enum CareChannel {

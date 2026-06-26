@@ -34,7 +34,6 @@ export async function createService(_prev: CatalogState, formData: FormData): Pr
   await prisma.service.create({
     data: { name: d.name, category: d.category || null, listPrice, defaultPrice: d.defaultPrice },
   });
-  revalidatePath("/danh-muc");
   return { ok: true };
 }
 
@@ -70,7 +69,6 @@ export async function createMaterial(_prev: CatalogState, formData: FormData): P
   await prisma.material.create({
     data: { name: d.name, unit: d.unit, minStock: d.minStock, lotNo: d.lotNo || null, expiryDate: toDate(d.expiryDate) },
   });
-  revalidatePath("/danh-muc");
   return { ok: true };
 }
 
@@ -136,7 +134,6 @@ export async function updateService(_prev: CatalogState, formData: FormData): Pr
   await prisma.service
     .update({ where: { id }, data: { name: d.name, category: d.category || null, listPrice, defaultPrice: d.defaultPrice } })
     .catch(() => {});
-  revalidatePath("/danh-muc");
   return { ok: true };
 }
 
@@ -153,6 +150,5 @@ export async function updateMaterial(_prev: CatalogState, formData: FormData): P
       data: { name: d.name, unit: d.unit, minStock: d.minStock, lotNo: d.lotNo || null, expiryDate: toDate(d.expiryDate) },
     })
     .catch(() => {});
-  revalidatePath("/danh-muc");
   return { ok: true };
 }

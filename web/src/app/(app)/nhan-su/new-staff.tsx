@@ -1,12 +1,13 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useState } from "react";
 import { UserPlus, LoaderCircle } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/field";
 import { ROLE_LABELS } from "@/lib/rbac";
-import { createStaff, type StaffFormState } from "./actions";
+import { useFormAction } from "@/lib/use-form-action";
+import { createStaff } from "./actions";
 
 export function NewStaffButton() {
   const [open, setOpen] = useState(false);
@@ -23,10 +24,7 @@ export function NewStaffButton() {
 }
 
 function StaffForm({ onDone }: { onDone: () => void }) {
-  const [state, action, pending] = useActionState<StaffFormState, FormData>(createStaff, {});
-  useEffect(() => {
-    if (state.ok) onDone();
-  }, [state.ok, onDone]);
+  const [state, action, pending] = useFormAction(createStaff, onDone);
 
   return (
     <form action={action} className="space-y-4">

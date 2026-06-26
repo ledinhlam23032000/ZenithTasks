@@ -36,7 +36,6 @@ export async function createShift(_prev: ShiftFormState, formData: FormData): Pr
   await prisma.shift.create({
     data: { userId: d.userId, date, startTime: d.startTime, endTime: d.endTime, note: d.note || null },
   });
-  revalidatePath("/lich-lam-viec");
   return { ok: true };
 }
 

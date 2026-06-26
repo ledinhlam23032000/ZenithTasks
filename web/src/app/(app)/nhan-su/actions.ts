@@ -65,7 +65,6 @@ export async function createStaff(_prev: StaffFormState, formData: FormData): Pr
     return { error: "Không tạo được tài khoản (tên đăng nhập hoặc mã đã tồn tại). Vui lòng thử lại." };
   }
 
-  revalidatePath("/nhan-su");
   return { ok: true };
 }
 
@@ -79,8 +78,6 @@ export async function savePermissions(_prev: StaffFormState, formData: FormData)
   if (!target) return { error: "Không tìm thấy nhân sự." };
   const override = diffFromDesired(target.role as Role, keys);
   await prisma.user.update({ where: { id: userId }, data: { permissions: override } });
-  revalidatePath("/nhan-su");
-  revalidatePath("/", "layout");
   return { ok: true };
 }
 
@@ -203,7 +200,5 @@ export async function updateStaff(_prev: StaffFormState, formData: FormData): Pr
       baseSalary: d.baseSalary,
     },
   });
-  revalidatePath("/nhan-su");
-  revalidatePath(`/nhan-su/${d.id}`);
   return { ok: true };
 }

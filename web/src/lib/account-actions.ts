@@ -2,7 +2,6 @@
 
 import fs from "node:fs/promises";
 import path from "node:path";
-import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireUser, verifyPassword, hashPassword } from "@/lib/auth";
@@ -30,8 +29,6 @@ export async function updateMyProfile(_prev: ProfileState, formData: FormData): 
     where: { id: user.id },
     data: { fullName: parsed.data.fullName, phone: parsed.data.phone || null },
   });
-  revalidatePath("/tai-khoan");
-  revalidatePath("/", "layout");
   return { ok: true, nonce: Date.now() };
 }
 
@@ -54,8 +51,6 @@ export async function updateMyAvatar(_prev: ProfileState, formData: FormData): P
   await fs.writeFile(path.join(dir, fname), Buffer.from(await file.arrayBuffer()));
 
   await prisma.user.update({ where: { id: user.id }, data: { avatarUrl: `/uploads/avatars/${fname}` } });
-  revalidatePath("/tai-khoan");
-  revalidatePath("/", "layout");
   return { ok: true, nonce: Date.now() };
 }
 
@@ -103,7 +98,6 @@ export async function resetStaffPassword(_prev: PasswordState, formData: FormDat
   await prisma.auditLog
     .create({ data: { actorId: admin.id, action: "RESET_PASSWORD", entity: "User", entityId: userId } })
     .catch(() => {});
-  revalidatePath("/nhan-su");
   return { ok: true };
 }
 

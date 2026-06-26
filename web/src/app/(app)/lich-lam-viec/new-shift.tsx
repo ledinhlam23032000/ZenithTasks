@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useActionState, useEffect } from "react";
+import { useState } from "react";
 import { CalendarPlus, LoaderCircle } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/field";
-import { createShift, type ShiftFormState } from "./actions";
+import { useFormAction } from "@/lib/use-form-action";
+import { createShift } from "./actions";
 
 export function NewShiftButton({
   staff,
@@ -15,10 +16,7 @@ export function NewShiftButton({
   defaultDate: string;
 }) {
   const [open, setOpen] = useState(false);
-  const [state, action, pending] = useActionState<ShiftFormState, FormData>(createShift, {});
-  useEffect(() => {
-    if (state.ok) setOpen(false);
-  }, [state.ok]);
+  const [state, action, pending] = useFormAction(createShift, () => setOpen(false));
 
   return (
     <>

@@ -18,7 +18,6 @@ import { requireCap } from "@/lib/auth";
 import { userCan } from "@/lib/permissions";
 import { prisma } from "@/lib/db";
 import { maskPhone } from "@/lib/phone";
-import { photoSrc } from "@/lib/media";
 import { toNum, formatVND } from "@/lib/money";
 import { fmtDate, fmtDateTime, toDatetimeLocal } from "@/lib/format";
 import { addDays } from "date-fns";
@@ -32,7 +31,7 @@ import { Table, THead, TH, TR, TD } from "@/components/ui/table";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ConfirmButton } from "@/components/ui/confirm-button";
 import { buttonVariants } from "@/components/ui/button";
-import { PhotoTypeLabel } from "./photo-label";
+import { PhotoGallery } from "@/components/ui/photo-gallery";
 import {
   CaseInfoForm,
   AddServiceButton,
@@ -339,29 +338,14 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
             </CardHeader>
             <CardContent className="pt-0">
               {record.photos.length === 0 ? (
-                <EmptyState title="Chưa có ảnh" description="Tải ảnh trước/sau và các lần tái khám." />
+                <EmptyState title="Chưa có ảnh" description="Tải ảnh trước/sau, tái khám và ảnh cận lâm sàng (X-quang, CT, siêu âm)." />
               ) : (
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                  {record.photos.map((p) => (
-                    <figure key={p.id} className="group relative overflow-hidden rounded-xl border border-slate-200">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={photoSrc(p.url)} alt={p.caption ?? "Ảnh"} className="aspect-square w-full object-cover" />
-                      <figcaption className="flex items-center justify-between px-2 py-1.5">
-                        <PhotoTypeLabel type={p.type} index={p.followUpIndex} />
-                        <span className="text-[11px] text-slate-400">{fmtDate(p.takenAt)}</span>
-                      </figcaption>
-                      {canClinical && (
-                        <form action={deletePhoto} className="absolute right-1.5 top-1.5 opacity-0 transition group-hover:opacity-100">
-                          <input type="hidden" name="id" value={p.id} />
-                          <input type="hidden" name="caseId" value={record.id} />
-                          <button className="rounded-md bg-white/90 p-1.5 text-rose-500 shadow-sm hover:bg-white" aria-label="Xóa ảnh">
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        </form>
-                      )}
-                    </figure>
-                  ))}
-                </div>
+                <PhotoGallery
+                  photos={record.photos}
+                  cols={3}
+                  caseId={record.id}
+                  deleteAction={canClinical ? deletePhoto : undefined}
+                />
               )}
             </CardContent>
           </Card>

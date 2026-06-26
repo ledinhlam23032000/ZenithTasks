@@ -91,6 +91,5 @@ export async function upsertAttendance(_prev: AttState, formData: FormData): Pro
     update: { checkInAt, checkOutAt, note: d.note || null },
   });
   await audit(me.id, "EDIT_ATTENDANCE", { entity: "Attendance", meta: { userId: d.userId, date: d.date } });
-  revalidatePath("/cham-cong");
   return { ok: true };
 }

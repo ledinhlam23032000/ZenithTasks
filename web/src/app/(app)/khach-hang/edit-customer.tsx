@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useActionState, useEffect } from "react";
+import { useState } from "react";
 import { Pencil, LoaderCircle, ShieldCheck } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input, Label, Select, Textarea, FieldHint } from "@/components/ui/field";
 import { SOURCE_LABEL, GENDER_LABEL } from "@/lib/status";
-import { updateCustomer, type EditCustomerState } from "./actions";
+import { useFormAction } from "@/lib/use-form-action";
+import { updateCustomer } from "./actions";
 import type { Gender, CustomerSource } from "@/generated/prisma/client";
 
 export type EditableCustomer = {
@@ -36,10 +37,7 @@ export function EditCustomerButton({ customer }: { customer: EditableCustomer })
 }
 
 function EditForm({ customer, onDone }: { customer: EditableCustomer; onDone: () => void }) {
-  const [state, action, pending] = useActionState<EditCustomerState, FormData>(updateCustomer, {});
-  useEffect(() => {
-    if (state.ok) onDone();
-  }, [state.ok, onDone]);
+  const [state, action, pending] = useFormAction(updateCustomer, onDone);
 
   return (
     <form action={action} className="space-y-4">

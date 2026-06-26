@@ -1,11 +1,12 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { Send, LoaderCircle, Sparkles, X } from "lucide-react";
 import { Input, Select, Textarea } from "@/components/ui/field";
 import { buttonVariants } from "@/components/ui/button";
 import { CARE_CHANNEL } from "@/lib/status";
-import { addCareMessage, draftCareMessage, type CareFormState } from "./actions";
+import { useFormAction } from "@/lib/use-form-action";
+import { addCareMessage, draftCareMessage } from "./actions";
 
 const AI_PURPOSES: { key: string; label: string }[] = [
   { key: "hoi-tham", label: "Hỏi thăm sau làm" },
@@ -23,22 +24,18 @@ export function CareComposer({
   caseId?: string;
   aiEnabled?: boolean;
 }) {
-  const [state, action, pending] = useActionState<CareFormState, FormData>(addCareMessage, {});
   const formRef = useRef<HTMLFormElement>(null);
   const [content, setContent] = useState("");
+  const [state, action, pending] = useFormAction(addCareMessage, () => {
+    formRef.current?.reset();
+    setContent("");
+  });
 
   // Trạng thái cho AI soạn tin
   const [aiOpen, setAiOpen] = useState(false);
   const [aiNote, setAiNote] = useState("");
   const [aiErr, setAiErr] = useState<string | null>(null);
   const [aiPending, startAi] = useTransition();
-
-  useEffect(() => {
-    if (state.ok) {
-      formRef.current?.reset();
-      setContent("");
-    }
-  }, [state.ok, state.nonce]);
 
   function runAi(purpose: string) {
     setAiErr(null);

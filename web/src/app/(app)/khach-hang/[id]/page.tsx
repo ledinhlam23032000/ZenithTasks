@@ -23,7 +23,6 @@ import { userCan } from "@/lib/permissions";
 import { tierFor, pointsFor, nextTier } from "@/lib/loyalty";
 import { prisma } from "@/lib/db";
 import { maskPhone } from "@/lib/phone";
-import { photoSrc } from "@/lib/media";
 import { aiConfigured } from "@/lib/ai";
 import { toNum, formatVND } from "@/lib/money";
 import { fmtDate, fmtDateTime, fmtRelative } from "@/lib/format";
@@ -50,7 +49,7 @@ import { EditCustomerButton } from "../edit-customer";
 import { AdminPhone } from "./admin-phone";
 import { PortalLink } from "./portal-link";
 import { CareComposer } from "../../cham-soc/care-composer";
-import { PhotoTypeLabel } from "../../ho-so/[id]/photo-label";
+import { PhotoGallery } from "@/components/ui/photo-gallery";
 
 export const dynamic = "force-dynamic";
 
@@ -271,20 +270,9 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
             </CardHeader>
             <CardContent className="pt-0">
               {customer.photos.length === 0 ? (
-                <EmptyState title="Chưa có ảnh" description="Ảnh trước/sau được bác sĩ cập nhật trong hồ sơ điều trị." />
+                <EmptyState title="Chưa có ảnh" description="Ảnh trước/sau và cận lâm sàng được bác sĩ cập nhật trong hồ sơ điều trị." />
               ) : (
-                <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-4">
-                  {customer.photos.map((p) => (
-                    <figure key={p.id} className="overflow-hidden rounded-xl border border-slate-200">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={photoSrc(p.url)} alt={p.caption ?? "Ảnh"} className="aspect-square w-full object-cover" />
-                      <figcaption className="px-2 py-1.5">
-                        <PhotoTypeLabel type={p.type} index={p.followUpIndex} />
-                        <span className="ml-1 text-[11px] text-slate-400">{fmtDate(p.takenAt)}</span>
-                      </figcaption>
-                    </figure>
-                  ))}
-                </div>
+                <PhotoGallery photos={customer.photos} cols={4} />
               )}
             </CardContent>
           </Card>

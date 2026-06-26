@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useState } from "react";
 import { Plus, Pencil, LoaderCircle } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -9,7 +9,8 @@ import { Combobox } from "@/components/ui/combobox";
 import { MoneyInput } from "@/components/ui/money-input";
 import { PAYMENT_LABEL } from "@/lib/status";
 import { categoriesFor } from "@/lib/finance";
-import { createCashTransaction, updateCashTransaction, type CashState } from "./actions";
+import { useFormAction } from "@/lib/use-form-action";
+import { createCashTransaction, updateCashTransaction } from "./actions";
 
 export type CashTx = {
   id: string;
@@ -24,15 +25,12 @@ export type CashTx = {
 
 function CashForm({ tx, defaultDate, onDone }: { tx?: CashTx; defaultDate: string; onDone: () => void }) {
   const isEdit = !!tx;
-  const [state, action, pending] = useActionState<CashState, FormData>(
+  const [state, action, pending] = useFormAction(
     isEdit ? updateCashTransaction : createCashTransaction,
-    {},
+    onDone,
   );
   const [type, setType] = useState<"INCOME" | "EXPENSE">(tx?.type ?? "EXPENSE");
   const [category, setCategory] = useState(tx?.category ?? "");
-  useEffect(() => {
-    if (state.ok) onDone();
-  }, [state.ok, onDone]);
   const cats = categoriesFor(type);
 
   return (
