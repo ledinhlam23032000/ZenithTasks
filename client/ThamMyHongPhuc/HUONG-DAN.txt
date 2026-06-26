@@ -1,0 +1,20 @@
+======================================================
+ THẨM MỸ HỒNG PHÚC — Ứng dụng cho MÁY NHÂN VIÊN
+======================================================
+
+Dùng trên BẤT KỲ máy tính Windows nào của nhân viên:
+
+1) Giải nén thư mục này ra (ví dụ: Desktop).
+2) Bấm đúp "Mo-UngDung.bat".
+3) LẦN ĐẦU: dán ĐỊA CHỈ MÁY CHỦ rồi nhấn Enter:
+     • Cùng mạng nội bộ phòng khám:  http://<IP-máy-chủ>:3000
+       (Hỏi quản trị IP máy chủ — trên máy chủ mở CMD gõ: ipconfig)
+     • Ở xa / qua Internet: dán địa chỉ https://... do quản trị cung cấp.
+4) Ứng dụng mở ra cửa sổ riêng → đăng nhập bằng tài khoản được cấp.
+
+• Toàn bộ dữ liệu lưu TẬP TRUNG tại MÁY CHỦ của trung tâm.
+• Đổi địa chỉ máy chủ: xóa file "diachi.txt" rồi mở lại "Mo-UngDung.bat".
+• Mẹo: mở xong, bấm biểu tượng Cài đặt trên trình duyệt để ghim như app.
+
+Hỗ trợ sự cố: GĐĐH — BS. Lê Đình Lam · 0941 567 496
+======================================================

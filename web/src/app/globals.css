@@ -1,0 +1,125 @@
+@import "tailwindcss";
+
+/* ===== Bảng màu thương hiệu & token giao diện ===== */
+@theme {
+  /* Thương hiệu: ĐỎ HOA PHƯỢNG — Trung tâm Thẩm mỹ Hồng Phúc */
+  --color-brand-50: #fef2f2;
+  --color-brand-100: #fee2e2;
+  --color-brand-200: #fecaca;
+  --color-brand-300: #fca5a5;
+  --color-brand-400: #f87171;
+  --color-brand-500: #ef4444;
+  --color-brand-600: #dc2626;
+  --color-brand-700: #b91c1c;
+  --color-brand-800: #991b1b;
+  --color-brand-900: #7f1d1d;
+  --color-brand-950: #450a0a;
+
+  /* Nhấn: vàng gold — sang trọng, hài hoà tông đỏ */
+  --color-accent-50: #fffbeb;
+  --color-accent-100: #fef3c7;
+  --color-accent-200: #fde68a;
+  --color-accent-400: #fbbf24;
+  --color-accent-500: #f59e0b;
+  --color-accent-600: #d97706;
+  --color-accent-700: #b45309;
+
+  /* Nền & bề mặt */
+  --color-background: #f5f7fa;
+  --color-surface: #ffffff;
+  --color-surface-2: #f8fafc;
+  --color-border: #e7ebf0;
+  --color-muted: #f1f5f9;
+  --color-muted-foreground: #64748b;
+  --color-foreground: #0f172a;
+
+  --radius-xl: 1rem;
+}
+
+/* Font chữ (Be Vietnam Pro) gắn từ next/font qua biến --font-app-sans */
+@theme inline {
+  --font-sans: var(--font-app-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  ::selection {
+    background-color: var(--color-brand-200);
+    color: var(--color-brand-900);
+  }
+  /* Thanh cuộn mảnh, hiện đại */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 9px;
+    height: 9px;
+  }
+  *::-webkit-scrollbar-thumb {
+    background-color: #cbd5e1;
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: #94a3b8;
+  }
+}
+
+@layer utilities {
+  .bg-brand-gradient {
+    background-image: linear-gradient(135deg, var(--color-brand-600), var(--color-brand-800) 60%, #5a0f0f);
+  }
+  .text-balance {
+    text-wrap: balance;
+  }
+  .shimmer {
+    background: linear-gradient(100deg, #eef2f7 30%, #f8fafc 50%, #eef2f7 70%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s infinite;
+  }
+  @keyframes shimmer {
+    to {
+      background-position: -200% 0;
+    }
+  }
+}
+
+@media print {
+  aside,
+  header,
+  .print-hide {
+    display: none !important;
+  }
+  main {
+    max-width: none !important;
+    padding: 0 !important;
+  }
+  body {
+    background: #fff;
+  }
+  /* Hóa đơn in: bỏ viền/bóng thẻ, đặt lề trang gọn gàng */
+  @page {
+    margin: 12mm;
+  }
+  .invoice-sheet,
+  .invoice-sheet * {
+    box-shadow: none !important;
+  }
+  .invoice-sheet .rounded-2xl {
+    border: none !important;
+  }
+}

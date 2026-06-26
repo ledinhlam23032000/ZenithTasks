@@ -1,0 +1,8 @@
+# Caddy — reverse proxy + HTTPS tự động (Let's Encrypt) cho app phòng khám.
+# Caddy tự xin chứng chỉ HTTPS cho tên miền bên dưới (cần: bản ghi A của tên miền
+# đã trỏ về IP VPS này, và mở cổng 80 + 443).
+
+trungtamphauthuattaohinhvathammybenhviendakhoahongphuc.xyz, www.trungtamphauthuattaohinhvathammybenhviendakhoahongphuc.xyz {
+	encode gzip
+	reverse_proxy app:3000
+}

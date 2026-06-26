@@ -1,0 +1,56 @@
+# Trung tâm Phẫu thuật Tạo hình Thẩm mỹ — BVĐK Hồng Phúc
+# Chạy toàn bộ hệ thống (web + PostgreSQL) bằng 1 lệnh:
+#   docker compose up --build
+# Sau đó mở http://localhost:3000  (đăng nhập lần đầu: admin / 123456 — ĐỔI NGAY)
+#
+# 🔐 BẢO MẬT: AUTH_SECRET được tạo NGẪU NHIÊN tự động và lưu trong volume an toàn
+#    (không nằm trong mã nguồn). Muốn tự đặt khoá riêng, tạo file .env cạnh file này
+#    (xem .env.example). Đổi PHONE_ENC_KEY cần mã hoá lại dữ liệu SĐT — xem web/DEPLOY.md.
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: "${POSTGRES_USER:-zenith}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-zenith_dev_pw}"
+      POSTGRES_DB: "${POSTGRES_DB:-zenith_clinic}"
+    volumes:
+      - zenith_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-zenith} -d ${POSTGRES_DB:-zenith_clinic}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  app:
+    build: ./web
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: "${DATABASE_URL:-postgresql://zenith:zenith_dev_pw@db:5432/zenith_clinic?schema=public}"
+      # Để trống = container tự sinh/đọc khoá trong volume (an toàn, không lộ trong Git).
+      # Muốn tự đặt: khai báo trong file .env cạnh docker-compose.yml.
+      AUTH_SECRET: "${AUTH_SECRET:-}"
+      PHONE_ENC_KEY: "${PHONE_ENC_KEY:-}"
+      APP_NAME: "${APP_NAME:-Trung tâm Phẫu thuật Tạo hình Thẩm mỹ — BVĐK Hồng Phúc}"
+      TZ: "Asia/Ho_Chi_Minh"
+      # Khi chạy qua tên miền/Cloudflare Tunnel, điền tên miền vào đây (ngăn cách bằng dấu phẩy)
+      # để đảm bảo các thao tác lưu/xóa hoạt động sau proxy.
+      APP_ORIGINS: "${APP_ORIGINS:-trungtamphauthuattaohinhvathammybenhviendakhoahongphuc.xyz,www.trungtamphauthuattaohinhvathammybenhviendakhoahongphuc.xyz}"
+      # AI soạn/nhắn tin (Claude). Tạo key ở console.anthropic.com rồi điền vào .env.
+      # Để trống = tính năng AI tự ẩn.
+      ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:-}"
+      ANTHROPIC_MODEL: "${ANTHROPIC_MODEL:-}"
+    ports:
+      - "3000:3000"
+    volumes:
+      - zenith_uploads:/app/public/uploads
+      - zenith_secrets:/app/.runtime
+
+volumes:
+  zenith_db:
+  zenith_uploads:
+  zenith_secrets:
