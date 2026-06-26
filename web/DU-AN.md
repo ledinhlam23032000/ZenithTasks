@@ -19,6 +19,13 @@
 - **A5 — Sao lưu tự động**: `scripts/backup.mjs` (`pg_dump -Fc` + ảnh `tar.gz` + giữ 14 bản + ghi `backup-status.json`); `npm run backup`; `docker-entrypoint.sh` chạy nền 1 lần lúc khởi động rồi mỗi 24h. Sao lưu OFFSITE vẫn là `windows/Sao-Luu.ps1`.
 - Lưu ý kỹ thuật: trong sandbox Postgres có thể tự dừng (stale pid) → `pg_ctlcluster 16 main start`. DB sandbox cần `npm run db:seed` để có dữ liệu thử (admin/123456).
 
+## Đợt trải nghiệm & sáng tạo — "Đợt 3"
+> Mục tiêu: 3 tính năng "wow factor" trong `ROADMAP.md` nhóm D, tái dùng tối đa hạ tầng sẵn có (không đổi schema trừ 1 dòng quyền). TSC pass, 40/40 test, smoke test dev server thật (forge JWT `zsession` ký bằng `AUTH_SECRET` tự sinh trong `.env` sandbox — xem `web/BAN-GIAO.md` mục 10 — rồi `curl` các trang có quyền: `/dau-ca`, `/khach-hang`, `/khach-hang/[id]` đều 200, đúng nội dung tiếng Việt).
+- **D2 — So sánh ảnh trước/sau**: `lib/components/ui/photo-compare.tsx` — nút "So sánh trước/sau" (ẩn nếu hồ sơ có <2 ảnh) mở modal kéo-so-sánh (con trỏ chuột/chạm, `clip-path`, không thư viện ngoài). Gắn ở trang hồ sơ điều trị (`ho-so/[id]`) và hồ sơ khách hàng (`khach-hang/[id]`).
+- **D4 — Tìm kiếm toàn cục (Ctrl/Cmd+K)**: `lib/search-actions.ts` (`globalSearch`, server action) tìm khách hàng/hồ sơ/vật tư, lọc theo quyền hiện có (`moduleCan`). `components/layout/command-palette.tsx` (component có điều khiển `open`/`onOpenChange`) + nút "Tìm kiếm…" trên header `app-shell.tsx` + phím tắt toàn trang.
+- **D5 — Màn "đầu ca lễ tân"** (`/dau-ca`, module mới ADMIN/MANAGER/RECEPTION/TELESALE): gộp "khách chưa đến hôm nay" + "khách đang chờ" (tính phút chờ từ `Appointment.arrivedAt` đã có sẵn, tô đỏ nếu ≥20 phút) + rút gọn `getWorkqueue()` (B1) cho các việc tồn đọng khác. Nút 1-bấm tái dùng nguyên `updateAppointmentStatus` đã có ở `lich-hen/actions.ts` (chỉ thêm `revalidatePath("/dau-ca")`).
+- Lưu ý sandbox: không có `.env` sẵn trong checkout (chỉ `.env.example`) → phải tự tạo `.env` (DATABASE_URL trỏ DB sandbox đã seed, `AUTH_SECRET` + `PHONE_ENC_KEY` sinh mới bằng `openssl rand`) thì `next dev` mới đọc được biến môi trường để test luồng đăng nhập/JWT.
+
 ## Tổng quan
 - Web app Next.js 16 (App Router, Turbopack) + React 19 + TypeScript + Tailwind v4, PostgreSQL + Prisma 7 (driver adapter `@prisma/adapter-pg`), JWT (jose) + bcryptjs. Toàn bộ trong thư mục `web/`.
 - Mô hình vận hành: 1 **máy chủ** (máy của trung tâm, chạy Docker, giữ dữ liệu) + nhiều **máy con** kết nối qua trình duyệt/PWA. Triển khai bằng các file trong `windows/` (`Chay-Zenith.bat` = cài/cập nhật; `Mo-App.bat` = mở; `Phat-Hanh-Mang.bat`/`Dia-Chi-Co-Dinh.bat` = ra Internet). Ứng dụng máy con: `client/`.

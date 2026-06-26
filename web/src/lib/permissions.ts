@@ -22,6 +22,7 @@ export type ModuleDef = { key: string; href: string; label: string; icon: string
 export const MODULES: ModuleDef[] = [
   { key: "dashboard", href: "/dashboard", label: "Tổng quan", icon: "LayoutDashboard", roles: [...ALL, "SHAREHOLDER"] },
   { key: "viec-hom-nay", href: "/viec-hom-nay", label: "Việc cần làm", icon: "ListTodo", roles: ["ADMIN", "MANAGER", "TELESALE", "RECEPTION", "CONSULTANT", "DOCTOR", "CARE"] },
+  { key: "dau-ca", href: "/dau-ca", label: "Đầu ca lễ tân", icon: "Sunrise", roles: ["ADMIN", "MANAGER", "RECEPTION", "TELESALE"] },
   { key: "cham-cong", href: "/cham-cong", label: "Chấm công", icon: "CalendarCheck", roles: ALL },
   { key: "lich-hen", href: "/lich-hen", label: "Lịch hẹn", icon: "CalendarClock", roles: ["ADMIN", "MANAGER", "TELESALE", "RECEPTION", "CONSULTANT", "SHAREHOLDER"] },
   { key: "tiep-nhan", href: "/tiep-nhan", label: "Tiếp nhận khách", icon: "UserPlus", roles: ["ADMIN", "RECEPTION", "TELESALE"] },

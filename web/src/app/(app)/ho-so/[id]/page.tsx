@@ -32,6 +32,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { ConfirmButton } from "@/components/ui/confirm-button";
 import { buttonVariants } from "@/components/ui/button";
 import { PhotoGallery } from "@/components/ui/photo-gallery";
+import { PhotoCompareButton } from "@/components/ui/photo-compare";
 import {
   CaseInfoForm,
   AddServiceButton,
@@ -334,7 +335,10 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
               <CardTitle className="flex items-center gap-2">
                 <Images className="h-4 w-4 text-brand-500" /> Ảnh trước - sau - tái khám
               </CardTitle>
-              {canClinical && <UploadPhotoButton caseId={record.id} customerId={record.customer.id} />}
+              <div className="flex items-center gap-2">
+                <PhotoCompareButton photos={record.photos} />
+                {canClinical && <UploadPhotoButton caseId={record.id} customerId={record.customer.id} />}
+              </div>
             </CardHeader>
             <CardContent className="pt-0">
               {record.photos.length === 0 ? (

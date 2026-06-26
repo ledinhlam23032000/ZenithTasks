@@ -164,6 +164,7 @@ export async function updateAppointmentStatus(formData: FormData): Promise<void>
   });
   revalidatePath("/lich-hen");
   revalidatePath("/dashboard");
+  revalidatePath("/dau-ca");
 }
 
 /** Xóa lịch hẹn (quản trị / quản lý). Lịch thường thì nên đổi trạng thái "Hủy". */

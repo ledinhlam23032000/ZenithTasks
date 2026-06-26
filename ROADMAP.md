@@ -52,10 +52,10 @@ phần "Đánh giá" trong lịch sử hội thoại + `web/DU-AN.md`.
 | Mã | Hạng mục | Trạng thái | Ghi chú |
 |----|----------|-----------|---------|
 | D1 | **AI trợ lý vận hành** | ⏳ Chưa làm | 🔑 Cần `ANTHROPIC_API_KEY`. Hỏi đáp số liệu, tóm tắt hồ sơ, gợi ý upsell (có người duyệt). |
-| D2 | **So sánh ảnh trước/sau (slider)** | ⏳ Chưa làm | Kéo so sánh, đóng dấu ngày/logo, xuất ảnh ghép. "Wow factor" đúng ngành. |
+| D2 | **So sánh ảnh trước/sau (slider)** | ✅ Xong | Kéo so sánh (clip-path), chọn ảnh trái/phải bất kỳ. Chưa làm: đóng dấu ngày/logo, xuất ảnh ghép. |
 | D3 | **Cổng khách hàng nâng cao** | ⏳ Chưa làm | Khách tự đặt lại lịch, xác nhận hẹn, đánh giá (NPS). Token có hạn dùng. |
-| D4 | **Tìm kiếm toàn cục (Ctrl/Cmd+K)** | ⏳ Chưa làm | Command palette tìm khách/hồ sơ/dịch vụ/menu. |
-| D5 | **Màn "đầu ca lễ tân"** | ⏳ Chưa làm | Gộp hẹn hôm nay + khách chờ + việc cần làm + cảnh báo kho. |
+| D4 | **Tìm kiếm toàn cục (Ctrl/Cmd+K)** | ✅ Xong | Command palette tìm khách/hồ sơ/vật tư + điều hướng menu. |
+| D5 | **Màn "đầu ca lễ tân"** | ✅ Xong | Gộp khách chưa đến + đang chờ + việc tồn đọng (link `/viec-hom-nay`). |
 
 ## NHÓM E — CHẤT LƯỢNG MÃ NGUỒN
 
@@ -139,12 +139,51 @@ phần "Đánh giá" trong lịch sử hội thoại + `web/DU-AN.md`.
 
 ---
 
+## CHI TIẾT ĐỢT 3 — Đã làm (trải nghiệm & sáng tạo)
+
+> Tự kiểm thử: TSC pass, 40/40 test; smoke test dev server thật (forge JWT `zsession` bằng
+> `AUTH_SECRET` trong `.env` mới tạo cho sandbox — xem `web/BAN-GIAO.md` mục 10). `/dau-ca`,
+> `/khach-hang/[id]` (nút so sánh ảnh), `/khach-hang` (nút Tìm kiếm + `Ctrl+K`) đều trả 200 và
+> hiện đúng nội dung (kiểm bằng `grep` chuỗi tiếng Việt trong HTML trả về).
+
+### D2 — So sánh ảnh trước/sau (slider)
+- `web/src/components/ui/photo-compare.tsx` (mới): `PhotoCompareButton({photos})` — ẩn nếu
+  < 2 ảnh; mở modal `PhotoCompareModal` cho chọn ảnh trái/phải (mặc định: trái = ảnh BEFORE đầu
+  tiên, phải = ảnh không-BEFORE gần nhất), kéo `CompareSlider` bằng con trỏ
+  (`onPointerDown/Move/Up/Leave`, không cần thư viện ngoài) — dùng `clip-path: inset(...)` để
+  lộ dần ảnh trái theo vị trí kéo.
+- Gắn nút vào `web/src/app/(app)/ho-so/[id]/page.tsx` (cạnh nút tải ảnh) và
+  `web/src/app/(app)/khach-hang/[id]/page.tsx` (trong `CardHeader` ảnh).
+- ⏳ Chưa làm: đóng dấu ngày/logo lên ảnh, xuất ảnh ghép (cần canvas render phía client).
+
+### D4 — Tìm kiếm toàn cục (Ctrl/Cmd+K)
+- `web/src/lib/search-actions.ts` (mới): `globalSearch(query)` — tìm Khách hàng (tên/mã/5 số
+  cuối SĐT), Hồ sơ điều trị (mã/tên khách), Vật tư (tên); mỗi loại giới hạn 6 kết quả, lọc theo
+  quyền hiện có (`moduleCan`) — người không có quyền vào mục đó sẽ không thấy kết quả mục đó.
+- `web/src/components/layout/command-palette.tsx` (mới): `CommandPalette({nav, open,
+  onOpenChange})` — input debounce 200ms gọi `globalSearch`, gộp thêm kết quả khớp tên trong
+  menu điều hướng; điều khiển bằng bàn phím (↑↓ Enter Esc).
+- `web/src/components/layout/app-shell.tsx`: thêm nút "Tìm kiếm…" trên header (hiện phím tắt
+  `⌘K`/`Ctrl+K` tuỳ hệ điều hành) + `useEffect` lắng nghe phím tắt toàn trang, mount
+  `<CommandPalette>` (state `searchOpen` quản lý ở `AppShell`, palette là component có điều khiển).
+
+### D5 — Màn "đầu ca lễ tân" (`/dau-ca`)
+- Module mới trong `permissions.ts`: `dau-ca` (ADMIN/MANAGER/RECEPTION/TELESALE), icon `Sunrise`.
+- `web/src/app/(app)/dau-ca/page.tsx` (mới): 3 thẻ số liệu (chưa đến / đang chờ / việc tồn đọng
+  khác) + 2 danh sách "Khách chưa đến" (nút 1-bấm "Đã đến") và "Khách đang chờ" (tính phút chờ từ
+  `arrivedAt`, tô đỏ nếu ≥ 20 phút, nút 1-bấm "Bắt đầu tư vấn") + phần rút gọn các việc tồn đọng
+  khác từ `getWorkqueue()` (B1), link sang `/viec-hom-nay` xem đầy đủ.
+- `web/src/app/(app)/dau-ca/quick-status-button.tsx` (mới): nút 1-bấm gọi lại
+  `updateAppointmentStatus` đã có sẵn ở `lich-hen/actions.ts` (KHÔNG tạo action mới — tái dùng
+  100%, chỉ thêm `revalidatePath("/dau-ca")` vào action đó).
+- KHÔNG đổi schema: dùng nguyên `Appointment.arrivedAt` đã có sẵn từ trước.
+
 ## QUY TRÌNH LÀM VIỆC (cho phiên sau)
 1. Chạy `web/BAN-GIAO.md` mục 10 để dựng sandbox. **Lưu ý proxy:** trong môi trường này, tải
    Prisma engine cần đi qua proxy — đặt `HTTPS_PROXY` + `NODE_EXTRA_CA_CERTS=/root/.ccr/ca-bundle.crt`
    và `CHECKPOINT_DISABLE=1`; nếu `npm install` lỗi ECONNRESET ở `@prisma/engines`, tải engine bằng
    `curl --proxy` rồi `gunzip` vào `node_modules/@prisma/engines/schema-engine-debian-openssl-3.0.x`.
-2. Làm theo thứ tự ưu tiên: hết Nhóm A (A5, A7) → B1 (giá trị cao nhất) → D2/D4/D5 → C → còn lại.
+2. Làm theo thứ tự ưu tiên: hết Nhóm A (A5, A7) → B1 (giá trị cao nhất) → D2/D4/D5 (✅ xong, Đợt 3) → B2 → C → còn lại.
 3. Mỗi mục: viết code + test → `npx tsc --noEmit` + `npx vitest run` → commit (tiếng Việt) →
    cập nhật trạng thái ở bảng trên + ghi changelog vào `web/DU-AN.md`.
 

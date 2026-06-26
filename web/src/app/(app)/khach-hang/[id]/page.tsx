@@ -50,6 +50,7 @@ import { AdminPhone } from "./admin-phone";
 import { PortalLink } from "./portal-link";
 import { CareComposer } from "../../cham-soc/care-composer";
 import { PhotoGallery } from "@/components/ui/photo-gallery";
+import { PhotoCompareButton } from "@/components/ui/photo-compare";
 
 export const dynamic = "force-dynamic";
 
@@ -267,6 +268,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
               <CardTitle className="flex items-center gap-2">
                 <Images className="h-4 w-4 text-brand-500" /> Ảnh trước - sau
               </CardTitle>
+              <PhotoCompareButton photos={customer.photos} />
             </CardHeader>
             <CardContent className="pt-0">
               {customer.photos.length === 0 ? (

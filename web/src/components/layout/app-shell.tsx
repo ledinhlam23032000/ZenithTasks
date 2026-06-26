@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -29,12 +29,15 @@ import {
   Handshake,
   ListTodo,
   ServerCog,
+  Search,
+  Sunrise,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { Avatar } from "@/components/ui/avatar";
 import { logoutAction } from "@/lib/auth-actions";
 import { ChangePasswordModal } from "./change-password";
+import { CommandPalette } from "./command-palette";
 
 const ICONS: Record<string, LucideIcon> = {
   LayoutDashboard,
@@ -56,6 +59,7 @@ const ICONS: Record<string, LucideIcon> = {
   Handshake,
   ListTodo,
   ServerCog,
+  Sunrise,
 };
 
 export type NavItemData = { href: string; label: string; icon: string };
@@ -74,6 +78,20 @@ export function AppShell({
   const [mobileOpen, setMobileOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [pwOpen, setPwOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [isMac, setIsMac] = useState(false);
+
+  useEffect(() => {
+    setIsMac(/Mac/.test(navigator.platform));
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setSearchOpen((o) => !o);
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
 
@@ -149,6 +167,18 @@ export function AppShell({
             <Menu className="h-5 w-5" />
           </button>
 
+          <button
+            onClick={() => setSearchOpen(true)}
+            className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-1.5 text-sm text-slate-400 hover:border-slate-300 hover:text-slate-600 sm:ml-2"
+            title="Tìm kiếm toàn cục"
+          >
+            <Search className="h-4 w-4" />
+            <span className="hidden sm:inline">Tìm kiếm…</span>
+            <kbd className="hidden rounded-md border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] font-medium sm:inline">
+              {isMac ? "⌘K" : "Ctrl+K"}
+            </kbd>
+          </button>
+
           <div className="ml-auto flex items-center gap-2">
             <div className="relative">
               <button
@@ -207,6 +237,7 @@ export function AppShell({
       </div>
 
       <ChangePasswordModal open={pwOpen} onClose={() => setPwOpen(false)} />
+      <CommandPalette nav={nav} open={searchOpen} onOpenChange={setSearchOpen} />
     </div>
   );
 }
