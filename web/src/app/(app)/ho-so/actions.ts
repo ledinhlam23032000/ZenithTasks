@@ -498,7 +498,7 @@ export async function uploadPhoto(_prev: CaseActionState, formData: FormData): P
       customerId,
       caseId,
       type: type as "BEFORE" | "AFTER" | "FOLLOW_UP",
-      url: `/uploads/${fname}`,
+      url: `/media/${fname}`,
       caption: caption || null,
       followUpIndex,
       uploadedById: user.id,

@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Pencil, LoaderCircle, UserPlus } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -53,10 +54,14 @@ function Fields({ ctv, lockName }: { ctv?: Partial<CtvProfile>; lockName?: boole
 
 export function NewCollaboratorButton({ defaultName }: { defaultName?: string }) {
   const [open, setOpen] = useState(false);
+  const router = useRouter();
   const [state, action, pending] = useActionState<CtvState, FormData>(createCollaborator, {});
   useEffect(() => {
-    if (state.ok) setOpen(false);
-  }, [state.ok]);
+    if (state.ok) {
+      setOpen(false);
+      router.refresh();
+    }
+  }, [state.ok, router]);
   return (
     <>
       <Button onClick={() => setOpen(true)}>
@@ -64,7 +69,7 @@ export function NewCollaboratorButton({ defaultName }: { defaultName?: string })
       </Button>
       <Modal open={open} onClose={() => setOpen(false)} title="Thêm cộng tác viên" size="lg">
         <form action={action} className="space-y-4">
-          <Fields ctv={defaultName ? { name: defaultName } : undefined} />
+          <Fields ctv={defaultName ? { name: defaultName } : undefined} lockName={!!defaultName} />
           {state.error && <p className="text-sm text-rose-600">{state.error}</p>}
           <div className="flex justify-end gap-2">
             <Button type="button" variant="secondary" onClick={() => setOpen(false)}>Hủy</Button>
@@ -80,10 +85,14 @@ export function NewCollaboratorButton({ defaultName }: { defaultName?: string })
 
 export function EditCollaboratorButton({ ctv, small }: { ctv: CtvProfile; small?: boolean }) {
   const [open, setOpen] = useState(false);
+  const router = useRouter();
   const [state, action, pending] = useActionState<CtvState, FormData>(updateCollaborator, {});
   useEffect(() => {
-    if (state.ok) setOpen(false);
-  }, [state.ok]);
+    if (state.ok) {
+      setOpen(false);
+      router.refresh();
+    }
+  }, [state.ok, router]);
   return (
     <>
       {small ? (
@@ -98,7 +107,7 @@ export function EditCollaboratorButton({ ctv, small }: { ctv: CtvProfile; small?
       <Modal open={open} onClose={() => setOpen(false)} title={`Sửa hồ sơ — ${ctv.name}`} size="lg">
         <form action={action} className="space-y-4">
           <input type="hidden" name="id" value={ctv.id} />
-          <Fields ctv={ctv} />
+          <Fields ctv={ctv} lockName />
           {state.error && <p className="text-sm text-rose-600">{state.error}</p>}
           <div className="flex justify-end gap-2">
             <Button type="button" variant="secondary" onClick={() => setOpen(false)}>Hủy</Button>

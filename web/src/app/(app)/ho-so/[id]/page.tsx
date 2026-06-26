@@ -18,6 +18,7 @@ import { requireCap } from "@/lib/auth";
 import { userCan } from "@/lib/permissions";
 import { prisma } from "@/lib/db";
 import { maskPhone } from "@/lib/phone";
+import { photoSrc } from "@/lib/media";
 import { toNum, formatVND } from "@/lib/money";
 import { fmtDate, fmtDateTime, toDatetimeLocal } from "@/lib/format";
 import { addDays } from "date-fns";
@@ -344,7 +345,7 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
                   {record.photos.map((p) => (
                     <figure key={p.id} className="group relative overflow-hidden rounded-xl border border-slate-200">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={p.url} alt={p.caption ?? "Ảnh"} className="aspect-square w-full object-cover" />
+                      <img src={photoSrc(p.url)} alt={p.caption ?? "Ảnh"} className="aspect-square w-full object-cover" />
                       <figcaption className="flex items-center justify-between px-2 py-1.5">
                         <PhotoTypeLabel type={p.type} index={p.followUpIndex} />
                         <span className="text-[11px] text-slate-400">{fmtDate(p.takenAt)}</span>

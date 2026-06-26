@@ -2,8 +2,8 @@ import Link from "next/link";
 import { ArrowLeft, Handshake, Users, Wallet, Coins, Receipt, Phone, Landmark, StickyNote } from "lucide-react";
 import { requireCap } from "@/lib/auth";
 import { isShareholder } from "@/lib/rbac";
-import { getCollaboratorDetail, getCollaboratorTrend, rangeBounds } from "@/lib/performance";
-import { MultiChart } from "@/components/ui/multi-chart";
+import { getCollaboratorDetail, getCollaboratorSeries, rangeBounds } from "@/lib/performance";
+import { RangeChart } from "@/components/ui/range-chart";
 import { NewCollaboratorButton, EditCollaboratorButton } from "../ctv-forms";
 import { formatVND, toNum } from "@/lib/money";
 import { fmtDate } from "@/lib/format";
@@ -37,7 +37,7 @@ export default async function CollaboratorDetail({
   const name = decodeURIComponent((await params).name);
   const range = (await searchParams).range ?? "month";
   const { gte, lte, label } = rangeBounds(range);
-  const [d, trend] = await Promise.all([getCollaboratorDetail(name, gte, lte), getCollaboratorTrend(name)]);
+  const [d, growth] = await Promise.all([getCollaboratorDetail(name, gte, lte), getCollaboratorSeries(name)]);
   const p = d.profile;
 
   return (
@@ -117,11 +117,11 @@ export default async function CollaboratorDetail({
 
       <Card>
         <CardHeader>
-          <CardTitle>Xu hướng doanh số 12 tháng</CardTitle>
-          <span className="text-sm text-slate-400">Tăng / giảm theo từng tháng</span>
+          <CardTitle>Tăng trưởng doanh số</CardTitle>
+          <span className="text-sm text-slate-400">Theo tuần / tháng / năm</span>
         </CardHeader>
         <CardContent>
-          <MultiChart data={trend} valueLabel="Doanh số" defaultType="line" trend />
+          <RangeChart series={growth} valueLabel="Doanh số" />
         </CardContent>
       </Card>
 

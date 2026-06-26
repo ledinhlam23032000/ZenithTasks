@@ -39,7 +39,7 @@ export async function createCollaborator(_prev: CtvState, formData: FormData): P
   await prisma.collaborator.create({
     data: { name: d.name, phone: d.phone || null, bankAccount: d.bankAccount || null, bankName: d.bankName || null, bankHolder: d.bankHolder || null, note: d.note || null },
   });
-  revalidatePath("/cong-tac-vien");
+  revalidatePath("/cong-tac-vien", "layout");
   return { ok: true };
 }
 
@@ -55,7 +55,7 @@ export async function updateCollaborator(_prev: CtvState, formData: FormData): P
   await prisma.collaborator
     .update({ where: { id }, data: { name: d.name, phone: d.phone || null, bankAccount: d.bankAccount || null, bankName: d.bankName || null, bankHolder: d.bankHolder || null, note: d.note || null } })
     .catch(() => {});
-  revalidatePath("/cong-tac-vien");
+  revalidatePath("/cong-tac-vien", "layout");
   return { ok: true };
 }
 
@@ -63,5 +63,5 @@ export async function deleteCollaborator(formData: FormData): Promise<void> {
   await requireUser([...ROLES]);
   const id = String(formData.get("id") ?? "");
   if (id) await prisma.collaborator.delete({ where: { id } }).catch(() => {});
-  revalidatePath("/cong-tac-vien");
+  revalidatePath("/cong-tac-vien", "layout");
 }

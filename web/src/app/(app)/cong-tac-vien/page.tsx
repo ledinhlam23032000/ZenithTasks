@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { Handshake, ChevronRight, Users, Wallet, Coins } from "lucide-react";
 import { requireCap } from "@/lib/auth";
-import { getCollaborators, rangeBounds } from "@/lib/performance";
+import { getCollaborators, getCollaboratorSeries, rangeBounds } from "@/lib/performance";
 import { formatVND } from "@/lib/money";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatCard } from "@/components/ui/stat-card";
 import { MultiChart } from "@/components/ui/multi-chart";
+import { RangeChart } from "@/components/ui/range-chart";
 import { Avatar } from "@/components/ui/avatar";
 import { Table, THead, TH, TR, TD } from "@/components/ui/table";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -30,7 +31,7 @@ export default async function CollaboratorsPage({ searchParams }: { searchParams
   const canManage = !isShareholder(user.role);
   const range = (await searchParams).range ?? "month";
   const { gte, lte, label } = rangeBounds(range);
-  const rows = await getCollaborators(gte, lte);
+  const [rows, growth] = await Promise.all([getCollaborators(gte, lte), getCollaboratorSeries()]);
 
   const totalRevenue = rows.reduce((s, r) => s + r.revenue, 0);
   const totalCommission = rows.reduce((s, r) => s + r.commission, 0);
@@ -66,6 +67,17 @@ export default async function CollaboratorsPage({ searchParams }: { searchParams
         <StatCard label="Tổng hoa hồng" value={formatVND(totalCommission)} icon={<Coins className="h-5 w-5" />} tone="amber" />
         <StatCard label="Tổng khách giới thiệu" value={totalCustomers} icon={<Users className="h-5 w-5" />} tone="brand" />
       </div>
+
+      {/* Tăng trưởng doanh số CTV theo thời gian (tất cả CTV) */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Tăng trưởng doanh số cộng tác viên</CardTitle>
+          <span className="text-sm text-slate-400">Tổng tất cả CTV · theo tuần / tháng / năm</span>
+        </CardHeader>
+        <CardContent>
+          <RangeChart series={growth} valueLabel="Doanh số CTV" />
+        </CardContent>
+      </Card>
 
       {rows.some((r) => r.revenue > 0) && (
         <Card>

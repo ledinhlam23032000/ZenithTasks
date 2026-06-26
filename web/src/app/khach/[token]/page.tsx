@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { Crown, FolderHeart, Images, CalendarClock, Receipt } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { toNum, formatVND } from "@/lib/money";
+import { photoSrc } from "@/lib/media";
 import { fmtDate, fmtDateTime } from "@/lib/format";
 import { CASE_STATUS } from "@/lib/status";
 import { tierFor, pointsFor } from "@/lib/loyalty";
@@ -101,7 +102,7 @@ export default async function CustomerPortalPage({ params }: { params: Promise<{
               {customer.photos.map((p) => (
                 <figure key={p.id} className="overflow-hidden rounded-xl border border-slate-200">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={p.url} alt={p.caption ?? "Ảnh"} className="aspect-square w-full object-cover" />
+                  <img src={photoSrc(p.url)} alt={p.caption ?? "Ảnh"} className="aspect-square w-full object-cover" />
                   <figcaption className="px-1.5 py-1 text-center text-[11px] text-slate-500">{PHOTO_LABEL[p.type] ?? ""}</figcaption>
                 </figure>
               ))}

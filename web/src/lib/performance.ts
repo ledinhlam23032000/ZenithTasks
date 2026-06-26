@@ -1,9 +1,11 @@
-import { startOfMonth, endOfMonth, subMonths, format } from "date-fns";
+import { startOfMonth, endOfMonth, subMonths, subYears, startOfYear, startOfWeek, addDays, getDate, format } from "date-fns";
+import { vi } from "date-fns/locale";
 import { prisma } from "@/lib/db";
 import { toNum } from "@/lib/money";
 import type { Role } from "@/generated/prisma/client";
 
 export type TrendPoint = { label: string; value: number };
+export type RangeSeries = { thisWeek: TrendPoint[]; weeksOfMonth: TrendPoint[]; m12: TrendPoint[]; y5: TrendPoint[] };
 
 // ============================================================================
 // HIỆU SUẤT NHÂN SỰ — gộp số liệu tư vấn, mổ (bác sĩ), ngày công, chăm sóc.
@@ -151,24 +153,61 @@ export async function getCollaboratorDetail(name: string, gte: Date, lte: Date) 
   return { name, profile, cases, customers: customers.size, revenue, commission };
 }
 
-/** Doanh số CTV 12 tháng gần nhất (để xem xu hướng tăng/giảm). */
-export async function getCollaboratorTrend(name: string): Promise<TrendPoint[]> {
+/**
+ * Doanh số CTV theo nhiều mốc (tuần này / các tuần trong tháng / 12 tháng / 5 năm)
+ * để xem tăng trưởng. Bỏ trống `name` = gộp TẤT CẢ cộng tác viên.
+ */
+export async function getCollaboratorSeries(name?: string): Promise<RangeSeries> {
   const now = new Date();
-  const since = startOfMonth(subMonths(now, 11));
+  const since = startOfYear(subYears(now, 4));
   const cases = await prisma.caseRecord.findMany({
-    where: { createdAt: { gte: since }, customer: { source: "COLLABORATOR", sourceDetail: name } },
+    where: {
+      createdAt: { gte: since },
+      customer: name ? { source: "COLLABORATOR", sourceDetail: name } : { source: "COLLABORATOR" },
+    },
     select: { createdAt: true, totalAmount: true },
+  });
+
+  const build = (keys: { key: string; label: string }[], keyOf: (d: Date) => string): TrendPoint[] => {
+    const m = new Map(keys.map((k) => [k.key, 0]));
+    for (const c of cases) {
+      const k = keyOf(c.createdAt);
+      if (m.has(k)) m.set(k, (m.get(k) ?? 0) + toNum(c.totalAmount));
+    }
+    return keys.map((k) => ({ label: k.label, value: m.get(k.key) ?? 0 }));
+  };
+
+  const ws = startOfWeek(now, { weekStartsOn: 1 });
+  const weekDays = Array.from({ length: 7 }, (_, i) => {
+    const d = addDays(ws, i);
+    return { key: format(d, "yyyy-MM-dd"), label: format(d, "EEEEEE dd/MM", { locale: vi }) };
   });
   const months = Array.from({ length: 12 }, (_, i) => {
     const d = subMonths(now, 11 - i);
     return { key: format(d, "yyyy-MM"), label: format(d, "MM/yy") };
   });
-  const m = new Map(months.map((k) => [k.key, 0]));
+  const years = Array.from({ length: 5 }, (_, i) => {
+    const d = subYears(now, 4 - i);
+    return { key: format(d, "yyyy"), label: format(d, "yyyy") };
+  });
+
+  const mStart = startOfMonth(now);
+  const mEnd = endOfMonth(now);
+  const weekCount = Math.ceil(getDate(mEnd) / 7);
+  const weeksOfMonth: TrendPoint[] = Array.from({ length: weekCount }, (_, i) => ({ label: `Tuần ${i + 1}`, value: 0 }));
   for (const c of cases) {
-    const k = format(c.createdAt, "yyyy-MM");
-    if (m.has(k)) m.set(k, (m.get(k) ?? 0) + toNum(c.totalAmount));
+    if (c.createdAt >= mStart && c.createdAt <= mEnd) {
+      const wi = Math.floor((getDate(c.createdAt) - 1) / 7);
+      if (weeksOfMonth[wi]) weeksOfMonth[wi].value += toNum(c.totalAmount);
+    }
   }
-  return months.map((k) => ({ label: k.label, value: m.get(k.key) ?? 0 }));
+
+  return {
+    thisWeek: build(weekDays, (d) => format(d, "yyyy-MM-dd")),
+    weeksOfMonth,
+    m12: build(months, (d) => format(d, "yyyy-MM")),
+    y5: build(years, (d) => format(d, "yyyy")),
+  };
 }
 
 /** Khoảng thời gian theo khóa range cho trang Cộng tác viên. */
