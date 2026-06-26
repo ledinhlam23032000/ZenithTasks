@@ -9,6 +9,11 @@ import { prisma } from "@/lib/db";
 import { requireUser, requireCap } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 import { toNum } from "@/lib/money";
+import { computeCaseTotals } from "@/lib/case-math";
+import type { Prisma } from "@/generated/prisma/client";
+
+// Client dùng được cho cả prisma thường lẫn trong $transaction.
+type Db = Prisma.TransactionClient | typeof prisma;
 
 export type CaseActionState = { ok?: boolean; error?: string; nonce?: number };
 
@@ -21,22 +26,36 @@ async function isLockedFor(caseId: string, role: string): Promise<boolean> {
   return !!c?.locked;
 }
 
-/** Tính lại tổng tiền / đã trả / công nợ cho hồ sơ (hoa hồng nhập tay, không tự tính). */
-async function recalc(caseId: string): Promise<void> {
+/**
+ * Tính lại tổng tiền / đã trả / công nợ cho hồ sơ (hoa hồng nhập tay, không tự tính).
+ * Toán đặt ở `lib/case-math.ts` (thuần, có test). Nhận `db` để chạy trong $transaction.
+ */
+async function recalc(caseId: string, db: Db = prisma): Promise<void> {
   const [services, payAgg, rec] = await Promise.all([
-    prisma.caseService.findMany({ where: { caseId }, select: { finalPrice: true, discount: true } }),
-    prisma.payment.aggregate({ where: { caseId }, _sum: { amount: true } }),
-    prisma.caseRecord.findUnique({ where: { id: caseId }, select: { voucherAmount: true } }),
+    db.caseService.findMany({ where: { caseId }, select: { finalPrice: true, discount: true } }),
+    db.payment.aggregate({ where: { caseId }, _sum: { amount: true } }),
+    db.caseRecord.findUnique({ where: { id: caseId }, select: { voucherAmount: true } }),
   ]);
-  const subtotal = services.reduce((s, x) => s + toNum(x.finalPrice), 0);
-  const discount = services.reduce((s, x) => s + toNum(x.discount), 0);
-  const voucher = Math.min(toNum(rec?.voucherAmount), subtotal);
-  const net = subtotal - voucher; // doanh thu sau voucher = công nợ
-  const paid = toNum(payAgg._sum.amount);
-  const debt = Math.max(net - paid, 0);
-  await prisma.caseRecord.update({
+  const totals = computeCaseTotals({
+    finalPrices: services.map((x) => toNum(x.finalPrice)),
+    discounts: services.map((x) => toNum(x.discount)),
+    voucherAmount: toNum(rec?.voucherAmount),
+    payments: [toNum(payAgg._sum.amount)],
+  });
+  await db.caseRecord.update({
     where: { id: caseId },
-    data: { totalAmount: net, discountAmount: discount, paidAmount: paid, debtAmount: debt },
+    data: { totalAmount: totals.total, discountAmount: totals.discount, paidAmount: totals.paid, debtAmount: totals.debt },
+  });
+}
+
+/**
+ * Chạy thao tác ĐỘNG TỚI TIỀN trong 1 giao dịch + KHOÁ hàng hồ sơ (SELECT … FOR UPDATE)
+ * để hai người thu/sửa cùng lúc trên 1 hồ sơ không ghi đè số liệu của nhau.
+ */
+async function withCaseLock<T>(caseId: string, fn: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
+  return prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM "CaseRecord" WHERE id = ${caseId} FOR UPDATE`;
+    return fn(tx);
   });
 }
 
@@ -166,20 +185,22 @@ export async function addCaseService(_prev: CaseActionState, formData: FormData)
   const listPrice = d.listPrice > 0 ? d.listPrice : d.unitPrice; // không có giá gốc → lấy giá ưu đãi
 
   const c = await prisma.caseRecord.findUnique({ where: { id: d.caseId }, select: { doctorId: true } });
-  await prisma.caseService.create({
-    data: {
-      caseId: d.caseId,
-      serviceId: d.serviceId || null,
-      name: d.name,
-      listPrice,
-      unitPrice: d.unitPrice,
-      quantity: d.quantity,
-      discount: d.discount,
-      finalPrice,
-      doctorId: c?.doctorId ?? null,
-    },
+  await withCaseLock(d.caseId, async (tx) => {
+    await tx.caseService.create({
+      data: {
+        caseId: d.caseId,
+        serviceId: d.serviceId || null,
+        name: d.name,
+        listPrice,
+        unitPrice: d.unitPrice,
+        quantity: d.quantity,
+        discount: d.discount,
+        finalPrice,
+        doctorId: c?.doctorId ?? null,
+      },
+    });
+    await recalc(d.caseId, tx);
   });
-  await recalc(d.caseId);
   return { ok: true, nonce: Date.now() };
 }
 
@@ -188,10 +209,14 @@ export async function removeCaseService(formData: FormData): Promise<void> {
   const id = String(formData.get("id") ?? "");
   const caseId = String(formData.get("caseId") ?? "");
   if (!id || (await isLockedFor(caseId, user.role))) return;
-  await prisma.caseService.delete({ where: { id } }).catch(() => {});
   if (caseId) {
-    await recalc(caseId);
+    await withCaseLock(caseId, async (tx) => {
+      await tx.caseService.delete({ where: { id } }).catch(() => {});
+      await recalc(caseId, tx);
+    });
     refresh(caseId);
+  } else {
+    await prisma.caseService.delete({ where: { id } }).catch(() => {});
   }
 }
 
@@ -218,11 +243,13 @@ export async function updateCaseService(_prev: CaseActionState, formData: FormDa
   const finalPrice = Math.max(d.unitPrice * d.quantity - d.discount, 0);
   const listPrice = d.listPrice > 0 ? d.listPrice : d.unitPrice;
 
-  await prisma.caseService.update({
-    where: { id: d.id },
-    data: { name: d.name, listPrice, unitPrice: d.unitPrice, quantity: d.quantity, discount: d.discount, finalPrice },
+  await withCaseLock(d.caseId, async (tx) => {
+    await tx.caseService.update({
+      where: { id: d.id },
+      data: { name: d.name, listPrice, unitPrice: d.unitPrice, quantity: d.quantity, discount: d.discount, finalPrice },
+    });
+    await recalc(d.caseId, tx);
   });
-  await recalc(d.caseId);
   return { ok: true, nonce: Date.now() };
 }
 
@@ -260,12 +287,14 @@ export async function updateCaseVoucher(_prev: CaseActionState, formData: FormDa
       ? `${d.voucherCode || "Voucher"}${d.voucherKind === "PCT" ? ` (-${d.voucherValue}%)` : ""}`
       : null;
 
-  await prisma.caseRecord.update({
-    where: { id: d.caseId },
-    data: { voucherAmount: amount, voucherCode: label },
+  await withCaseLock(d.caseId, async (tx) => {
+    await tx.caseRecord.update({
+      where: { id: d.caseId },
+      data: { voucherAmount: amount, voucherCode: label },
+    });
+    await recalc(d.caseId, tx);
   });
   await audit(user.id, "APPLY_VOUCHER", { entity: "CaseRecord", entityId: d.caseId, meta: { amount, code: label ?? "" } });
-  await recalc(d.caseId);
   return { ok: true, nonce: Date.now() };
 }
 
@@ -290,10 +319,12 @@ export async function addPayment(_prev: CaseActionState, formData: FormData): Pr
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu không hợp lệ." };
   const d = parsed.data;
-  await prisma.payment.create({
-    data: { caseId: d.caseId, amount: d.amount, method: d.method, note: d.note || null, receivedById: user.id },
+  await withCaseLock(d.caseId, async (tx) => {
+    await tx.payment.create({
+      data: { caseId: d.caseId, amount: d.amount, method: d.method, note: d.note || null, receivedById: user.id },
+    });
+    await recalc(d.caseId, tx);
   });
-  await recalc(d.caseId);
   return { ok: true, nonce: Date.now() };
 }
 
@@ -328,12 +359,14 @@ export async function updatePayment(_prev: CaseActionState, formData: FormData):
     }
   }
 
-  await prisma.payment.update({
-    where: { id: d.id },
-    data: { amount: d.amount, method: d.method, note: d.note || null, ...(paidAt ? { paidAt } : {}) },
+  await withCaseLock(d.caseId, async (tx) => {
+    await tx.payment.update({
+      where: { id: d.id },
+      data: { amount: d.amount, method: d.method, note: d.note || null, ...(paidAt ? { paidAt } : {}) },
+    });
+    await recalc(d.caseId, tx);
   });
   await audit(user.id, "UPDATE_PAYMENT", { entity: "Payment", entityId: d.id, meta: { amount: d.amount, paidAt: paidAt?.toISOString() } });
-  await recalc(d.caseId);
   return { ok: true, nonce: Date.now() };
 }
 
@@ -544,12 +577,16 @@ export async function deletePayment(formData: FormData): Promise<void> {
   const caseId = String(formData.get("caseId") ?? "");
   if (!id || (await isLockedFor(caseId, user.role))) return;
   const pay = await prisma.payment.findUnique({ where: { id }, select: { amount: true } });
-  await prisma.payment.delete({ where: { id } });
-  await audit(user.id, "DELETE_PAYMENT", { entity: "Payment", entityId: id, meta: { amount: toNum(pay?.amount), caseId } });
   if (caseId) {
-    await recalc(caseId);
+    await withCaseLock(caseId, async (tx) => {
+      await tx.payment.delete({ where: { id } });
+      await recalc(caseId, tx);
+    });
     refresh(caseId);
+  } else {
+    await prisma.payment.delete({ where: { id } });
   }
+  await audit(user.id, "DELETE_PAYMENT", { entity: "Payment", entityId: id, meta: { amount: toNum(pay?.amount), caseId } });
 }
 
 // ---- Xóa lịch tái khám ----

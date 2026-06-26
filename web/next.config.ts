@@ -17,10 +17,27 @@ const nextConfig: NextConfig = {
   },
   // Các header bảo mật cơ bản (chống nhúng iframe, dò kiểu tệp, rò rỉ referrer…).
   async headers() {
+    // Content-Security-Policy: hạn chế nguồn tài nguyên để giảm rủi ro XSS.
+    // Ghi chú: Next.js cần script/style inline (hydration, Tailwind) → giữ
+    // 'unsafe-inline'/'unsafe-eval'. Có thể siết chặt thêm bằng nonce về sau.
+    const csp = [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' data: blob:",
+      "font-src 'self' data:",
+      "connect-src 'self'",
+      "object-src 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+      "frame-ancestors 'self'",
+    ].join("; ");
+
     return [
       {
         source: "/:path*",
         headers: [
+          { key: "Content-Security-Policy", value: csp },
           { key: "X-Frame-Options", value: "SAMEORIGIN" },
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },

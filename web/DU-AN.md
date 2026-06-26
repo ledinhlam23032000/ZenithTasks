@@ -1,6 +1,16 @@
 # Dự án: Ứng dụng nội bộ quản trị — Trung tâm Phẫu thuật Tạo hình Thẩm mỹ, BVĐK Hồng Phúc
 
 > Tài liệu bàn giao để các phiên Claude Code sau tiếp tục hiệu quả. Đọc file này + mã nguồn là nắm được bối cảnh.
+> **Kế hoạch nâng cấp dài hạn (A→E) + theo dõi tiến độ: xem `ROADMAP.md` ở gốc repo.**
+
+## Đợt củng cố nền tảng (an toàn & ổn định) — "Đợt 1"
+> Mục tiêu: tiền tính đúng & nguyên tử, ảnh y khoa không lộ, có cảnh báo cấu hình kém an toàn. Tự kiểm thử: TSC pass, 40/40 test.
+- **A1 — Xác thực ảnh y khoa**: route `/media/[file]` KHÔNG còn công khai. Chỉ phục vụ khi (1) đã đăng nhập (cookie phiên) HOẶC (2) có "vé" ký ngắn hạn `?t=`. Vé = HMAC-SHA256(tên tệp + hạn) ký bằng `AUTH_SECRET`, gắn đúng 1 tệp, hạn 24h — `web/src/lib/media-token.ts` (`signMediaToken`/`verifyMediaToken`/`withMediaToken`). Cổng khách `/khach/[token]` ký vé từng ảnh qua `withMediaToken`. Trang nhân viên không đổi (trình duyệt tự gửi cookie). Đã test dev: không vé→401, vé đúng→200, vé sai/khác tệp→401.
+- **A3 — Tiền nguyên tử**: `ho-so/actions.ts` thêm `withCaseLock(caseId, fn)` = `$transaction` + `SELECT … FOR UPDATE` khoá hàng hồ sơ. `recalc(caseId, db)` nhận client giao dịch. Đã bọc add/update/remove dịch vụ, voucher, add/update/delete thanh toán → hai người thao tác cùng lúc không ghi đè số liệu.
+- **A4 — Test toán tiền**: tách toán thuần ra `web/src/lib/case-math.ts` (`computeCaseTotals`) + test (`case-math.test.ts` 8, `media-token.test.ts` 7).
+- **A2 — Cảnh báo khoá demo**: `web/src/lib/security-status.ts` (`securityWarnings()`) phát hiện `PHONE_ENC_KEY` = khoá demo công khai → banner đỏ cho ADMIN ở `(app)/layout.tsx`. KHÔNG hard-fail (tránh sập app đang chạy bằng khoá demo). 🔑 Chủ cần đổi khoá thật + `npm run rotate:phone`.
+- **A6 — CSP**: `next.config.ts` thêm `Content-Security-Policy` (+ object-src none, base-uri, form-action, frame-ancestors).
+- ⚠️ **Sandbox/proxy Prisma**: nếu `npm install` lỗi ECONNRESET ở `@prisma/engines` (trình tải bỏ qua proxy), tải engine bằng `curl --proxy http://127.0.0.1:34227 --cacert /root/.ccr/ca-bundle.crt <url schema-engine.gz>` rồi `gunzip` vào `node_modules/@prisma/engines/schema-engine-debian-openssl-3.0.x` + `chmod +x`; đặt `CHECKPOINT_DISABLE=1` để tắt telemetry (bị policy chặn 403).
 
 ## Tổng quan
 - Web app Next.js 16 (App Router, Turbopack) + React 19 + TypeScript + Tailwind v4, PostgreSQL + Prisma 7 (driver adapter `@prisma/adapter-pg`), JWT (jose) + bcryptjs. Toàn bộ trong thư mục `web/`.

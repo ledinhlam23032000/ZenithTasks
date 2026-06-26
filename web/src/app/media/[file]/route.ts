@@ -1,9 +1,15 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { NextResponse } from "next/server";
+import { getSession } from "@/lib/auth";
+import { verifyMediaToken } from "@/lib/media-token";
 
 // Phục vụ ảnh đã tải lên qua ROUTE (đáng tin cậy ở production hơn là để trong public/).
 // Đọc tệp từ thư mục uploads và trả về kèm đúng Content-Type.
+//
+// BẢO MẬT (ảnh y khoa): KHÔNG còn công khai. Chỉ phục vụ khi:
+//   • có phiên đăng nhập hợp lệ (nhân viên), HOẶC
+//   • có "vé" ký ngắn hạn ?t=... đúng tệp (cổng khách /khach/[token]).
 export const dynamic = "force-dynamic";
 
 const TYPES: Record<string, string> = {
@@ -16,12 +22,22 @@ const TYPES: Record<string, string> = {
   gif: "image/gif",
 };
 
-export async function GET(_req: Request, { params }: { params: Promise<{ file: string }> }) {
+export async function GET(req: Request, { params }: { params: Promise<{ file: string }> }) {
   const { file } = await params;
   // Chỉ cho phép tên tệp đơn giản (chống path traversal).
   if (!/^[A-Za-z0-9._-]+$/.test(file) || file.includes("..")) {
     return new NextResponse("Not found", { status: 404 });
   }
+
+  // Kiểm tra quyền xem: đăng nhập HOẶC có vé ký hợp lệ cho đúng tệp này.
+  const session = await getSession();
+  if (!session) {
+    const token = new URL(req.url).searchParams.get("t");
+    if (!verifyMediaToken(file, token)) {
+      return new NextResponse("Unauthorized", { status: 401 });
+    }
+  }
+
   const ext = (file.split(".").pop() || "").toLowerCase();
   const full = path.join(process.cwd(), "public", "uploads", file);
   try {

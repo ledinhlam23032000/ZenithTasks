@@ -5,6 +5,7 @@ import { toNum, formatVND } from "@/lib/money";
 import { fmtDate, fmtDateTime } from "@/lib/format";
 import { CASE_STATUS } from "@/lib/status";
 import { tierFor, pointsFor } from "@/lib/loyalty";
+import { withMediaToken } from "@/lib/media-token";
 import { Badge } from "@/components/ui/badge";
 import { PhotoGallery } from "@/components/ui/photo-gallery";
 
@@ -93,10 +94,10 @@ export default async function CustomerPortalPage({ params }: { params: Promise<{
           )}
         </Section>
 
-        {/* Ảnh trước - sau */}
+        {/* Ảnh trước - sau (ký vé ngắn hạn cho từng ảnh vì trang này không đăng nhập) */}
         {customer.photos.length > 0 && (
           <Section icon={<Images className="h-4 w-4 text-brand-500" />} title="Ảnh trước - sau">
-            <PhotoGallery photos={customer.photos} cols={4} />
+            <PhotoGallery photos={customer.photos.map((p) => ({ ...p, url: withMediaToken(p.url) }))} cols={4} />
           </Section>
         )}
 

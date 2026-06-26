@@ -158,7 +158,8 @@ Dùng `nextSeq` (max+1) ở `lib/seq.ts` + vòng lặp thử lại khi `isUnique
 
 ### 8.6. Ảnh & lưu trữ
 - Tải ảnh: nén bằng `compressImage` ngay trên client trước khi gửi (form dùng `onSubmit` → `action(fd)` thay vì `action={action}`). Áp dụng cho ảnh hồ sơ + ảnh đại diện.
-- Lưu file vào `public/uploads`; DB lưu `url = /media/<tên>`. Phục vụ qua **route `app/media/[file]/route.ts`** (đọc từ `public/uploads`, KHÔNG auth để cổng khách xem được; chặn `..`, chỉ tên `[A-Za-z0-9._-]`). Lý do: `next start` KHÔNG phục vụ tin cậy các file ghi lúc chạy trong `public/`.
+- Lưu file vào `public/uploads`; DB lưu `url = /media/<tên>`. Phục vụ qua **route `app/media/[file]/route.ts`** (đọc từ `public/uploads`; chặn `..`, chỉ tên `[A-Za-z0-9._-]`). Lý do: `next start` KHÔNG phục vụ tin cậy các file ghi lúc chạy trong `public/`.
+- ⚠️ **Ảnh y khoa CÓ xác thực** (A1): route chỉ trả ảnh khi (1) có **phiên đăng nhập** HOẶC (2) có **vé ký `?t=`** hợp lệ (HMAC theo `AUTH_SECRET`, gắn đúng 1 tệp, hạn 24h — `lib/media-token.ts`). Trang nhân viên dùng cookie phiên (không cần vé). Cổng khách công khai phải **ký vé qua `withMediaToken(url)`** cho từng ảnh. Render `<img>` ở trang ĐĂNG NHẬP → `photoSrc(url)` như cũ; ở trang CÔNG KHAI → `withMediaToken(url)`.
 - Hiển thị qua `components/ui/photo-gallery.tsx`: thu nhỏ tải lười + bấm xem lớn (◀▶/Esc/Tải về) + xóa (nếu có quyền). Khi render `<img>` thủ công thì bọc `src={photoSrc(p.url)}`.
 - **Lưu trữ thực tế**: thư mục `public/uploads` được mount vào **volume Docker `zenith_uploads`** (compose GỐC) → KHÔNG mất khi `build --no-cache`/cập nhật. `windows/Sao-Luu.ps1` sao lưu cả DB lẫn `uploads`.
 
@@ -170,6 +171,9 @@ VN (`TZ` trong docker-compose). Ngày chấm công dùng `vnDateOnly()`.
 
 ## 9. Bảo mật (RÀNG BUỘC — phải giữ)
 - **SĐT khách**: luôn mã hoá **AES-256-GCM**. Số đầy đủ chỉ lộ cho **ADMIN + MANAGER** qua server action `revealPhone(customerId)` (ghi audit `REVEAL_PHONE`) — chỉ giải mã KHI BẤM, KHÔNG giải mã lúc render. Nhân sự khác chỉ thấy 5 số cuối (`maskPhone`).
+- **Ảnh y khoa** (A1): route `/media/[file]` có xác thực (đăng nhập hoặc vé ký `?t=`) — KHÔNG còn công khai. Xem mục 8.6.
+- **Khoá mã hoá**: `lib/security-status.ts` cảnh báo (banner đỏ cho ADMIN) khi `PHONE_ENC_KEY` còn là khoá demo. Đổi khoá thật rồi `npm run rotate:phone`.
+- **Toán tiền nguyên tử** (A3): mọi thao tác động tới tiền trong hồ sơ chạy qua `withCaseLock` (`$transaction` + `FOR UPDATE`). Toán đặt ở `lib/case-math.ts` (thuần, có test) — sửa logic tiền thì sửa ở đó + cập nhật test.
 - **`AUTH_SECRET`**: tự sinh ngẫu nhiên mỗi máy, lưu trong volume `zenith_secrets` (KHÔNG commit). Có thể đặt riêng qua `.env`.
 - **`PHONE_ENC_KEY`**: hiện dùng khoá DEMO tương thích cũ (trong `docker-entrypoint.sh`). Đổi khoá cần **mã hoá lại** dữ liệu (`prisma/rotate-phone-key.ts`) — KHÔNG tự đổi. **Repo phải để PRIVATE.**
 - **Khi đóng gói code gửi ra ngoài**: che `PHONE_ENC_KEY` demo, loại trừ `.env`/secrets.
@@ -229,6 +233,7 @@ npx next dev -p 3939                              # dev server (Turbopack; biên
 - (Cân nhắc) ảnh cận lâm sàng độ phân giải cao hơn (hiện nén chung 1920px).
 
 ## 15. Trỏ tới tài liệu khác
+- **`ROADMAP.md`** (gốc repo) — KẾ HOẠCH nâng cấp dài hạn (nhóm A→E) + bảng theo dõi trạng thái từng mục. Đọc để biết việc tiếp theo nên làm.
 - **`DU-AN.md`** — changelog chi tiết theo từng đợt (đọc để biết lịch sử + lý do từng quyết định).
 - **`AGENTS.md`** — lưu ý Next.js 16 (đọc docs trong node_modules trước khi viết).
 - **`PROJECT-OVERVIEW.md`** — bản giới thiệu dự án (để gửi người/AI khác review).
