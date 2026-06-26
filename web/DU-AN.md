@@ -12,6 +12,13 @@
 - **A6 — CSP**: `next.config.ts` thêm `Content-Security-Policy` (+ object-src none, base-uri, form-action, frame-ancestors).
 - ⚠️ **Sandbox/proxy Prisma**: nếu `npm install` lỗi ECONNRESET ở `@prisma/engines` (trình tải bỏ qua proxy), tải engine bằng `curl --proxy http://127.0.0.1:34227 --cacert /root/.ccr/ca-bundle.crt <url schema-engine.gz>` rồi `gunzip` vào `node_modules/@prisma/engines/schema-engine-debian-openssl-3.0.x` + `chmod +x`; đặt `CHECKPOINT_DISABLE=1` để tắt telemetry (bị policy chặn 403).
 
+## Đợt chủ động & theo dõi — "Đợt 2"
+> Biến app từ "ghi chép" sang "chủ động nhắc việc" + cho quản trị thấy sức khoẻ hệ thống + sao lưu tự động. TSC pass, 40/40 test, smoke test dev server (2 trang mới + hồ sơ đều 200).
+- **B1 (lõi) — "Việc cần làm hôm nay"** (`/viec-hom-nay`): `lib/workqueue.ts` `getWorkqueue()` tổng hợp **từ dữ liệu sẵn có, KHÔNG đổi schema, KHÔNG cron**: tái khám đến hạn (≤2 ngày), hẹn hôm nay chưa đến, công nợ quá hạn (>15 ngày), sinh nhật khách hôm nay (raw `EXTRACT`), khách nguội (>60 ngày + không có tái khám sắp tới, raw `make_interval`), kho cảnh báo. Ngưỡng = hằng số đầu file. Module `viec-hom-nay` (icon `ListTodo`) cho hầu hết vai trò vận hành. ⏳ Phần 2 (Web Push + việc có người phụ trách/đánh dấu xong) cần model + cron + VAPID.
+- **A7 — Tình trạng hệ thống** (`/he-thong`, ADMIN): `lib/system-status.ts` gom cảnh báo bảo mật + quy mô dữ liệu + kích thước DB (`pg_database_size`) + dung lượng ảnh (quét `public/uploads`) + lần sao lưu gần nhất + 10 audit gần nhất. Icon `ServerCog`.
+- **A5 — Sao lưu tự động**: `scripts/backup.mjs` (`pg_dump -Fc` + ảnh `tar.gz` + giữ 14 bản + ghi `backup-status.json`); `npm run backup`; `docker-entrypoint.sh` chạy nền 1 lần lúc khởi động rồi mỗi 24h. Sao lưu OFFSITE vẫn là `windows/Sao-Luu.ps1`.
+- Lưu ý kỹ thuật: trong sandbox Postgres có thể tự dừng (stale pid) → `pg_ctlcluster 16 main start`. DB sandbox cần `npm run db:seed` để có dữ liệu thử (admin/123456).
+
 ## Tổng quan
 - Web app Next.js 16 (App Router, Turbopack) + React 19 + TypeScript + Tailwind v4, PostgreSQL + Prisma 7 (driver adapter `@prisma/adapter-pg`), JWT (jose) + bcryptjs. Toàn bộ trong thư mục `web/`.
 - Mô hình vận hành: 1 **máy chủ** (máy của trung tâm, chạy Docker, giữ dữ liệu) + nhiều **máy con** kết nối qua trình duyệt/PWA. Triển khai bằng các file trong `windows/` (`Chay-Zenith.bat` = cài/cập nhật; `Mo-App.bat` = mở; `Phat-Hanh-Mang.bat`/`Dia-Chi-Co-Dinh.bat` = ra Internet). Ứng dụng máy con: `client/`.

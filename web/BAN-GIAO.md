@@ -36,9 +36,9 @@ web/
   prisma/migrations/            # Migration viết tay, commit kèm (entrypoint chạy migrate deploy)
   src/app/
     (app)/                      # Khu vực đăng nhập (có app-shell, sidebar)
-      dashboard, lich-hen, tiep-nhan, khach-hang, ho-so/[id], cham-soc,
+      dashboard, viec-hom-nay, lich-hen, tiep-nhan, khach-hang, ho-so/[id], cham-soc,
       bao-cao, hieu-suat, cong-tac-vien, lich-lam-viec, luong, thu-chi,
-      nhan-su/[id], nhat-ky, danh-muc, kho, cham-cong, tai-khoan
+      nhan-su/[id], nhat-ky, he-thong, danh-muc, kho, cham-cong, tai-khoan
       <mỗi mục>/actions.ts       # Server actions của mục đó
       <mỗi mục>/*-forms.tsx      # Form client (modal)
     login/, dat-lich/           # Công khai
@@ -83,6 +83,12 @@ Chỉ 3 trang KHÔNG dynamic: `/` (redirect), `/login`, `/khong-co-quyen`. **H�
 - **export.ts** + **xlsx.ts** — xuất CSV/Word(.doc)/Excel(.xlsx THẬT, tự dựng ZIP, không thư viện ngoài).
 - **ai.ts** — gọi Claude API soạn tin chăm sóc (ẩn nếu thiếu `ANTHROPIC_API_KEY`). KHÔNG gửi dữ liệu nhạy cảm (chỉ tên + mục đích + dịch vụ gần nhất).
 - **rate-limit.ts** — chống dò mật khẩu + chống spam đặt lịch (theo IP + tài khoản).
+- **case-math.ts** — `computeCaseTotals()` toán tiền hồ sơ THUẦN (có test). `recalc()` trong `ho-so/actions.ts` dùng hàm này.
+- **media-token.ts** — ký/kiểm "vé" xem ảnh ngắn hạn (A1): `signMediaToken/verifyMediaToken/withMediaToken`.
+- **security-status.ts** — `securityWarnings()` (A2): cảnh báo khoá mã hoá demo → banner ADMIN.
+- **workqueue.ts** — `getWorkqueue()` (B1): tổng hợp "Việc cần làm hôm nay" từ dữ liệu sẵn có.
+- **system-status.ts** — `getSystemStatus()`/`humanBytes()` (A7): số liệu trang Tình trạng hệ thống.
+- **scripts/backup.mjs** (ngoài lib) — sao lưu tự động (A5): `pg_dump -Fc` + ảnh + status JSON; `npm run backup`.
 
 ## 5. Mô hình dữ liệu (Prisma)
 **Enums**: `Role` (ADMIN, MANAGER, TELESALE, RECEPTION, CONSULTANT, DOCTOR, NURSE, CARE, SHAREHOLDER), `Gender`, `CustomerSource`, `AppointmentType`, `AppointmentStatus`, `CaseStatus` (OPEN, CONSULTED, SERVICED, COMPLETED, CANCELLED), `ConsultResult` (PENDING, AGREED, CONSIDERING, DECLINED), `PaymentMethod` (CASH, CARD, TRANSFER, EWALLET), `PhotoType` (BEFORE, AFTER, FOLLOW_UP, **CLINICAL**), `CareChannel`, `CareDirection`, `StockType`, `CashType` (INCOME, EXPENSE).

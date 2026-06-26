@@ -27,6 +27,8 @@ import {
   ScrollText,
   Activity,
   Handshake,
+  ListTodo,
+  ServerCog,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -52,6 +54,8 @@ const ICONS: Record<string, LucideIcon> = {
   ScrollText,
   Activity,
   Handshake,
+  ListTodo,
+  ServerCog,
 };
 
 export type NavItemData = { href: string; label: string; icon: string };

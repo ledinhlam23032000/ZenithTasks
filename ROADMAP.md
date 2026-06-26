@@ -24,14 +24,14 @@ phần "Đánh giá" trong lịch sử hội thoại + `web/DU-AN.md`.
 | A3 | **Giao dịch nguyên tử cho tiền** | ✅ Xong | `withCaseLock` + `$transaction` + `SELECT … FOR UPDATE` cho mọi thao tác động tới tiền. |
 | A4 | **Test toán tiền & token ảnh** | ✅ Xong | `case-math.test.ts` (8) + `media-token.test.ts` (7). Tổng test: 25 → 40. |
 | A6 | **Content-Security-Policy** | ✅ Xong | Thêm CSP + giữ các header cũ trong `next.config.ts`. |
-| A5 | **Sao lưu tự động + kiểm tra phục hồi** | ⏳ Chưa làm | 🔑 Cần nơi đẩy offsite (Google Drive/USB/S3). Cron backup trong container + báo "lần backup gần nhất" trên dashboard. |
-| A7 | **Trang "Tình trạng hệ thống"** | ⏳ Chưa làm | Dung lượng đĩa/DB, số kết nối, lỗi gần đây, gom cảnh báo bảo mật. (Khung `lib/security-status.ts` đã có.) |
+| A5 | **Sao lưu tự động + theo dõi** | ✅ Xong (tại chỗ) | `scripts/backup.mjs` (pg_dump -Fc + ảnh tar.gz + giữ 14 bản) chạy nền hằng ngày qua `docker-entrypoint.sh`; trang Tình trạng hệ thống hiện "lần sao lưu gần nhất". 🔑 Đẩy offsite vẫn dùng `windows/Sao-Luu.ps1`. |
+| A7 | **Trang "Tình trạng hệ thống"** | ✅ Xong | `/he-thong` (ADMIN): cảnh báo bảo mật, quy mô dữ liệu, kích thước DB/ảnh, lần sao lưu gần nhất, hoạt động nhạy cảm gần đây. (`lib/system-status.ts`) |
 
 ## NHÓM B — TÍNH NĂNG NGHIỆP VỤ MỚI
 
 | Mã | Hạng mục | Trạng thái | Ghi chú |
 |----|----------|-----------|---------|
-| B1 | **Trung tâm nhắc & thông báo tự động** | ⏳ Chưa làm | Reminder engine (cron) + Web Push + trang "Việc cần làm hôm nay". Tự tải VAPID. Giá trị cao nhất. |
+| B1 | **Trung tâm nhắc & thông báo tự động** | ✅ Phần lõi xong | Trang **"Việc cần làm hôm nay"** (`/viec-hom-nay`) tổng hợp tự động: tái khám đến hạn, hẹn chưa đến, công nợ quá hạn, sinh nhật khách, khách nguội, kho cảnh báo (`lib/workqueue.ts`, không đổi schema). ⏳ Còn: Web Push lên điện thoại + việc có người phụ trách/đánh dấu xong (cần schema + cron + VAPID). |
 | B2 | **Kênh giao tiếp** (Zalo/SMS/Email) | ⏳ Chưa làm | Bậc 1 (deep-link) làm được ngay. 🔑 Bậc 2–3 cần tài khoản SMS/Email/Zalo OA. |
 | B3 | **Sổ công nợ chủ động** | ⏳ Chưa làm | Lọc theo tuổi nợ, kế hoạch trả góp, cảnh báo vượt ngưỡng. |
 | B4 | **Lịch hẹn nâng cao** | ⏳ Chưa làm | Chống trùng lịch, tài nguyên phòng/giường, link khách tự xác nhận. |
@@ -110,6 +110,32 @@ phần "Đánh giá" trong lịch sử hội thoại + `web/DU-AN.md`.
 - `web/next.config.ts`: thêm header `Content-Security-Policy` (giữ `'unsafe-inline'`/`'unsafe-eval'`
   vì Next cần — có thể siết bằng nonce sau) + `object-src 'none'`, `base-uri`, `form-action`,
   `frame-ancestors`.
+
+---
+
+## CHI TIẾT ĐỢT 2 — Đã làm (chủ động + theo dõi)
+
+> Tự kiểm thử: TSC pass, 40/40 test; smoke test dev server thật (2 trang mới + hồ sơ đều 200, backup tạo dump khôi phục được).
+
+### B1 (lõi) — Trang "Việc cần làm hôm nay" (`/viec-hom-nay`)
+- `web/src/lib/workqueue.ts`: `getWorkqueue()` tổng hợp **từ dữ liệu sẵn có, KHÔNG đổi schema, KHÔNG cần cron**:
+  tái khám đến hạn (2 ngày tới), hẹn hôm nay chưa đến, công nợ quá hạn (>15 ngày), sinh nhật khách hôm nay,
+  khách nguội (>60 ngày chưa quay lại + không có lịch tái khám), kho cảnh báo. Các ngưỡng là hằng số đầu file (dễ chỉnh).
+- `web/src/app/(app)/viec-hom-nay/page.tsx`: trang gom theo nhóm + đếm + link xử lý từng việc.
+- Module `viec-hom-nay` trong `permissions.ts` (ADMIN/MANAGER/TELESALE/RECEPTION/CONSULTANT/DOCTOR/CARE); icon `ListTodo`.
+- ⏳ **Bước kế (B1 phần 2):** Web Push (PWA — tự tải VAPID), việc có người phụ trách + đánh dấu xong (cần model mới + cron).
+
+### A7 — Trang "Tình trạng hệ thống" (`/he-thong`, ADMIN)
+- `web/src/lib/system-status.ts`: gom cảnh báo bảo mật, quy mô dữ liệu, kích thước DB (`pg_database_size`),
+  dung lượng ảnh (quét `public/uploads`), lần sao lưu gần nhất (đọc `backup-status.json`), 10 hoạt động nhạy cảm gần đây.
+- Module `he-thong` (ADMIN); icon `ServerCog`. Banner cảnh báo bảo mật cũng hiện ở đây + ở layout chung (A2).
+
+### A5 — Sao lưu tự động + theo dõi
+- `web/scripts/backup.mjs`: `pg_dump -Fc` (nén, khôi phục bằng `pg_restore`) + ảnh `tar.gz`, giữ 14 bản gần nhất,
+  ghi `backup-status.json` (trang A7 đọc). Bắt lỗi → ghi error vào status.
+- `web/package.json`: thêm script `npm run backup`.
+- `web/docker-entrypoint.sh`: chạy nền 1 lần lúc khởi động rồi mỗi 24h.
+- 🔑 Sao lưu RA NGOÀI (Google Drive/USB) vẫn là `windows/Sao-Luu.ps1` — đó mới là phục hồi thảm hoạ.
 
 ---
 

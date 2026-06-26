@@ -52,5 +52,20 @@ else
   echo "✓ Đã có dữ liệu ($COUNT người dùng) — bỏ qua bước nạp mẫu."
 fi
 
+# ---------------------------------------------------------------------------
+# SAO LƯU TỰ ĐỘNG (A5) — chạy nền: 1 lần lúc khởi động rồi mỗi 24 giờ.
+# Ghi vào volume .runtime; trang /he-thong hiện "lần sao lưu gần nhất".
+# (Sao lưu RA NGOÀI Google Drive/USB vẫn dùng windows/Sao-Luu.ps1.)
+# ---------------------------------------------------------------------------
+if [ -f /app/scripts/backup.mjs ]; then
+  (
+    while true; do
+      node /app/scripts/backup.mjs >> "$SECRET_DIR/backup.log" 2>&1 || true
+      sleep 86400
+    done
+  ) &
+  echo "🗄️  Đã bật sao lưu tự động hằng ngày (xem trang Tình trạng hệ thống)."
+fi
+
 echo "🚀 Khởi động Zenith Clinic tại http://localhost:3000"
 exec "$@"

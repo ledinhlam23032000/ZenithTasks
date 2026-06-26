@@ -14,6 +14,7 @@
     "db:reset": "prisma migrate reset --force && npm run db:seed",
     "db:studio": "prisma studio",
     "rotate:phone": "tsx prisma/rotate-phone-key.ts",
+    "backup": "node scripts/backup.mjs",
     "test": "vitest run"
   },
   "dependencies": {

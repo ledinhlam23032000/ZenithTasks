@@ -21,6 +21,7 @@ export type ModuleDef = { key: string; href: string; label: string; icon: string
 // quy mô nhân sự). Cổ đông không có năng lực thao tác nào (xem CAPABILITIES bên dưới).
 export const MODULES: ModuleDef[] = [
   { key: "dashboard", href: "/dashboard", label: "Tổng quan", icon: "LayoutDashboard", roles: [...ALL, "SHAREHOLDER"] },
+  { key: "viec-hom-nay", href: "/viec-hom-nay", label: "Việc cần làm", icon: "ListTodo", roles: ["ADMIN", "MANAGER", "TELESALE", "RECEPTION", "CONSULTANT", "DOCTOR", "CARE"] },
   { key: "cham-cong", href: "/cham-cong", label: "Chấm công", icon: "CalendarCheck", roles: ALL },
   { key: "lich-hen", href: "/lich-hen", label: "Lịch hẹn", icon: "CalendarClock", roles: ["ADMIN", "MANAGER", "TELESALE", "RECEPTION", "CONSULTANT", "SHAREHOLDER"] },
   { key: "tiep-nhan", href: "/tiep-nhan", label: "Tiếp nhận khách", icon: "UserPlus", roles: ["ADMIN", "RECEPTION", "TELESALE"] },
@@ -36,6 +37,7 @@ export const MODULES: ModuleDef[] = [
   { key: "thu-chi", href: "/thu-chi", label: "Thu chi", icon: "Coins", roles: ["ADMIN", "MANAGER", "SHAREHOLDER"] },
   { key: "nhan-su", href: "/nhan-su", label: "Nhân sự", icon: "Contact", roles: ["ADMIN"] },
   { key: "nhat-ky", href: "/nhat-ky", label: "Nhật ký hệ thống", icon: "ScrollText", roles: ["ADMIN"] },
+  { key: "he-thong", href: "/he-thong", label: "Tình trạng hệ thống", icon: "ServerCog", roles: ["ADMIN"] },
   { key: "danh-muc", href: "/danh-muc", label: "Danh mục dịch vụ", icon: "ListChecks", roles: ["ADMIN", "MANAGER", "SHAREHOLDER"] },
   { key: "kho", href: "/kho", label: "Kho vật tư", icon: "Boxes", roles: ["ADMIN", "MANAGER", "SHAREHOLDER"] },
 ];
