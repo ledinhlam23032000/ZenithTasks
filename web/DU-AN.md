@@ -19,6 +19,13 @@
 - **A5 — Sao lưu tự động**: `scripts/backup.mjs` (`pg_dump -Fc` + ảnh `tar.gz` + giữ 14 bản + ghi `backup-status.json`); `npm run backup`; `docker-entrypoint.sh` chạy nền 1 lần lúc khởi động rồi mỗi 24h. Sao lưu OFFSITE vẫn là `windows/Sao-Luu.ps1`.
 - Lưu ý kỹ thuật: trong sandbox Postgres có thể tự dừng (stale pid) → `pg_ctlcluster 16 main start`. DB sandbox cần `npm run db:seed` để có dữ liệu thử (admin/123456).
 
+## Sửa lỗi — Kho không trừ tồn khi thêm vật tư vào hồ sơ
+> Phát hiện khi chủ test thực tế: thêm vật tư cho khách nhưng tồn kho không giảm.
+- **Nguyên nhân**: form "Thêm vật tư" (`ho-so/[id]/case-widgets.tsx`) chọn vật tư qua `Combobox` chỉ điền sẵn TÊN/ĐƠN VỊ, **không gửi `materialId`** (thiếu input ẩn) → server action `addMaterial` luôn nhận `materialId` rỗng → nhánh trừ kho `if (d.materialId)` không bao giờ chạy.
+- **Sửa**: thêm state + input ẩn `materialId` vào form (kèm dòng nhắc "Sẽ tự trừ tồn kho khi lưu" / "Nhập tay không trừ tồn"). Đồng thời gói 3 thao tác (ghi usage + trừ/hoàn tồn + nhật ký `StockMovement`) vào **một `$transaction`** ở `addMaterial`/`removeMaterial`/`updateMaterialUsage` → không còn cảnh "đã ghi vật tư nhưng kho chưa trừ"; bỏ `.catch(()=>{})` nuốt lỗi; nếu vật tư đã bị xóa thì lưu như nhập tay (không lỗi FK).
+- **Kiểm thử thật (Playwright + Chromium pre-installed)**: mở hồ sơ → chọn Botox từ danh mục → SL 3 → lưu; DB: tồn 50 → **47**, có `StockMovement OUT 3 "Dùng cho hồ sơ"`, `MaterialUsage.materialId` đã có giá trị. TSC pass, 40/40 test.
+- **Lưu ý cho chủ**: bản ghi vật tư ĐÃ thêm SAI trước đây (materialId rỗng) sẽ không tự trừ lùi. Cách sửa: vào hồ sơ **xóa** dòng vật tư cũ rồi **thêm lại** bằng cách chọn từ danh mục (lúc này sẽ trừ kho đúng).
+
 ## Đợt trải nghiệm & sáng tạo — "Đợt 3"
 > Mục tiêu: 3 tính năng "wow factor" trong `ROADMAP.md` nhóm D, tái dùng tối đa hạ tầng sẵn có (không đổi schema trừ 1 dòng quyền). TSC pass, 40/40 test, smoke test dev server thật (forge JWT `zsession` ký bằng `AUTH_SECRET` tự sinh trong `.env` sandbox — xem `web/BAN-GIAO.md` mục 10 — rồi `curl` các trang có quyền: `/dau-ca`, `/khach-hang`, `/khach-hang/[id]` đều 200, đúng nội dung tiếng Việt).
 - **D2 — So sánh ảnh trước/sau**: `lib/components/ui/photo-compare.tsx` — nút "So sánh trước/sau" (ẩn nếu hồ sơ có <2 ảnh) mở modal kéo-so-sánh (con trỏ chuột/chạm, `clip-path`, không thư viện ngoài). Gắn ở trang hồ sơ điều trị (`ho-so/[id]`) và hồ sơ khách hàng (`khach-hang/[id]`).

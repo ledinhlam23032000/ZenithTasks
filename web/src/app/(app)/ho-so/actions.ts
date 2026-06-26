@@ -395,26 +395,35 @@ export async function addMaterial(_prev: CaseActionState, formData: FormData): P
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu không hợp lệ." };
   const d = parsed.data;
-  await prisma.materialUsage.create({
-    data: {
-      caseId: d.caseId,
-      materialId: d.materialId || null,
-      name: d.name,
-      unit: d.unit,
-      quantity: d.quantity,
-      note: d.note || null,
-      performedById: user.id,
-    },
-  });
-  // Xuất kho: trừ tồn + ghi nhật ký (nếu vật tư có trong danh mục kho).
-  if (d.materialId) {
-    await prisma.material
-      .update({ where: { id: d.materialId }, data: { stock: { decrement: d.quantity } } })
-      .catch(() => {});
-    await prisma.stockMovement
-      .create({ data: { materialId: d.materialId, type: "OUT", quantity: d.quantity, note: "Dùng cho hồ sơ", createdById: user.id } })
-      .catch(() => {});
+
+  // Chỉ trừ kho khi vật tư còn TỒN TẠI trong danh mục (tránh FK lỗi nếu vật tư vừa bị xóa).
+  let materialId: string | null = d.materialId || null;
+  if (materialId) {
+    const mat = await prisma.material.findUnique({ where: { id: materialId }, select: { id: true } });
+    if (!mat) materialId = null; // vật tư đã bị xóa → lưu như nhập tay (snapshot tên), không trừ kho
   }
+
+  // Ghi nhận sử dụng + xuất kho (trừ tồn + nhật ký) trong CÙNG một giao dịch → không bao giờ
+  // còn cảnh "đã ghi vật tư nhưng kho chưa trừ".
+  await prisma.$transaction(async (tx) => {
+    await tx.materialUsage.create({
+      data: {
+        caseId: d.caseId,
+        materialId,
+        name: d.name,
+        unit: d.unit,
+        quantity: d.quantity,
+        note: d.note || null,
+        performedById: user.id,
+      },
+    });
+    if (materialId) {
+      await tx.material.update({ where: { id: materialId }, data: { stock: { decrement: d.quantity } } });
+      await tx.stockMovement.create({
+        data: { materialId, type: "OUT", quantity: d.quantity, note: "Dùng cho hồ sơ", createdById: user.id },
+      });
+    }
+  });
   return { ok: true, nonce: Date.now() };
 }
 
@@ -424,15 +433,18 @@ export async function removeMaterial(formData: FormData): Promise<void> {
   const caseId = String(formData.get("caseId") ?? "");
   if (!id || (await isLockedFor(caseId, user.role))) return;
   const usage = await prisma.materialUsage.findUnique({ where: { id }, select: { materialId: true, quantity: true } });
-  await prisma.materialUsage.delete({ where: { id } }).catch(() => {});
-  // Hoàn kho lại nếu vật tư thuộc danh mục kho.
-  if (usage?.materialId) {
-    const q = toNum(usage.quantity);
-    await prisma.material.update({ where: { id: usage.materialId }, data: { stock: { increment: q } } }).catch(() => {});
-    await prisma.stockMovement
-      .create({ data: { materialId: usage.materialId, type: "IN", quantity: q, note: "Hoàn kho (xóa vật tư)", createdById: user.id } })
-      .catch(() => {});
-  }
+  if (!usage) return;
+  // Xóa usage + hoàn kho (nếu thuộc danh mục) nguyên tử.
+  await prisma.$transaction(async (tx) => {
+    await tx.materialUsage.delete({ where: { id } });
+    if (usage.materialId) {
+      const q = toNum(usage.quantity);
+      await tx.material.update({ where: { id: usage.materialId }, data: { stock: { increment: q } } });
+      await tx.stockMovement.create({
+        data: { materialId: usage.materialId, type: "IN", quantity: q, note: "Hoàn kho (xóa vật tư)", createdById: user.id },
+      });
+    }
+  });
   if (caseId) refresh(caseId);
 }
 
@@ -460,32 +472,30 @@ export async function updateMaterialUsage(_prev: CaseActionState, formData: Form
     where: { id: d.id },
     select: { materialId: true, quantity: true },
   });
+  if (!existing) return { error: "Không tìm thấy vật tư cần sửa." };
 
-  await prisma.materialUsage.update({
-    where: { id: d.id },
-    data: { name: d.name, unit: d.unit, quantity: d.quantity, note: d.note || null },
-  });
+  const delta = d.quantity - toNum(existing.quantity);
 
-  // Điều chỉnh tồn kho theo chênh lệch (dương = dùng thêm → trừ kho; âm = trả lại kho).
-  if (existing?.materialId) {
-    const delta = d.quantity - toNum(existing.quantity);
-    if (delta !== 0) {
-      await prisma.material
-        .update({ where: { id: existing.materialId }, data: { stock: { decrement: delta } } })
-        .catch(() => {});
-      await prisma.stockMovement
-        .create({
-          data: {
-            materialId: existing.materialId,
-            type: delta > 0 ? "OUT" : "IN",
-            quantity: Math.abs(delta),
-            note: "Điều chỉnh vật tư (sửa hồ sơ)",
-            createdById: user.id,
-          },
-        })
-        .catch(() => {});
+  // Cập nhật usage + điều chỉnh tồn kho theo chênh lệch số lượng, nguyên tử.
+  // (dương = dùng thêm → trừ kho; âm = trả lại kho).
+  await prisma.$transaction(async (tx) => {
+    await tx.materialUsage.update({
+      where: { id: d.id },
+      data: { name: d.name, unit: d.unit, quantity: d.quantity, note: d.note || null },
+    });
+    if (existing.materialId && delta !== 0) {
+      await tx.material.update({ where: { id: existing.materialId }, data: { stock: { decrement: delta } } });
+      await tx.stockMovement.create({
+        data: {
+          materialId: existing.materialId,
+          type: delta > 0 ? "OUT" : "IN",
+          quantity: Math.abs(delta),
+          note: "Điều chỉnh vật tư (sửa hồ sơ)",
+          createdById: user.id,
+        },
+      });
     }
-  }
+  });
   return { ok: true, nonce: Date.now() };
 }
 

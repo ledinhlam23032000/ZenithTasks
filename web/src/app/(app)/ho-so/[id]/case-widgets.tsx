@@ -267,6 +267,8 @@ export function AddMaterialButton({ caseId, materials }: { caseId: string; mater
   const [state, action, pending] = useFormAction(addMaterial, () => setOpen(false));
   const [name, setName] = useState("");
   const [unit, setUnit] = useState("cái");
+  // materialId = vật tư trong danh mục kho (để TRỪ TỒN). Rỗng = nhập tay, không trừ kho.
+  const [materialId, setMaterialId] = useState("");
   return (
     <>
       <Button size="sm" variant="subtle" onClick={() => setOpen(true)}>
@@ -277,10 +279,12 @@ export function AddMaterialButton({ caseId, materials }: { caseId: string; mater
           <input type="hidden" name="caseId" value={caseId} />
           <input type="hidden" name="name" value={name} />
           <input type="hidden" name="unit" value={unit} />
+          <input type="hidden" name="materialId" value={materialId} />
           <div>
             <Label>Chọn vật tư (gõ để tìm)</Label>
             <Combobox
               onChange={(v) => {
+                setMaterialId(v);
                 const m = materials.find((x) => x.id === v);
                 if (m) {
                   setName(m.name);
@@ -293,6 +297,11 @@ export function AddMaterialButton({ caseId, materials }: { caseId: string; mater
                 ...materials.map((m) => ({ value: m.id, label: m.name, hint: m.unit })),
               ]}
             />
+            {materialId ? (
+              <p className="mt-1 text-xs text-emerald-600">Sẽ tự trừ tồn kho khi lưu.</p>
+            ) : (
+              <p className="mt-1 text-xs text-slate-400">Nhập tay (không có trong kho) sẽ không trừ tồn.</p>
+            )}
           </div>
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="sm:col-span-2">
