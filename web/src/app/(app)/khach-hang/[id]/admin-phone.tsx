@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Phone, Copy, Check, MessageCircle, Eye, LoaderCircle } from "lucide-react";
+import { Phone, Copy, Check, MessageCircle, MessageSquareText, Eye, LoaderCircle } from "lucide-react";
 import { revealPhone } from "../actions";
 
 /**
@@ -56,6 +56,9 @@ export function AdminPhone({ customerId, last5 }: { customerId: string; last5: s
       </button>
       <a href={`tel:${phone}`} className="text-slate-400 hover:text-brand-600" title="Gọi điện">
         <Phone className="h-3.5 w-3.5" />
+      </a>
+      <a href={`sms:${phone}`} className="text-slate-400 hover:text-emerald-600" title="Soạn SMS">
+        <MessageSquareText className="h-3.5 w-3.5" />
       </a>
       <a href={zalo} target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-sky-600" title="Nhắn Zalo">
         <MessageCircle className="h-3.5 w-3.5" />

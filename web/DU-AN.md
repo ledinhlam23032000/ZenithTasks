@@ -19,6 +19,33 @@
 - **A5 — Sao lưu tự động**: `scripts/backup.mjs` (`pg_dump -Fc` + ảnh `tar.gz` + giữ 14 bản + ghi `backup-status.json`); `npm run backup`; `docker-entrypoint.sh` chạy nền 1 lần lúc khởi động rồi mỗi 24h. Sao lưu OFFSITE vẫn là `windows/Sao-Luu.ps1`.
 - Lưu ý kỹ thuật: trong sandbox Postgres có thể tự dừng (stale pid) → `pg_ctlcluster 16 main start`. DB sandbox cần `npm run db:seed` để có dữ liệu thử (admin/123456).
 
+## Đợt công nợ chủ động + liên hệ nhanh — "Đợt 5"
+> Làm đồng thời 2 hạng mục theo yêu cầu chủ: B3 (sổ công nợ chủ động) + B2 bậc 1 (nút liên hệ
+> Gọi/SMS/Zalo deep-link, không cần tài khoản SMS/Zalo OA). TSC pass, **62/62 test** (+13 test
+> mới: `debt-aging` 8, `message-templates` 5). Smoke test thật bằng trình duyệt (Playwright +
+> Chromium pre-installed): `/cong-no` hiện 13 hồ sơ nợ, lọc tab "30–60 ngày" → còn 5 (đúng); bấm
+> "Liên hệ" trên 1 dòng → gọi `revealPhone` (đã có sẵn, gate quyền `phone.full`) → hiện đủ 3 nút
+> Gọi (`tel:`) / SMS (`sms:...?body=` kèm tin nhắn nhắc nợ tiếng Việt đã URL-encode đúng) / Zalo
+> (`zalo.me/<số>`); vai trò DOCTOR (không có quyền `mod:cong-no`) vào `/cong-no` bị chuyển hướng
+> `/khong-co-quyen` — RBAC đúng.
+- **`lib/debt-aging.ts`** (toán THUẦN, có test): `debtAgeDays`, `debtAgingBucket` (4 mốc 0-15/
+  15-30/30-60/60+ ngày), `isOverThreshold` (cảnh báo vượt ngưỡng).
+- **`lib/message-templates.ts`** (toán THUẦN, có test): sinh sẵn nội dung tin nhắn theo ngữ cảnh
+  (nhắc nợ, nhắc tái khám, xác nhận hẹn, sinh nhật, khách nguội) — chỉ tạo TEXT, không tự gửi.
+- **`components/ui/contact-buttons.tsx`** (mới): tái dùng `revealPhone` (server action có sẵn ở
+  `khach-hang/actions.ts`, đã gate quyền + ghi nhật ký `REVEAL_PHONE`) → sau khi hiện số đầy đủ,
+  render nút Gọi/SMS (kèm sẵn tin nhắn mẫu nếu truyền vào)/Zalo. Cũng thêm nút SMS vào
+  `khach-hang/[id]/admin-phone.tsx` (trước đã có Gọi + Zalo) cho đồng bộ.
+- **Trang Sổ công nợ** (`/cong-no`, module mới — ADMIN/MANAGER/RECEPTION/CONSULTANT/SHAREHOLDER):
+  liệt kê hồ sơ còn nợ (`CaseRecord.debtAmount > 0`), tab lọc theo tuổi nợ (query string, không
+  cần JS), ô nhập ngưỡng cảnh báo (mặc định 5tr) → hồ sơ vượt ngưỡng tô đỏ. Thẻ tổng công nợ/số hồ
+  sơ vượt ngưỡng/nợ lâu nhất. Mỗi dòng có `ContactButtons` kèm sẵn mẫu nhắc nợ (tên + mã hồ sơ +
+  số tiền).
+- ⏳ Còn: "kế hoạch trả góp" (cần model DB mới — số kỳ + ngày hẹn từng kỳ); tạm dùng `note` có sẵn
+  ở hồ sơ để nhân viên ghi tay khi thoả thuận trả góp. Kênh Email (bậc 1) chưa làm vì `Customer`
+  hiện chưa có field email — để chủ quyết có cần thêm không trước khi đổi schema. Bậc 2–3 (tự
+  động gửi SMS/Zalo OA thật) 🔑 cần chủ cấp tài khoản SMS Brandname/Zalo OA.
+
 ## Đợt kho theo chuẩn y tế (giá vốn) — "Đợt 4"
 > Bắt nguồn từ lỗi kho không trừ tồn (mục ngay dưới), sau đó nâng kho lên "có giá vốn" để tính giá trị tồn kho & giá vốn vật tư đã dùng (COGS). TSC pass, **49/49 test** (+9 test giá vốn), smoke test thật bằng trình duyệt (Playwright + Chromium pre-installed).
 - **Schema** (migration `20260626140000_inventory_costing`, viết tay): `Material.avgCost` (giá vốn bình quân gia quyền) + `StockMovement.unitCost` (đơn giá theo từng giao dịch kho).

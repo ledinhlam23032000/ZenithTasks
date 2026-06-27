@@ -32,8 +32,8 @@ phần "Đánh giá" trong lịch sử hội thoại + `web/DU-AN.md`.
 | Mã | Hạng mục | Trạng thái | Ghi chú |
 |----|----------|-----------|---------|
 | B1 | **Trung tâm nhắc & thông báo tự động** | ✅ Phần lõi xong | Trang **"Việc cần làm hôm nay"** (`/viec-hom-nay`) tổng hợp tự động: tái khám đến hạn, hẹn chưa đến, công nợ quá hạn, sinh nhật khách, khách nguội, kho cảnh báo (`lib/workqueue.ts`, không đổi schema). ⏳ Còn: Web Push lên điện thoại + việc có người phụ trách/đánh dấu xong (cần schema + cron + VAPID). |
-| B2 | **Kênh giao tiếp** (Zalo/SMS/Email) | ⏳ Chưa làm | Bậc 1 (deep-link) làm được ngay. 🔑 Bậc 2–3 cần tài khoản SMS/Email/Zalo OA. |
-| B3 | **Sổ công nợ chủ động** | ⏳ Chưa làm | Lọc theo tuổi nợ, kế hoạch trả góp, cảnh báo vượt ngưỡng. |
+| B2 | **Kênh giao tiếp** (Zalo/SMS/Email) | ✅ Bậc 1 | ✅ Nút Gọi/SMS/Zalo deep-link kèm mẫu tin (Đợt 5). 🔑 Bậc 2–3 (gửi thật, tự động) cần tài khoản SMS/Email/Zalo OA — Email cũng cần thêm field email cho Customer. |
+| B3 | **Sổ công nợ chủ động** | ✅ Một phần | ✅ Trang `/cong-no`: lọc theo tuổi nợ + cảnh báo vượt ngưỡng + nút liên hệ (Đợt 5). ⏳ Còn: kế hoạch trả góp (cần schema mới). |
 | B4 | **Lịch hẹn nâng cao** | ⏳ Chưa làm | Chống trùng lịch, tài nguyên phòng/giường, link khách tự xác nhận. |
 | B5 | **Kho theo chuẩn y tế** | ✅ Một phần | ✅ Giá vốn bình quân + giá trị tồn kho + COGS (Đợt 4). ✅ Cảnh báo FEFO/hạn dùng (đã có ở B1). ⏳ Còn: định mức vật tư/dịch vụ (BOM), phiếu nhập kho nhiều dòng. |
 | B6 | **Hồ sơ y khoa chuẩn** | ⏳ Chưa làm | Phiếu đồng ý (consent) ký số, tiền sử/dị ứng/chống chỉ định, mẫu hồ sơ. |
@@ -205,12 +205,46 @@ phần "Đánh giá" trong lịch sử hội thoại + `web/DU-AN.md`.
 - ⚠️ **KHÔNG** tự cộng COGS vật tư vào Lãi/Lỗ (Báo cáo) để **tránh tính trùng** với chi phí mua
   vật tư mà chủ có thể đã ghi tay ở Sổ thu chi. Giá vốn ở đây là THÔNG TIN tham khảo trên trang Kho.
 
+## CHI TIẾT ĐỢT 5 — Đã làm (B3 sổ công nợ + B2 bậc 1 nút liên hệ)
+
+> Làm đồng thời 2 hạng mục theo yêu cầu chủ. TSC pass, **62/62 test** (thêm 13 test: debt-aging +
+> message-templates). Smoke test THẬT bằng trình duyệt (Playwright + Chromium): vào `/cong-no` →
+> 13 hồ sơ nợ → lọc tuổi nợ "30–60 ngày" → còn 5 dòng đúng; bấm "Liên hệ" → giải mã số (đổi tạm
+> `PHONE_ENC_KEY` test) → hiện đủ 3 nút Gọi (`tel:`)/SMS (`sms:...?body=` đã URL-encode tin nhắn
+> nhắc nợ tiếng Việt)/Zalo (`zalo.me/<số>`); vai trò DOCTOR (không có quyền) vào `/cong-no` bị đẩy
+> sang `/khong-co-quyen` — đúng RBAC.
+
+### B2 bậc 1 — Nút liên hệ nhanh (Gọi/SMS/Zalo)
+- **`lib/message-templates.ts`** (THUẦN, có test): sinh sẵn nội dung tin nhắn theo ngữ cảnh —
+  nhắc nợ, nhắc tái khám, xác nhận lịch hẹn, sinh nhật, khách nguội. CHỈ tạo text, KHÔNG tự gửi.
+- **`components/ui/contact-buttons.tsx`** (mới): tái dùng `revealPhone` (đã có ở trang khách hàng,
+  gate quyền `phone.full` + ghi nhật ký `REVEAL_PHONE`) → sau khi hiện số, render nút Gọi
+  (`tel:`), SMS (`sms:...?body=`, có thể truyền sẵn tin nhắn mẫu), Zalo (`zalo.me/<số>`).
+- Gắn `ContactButtons` vào trang Sổ công nợ mới (mỗi dòng có sẵn mẫu nhắc nợ kèm số tiền + mã hồ sơ).
+- Bổ sung nút SMS (trước đã có Gọi + Zalo) vào `khach-hang/[id]/admin-phone.tsx` cho đồng bộ.
+- 🔑 Bậc 2–3 (tự động gửi SMS/Zalo OA thật, không cần nhân viên bấm tay) cần chủ cấp tài khoản
+  SMS Brandname / Zalo OA / API key. Kênh Email cũng cần thêm field email vào `Customer` (hiện
+  chưa có) — để khi rảnh chủ quyết có cần không trước khi đổi schema.
+
+### B3 — Sổ công nợ chủ động (`/cong-no`)
+- **`lib/debt-aging.ts`** (THUẦN, có test): `debtAgeDays`, `debtAgingBucket` (4 mốc: 0-15/15-30/
+  30-60/60+ ngày), `isOverThreshold`.
+- Trang mới `app/(app)/cong-no/page.tsx`: liệt kê toàn bộ `CaseRecord.debtAmount > 0`, lọc theo
+  mốc tuổi nợ (tab, qua query string, không cần JS), ngưỡng cảnh báo nhập tay (mặc định 5tr, áp
+  dụng qua query string) → hồ sơ vượt ngưỡng tô đỏ "Vượt ngưỡng". Thẻ tổng công nợ/số hồ sơ vượt
+  ngưỡng/nợ lâu nhất. Mỗi dòng có `ContactButtons` kèm mẫu nhắc nợ.
+- Thêm module `mod:cong-no` vào `permissions.ts` (roles: ADMIN, MANAGER, RECEPTION, CONSULTANT,
+  SHAREHOLDER) → tự vào menu điều hướng.
+- ⏳ Còn: "kế hoạch trả góp" (installment plan) — cần model DB mới (số kỳ, ngày hẹn trả từng kỳ);
+  hiện thay bằng field `note` có sẵn ở hồ sơ để nhân viên ghi tay khi thoả thuận trả góp.
+
 ## QUY TRÌNH LÀM VIỆC (cho phiên sau)
 1. Chạy `web/BAN-GIAO.md` mục 10 để dựng sandbox. **Lưu ý proxy:** trong môi trường này, tải
    Prisma engine cần đi qua proxy — đặt `HTTPS_PROXY` + `NODE_EXTRA_CA_CERTS=/root/.ccr/ca-bundle.crt`
    và `CHECKPOINT_DISABLE=1`; nếu `npm install` lỗi ECONNRESET ở `@prisma/engines`, tải engine bằng
    `curl --proxy` rồi `gunzip` vào `node_modules/@prisma/engines/schema-engine-debian-openssl-3.0.x`.
-2. Làm theo thứ tự ưu tiên: hết Nhóm A (A5, A7) → B1 (giá trị cao nhất) → D2/D4/D5 (✅ xong, Đợt 3) → B2 → C → còn lại.
+2. Làm theo thứ tự ưu tiên: hết Nhóm A (A5, A7) → B1 (giá trị cao nhất) → D2/D4/D5/B2/B3 (✅ xong,
+   Đợt 3-5) → C → còn lại (B4, B5 giai đoạn 2, B6).
 3. Mỗi mục: viết code + test → `npx tsc --noEmit` + `npx vitest run` → commit (tiếng Việt) →
    cập nhật trạng thái ở bảng trên + ghi changelog vào `web/DU-AN.md`.
 

@@ -26,6 +26,7 @@ export const MODULES: ModuleDef[] = [
   { key: "cham-cong", href: "/cham-cong", label: "Chấm công", icon: "CalendarCheck", roles: ALL },
   { key: "lich-hen", href: "/lich-hen", label: "Lịch hẹn", icon: "CalendarClock", roles: ["ADMIN", "MANAGER", "TELESALE", "RECEPTION", "CONSULTANT", "SHAREHOLDER"] },
   { key: "tiep-nhan", href: "/tiep-nhan", label: "Tiếp nhận khách", icon: "UserPlus", roles: ["ADMIN", "RECEPTION", "TELESALE"] },
+  { key: "cong-no", href: "/cong-no", label: "Sổ công nợ", icon: "Wallet", roles: ["ADMIN", "MANAGER", "RECEPTION", "CONSULTANT", "SHAREHOLDER"] },
   { key: "khach-hang", href: "/khach-hang", label: "Hồ sơ khách hàng", icon: "FolderHeart", roles: ["ADMIN", "MANAGER", "RECEPTION", "CONSULTANT", "DOCTOR", "CARE", "SHAREHOLDER"] },
   // "Hồ sơ điều trị" gộp vào "Hồ sơ khách hàng" — ẩn khỏi menu, vẫn là 1 module để phân quyền.
   { key: "ho-so", href: "/ho-so", label: "Hồ sơ điều trị", icon: "FolderHeart", roles: ["ADMIN", "MANAGER", "CONSULTANT", "DOCTOR", "RECEPTION", "SHAREHOLDER"], hidden: true },
