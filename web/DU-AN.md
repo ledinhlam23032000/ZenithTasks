@@ -19,6 +19,25 @@
 - **A5 — Sao lưu tự động**: `scripts/backup.mjs` (`pg_dump -Fc` + ảnh `tar.gz` + giữ 14 bản + ghi `backup-status.json`); `npm run backup`; `docker-entrypoint.sh` chạy nền 1 lần lúc khởi động rồi mỗi 24h. Sao lưu OFFSITE vẫn là `windows/Sao-Luu.ps1`.
 - Lưu ý kỹ thuật: trong sandbox Postgres có thể tự dừng (stale pid) → `pg_ctlcluster 16 main start`. DB sandbox cần `npm run db:seed` để có dữ liệu thử (admin/123456).
 
+## Đợt phân tích kinh doanh (BI — Nhóm C) — "Đợt 7"
+> Trang mới `/phan-tich` — chỉ ĐỌC dữ liệu sẵn có, KHÔNG đổi schema, KHÔNG cần API/tài khoản.
+> Làm phần lõi C1 (RFM + radar khách rời bỏ), C2 (LTV theo nguồn), C4 (phễu chuyển đổi). TSC pass,
+> **83/83 test** (+13 test `analytics`). Smoke test THẬT bằng trình duyệt (Playwright + Chromium):
+> ADMIN thấy đủ 4 phần + đổi khoảng thời gian 30 ngày OK; TELESALE (không quyền `mod:phan-tich`) bị
+> chặn → `/khong-co-quyen` (xác nhận bằng nội dung trang, vì redirect chạy phía client).
+- **`lib/analytics.ts`** (toán THUẦN, có test): `rfmScore` (chấm Recency/Frequency/Monetary theo
+  ngưỡng `DEFAULT_RFM` tinh chỉnh được), `rfmSegment` (6 phân khúc: VIP/Trung thành/Mới/Nguy cơ rời
+  bỏ/Đang ngủ/Khác), `isChurnRisk`, `funnelRates` (tỉ lệ từng bậc so bậc đầu & bậc trước).
+- **`lib/analytics-data.ts`** (truy vấn + lắp ráp): `getBusinessAnalytics(days)` — RFM toàn bộ khách
+  (raw SQL gom số lần + tổng chi + lần cuối), đếm phân khúc, lọc khách "nguy cơ rời bỏ" (ưu tiên
+  giá trị cao); phễu hồ sơ (mở→tư vấn→chốt→thu) + phễu lịch hẹn (hẹn→đến) trong kỳ; LTV theo nguồn.
+- **Trang `/phan-tich`** (module mới — ADMIN/MANAGER/SHAREHOLDER; icon `PieChart`): 4 thẻ tổng quan
+  + chọn khoảng thời gian (query string), phễu (thanh ngang), phân bố phân khúc RFM, **radar khách
+  rời bỏ** (bảng kèm `ContactButtons` mẫu "mời quay lại" — tái dùng B2 bậc 1), LTV theo nguồn.
+- Thêm icon `PieChart` vào `app-shell.tsx` (bản đồ ICONS của thanh điều hướng).
+- ⏳ Còn nhóm C: C3 ROI theo nguồn (cần gắn chi phí marketing — nguồn từ Sổ thu chi), dự báo doanh
+  thu, cohort theo tháng, tự đẩy danh sách khách rời bỏ vào "Việc cần làm hôm nay" (B1).
+
 ## Đợt định mức vật tư theo dịch vụ (BOM) — "Đợt 6"
 > Nối tiếp Đợt 4 (giá vốn kho). Khai báo "1 lần làm dịch vụ X tiêu hao mặc định bao nhiêu vật
 > tư" (BOM), rồi thêm nút trên hồ sơ để TỰ ghi nhận vật tư + trừ kho theo định mức — chống quên

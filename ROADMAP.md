@@ -42,10 +42,10 @@ phần "Đánh giá" trong lịch sử hội thoại + `web/DU-AN.md`.
 
 | Mã | Hạng mục | Trạng thái | Ghi chú |
 |----|----------|-----------|---------|
-| C1 | **Giữ chân khách (RFM/Cohort)** + radar khách rời bỏ | ⏳ Chưa làm | Tự sinh danh sách khách nguy cơ rời bỏ → đẩy vào workqueue B1. |
-| C2 | **LTV & dự báo doanh thu** | ⏳ Chưa làm | Giá trị vòng đời theo nguồn/CTV; dự báo theo xu hướng + lịch hẹn. |
-| C3 | **ROI theo kênh nguồn** | ⏳ Chưa làm | Doanh thu/khách theo nguồn vs chi phí marketing. |
-| C4 | **Phễu chuyển đổi** | ⏳ Chưa làm | Hẹn → đến → tư vấn → chốt → thanh toán. |
+| C1 | **Giữ chân khách (RFM/Cohort)** + radar khách rời bỏ | ✅ Một phần | ✅ Phân khúc RFM + radar khách nguy cơ rời bỏ kèm nút liên hệ (Đợt 7, `/phan-tich`). ⏳ Còn: cohort theo tháng, tự đẩy danh sách vào workqueue B1. |
+| C2 | **LTV & dự báo doanh thu** | ✅ Một phần | ✅ LTV (giá trị vòng đời) theo nguồn khách (Đợt 7). ⏳ Còn: dự báo doanh thu theo xu hướng + lịch hẹn. |
+| C3 | **ROI theo kênh nguồn** | ⏳ Chưa làm | Doanh thu/khách theo nguồn vs chi phí marketing (cần nguồn chi phí marketing — gắn với Sổ thu chi). |
+| C4 | **Phễu chuyển đổi** | ✅ Xong | ✅ Phễu hồ sơ (mở → tư vấn → chốt → thu) + phễu lịch hẹn (hẹn → đến), tỉ lệ từng bước (Đợt 7, `/phan-tich`). |
 
 ## NHÓM D — TRẢI NGHIỆM & SÁNG TẠO
 
@@ -273,14 +273,42 @@ phần "Đánh giá" trong lịch sử hội thoại + `web/DU-AN.md`.
   áp → đổi thành nhãn "Đã trừ VT". Vật tư cần thêm/bớt khác vẫn ghi tay như cũ.
 - ⏳ Còn (B5): phiếu nhập kho nhiều dòng (1 phiếu nhập nhiều vật tư cùng lúc).
 
+## CHI TIẾT ĐỢT 7 — Đã làm (Nhóm C: phân tích kinh doanh BI)
+
+> Trang mới `/phan-tich` (Phân tích kinh doanh) — chỉ ĐỌC dữ liệu sẵn có, KHÔNG đổi schema,
+> KHÔNG cần tài khoản/API. TSC pass, **83/83 test** (+13 test `analytics`). Smoke test THẬT bằng
+> trình duyệt (Playwright + Chromium): ADMIN thấy đủ 4 phần (phễu, phân khúc RFM, radar khách rời
+> bỏ, LTV theo nguồn) + đổi khoảng thời gian 30 ngày OK; vai trò TELESALE (không có quyền
+> `mod:phan-tich`) bị chặn → `/khong-co-quyen`.
+
+### `lib/analytics.ts` (THUẦN, có test)
+- **RFM**: `rfmScore` (chấm điểm Recency/Frequency/Monetary theo ngưỡng `DEFAULT_RFM` tinh chỉnh
+  được), `rfmSegment` (quy về 6 phân khúc: VIP / Trung thành / Mới / Nguy cơ rời bỏ / Đang ngủ /
+  Khác), `isChurnRisk`.
+- **Phễu**: `funnelRates` (tỉ lệ từng bậc so với bậc đầu & bậc liền trước).
+
+### `lib/analytics-data.ts` (lắp ráp số liệu — truy vấn DB)
+- `getBusinessAnalytics(days)`: gom RFM toàn bộ khách (raw SQL), đếm phân khúc, lọc danh sách
+  khách "nguy cơ rời bỏ" (ưu tiên giá trị cao); phễu hồ sơ (mở → tư vấn → chốt → thu) + phễu lịch
+  hẹn (hẹn → đến) trong kỳ; LTV theo nguồn khách (doanh thu/số khách).
+
+### Trang `/phan-tich` (module mới — ADMIN/MANAGER/SHAREHOLDER)
+- 4 thẻ tổng quan (khách có hồ sơ, khách VIP, nguy cơ rời bỏ, tỉ lệ chốt) + chọn khoảng thời gian
+  (30/90/180/365 ngày qua query string, không cần JS).
+- Phễu chuyển đổi (thanh ngang), phân khúc RFM (thanh phân bố), **radar khách rời bỏ** (bảng kèm
+  `ContactButtons` mẫu tin "mời quay lại"), LTV theo nguồn (bảng).
+- ⏳ Còn nhóm C: C3 ROI theo nguồn (cần gắn chi phí marketing từ Sổ thu chi); dự báo doanh thu;
+  cohort theo tháng; tự đẩy danh sách khách rời bỏ vào workqueue B1.
+
 ## QUY TRÌNH LÀM VIỆC (cho phiên sau)
 1. Chạy `web/BAN-GIAO.md` mục 10 để dựng sandbox. **Lưu ý proxy:** trong môi trường này, tải
    Prisma engine cần đi qua proxy — đặt `HTTPS_PROXY` + `NODE_EXTRA_CA_CERTS=/root/.ccr/ca-bundle.crt`
    và `CHECKPOINT_DISABLE=1`; nếu `npm install` lỗi ECONNRESET ở `@prisma/engines`, tải engine bằng
    `curl --proxy` rồi `gunzip` vào `node_modules/@prisma/engines/schema-engine-debian-openssl-3.0.x`.
 2. Làm theo thứ tự ưu tiên: hết Nhóm A (A5, A7) → B1 (giá trị cao nhất) → D2/D4/D5/B2/B3 (✅ xong,
-   Đợt 3-5) → B5 giai đoạn 2 BOM (✅ xong, Đợt 6) → C (BI/phân tích) → còn lại (B4 lịch hẹn nâng
-   cao, B6 hồ sơ y khoa/consent, B5 phiếu nhập nhiều dòng).
+   Đợt 3-5) → B5 giai đoạn 2 BOM (✅ xong, Đợt 6) → C BI/phân tích (✅ C1/C2/C4 phần lõi, Đợt 7;
+   còn C3 + dự báo) → còn lại (B4 lịch hẹn nâng cao, B6 hồ sơ y khoa/consent, B5 phiếu nhập nhiều
+   dòng). 🔑 Cần chủ cấp API/tài khoản: D1 AI (`ANTHROPIC_API_KEY`), B2 bậc 2–3 (SMS/Zalo OA).
 3. Mỗi mục: viết code + test → `npx tsc --noEmit` + `npx vitest run` → commit (tiếng Việt) →
    cập nhật trạng thái ở bảng trên + ghi changelog vào `web/DU-AN.md`.
 

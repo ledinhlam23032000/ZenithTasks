@@ -37,7 +37,7 @@ web/
   src/app/
     (app)/                      # Khu vực đăng nhập (có app-shell, sidebar)
       dashboard, viec-hom-nay, dau-ca, cong-no, lich-hen, tiep-nhan, khach-hang, ho-so/[id], cham-soc,
-      bao-cao, hieu-suat, cong-tac-vien, lich-lam-viec, luong, thu-chi,
+      bao-cao, phan-tich, hieu-suat, cong-tac-vien, lich-lam-viec, luong, thu-chi,
       nhan-su/[id], nhat-ky, he-thong, danh-muc, kho, cham-cong, tai-khoan
       <mỗi mục>/actions.ts       # Server actions của mục đó
       <mỗi mục>/*-forms.tsx      # Form client (modal)
@@ -54,7 +54,7 @@ docker-compose.yml              # GỐC repo — dùng khi VẬN HÀNH (có volu
 web/docker-compose.yml          # CHỈ là DB cho lập trình — KHÔNG dùng khi vận hành
 ```
 
-### Các trang & route (31 page, hầu hết `export const dynamic = "force-dynamic"`)
+### Các trang & route (32 page, hầu hết `export const dynamic = "force-dynamic"`)
 Chỉ 3 trang KHÔNG dynamic: `/` (redirect), `/login`, `/khong-co-quyen`. **Hệ quả quan trọng**: mọi trang dữ liệu luôn tải mới khi điều hướng → `revalidatePath` gần như THỪA (xem mục 8 về `useFormAction`).
 
 ## 4. Thư viện `src/lib/` (chức năng từng file)
@@ -93,6 +93,8 @@ Chỉ 3 trang KHÔNG dynamic: `/` (redirect), `/login`, `/khong-co-quyen`. **H�
 - **search-actions.ts** — `globalSearch(query)` (D4): tìm khách hàng/hồ sơ/vật tư cho command palette, lọc theo quyền (`moduleCan`).
 - **debt-aging.ts** — tuổi nợ THUẦN (có test, B3): `debtAgeDays`, `debtAgingBucket` (4 mốc 0-15/15-30/30-60/60+), `isOverThreshold`. Dùng ở `/cong-no`.
 - **message-templates.ts** — mẫu tin nhắn THUẦN (có test, B2 bậc 1): `tplDebtReminder/tplFollowUpReminder/tplApptConfirm/tplBirthday/tplWinback` — chỉ tạo text, không tự gửi. Dùng ở `ContactButtons`.
+- **analytics.ts** — phân tích kinh doanh THUẦN (có test, Nhóm C): `rfmScore`/`rfmSegment`/`isChurnRisk` (phân khúc khách theo RFM, ngưỡng `DEFAULT_RFM` tinh chỉnh được), `funnelRates` (tỉ lệ phễu chuyển đổi). Dùng ở `/phan-tich`.
+- **analytics-data.ts** — `getBusinessAnalytics(days)` (Nhóm C): truy vấn + lắp ráp RFM/phân khúc/radar khách rời bỏ/phễu hồ sơ + lịch hẹn/LTV theo nguồn. Dùng `analytics.ts` (thuần) để chấm điểm.
 - **scripts/backup.mjs** (ngoài lib) — sao lưu tự động (A5): `pg_dump -Fc` + ảnh + status JSON; `npm run backup`.
 
 ## 5. Mô hình dữ liệu (Prisma)

@@ -31,6 +31,7 @@ import {
   ServerCog,
   Search,
   Sunrise,
+  PieChart,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -60,6 +61,7 @@ const ICONS: Record<string, LucideIcon> = {
   ListTodo,
   ServerCog,
   Sunrise,
+  PieChart,
 };
 
 export type NavItemData = { href: string; label: string; icon: string };
