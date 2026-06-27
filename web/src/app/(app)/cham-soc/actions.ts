@@ -96,7 +96,7 @@ const PURPOSES: Record<string, string> = {
   "uu-dai": "Giới thiệu ưu đãi/dịch vụ phù hợp một cách lịch sự, không gây khó chịu.",
 };
 
-/** Dùng AI (Claude) soạn sẵn một tin nhắn chăm sóc — nhân sự xem/sửa rồi mới gửi. */
+/** Dùng AI soạn sẵn một tin nhắn chăm sóc — nhân sự xem/sửa rồi mới gửi. */
 export async function draftCareMessage(_prev: AiDraftState, formData: FormData): Promise<AiDraftState> {
   await requireUser(["ADMIN", "MANAGER", "CARE"]);
   const customerId = String(formData.get("customerId") ?? "");

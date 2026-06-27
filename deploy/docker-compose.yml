@@ -34,6 +34,12 @@ services:
       APP_NAME: "Trung tâm Phẫu thuật Tạo hình Thẩm mỹ — BVĐK Hồng Phúc"
       TZ: "Asia/Ho_Chi_Minh"
       APP_ORIGINS: "${APP_ORIGINS:-trungtamphauthuattaohinhvathammybenhviendakhoahongphuc.xyz,www.trungtamphauthuattaohinhvathammybenhviendakhoahongphuc.xyz}"
+      # AI soạn tin — trung lập nhà cung cấp (xem khối "AI" trong web/.env.example).
+      AI_API_KEY: "${AI_API_KEY:-}"
+      AI_BASE_URL: "${AI_BASE_URL:-}"
+      AI_MODEL: "${AI_MODEL:-}"
+      AI_PROVIDER: "${AI_PROVIDER:-}"
+      # Tương thích ngược cách cũ (chỉ Claude):
       ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:-}"
       ANTHROPIC_MODEL: "${ANTHROPIC_MODEL:-}"
     volumes:

@@ -19,6 +19,25 @@
 - **A5 — Sao lưu tự động**: `scripts/backup.mjs` (`pg_dump -Fc` + ảnh `tar.gz` + giữ 14 bản + ghi `backup-status.json`); `npm run backup`; `docker-entrypoint.sh` chạy nền 1 lần lúc khởi động rồi mỗi 24h. Sao lưu OFFSITE vẫn là `windows/Sao-Luu.ps1`.
 - Lưu ý kỹ thuật: trong sandbox Postgres có thể tự dừng (stale pid) → `pg_ctlcluster 16 main start`. DB sandbox cần `npm run db:seed` để có dữ liệu thử (admin/123456).
 
+## Đợt AI trung lập nhà cung cấp (chọn model giá rẻ tuỳ ý) — "Đợt 14"
+> TSC pass, **111/111 test** (+9 test `resolveAiConfig`). Theo yêu cầu: "cân nhắc AI giá rẻ
+> của Trung Quốc như DeepSeek… không thiên vị AI nào".
+- **Lớp AI tách khỏi 1 hãng** (`lib/ai.ts`): viết lại để TRUNG LẬP NHÀ CUNG CẤP. Hàm thuần
+  `resolveAiConfig(env)` (có test) phân giải `AI_API_KEY`/`AI_BASE_URL`/`AI_MODEL`/`AI_PROVIDER`;
+  `generateMessage` gọi đúng 1 trong 2 chuẩn API: **OpenAI-compatible** (`/chat/completions` —
+  DeepSeek, Qwen, Gemini-compat, OpenAI, Groq, tự host Ollama/vLLM) hoặc **Anthropic**
+  (`/v1/messages` — Claude). Tự suy nhà cung cấp từ base URL nếu không khai báo. Vẫn tương
+  thích ngược `ANTHROPIC_API_KEY`/`ANTHROPIC_MODEL` (cách cũ chạy y nguyên).
+- **Cấu hình + vận hành**: `.env.example` thêm khối "AI" với base/model mẫu cho 5 hãng + lưu ý
+  CHỦ QUYỀN DỮ LIỆU (DeepSeek/Qwen xử lý ở TQ; muốn dữ liệu không ra ngoài → tự host, trỏ
+  `AI_BASE_URL` về máy nội bộ). `docker-compose.yml` (gốc + `deploy/`) truyền `AI_*`.
+  `windows/Cai-AI-Key.ps1` đổi thành TRÌNH CHỌN nhà cung cấp (1=DeepSeek 2=Qwen 3=Gemini
+  4=OpenAI 5=Claude 6=tự host) — tự điền base/model, chỉ hỏi key.
+- **Khuyến nghị (khách quan, tự kiểm chứng giá trước khi chốt)**: tin nhắn chăm sóc rất ngắn
+  nên model rẻ nào cũng đáp ứng. Rẻ nhất ≈ DeepSeek/Qwen (~vài nghìn đồng/triệu token); cân
+  bằng tiếng Việt + giá ≈ Gemini 2.0 Flash; muốn dữ liệu y tế KHÔNG rời máy phòng khám → tự
+  host (mục 6). App vốn chỉ gửi tên khách + tên dịch vụ, KHÔNG gửi SĐT.
+
 ## Đợt ROI marketing + dọn lint (C3 + E3) — "Đợt 13"
 > TSC pass, **102/102 test** (+2 test `marketingRoi`). Smoke test THẬT (Playwright): `/phan-tich`
 > hiện section "ROI Marketing".

@@ -81,7 +81,7 @@ Chỉ 3 trang KHÔNG dynamic: `/` (redirect), `/login`, `/khong-co-quyen`. **H�
 - **use-form-action.ts** — **hook lưu chuẩn** (xem mục 8). RẤT QUAN TRỌNG.
 - **audit.ts** — `audit(actorId, action, {entity,entityId,meta})` ghi `AuditLog` (nuốt lỗi an toàn).
 - **export.ts** + **xlsx.ts** — xuất CSV/Word(.doc)/Excel(.xlsx THẬT, tự dựng ZIP, không thư viện ngoài).
-- **ai.ts** — gọi Claude API soạn tin chăm sóc (ẩn nếu thiếu `ANTHROPIC_API_KEY`). KHÔNG gửi dữ liệu nhạy cảm (chỉ tên + mục đích + dịch vụ gần nhất).
+- **ai.ts** — gọi AI soạn tin chăm sóc, **TRUNG LẬP NHÀ CUNG CẤP** (không khoá vào một hãng). `resolveAiConfig(env)` THUẦN (có test) phân giải cấu hình từ `AI_API_KEY`/`AI_BASE_URL`/`AI_MODEL`/`AI_PROVIDER`; hỗ trợ 2 chuẩn API: **OpenAI-compatible** (`/chat/completions` — DeepSeek, Qwen, Gemini-compat, OpenAI, Groq, tự host Ollama/vLLM) và **Anthropic** (`/v1/messages` — Claude). Tương thích ngược `ANTHROPIC_API_KEY`/`ANTHROPIC_MODEL`. Ẩn nút AI nếu chưa có khoá (`aiConfigured()`). KHÔNG gửi dữ liệu nhạy cảm (chỉ tên + mục đích + dịch vụ gần nhất). Chọn nhà cung cấp: xem khối "AI" trong `.env.example`.
 - **rate-limit.ts** — chống dò mật khẩu + chống spam đặt lịch (theo IP + tài khoản).
 - **case-math.ts** — `computeCaseTotals()` toán tiền hồ sơ THUẦN (có test). `recalc()` trong `ho-so/actions.ts` dùng hàm này.
 - **inventory-cost.ts** — giá vốn kho THUẦN (có test, B5): `weightedAvgCost` (bình quân gia quyền; chưa có giá vốn thì lấy luôn giá nhập), `stockValue`, `totalStockValue`. Dùng ở `danh-muc` (nhập kho) + `/kho` (giá trị tồn).
@@ -217,8 +217,8 @@ npx next dev -p 3939                              # dev server (Turbopack; biên
 - Repo clone vào **`%USERPROFILE%\ZenithTasks`**. Script ở **`%USERPROFILE%\ZenithTasks\windows\`**:
   - **`Chay-Zenith.bat`** — cài/cập nhật + chạy (clone/pull + `docker compose up -d --build`). Tự cài Git/Docker qua winget nếu thiếu.
   - **`Sua-Loi.bat`** — CẬP NHẬT SẠCH (`git reset --hard origin` + `build --no-cache app` + `up -d --force-recreate` + `migrate deploy`). Dùng khi cập nhật lỡ dở / đổi schema. Tự xin quyền admin.
-  - **`Mo-App.bat`** (mở), **`Phat-Hanh-Mang`/`Dia-Chi-Co-Dinh`** (Cloudflare Tunnel ra Internet), **`Sao-Luu`/`Cai-Sao-Luu-Tu-Dong`** (sao lưu DB + uploads), **`Cai-AI-Key`** (đặt `ANTHROPIC_API_KEY`), **`Xem-Loi`** (xuất log).
-- **docker-compose.yml GỐC** (dùng khi vận hành): service `db` (Postgres, volume `zenith_db`) + `app` (build `./web`, cổng 3000, volumes `zenith_uploads:/app/public/uploads` + `zenith_secrets:/app/.runtime`). Env qua `.env` cạnh file (xem `.env.example`): `AUTH_SECRET`, `PHONE_ENC_KEY`, `APP_ORIGINS` (tên miền sau Cloudflare), `ANTHROPIC_API_KEY`…
+  - **`Mo-App.bat`** (mở), **`Phat-Hanh-Mang`/`Dia-Chi-Co-Dinh`** (Cloudflare Tunnel ra Internet), **`Sao-Luu`/`Cai-Sao-Luu-Tu-Dong`** (sao lưu DB + uploads), **`Cai-AI-Key`** (trình chọn nhà cung cấp AI — DeepSeek/Qwen/Gemini/OpenAI/Claude/tự host — rồi ghi `AI_API_KEY`/`AI_BASE_URL`/`AI_MODEL`/`AI_PROVIDER` vào `.env`), **`Xem-Loi`** (xuất log).
+- **docker-compose.yml GỐC** (dùng khi vận hành): service `db` (Postgres, volume `zenith_db`) + `app` (build `./web`, cổng 3000, volumes `zenith_uploads:/app/public/uploads` + `zenith_secrets:/app/.runtime`). Env qua `.env` cạnh file (xem `.env.example`): `AUTH_SECRET`, `PHONE_ENC_KEY`, `APP_ORIGINS` (tên miền sau Cloudflare), AI: `AI_API_KEY`/`AI_BASE_URL`/`AI_MODEL`/`AI_PROVIDER` (hoặc `ANTHROPIC_API_KEY` cách cũ)…
 - ⚠️ `web/docker-compose.yml` CHỈ là DB cho lập trình (không có service app, không volume ảnh) — script Windows luôn chạy compose ở thư mục GỐC nên không đụng tới nó.
 - Đăng nhập lần đầu: `admin / 123456` (đổi ngay).
 
