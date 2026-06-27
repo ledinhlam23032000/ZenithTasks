@@ -95,6 +95,7 @@ Chỉ 3 trang KHÔNG dynamic: `/` (redirect), `/login`, `/khong-co-quyen`. **H�
 - **message-templates.ts** — mẫu tin nhắn THUẦN (có test, B2 bậc 1): `tplDebtReminder/tplFollowUpReminder/tplApptConfirm/tplBirthday/tplWinback` — chỉ tạo text, không tự gửi. Dùng ở `ContactButtons`.
 - **analytics.ts** — phân tích kinh doanh THUẦN (có test, Nhóm C): `rfmScore`/`rfmSegment`/`isChurnRisk` (phân khúc khách theo RFM, ngưỡng `DEFAULT_RFM` tinh chỉnh được), `funnelRates` (tỉ lệ phễu chuyển đổi). Dùng ở `/phan-tich`.
 - **analytics-data.ts** — `getBusinessAnalytics(days)` (Nhóm C): truy vấn + lắp ráp RFM/phân khúc/radar khách rời bỏ/phễu hồ sơ + lịch hẹn/LTV theo nguồn. Dùng `analytics.ts` (thuần) để chấm điểm.
+- **schedule.ts** — chống trùng lịch THUẦN (có test, B4): `slotConflict`/`findConflicts`/`minutesApart` + `SLOT_WINDOW_MIN` (30'). Dùng ở `lich-hen/actions.ts` (`consultantConflictMessage`).
 - **scripts/backup.mjs** (ngoài lib) — sao lưu tự động (A5): `pg_dump -Fc` + ảnh + status JSON; `npm run backup`.
 
 ## 5. Mô hình dữ liệu (Prisma)
@@ -238,6 +239,7 @@ npx next dev -p 3939                              # dev server (Turbopack; biên
 6. **Forge JWT phải chạy từ `web/`** để resolve `jose`.
 7. **`cd` không giữ giữa các lần gọi Bash; `sleep` foreground bị chặn** → dùng vòng `until`/`run_in_background`.
 8. Sau đổi schema mà quên `prisma generate` → tsc báo lỗi kiểu.
+9. **React 19 tự RESET `<form action={fn}>` sau mỗi lần gửi** → mất dữ liệu input không kiểm soát khi action trả về (lỗi/cảnh báo, không đóng modal). Nếu cần GIỮ dữ liệu sau khi gửi (vd cảnh báo trùng lịch B4 để bấm "Vẫn đặt"), dùng `onSubmit` + `e.preventDefault()` rồi gọi action thủ công (KHÔNG dùng prop `action`). Lưu ý: field thêm bằng `formData.set()` ở client BỊ Next/React lược bỏ khi gọi server action → muốn truyền "biến thể" thì tạo **action server riêng** (vd `createAppointmentForced`) thay vì cờ trong FormData.
 
 ## 14. TODO / lộ trình
 - **Zalo OA (GĐ2)** + **AI tự trả lời (GĐ3)**: cần lập Zalo OA lấy token (khách đang dùng Zalo cá nhân, không có API) — TẠM GÁC.

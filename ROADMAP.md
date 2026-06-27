@@ -34,7 +34,7 @@ phần "Đánh giá" trong lịch sử hội thoại + `web/DU-AN.md`.
 | B1 | **Trung tâm nhắc & thông báo tự động** | ✅ Phần lõi xong | Trang **"Việc cần làm hôm nay"** (`/viec-hom-nay`) tổng hợp tự động: tái khám đến hạn, hẹn chưa đến, công nợ quá hạn, sinh nhật khách, khách nguội, kho cảnh báo (`lib/workqueue.ts`, không đổi schema). ⏳ Còn: Web Push lên điện thoại + việc có người phụ trách/đánh dấu xong (cần schema + cron + VAPID). |
 | B2 | **Kênh giao tiếp** (Zalo/SMS/Email) | ✅ Bậc 1 | ✅ Nút Gọi/SMS/Zalo deep-link kèm mẫu tin (Đợt 5). 🔑 Bậc 2–3 (gửi thật, tự động) cần tài khoản SMS/Email/Zalo OA — Email cũng cần thêm field email cho Customer. |
 | B3 | **Sổ công nợ chủ động** | ✅ Một phần | ✅ Trang `/cong-no`: lọc theo tuổi nợ + cảnh báo vượt ngưỡng + nút liên hệ (Đợt 5). ⏳ Còn: kế hoạch trả góp (cần schema mới). |
-| B4 | **Lịch hẹn nâng cao** | ⏳ Chưa làm | Chống trùng lịch, tài nguyên phòng/giường, link khách tự xác nhận. |
+| B4 | **Lịch hẹn nâng cao** | ✅ Một phần | ✅ Chống trùng lịch cùng người phụ trách (cảnh báo + cho ghi đè "Vẫn đặt") — Đợt 9. ⏳ Còn: tài nguyên phòng/giường, link khách tự xác nhận. |
 | B5 | **Kho theo chuẩn y tế** | ✅ Một phần | ✅ Giá vốn bình quân + giá trị tồn kho + COGS (Đợt 4). ✅ Cảnh báo FEFO/hạn dùng (đã có ở B1). ✅ Định mức vật tư theo dịch vụ (BOM) + nút tự trừ kho theo định mức (Đợt 6). ⏳ Còn: phiếu nhập kho nhiều dòng. |
 | B6 | **Hồ sơ y khoa chuẩn** | ✅ Một phần | ✅ Tiền sử/dị ứng/chống chỉ định + cảnh báo an toàn ở trang khách & hồ sơ (Đợt 8). ⏳ Còn: phiếu đồng ý (consent) ký số, mẫu hồ sơ. |
 
@@ -324,6 +324,34 @@ phần "Đánh giá" trong lịch sử hội thoại + `web/DU-AN.md`.
   (`/ho-so/[id]`, nơi bác sĩ thao tác — bản gọn).
 - ⏳ Còn (B6): phiếu đồng ý (consent) ký số, mẫu hồ sơ y khoa theo loại dịch vụ. Cho bác sĩ
   (DOCTOR/CONSULTANT) sửa được thông tin y khoa (hiện chỉ ADMIN/MANAGER/RECEPTION/TELESALE).
+
+## CHI TIẾT ĐỢT 9 — Đã làm (B4 phần 1: chống trùng lịch hẹn)
+
+> Cảnh báo khi đặt/sửa lịch mà người phụ trách (tư vấn) đã có hẹn khác ĐỤNG GIỜ (trong cửa sổ
+> 30 phút), cho phép "Vẫn đặt lịch này" để ghi đè. TSC pass, **90/90 test** (+7 test `schedule`).
+> Smoke test THẬT (Playwright + Chromium): đặt lịch A (10:00, người phụ trách X) → đặt lịch B
+> (10:15, cùng X) → hiện cảnh báo trùng + nút "Vẫn đặt lịch này"; bấm ghi đè → tạo được lịch B
+> (kiểm DB có cả 2 lịch). Vai trò không có quyền vẫn bị chặn như cũ.
+
+### `lib/schedule.ts` (THUẦN, có test)
+- `slotConflict` (2 mốc giờ đụng nhau trong cửa sổ phút), `findConflicts` (lọc lịch trùng, bỏ
+  chính lịch đang sửa), `minutesApart`, hằng `SLOT_WINDOW_MIN = 30`.
+
+### Server action (`lich-hen/actions.ts`)
+- `consultantConflictMessage`: truy vấn lịch khác của cùng người phụ trách (trạng thái còn hiệu
+  lực) trong ngày, dùng `findConflicts` → sinh câu cảnh báo (kèm tên khách + giờ + số phút lệch).
+- Tách lõi `doCreateAppointment`/`doUpdateAppointment(formData, force)` + 2 export mỗi loại:
+  thường (kiểm tra trùng) và **forced** (`createAppointmentForced`/`updateAppointmentForced`, bỏ
+  qua kiểm tra). Lý do dùng action riêng thay vì truyền cờ qua FormData: xem cạm bẫy mục dưới.
+
+### Form (`new-appointment.tsx`)
+- Khi trùng: hiện cảnh báo vàng + nút đổi thành "Vẫn đặt lịch này" → gọi action *forced*.
+- ⚠️ **Cạm bẫy React 19 đã xử lý:** `<form action={fn}>` TỰ RESET các input không kiểm soát sau
+  mỗi lần gửi → sau cảnh báo trùng, dữ liệu đã nhập bị xoá (và nút ghi đè gửi đi form rỗng). Khắc
+  phục: dùng `onSubmit` + `e.preventDefault()` rồi gọi action thủ công (KHÔNG dùng prop `action`)
+  → form không bị reset, ghi đè đọc lại đúng dữ liệu. (Cũng sửa luôn lỗi tiềm ẩn: form mất dữ
+  liệu khi gặp lỗi validate.)
+- ⏳ Còn (B4): tài nguyên phòng/giường; link khách tự xác nhận lịch (gắn với D3 cổng khách).
 
 ## QUY TRÌNH LÀM VIỆC (cho phiên sau)
 1. Chạy `web/BAN-GIAO.md` mục 10 để dựng sandbox. **Lưu ý proxy:** trong môi trường này, tải

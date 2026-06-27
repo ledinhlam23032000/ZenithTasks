@@ -19,6 +19,24 @@
 - **A5 — Sao lưu tự động**: `scripts/backup.mjs` (`pg_dump -Fc` + ảnh `tar.gz` + giữ 14 bản + ghi `backup-status.json`); `npm run backup`; `docker-entrypoint.sh` chạy nền 1 lần lúc khởi động rồi mỗi 24h. Sao lưu OFFSITE vẫn là `windows/Sao-Luu.ps1`.
 - Lưu ý kỹ thuật: trong sandbox Postgres có thể tự dừng (stale pid) → `pg_ctlcluster 16 main start`. DB sandbox cần `npm run db:seed` để có dữ liệu thử (admin/123456).
 
+## Đợt chống trùng lịch hẹn (B4 giai đoạn 1) — "Đợt 9"
+> Cảnh báo khi đặt/sửa lịch mà người phụ trách (tư vấn) đã có hẹn khác đụng giờ (cửa sổ 30 phút),
+> cho ghi đè "Vẫn đặt lịch này". TSC pass, **90/90 test** (+7 test `schedule`). Smoke test THẬT
+> (Playwright + Chromium): đặt lịch A 10:00 (người phụ trách X) → đặt B 10:15 cùng X → cảnh báo
+> trùng + nút ghi đè → bấm ghi đè tạo được B (DB có cả 2).
+- **`lib/schedule.ts`** (toán THUẦN, có test): `slotConflict`, `findConflicts` (bỏ chính lịch đang
+  sửa), `minutesApart`, hằng `SLOT_WINDOW_MIN=30`.
+- **Action** (`lich-hen/actions.ts`): `consultantConflictMessage` truy vấn lịch khác cùng người phụ
+  trách (trạng thái còn hiệu lực) trong ngày → câu cảnh báo. Tách lõi `doCreate/doUpdateAppointment
+  (formData, force)` + 2 export: thường (kiểm tra trùng) và **forced** (bỏ qua) cho nút ghi đè.
+- **Form** (`new-appointment.tsx`): cảnh báo vàng + nút "Vẫn đặt lịch này" gọi action forced.
+- ⚠️ **Cạm bẫy React 19:** `<form action={fn}>` tự reset input không kiểm soát sau mỗi lần gửi →
+  mất dữ liệu sau cảnh báo trùng (+ nút ghi đè gửi form rỗng). Khắc phục: chuyển sang `onSubmit` +
+  `e.preventDefault()` + gọi action thủ công (không dùng prop `action`). Lý do KHÔNG truyền cờ
+  force qua `fd.set()`: Next/React lược bỏ field tự thêm khi gọi server action → phải dùng 2 action
+  server riêng (thường / forced).
+- ⏳ Còn (B4): tài nguyên phòng/giường; link khách tự xác nhận (gắn D3 cổng khách).
+
 ## Đợt an toàn y khoa (B6 giai đoạn 1) — "Đợt 8"
 > Thêm thông tin AN TOÀN Y KHOA cho khách (dị ứng / tiền sử / chống chỉ định) + cảnh báo nổi bật để
 > bác sĩ thấy TRƯỚC khi làm dịch vụ — rất quan trọng với phòng khám phẫu thuật thẩm mỹ. Không cần
