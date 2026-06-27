@@ -35,7 +35,7 @@ phần "Đánh giá" trong lịch sử hội thoại + `web/DU-AN.md`.
 | B2 | **Kênh giao tiếp** (Zalo/SMS/Email) | ✅ Bậc 1 | ✅ Nút Gọi/SMS/Zalo deep-link kèm mẫu tin (Đợt 5). 🔑 Bậc 2–3 (gửi thật, tự động) cần tài khoản SMS/Email/Zalo OA — Email cũng cần thêm field email cho Customer. |
 | B3 | **Sổ công nợ chủ động** | ✅ Một phần | ✅ Trang `/cong-no`: lọc theo tuổi nợ + cảnh báo vượt ngưỡng + nút liên hệ (Đợt 5). ⏳ Còn: kế hoạch trả góp (cần schema mới). |
 | B4 | **Lịch hẹn nâng cao** | ✅ Một phần | ✅ Chống trùng lịch cùng người phụ trách (cảnh báo + cho ghi đè "Vẫn đặt") — Đợt 9. ⏳ Còn: tài nguyên phòng/giường, link khách tự xác nhận. |
-| B5 | **Kho theo chuẩn y tế** | ✅ Một phần | ✅ Giá vốn bình quân + giá trị tồn kho + COGS (Đợt 4). ✅ Cảnh báo FEFO/hạn dùng (đã có ở B1). ✅ Định mức vật tư theo dịch vụ (BOM) + nút tự trừ kho theo định mức (Đợt 6). ⏳ Còn: phiếu nhập kho nhiều dòng. |
+| B5 | **Kho theo chuẩn y tế** | ✅ Xong | ✅ Giá vốn bình quân + giá trị tồn kho + COGS (Đợt 4). ✅ Cảnh báo FEFO/hạn dùng (B1). ✅ Định mức vật tư theo dịch vụ (BOM) + nút tự trừ kho (Đợt 6). ✅ Phiếu nhập kho nhiều dòng (Đợt 10). |
 | B6 | **Hồ sơ y khoa chuẩn** | ✅ Một phần | ✅ Tiền sử/dị ứng/chống chỉ định + cảnh báo an toàn ở trang khách & hồ sơ (Đợt 8). ⏳ Còn: phiếu đồng ý (consent) ký số, mẫu hồ sơ. |
 
 ## NHÓM C — PHÂN TÍCH & RA QUYẾT ĐỊNH (BI)
@@ -352,6 +352,25 @@ phần "Đánh giá" trong lịch sử hội thoại + `web/DU-AN.md`.
   → form không bị reset, ghi đè đọc lại đúng dữ liệu. (Cũng sửa luôn lỗi tiềm ẩn: form mất dữ
   liệu khi gặp lỗi validate.)
 - ⏳ Còn (B4): tài nguyên phòng/giường; link khách tự xác nhận lịch (gắn với D3 cổng khách).
+
+## CHI TIẾT ĐỢT 10 — Đã làm (B5 hoàn tất: phiếu nhập kho nhiều dòng)
+
+> Nhập nhiều vật tư trong MỘT phiếu (mỗi dòng: vật tư + SL + đơn giá), gửi trong 1 giao dịch.
+> TSC pass, **95/95 test** (+5 test `stock-in`). Smoke test THẬT (Playwright + Chromium): nhập 2
+> dòng (Botox 10 @600.000 + Chỉ Collagen 20 @300.000) → tồn Botox 54→64, giá vốn bình quân
+> 500.000→515.625 (đúng công thức (54×500k+10×600k)/64); Chỉ Collagen 0→20 @300.000; 2 dòng
+> StockMovement IN ghi đúng đơn giá.
+
+### `lib/stock-in.ts` (THUẦN, có test)
+- `validStockInLines` (lọc dòng có vật tư + SL>0, kẹp đơn giá ≥0), `parseStockInLines` (gộp 3 mảng
+  song song từ `FormData.getAll`), `stockInTotal`.
+
+### Server action + UI
+- `kho/actions.ts` `stockInBatch`: với mỗi dòng → cộng tồn + cập nhật giá vốn bình quân
+  (`weightedAvgCost`) + ghi `StockMovement` IN, tất cả trong **1 `$transaction`**. Ghi chú/NCC dùng
+  chung cả phiếu. Quyền ADMIN/MANAGER.
+- `kho/stock-in-batch.tsx`: modal nhiều dòng (thêm/xóa dòng động), gắn nút "Nhập kho" lên trang
+  `/kho` (chỉ ADMIN/MANAGER). Dùng `onSubmit`+`preventDefault` (tránh React 19 reset mất dòng đã nhập).
 
 ## QUY TRÌNH LÀM VIỆC (cho phiên sau)
 1. Chạy `web/BAN-GIAO.md` mục 10 để dựng sandbox. **Lưu ý proxy:** trong môi trường này, tải

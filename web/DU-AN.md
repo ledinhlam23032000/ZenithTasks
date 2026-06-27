@@ -19,6 +19,17 @@
 - **A5 — Sao lưu tự động**: `scripts/backup.mjs` (`pg_dump -Fc` + ảnh `tar.gz` + giữ 14 bản + ghi `backup-status.json`); `npm run backup`; `docker-entrypoint.sh` chạy nền 1 lần lúc khởi động rồi mỗi 24h. Sao lưu OFFSITE vẫn là `windows/Sao-Luu.ps1`.
 - Lưu ý kỹ thuật: trong sandbox Postgres có thể tự dừng (stale pid) → `pg_ctlcluster 16 main start`. DB sandbox cần `npm run db:seed` để có dữ liệu thử (admin/123456).
 
+## Đợt phiếu nhập kho nhiều dòng (B5 hoàn tất) — "Đợt 10"
+> Nhập nhiều vật tư trong MỘT phiếu, gửi trong 1 giao dịch. TSC pass, **95/95 test** (+5 test
+> `stock-in`). Smoke test THẬT (Playwright + Chromium): nhập 2 dòng → tồn + giá vốn bình quân +
+> StockMovement IN đều đúng (Botox 54→64 @515.625; Chỉ Collagen 0→20 @300.000).
+- **`lib/stock-in.ts`** (toán THUẦN, có test): `validStockInLines`/`parseStockInLines`/`stockInTotal`.
+- **`kho/actions.ts`** `stockInBatch`: mỗi dòng cộng tồn + cập nhật `avgCost` bình quân + ghi
+  `StockMovement` IN, trong 1 `$transaction`. Quyền ADMIN/MANAGER. Ghi chú/NCC dùng chung cả phiếu.
+- **`kho/stock-in-batch.tsx`**: modal nhiều dòng (thêm/xóa động) + nút "Nhập kho" trên `/kho`
+  (ADMIN/MANAGER). Dùng `onSubmit`+`preventDefault` (tránh React 19 reset mất dòng đã nhập — xem B4).
+- Lưu ý: nút nhập kho 1-dòng cũ ở Danh mục vẫn giữ; phiếu nhiều dòng ở trang Kho là cách nhanh hơn.
+
 ## Đợt chống trùng lịch hẹn (B4 giai đoạn 1) — "Đợt 9"
 > Cảnh báo khi đặt/sửa lịch mà người phụ trách (tư vấn) đã có hẹn khác đụng giờ (cửa sổ 30 phút),
 > cho ghi đè "Vẫn đặt lịch này". TSC pass, **90/90 test** (+7 test `schedule`). Smoke test THẬT

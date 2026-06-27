@@ -96,6 +96,7 @@ Chỉ 3 trang KHÔNG dynamic: `/` (redirect), `/login`, `/khong-co-quyen`. **H�
 - **analytics.ts** — phân tích kinh doanh THUẦN (có test, Nhóm C): `rfmScore`/`rfmSegment`/`isChurnRisk` (phân khúc khách theo RFM, ngưỡng `DEFAULT_RFM` tinh chỉnh được), `funnelRates` (tỉ lệ phễu chuyển đổi). Dùng ở `/phan-tich`.
 - **analytics-data.ts** — `getBusinessAnalytics(days)` (Nhóm C): truy vấn + lắp ráp RFM/phân khúc/radar khách rời bỏ/phễu hồ sơ + lịch hẹn/LTV theo nguồn. Dùng `analytics.ts` (thuần) để chấm điểm.
 - **schedule.ts** — chống trùng lịch THUẦN (có test, B4): `slotConflict`/`findConflicts`/`minutesApart` + `SLOT_WINDOW_MIN` (30'). Dùng ở `lich-hen/actions.ts` (`consultantConflictMessage`).
+- **stock-in.ts** — phiếu nhập kho nhiều dòng THUẦN (có test, B5): `validStockInLines`/`parseStockInLines`/`stockInTotal`. Dùng ở `kho/actions.ts` (`stockInBatch` — nhập nhiều vật tư 1 giao dịch).
 - **scripts/backup.mjs** (ngoài lib) — sao lưu tự động (A5): `pg_dump -Fc` + ảnh + status JSON; `npm run backup`.
 
 ## 5. Mô hình dữ liệu (Prisma)

@@ -11,6 +11,7 @@ import { StatCard } from "@/components/ui/stat-card";
 import { Badge } from "@/components/ui/badge";
 import { Table, THead, TH, TR, TD } from "@/components/ui/table";
 import { EmptyState } from "@/components/ui/empty-state";
+import { StockInBatchButton } from "./stock-in-batch";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Kho vật tư" };
@@ -22,7 +23,8 @@ const MOVE = {
 };
 
 export default async function KhoPage() {
-  await requireCap("mod:kho");
+  const user = await requireCap("mod:kho");
+  const canStockIn = user.role === "ADMIN" || user.role === "MANAGER";
   const [materials, movements, outMoves] = await Promise.all([
     prisma.material.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
     prisma.stockMovement.findMany({
@@ -72,6 +74,7 @@ export default async function KhoPage() {
         title="Kho vật tư"
         description="Theo dõi tồn kho, mức tối thiểu, hạn dùng và lịch sử nhập/xuất."
         icon={<Boxes className="h-5 w-5" />}
+        actions={canStockIn ? <StockInBatchButton materials={materials.map((m) => ({ id: m.id, name: m.name, unit: m.unit }))} /> : undefined}
       />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
