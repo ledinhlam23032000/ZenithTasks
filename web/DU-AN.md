@@ -19,6 +19,22 @@
 - **A5 — Sao lưu tự động**: `scripts/backup.mjs` (`pg_dump -Fc` + ảnh `tar.gz` + giữ 14 bản + ghi `backup-status.json`); `npm run backup`; `docker-entrypoint.sh` chạy nền 1 lần lúc khởi động rồi mỗi 24h. Sao lưu OFFSITE vẫn là `windows/Sao-Luu.ps1`.
 - Lưu ý kỹ thuật: trong sandbox Postgres có thể tự dừng (stale pid) → `pg_ctlcluster 16 main start`. DB sandbox cần `npm run db:seed` để có dữ liệu thử (admin/123456).
 
+## Đợt an toàn y khoa (B6 giai đoạn 1) — "Đợt 8"
+> Thêm thông tin AN TOÀN Y KHOA cho khách (dị ứng / tiền sử / chống chỉ định) + cảnh báo nổi bật để
+> bác sĩ thấy TRƯỚC khi làm dịch vụ — rất quan trọng với phòng khám phẫu thuật thẩm mỹ. Không cần
+> API/tài khoản. TSC pass, **83/83 test** (schema + UI, không thêm test). Smoke test THẬT (Playwright
+> + Chromium): set 3 trường cho 1 khách → banner đỏ "Lưu ý an toàn y khoa" hiện đúng trên cả trang
+> khách hàng lẫn trang hồ sơ điều trị.
+- **Schema** (migration `20260627130000_customer_medical`, viết tay): thêm 3 cột text nullable vào
+  `Customer`: `allergies`, `medicalHistory`, `contraindications`.
+- **Nhập liệu**: mở rộng `updateCustomer` (action) + `EditCustomerButton` (form khách hàng) thêm
+  mục "An toàn y khoa" 3 ô. Người sửa: ADMIN/MANAGER/RECEPTION/TELESALE (lễ tân ghi khi tiếp nhận).
+- **Cảnh báo**: `components/ui/medical-alert.tsx` (mới) — banner đỏ; dị ứng + chống chỉ định tô đỏ
+  đậm, tiền sử để nhạt; **ẩn hoàn toàn** nếu trống. Gắn vào `/khach-hang/[id]` (dưới thẻ hồ sơ) +
+  `/ho-so/[id]` (bản gọn, nơi bác sĩ thao tác).
+- ⏳ Còn (B6): phiếu đồng ý (consent) ký số; mẫu hồ sơ y khoa theo loại dịch vụ; cho bác sĩ
+  (DOCTOR/CONSULTANT) tự sửa thông tin y khoa (hiện chỉ ADMIN/MANAGER/RECEPTION/TELESALE sửa được).
+
 ## Đợt phân tích kinh doanh (BI — Nhóm C) — "Đợt 7"
 > Trang mới `/phan-tich` — chỉ ĐỌC dữ liệu sẵn có, KHÔNG đổi schema, KHÔNG cần API/tài khoản.
 > Làm phần lõi C1 (RFM + radar khách rời bỏ), C2 (LTV theo nguồn), C4 (phễu chuyển đổi). TSC pass,

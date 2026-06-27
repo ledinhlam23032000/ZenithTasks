@@ -36,7 +36,7 @@ phần "Đánh giá" trong lịch sử hội thoại + `web/DU-AN.md`.
 | B3 | **Sổ công nợ chủ động** | ✅ Một phần | ✅ Trang `/cong-no`: lọc theo tuổi nợ + cảnh báo vượt ngưỡng + nút liên hệ (Đợt 5). ⏳ Còn: kế hoạch trả góp (cần schema mới). |
 | B4 | **Lịch hẹn nâng cao** | ⏳ Chưa làm | Chống trùng lịch, tài nguyên phòng/giường, link khách tự xác nhận. |
 | B5 | **Kho theo chuẩn y tế** | ✅ Một phần | ✅ Giá vốn bình quân + giá trị tồn kho + COGS (Đợt 4). ✅ Cảnh báo FEFO/hạn dùng (đã có ở B1). ✅ Định mức vật tư theo dịch vụ (BOM) + nút tự trừ kho theo định mức (Đợt 6). ⏳ Còn: phiếu nhập kho nhiều dòng. |
-| B6 | **Hồ sơ y khoa chuẩn** | ⏳ Chưa làm | Phiếu đồng ý (consent) ký số, tiền sử/dị ứng/chống chỉ định, mẫu hồ sơ. |
+| B6 | **Hồ sơ y khoa chuẩn** | ✅ Một phần | ✅ Tiền sử/dị ứng/chống chỉ định + cảnh báo an toàn ở trang khách & hồ sơ (Đợt 8). ⏳ Còn: phiếu đồng ý (consent) ký số, mẫu hồ sơ. |
 
 ## NHÓM C — PHÂN TÍCH & RA QUYẾT ĐỊNH (BI)
 
@@ -299,6 +299,31 @@ phần "Đánh giá" trong lịch sử hội thoại + `web/DU-AN.md`.
   `ContactButtons` mẫu tin "mời quay lại"), LTV theo nguồn (bảng).
 - ⏳ Còn nhóm C: C3 ROI theo nguồn (cần gắn chi phí marketing từ Sổ thu chi); dự báo doanh thu;
   cohort theo tháng; tự đẩy danh sách khách rời bỏ vào workqueue B1.
+
+## CHI TIẾT ĐỢT 8 — Đã làm (B6 giai đoạn 1: an toàn y khoa)
+
+> Thêm thông tin AN TOÀN Y KHOA cho khách (dị ứng / tiền sử / chống chỉ định) + cảnh báo nổi bật
+> để bác sĩ thấy TRƯỚC khi làm dịch vụ. Quan trọng cho phòng khám phẫu thuật thẩm mỹ. Không cần
+> API/tài khoản. TSC pass, **83/83 test** (không thêm test — đây là schema + UI). Smoke test THẬT
+> bằng trình duyệt (Playwright + Chromium): set dị ứng/tiền sử/chống chỉ định cho 1 khách → banner
+> đỏ "Lưu ý an toàn y khoa" hiện đúng trên CẢ trang khách hàng LẪN trang hồ sơ điều trị.
+
+### Schema (migration `20260627130000_customer_medical`)
+- Thêm 3 cột text nullable vào `Customer`: `allergies` (dị ứng), `medicalHistory` (tiền sử bệnh +
+  thuốc đang dùng), `contraindications` (chống chỉ định / lưu ý).
+
+### Nhập liệu
+- `updateCustomer` (action) + `EditCustomerButton` (form): thêm mục "An toàn y khoa" gồm 3 ô nhập.
+  Người sửa: ADMIN/MANAGER/RECEPTION/TELESALE (lễ tân ghi khi tiếp nhận).
+
+### Cảnh báo
+- `components/ui/medical-alert.tsx` (mới): banner đỏ "Lưu ý an toàn y khoa" — dị ứng + chống chỉ
+  định tô đỏ đậm, tiền sử để nhạt; **ẩn hoàn toàn** nếu không có thông tin. Bản `compact` cho trang
+  hồ sơ.
+- Gắn vào trang khách hàng (`/khach-hang/[id]`, ngay dưới thẻ hồ sơ) + trang hồ sơ điều trị
+  (`/ho-so/[id]`, nơi bác sĩ thao tác — bản gọn).
+- ⏳ Còn (B6): phiếu đồng ý (consent) ký số, mẫu hồ sơ y khoa theo loại dịch vụ. Cho bác sĩ
+  (DOCTOR/CONSULTANT) sửa được thông tin y khoa (hiện chỉ ADMIN/MANAGER/RECEPTION/TELESALE).
 
 ## QUY TRÌNH LÀM VIỆC (cho phiên sau)
 1. Chạy `web/BAN-GIAO.md` mục 10 để dựng sandbox. **Lưu ý proxy:** trong môi trường này, tải

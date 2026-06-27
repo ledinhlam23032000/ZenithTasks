@@ -45,7 +45,7 @@ web/
     khach/[token]/              # Cổng khách hàng (công khai, theo token)
     media/[file]/route.ts       # Phục vụ ảnh từ public/uploads (KHÔNG auth — để cổng khách xem được)
   src/lib/                      # Logic dùng chung (xem mục 4)
-  src/components/ui/            # Nút, modal, bảng, combobox, money-input, photo-gallery, photo-compare (D2), contact-buttons (B2 bậc 1), chart…
+  src/components/ui/            # Nút, modal, bảng, combobox, money-input, photo-gallery, photo-compare (D2), contact-buttons (B2 bậc 1), medical-alert (B6 cảnh báo an toàn), chart…
   src/components/layout/        # app-shell (sidebar + header), change-password, command-palette (D4, Ctrl/Cmd+K)
   src/components/charts/        # revenue-chart (dùng MultiChart)
 windows/                        # Script .bat/.ps1 triển khai trên máy Windows (xem mục 11)
@@ -102,7 +102,7 @@ Chỉ 3 trang KHÔNG dynamic: `/` (redirect), `/login`, `/khong-co-quyen`. **H�
 
 **Models chính**:
 - **User** — nhân sự + thông tin HR đầy đủ (dob, gender, nationalId, hometown, address, bank*, emergency*, position, department, hireDate, qualification, notes), `baseSalary`, `avatarUrl`, `role`, `permissions` (JSON `{grant,deny}`), `totpSecret/totpEnabled`. **KHÔNG còn `commissionRate`** (đã bỏ — hoa hồng nhập tay).
-- **Customer** — `phoneEnc`(mã hoá)/`phoneLast5`, `source`/`sourceDetail` (CTV gắn ở đây), `portalToken`, `code`.
+- **Customer** — `phoneEnc`(mã hoá)/`phoneLast5`, `source`/`sourceDetail` (CTV gắn ở đây), `portalToken`, `code`. An toàn y khoa (B6 gđ1): `allergies`/`medicalHistory`/`contraindications` (text, hiện banner cảnh báo ở trang khách + hồ sơ qua `components/ui/medical-alert.tsx`).
 - **Appointment**, **CaseRecord** (hồ sơ điều trị: `code`, `status`, `consultResult`, `consultantId`, `doctorId`, `totalAmount`, `paidAmount`, `debtAmount`, `discountAmount`, `commissionAmount` (nhập tay), `voucherCode`, `voucherAmount`, `locked/lockedAt/lockedById`, `completedAt`).
 - **CaseService** (`listPrice`=giá gốc, `unitPrice`=giá ưu đãi, `quantity`, `discount`, `finalPrice`), **Payment** (`amount`, `method`, `paidAt`, `receivedById`), **MaterialUsage**, **Photo** (`type`, `url`, `caption`, `followUpIndex`, `caseId` nullable — giữ ảnh khi xóa hồ sơ).
 - **Service** (`listPrice` niêm yết + `defaultPrice` ưu đãi), **Material** (`stock`, `minStock`, `lotNo`, `expiryDate`, `avgCost` = giá vốn bình quân), **StockMovement** (`type`, `quantity`, `unitCost` = đơn giá tại thời điểm GD). Khi thêm/sửa/xóa vật tư trong hồ sơ → tự trừ/hoàn tồn + ghi `StockMovement` (nguyên tử, xem `ho-so/actions.ts`). Giá vốn: xem `lib/inventory-cost.ts`.

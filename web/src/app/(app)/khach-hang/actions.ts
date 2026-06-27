@@ -40,6 +40,9 @@ const schema = z.object({
   sourceDetail: z.string().trim().optional(),
   address: z.string().trim().optional(),
   note: z.string().trim().optional(),
+  allergies: z.string().trim().optional(),
+  medicalHistory: z.string().trim().optional(),
+  contraindications: z.string().trim().optional(),
 });
 
 export async function updateCustomer(_prev: EditCustomerState, formData: FormData): Promise<EditCustomerState> {
@@ -55,6 +58,9 @@ export async function updateCustomer(_prev: EditCustomerState, formData: FormDat
     sourceDetail: formData.get("sourceDetail") ?? "",
     address: formData.get("address") ?? "",
     note: formData.get("note") ?? "",
+    allergies: formData.get("allergies") ?? "",
+    medicalHistory: formData.get("medicalHistory") ?? "",
+    contraindications: formData.get("contraindications") ?? "",
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu không hợp lệ." };
   const d = parsed.data;
@@ -99,6 +105,9 @@ export async function updateCustomer(_prev: EditCustomerState, formData: FormDat
       sourceDetail: d.sourceDetail || null,
       address: d.address || null,
       note: d.note || null,
+      allergies: d.allergies || null,
+      medicalHistory: d.medicalHistory || null,
+      contraindications: d.contraindications || null,
       ...(phoneFields ?? {}),
     },
   });

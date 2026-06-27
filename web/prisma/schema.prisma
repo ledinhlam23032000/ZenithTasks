@@ -211,6 +211,10 @@ model Customer {
   sourceDetail String? // Tên CTV / chiến dịch / nguồn cụ thể
   address      String?
   note         String?
+  // ----- An toàn y khoa (B6 giai đoạn 1) — bác sĩ xem trước khi làm dịch vụ -----
+  allergies         String? // Dị ứng (thuốc/mỹ phẩm/thức ăn…)
+  medicalHistory    String? // Tiền sử bệnh + thuốc đang dùng
+  contraindications String? // Chống chỉ định / lưu ý đặc biệt
   createdById  String?
   createdBy    User?          @relation("CustomerCreatedBy", fields: [createdById], references: [id])
   createdAt    DateTime       @default(now())

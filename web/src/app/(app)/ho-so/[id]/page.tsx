@@ -34,6 +34,7 @@ import { ConfirmButton } from "@/components/ui/confirm-button";
 import { buttonVariants } from "@/components/ui/button";
 import { PhotoGallery } from "@/components/ui/photo-gallery";
 import { PhotoCompareButton } from "@/components/ui/photo-compare";
+import { MedicalAlert } from "@/components/ui/medical-alert";
 import {
   CaseInfoForm,
   AddServiceButton,
@@ -69,7 +70,7 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
     prisma.caseRecord.findUnique({
       where: { id },
       include: {
-        customer: { select: { id: true, fullName: true, code: true, phoneLast5: true, gender: true } },
+        customer: { select: { id: true, fullName: true, code: true, phoneLast5: true, gender: true, allergies: true, medicalHistory: true, contraindications: true } },
         consultant: { select: { fullName: true } },
         doctor: { select: { fullName: true } },
         services: { orderBy: { createdAt: "asc" }, include: { doctor: { select: { fullName: true } } } },
@@ -194,6 +195,13 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
           </div>
         </CardContent>
       </Card>
+
+      <MedicalAlert
+        allergies={record.customer.allergies}
+        medicalHistory={record.customer.medicalHistory}
+        contraindications={record.customer.contraindications}
+        compact
+      />
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">

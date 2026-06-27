@@ -51,6 +51,7 @@ import { PortalLink } from "./portal-link";
 import { CareComposer } from "../../cham-soc/care-composer";
 import { PhotoGallery } from "@/components/ui/photo-gallery";
 import { PhotoCompareButton } from "@/components/ui/photo-compare";
+import { MedicalAlert } from "@/components/ui/medical-alert";
 
 export const dynamic = "force-dynamic";
 
@@ -146,6 +147,9 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
                   sourceDetail: customer.sourceDetail,
                   address: customer.address,
                   note: customer.note,
+                  allergies: customer.allergies,
+                  medicalHistory: customer.medicalHistory,
+                  contraindications: customer.contraindications,
                   phoneLast5: customer.phoneLast5,
                 }}
               />
@@ -170,6 +174,12 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
           </div>
         </CardContent>
       </Card>
+
+      <MedicalAlert
+        allergies={customer.allergies}
+        medicalHistory={customer.medicalHistory}
+        contraindications={customer.contraindications}
+      />
 
       <div className="grid gap-4 sm:grid-cols-3">
         <StatCard label="Số lượt khám" value={customer.cases.length} icon={<FolderHeart className="h-5 w-5" />} tone="brand" />
