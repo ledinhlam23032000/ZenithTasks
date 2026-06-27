@@ -19,6 +19,24 @@
 - **A5 — Sao lưu tự động**: `scripts/backup.mjs` (`pg_dump -Fc` + ảnh `tar.gz` + giữ 14 bản + ghi `backup-status.json`); `npm run backup`; `docker-entrypoint.sh` chạy nền 1 lần lúc khởi động rồi mỗi 24h. Sao lưu OFFSITE vẫn là `windows/Sao-Luu.ps1`.
 - Lưu ý kỹ thuật: trong sandbox Postgres có thể tự dừng (stale pid) → `pg_ctlcluster 16 main start`. DB sandbox cần `npm run db:seed` để có dữ liệu thử (admin/123456).
 
+## Đợt khách tham khảo / leads — "Đợt 16"
+> TSC pass, **127/127 test** (+4 test `leads`). Smoke test THẬT (Playwright + DB): mở
+> /khach-tham-khao → thêm khách tham khảo (có SĐT) → hiện trong danh sách → "Chuyển khách"
+> (modal xác nhận) → điều hướng vào hồ sơ khách → kiểm tra DB: Lead=CONVERTED + Customer
+> mới tạo (SĐT mã hoá copy sang, nguồn REFERRAL) → dọn dữ liệu test.
+- **Tính năng**: "khách tham khảo" — khách từ nhiều nguồn giới thiệu tới THAM KHẢO dịch vụ
+  nhưng CHƯA hẹn, CHƯA đến (theo yêu cầu). Phễu trước khi thành khách/đặt lịch.
+- **Model `Lead`** + enum `LeadStatus` (migration `20260627160000_lead`): tên + SĐT mã hoá
+  (tuỳ chọn, như Customer) + nguồn/chi tiết nguồn + dịch vụ quan tâm + trạng thái (Mới / Đã
+  liên hệ / Đã chuyển khách / Không quan tâm).
+- **`lib/leads.ts`** (THUẦN, có test): nhãn/sắc thái trạng thái + `summarizeLeads` (phễu:
+  tổng / đang theo đuổi / đã chuyển / tỉ lệ chuyển đổi %).
+- **Trang `/khach-tham-khao`** (module mới `khach-tham-khao`, icon `UserSearch`, quyền ADMIN/
+  MANAGER/TELESALE/RECEPTION): 4 thẻ thống kê phễu + lọc theo trạng thái + bảng + thêm/sửa/xoá +
+  đổi nhanh trạng thái + nút **"Chuyển khách"**.
+- **Chuyển đổi** `convertLeadToCustomer`: COPY thẳng SĐT đã mã hoá sang Customer (KHÔNG giải mã),
+  chống trùng theo phoneHash, đánh dấu Lead = CONVERTED, mở hồ sơ khách. Audit đầy đủ.
+
 ## Đợt hẹn nợ / trả góp công nợ (B3 bổ sung) — "Đợt 15"
 > TSC pass, **123/123 test** (+12 test `debt-plan`). Smoke test THẬT (Playwright + DB):
 > lập hẹn nợ trên hồ sơ HS00002 → hiện "Ngày 15 hằng tháng" + 3.000.000/tháng → /cong-no

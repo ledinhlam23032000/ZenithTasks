@@ -44,6 +44,14 @@ enum CustomerSource {
   OTHER
 }
 
+// Trạng thái khách tham khảo (lead) — phễu trước khi thành khách.
+enum LeadStatus {
+  NEW // Mới (chưa liên hệ)
+  CONTACTED // Đã liên hệ / đang tư vấn
+  CONVERTED // Đã chuyển thành khách / đã đến
+  LOST // Không quan tâm nữa
+}
+
 enum AppointmentType {
   NEW // Khách mới
   FOLLOW_UP // Tái khám
@@ -161,6 +169,7 @@ model User {
   cashTransactions     CashTransaction[]
   consentsRecorded     CaseConsent[]
   debtPlans            DebtPlan[]        @relation("DebtPlanCreatedBy")
+  leadsCreated         Lead[]            @relation("LeadCreatedBy")
 }
 
 // ============================ CHẤM CÔNG & LƯƠNG ============================
@@ -231,6 +240,31 @@ model Customer {
   @@index([phoneLast5])
   @@index([phoneHash])
   @@index([fullName])
+}
+
+// ============================ KHÁCH THAM KHẢO (LEADS) ============================
+
+// Khách từ nhiều nguồn giới thiệu tới THAM KHẢO dịch vụ nhưng CHƯA hẹn, CHƯA đến.
+// Là phễu trước Customer/Appointment. Khi khách đồng ý → "chuyển thành khách" (CONVERTED).
+model Lead {
+  id              String         @id @default(cuid())
+  fullName        String
+  // SĐT (tuỳ chọn) — mã hoá như Customer để chuyển đổi liền mạch + bảo mật.
+  phoneEnc        String?
+  phoneLast5      String?
+  phoneHash       String?
+  source          CustomerSource @default(OTHER)
+  sourceDetail    String? // người giới thiệu / chiến dịch cụ thể
+  serviceInterest String? // dịch vụ khách quan tâm
+  note            String?
+  status          LeadStatus     @default(NEW)
+  createdById     String?
+  createdBy       User?          @relation("LeadCreatedBy", fields: [createdById], references: [id])
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([status])
+  @@index([phoneLast5])
 }
 
 // ============================ LỊCH HẸN ============================
