@@ -170,3 +170,44 @@ export async function updateMaterial(_prev: CatalogState, formData: FormData): P
     .catch(() => {});
   return { ok: true };
 }
+
+// ============================================================================
+// ĐỊNH MỨC VẬT TƯ THEO DỊCH VỤ (BOM — B5 giai đoạn 2)
+// ============================================================================
+
+const bomSchema = z.object({
+  serviceId: z.string().min(1, "Thiếu dịch vụ."),
+  materialId: z.string().min(1, "Vui lòng chọn vật tư."),
+  quantity: z.coerce.number().positive("Định mức phải lớn hơn 0."),
+});
+
+/** Thêm/cập nhật một dòng định mức vật tư cho dịch vụ (upsert theo [serviceId, materialId]). */
+export async function addServiceMaterial(_prev: CatalogState, formData: FormData): Promise<CatalogState> {
+  await requireUser([...ROLES]);
+  const parsed = bomSchema.safeParse({
+    serviceId: formData.get("serviceId") ?? "",
+    materialId: formData.get("materialId") ?? "",
+    quantity: formData.get("quantity") ?? 0,
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu không hợp lệ." };
+  const d = parsed.data;
+  // Chốt vật tư còn tồn tại trong danh mục (tránh FK lỗi nếu vừa bị xóa).
+  const mat = await prisma.material.findUnique({ where: { id: d.materialId }, select: { id: true } });
+  if (!mat) return { error: "Vật tư không còn trong danh mục." };
+  await prisma.serviceMaterial.upsert({
+    where: { serviceId_materialId: { serviceId: d.serviceId, materialId: d.materialId } },
+    create: { serviceId: d.serviceId, materialId: d.materialId, quantity: d.quantity },
+    update: { quantity: d.quantity },
+  });
+  revalidatePath("/danh-muc");
+  return { ok: true };
+}
+
+/** Xóa một dòng định mức khỏi dịch vụ. */
+export async function removeServiceMaterial(formData: FormData): Promise<void> {
+  await requireUser([...ROLES]);
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+  await prisma.serviceMaterial.delete({ where: { id } }).catch(() => {});
+  revalidatePath("/danh-muc");
+}

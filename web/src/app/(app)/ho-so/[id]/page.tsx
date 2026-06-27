@@ -13,6 +13,7 @@ import {
   Receipt,
   Lock,
   Unlock,
+  Boxes,
 } from "lucide-react";
 import { requireCap } from "@/lib/auth";
 import { userCan } from "@/lib/permissions";
@@ -55,6 +56,7 @@ import {
   deletePayment,
   deleteFollowUp,
   deleteCase,
+  applyServiceBom,
 } from "../actions";
 
 export const dynamic = "force-dynamic";
@@ -84,6 +86,14 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
   ]);
 
   if (!record) notFound();
+
+  // Đếm số dòng định mức (BOM) cho từng dịch vụ trong hồ sơ — để hiện nút "Trừ vật tư
+  // theo định mức" chỉ ở những dịch vụ thực sự có khai báo định mức (B5 giai đoạn 2).
+  const svcIds = [...new Set(record.services.map((s) => s.serviceId).filter((x): x is string => !!x))];
+  const bomCounts = svcIds.length
+    ? await prisma.serviceMaterial.groupBy({ by: ["serviceId"], where: { serviceId: { in: svcIds } }, _count: { _all: true } })
+    : [];
+  const bomCountMap = new Map(bomCounts.map((b) => [b.serviceId, b._count._all]));
 
   const isAdmin = user.role === "ADMIN";
   const lockedForMe = record.locked && !isAdmin;
@@ -252,6 +262,24 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
                         {canClinical && (
                           <TD className="text-right">
                             <div className="flex items-center justify-end gap-0.5">
+                              {s.serviceId && (bomCountMap.get(s.serviceId) ?? 0) > 0 && (
+                                s.bomApplied ? (
+                                  <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-1.5 py-0.5 text-xs font-medium text-emerald-600" title="Đã trừ vật tư theo định mức">
+                                    <Boxes className="h-3.5 w-3.5" /> Đã trừ VT
+                                  </span>
+                                ) : (
+                                  <ConfirmButton
+                                    action={applyServiceBom}
+                                    fields={{ caseServiceId: s.id, caseId: record.id }}
+                                    confirmText={`Trừ vật tư theo định mức cho dịch vụ "${s.name}" (× ${s.quantity} lần)? Hệ thống sẽ ghi nhận vật tư đã dùng và trừ kho.`}
+                                    confirmLabel="Trừ vật tư"
+                                    danger={false}
+                                    className="inline-flex items-center gap-1 rounded-md bg-brand-50 px-1.5 py-0.5 text-xs font-medium text-brand-600 hover:bg-brand-100"
+                                  >
+                                    <Boxes className="h-3.5 w-3.5" /> Trừ VT
+                                  </ConfirmButton>
+                                )
+                              )}
                               <EditCaseServiceButton
                                 caseId={record.id}
                                 service={{ id: s.id, name: s.name, listPrice: toNum(s.listPrice), unitPrice: toNum(s.unitPrice), quantity: s.quantity, discount: toNum(s.discount) }}

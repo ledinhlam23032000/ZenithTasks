@@ -19,6 +19,31 @@
 - **A5 — Sao lưu tự động**: `scripts/backup.mjs` (`pg_dump -Fc` + ảnh `tar.gz` + giữ 14 bản + ghi `backup-status.json`); `npm run backup`; `docker-entrypoint.sh` chạy nền 1 lần lúc khởi động rồi mỗi 24h. Sao lưu OFFSITE vẫn là `windows/Sao-Luu.ps1`.
 - Lưu ý kỹ thuật: trong sandbox Postgres có thể tự dừng (stale pid) → `pg_ctlcluster 16 main start`. DB sandbox cần `npm run db:seed` để có dữ liệu thử (admin/123456).
 
+## Đợt định mức vật tư theo dịch vụ (BOM) — "Đợt 6"
+> Nối tiếp Đợt 4 (giá vốn kho). Khai báo "1 lần làm dịch vụ X tiêu hao mặc định bao nhiêu vật
+> tư" (BOM), rồi thêm nút trên hồ sơ để TỰ ghi nhận vật tư + trừ kho theo định mức — chống quên
+> ghi vật tư. TSC pass, **70/70 test** (+8 test `service-bom`). Smoke test THẬT bằng trình duyệt
+> (Playwright + Chromium): khai báo Botox 2 lọ/lần cho dịch vụ filler → thêm dịch vụ (SL 2) vào
+> hồ sơ → bấm "Trừ VT" → kiểm DB: tồn Botox 54→50 (đúng 2×2=4), MaterialUsage 4 lọ, StockMovement
+> OUT 4 @ giá vốn 500.000, `bomApplied=true`, nút đổi thành nhãn "Đã trừ VT".
+- **Schema** (migration `20260627120000_service_bom`, viết tay): model **`ServiceMaterial`**
+  (`serviceId`+`materialId`+`quantity` định mức/lần, unique theo cặp; quan hệ `Service.materials`
+  + `Material.serviceMaterials`) + cờ **`CaseService.bomApplied`** (Boolean, chống trừ kho 2 lần).
+- **`lib/service-bom.ts`** (toán THUẦN, có test): `scaleBomQty` (định mức × SL dịch vụ phần
+  nguyên), `bomNeeds` (quy đổi cả danh sách, đánh dấu `short` khi thiếu tồn, bỏ dòng định mức 0),
+  `bomShortages`, `bomCost` (giá vốn ước tính = Σ need × giá vốn bình quân).
+- **Danh mục** (`danh-muc`): server action `addServiceMaterial` (upsert) + `removeServiceMaterial`;
+  `ServiceBomButton` (modal ở `catalog-forms.tsx`) — mỗi dịch vụ có nút "Định mức vật tư" (huy hiệu
+  số dòng) để liệt kê/thêm/xóa định mức (Combobox chọn vật tư + số định mức/lần). Chỉ ADMIN/MANAGER.
+- **Hồ sơ** (`ho-so/[id]`): server action `applyServiceBom` — nạp định mức của dịch vụ → tạo
+  MaterialUsage (× SL dịch vụ) + trừ kho + StockMovement OUT (đơn giá = giá vốn bình quân → COGS)
+  trong **1 giao dịch**, rồi set `bomApplied=true`. Dòng dịch vụ (gắn danh mục + có định mức + chưa
+  áp) hiện nút "Trừ VT" (ConfirmButton); đã áp → nhãn "Đã trừ VT". Vật tư khác vẫn ghi tay như cũ.
+- ⏳ Còn (B5): phiếu nhập kho nhiều dòng (1 phiếu nhập nhiều vật tư cùng lúc).
+- ⚠️ **Cố ý** không tự áp định mức ngay khi thêm dịch vụ (mà để nhân viên bấm nút): vì thêm dịch
+  vụ có thể chỉ để báo giá/tư vấn — chưa thực làm → chưa nên trừ kho. Nhân viên chủ động bấm khi
+  ca thực sự được làm.
+
 ## Đợt công nợ chủ động + liên hệ nhanh — "Đợt 5"
 > Làm đồng thời 2 hạng mục theo yêu cầu chủ: B3 (sổ công nợ chủ động) + B2 bậc 1 (nút liên hệ
 > Gọi/SMS/Zalo deep-link, không cần tài khoản SMS/Zalo OA). TSC pass, **62/62 test** (+13 test

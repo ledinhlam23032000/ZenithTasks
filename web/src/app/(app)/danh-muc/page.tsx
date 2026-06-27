@@ -10,7 +10,7 @@ import { Table, THead, TH, TR, TD } from "@/components/ui/table";
 import { buttonVariants } from "@/components/ui/button";
 import { DeleteButton } from "@/components/ui/delete-button";
 import { isShareholder } from "@/lib/rbac";
-import { NewServiceButton, NewMaterialButton, EditServiceButton, EditMaterialButton } from "./catalog-forms";
+import { NewServiceButton, NewMaterialButton, EditServiceButton, EditMaterialButton, ServiceBomButton } from "./catalog-forms";
 import { toggleService, toggleMaterial, deleteService, deleteMaterial, stockIn } from "./actions";
 import type { Prisma } from "@/generated/prisma/client";
 
@@ -27,9 +27,16 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
     : {};
   const matWhere: Prisma.MaterialWhereInput = q ? { name: { contains: q, mode: "insensitive" } } : {};
 
-  const [services, materials] = await Promise.all([
-    prisma.service.findMany({ where: svcWhere, orderBy: [{ active: "desc" }, { category: "asc" }, { name: "asc" }] }),
+  const [services, materials, pickMaterials] = await Promise.all([
+    prisma.service.findMany({
+      where: svcWhere,
+      orderBy: [{ active: "desc" }, { category: "asc" }, { name: "asc" }],
+      // Định mức vật tư (BOM) của từng dịch vụ — để hiện/sửa ngay trên dòng dịch vụ.
+      include: { materials: { include: { material: { select: { name: true, unit: true } } }, orderBy: { createdAt: "asc" } } },
+    }),
     prisma.material.findMany({ where: matWhere, orderBy: [{ active: "desc" }, { name: "asc" }] }),
+    // Vật tư đang dùng — để chọn khi khai báo định mức (không phụ thuộc ô tìm kiếm).
+    prisma.material.findMany({ where: { active: true }, select: { id: true, name: true, unit: true }, orderBy: { name: "asc" } }),
   ]);
 
   return (
@@ -93,6 +100,20 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
                     <TD className="text-right">
                       {canManage && (
                       <div className="flex items-center justify-end gap-1">
+                        <ServiceBomButton
+                          service={{
+                            id: s.id,
+                            name: s.name,
+                            lines: s.materials.map((sm) => ({
+                              id: sm.id,
+                              materialId: sm.materialId,
+                              name: sm.material.name,
+                              unit: sm.material.unit,
+                              quantity: toNum(sm.quantity),
+                            })),
+                          }}
+                          materials={pickMaterials}
+                        />
                         <EditServiceButton
                           service={{
                             id: s.id,

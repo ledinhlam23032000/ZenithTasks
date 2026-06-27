@@ -10,6 +10,7 @@ import { requireUser, requireCap } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 import { toNum } from "@/lib/money";
 import { computeCaseTotals } from "@/lib/case-math";
+import { bomNeeds, type BomLine } from "@/lib/service-bom";
 import type { Prisma } from "@/generated/prisma/client";
 
 // Client dùng được cho cả prisma thường lẫn trong $transaction.
@@ -504,6 +505,61 @@ export async function updateMaterialUsage(_prev: CaseActionState, formData: Form
     }
   });
   return { ok: true, nonce: Date.now() };
+}
+
+// ---- Trừ vật tư theo ĐỊNH MỨC (BOM) của dịch vụ — B5 giai đoạn 2 ----
+// Khi thêm dịch vụ (gắn danh mục) vào hồ sơ, nhân viên bấm nút này để hệ thống tự ghi
+// nhận vật tư đã dùng theo định mức × số lượng dịch vụ + trừ kho (nguyên tử). Cờ
+// CaseService.bomApplied chống trừ 2 lần. Vật tư cần thêm/bớt khác vẫn ghi tay như cũ.
+export async function applyServiceBom(formData: FormData): Promise<void> {
+  const user = await requireCap("case.clinical");
+  const caseServiceId = String(formData.get("caseServiceId") ?? "");
+  const caseId = String(formData.get("caseId") ?? "");
+  if (!caseServiceId || !caseId || (await isLockedFor(caseId, user.role))) return;
+
+  const cs = await prisma.caseService.findUnique({
+    where: { id: caseServiceId },
+    select: { id: true, caseId: true, serviceId: true, quantity: true, bomApplied: true },
+  });
+  if (!cs || cs.caseId !== caseId || !cs.serviceId || cs.bomApplied) return;
+
+  const bom = await prisma.serviceMaterial.findMany({
+    where: { serviceId: cs.serviceId },
+    include: { material: { select: { name: true, unit: true, stock: true, avgCost: true } } },
+  });
+  const lines: BomLine[] = bom.map((b) => ({
+    materialId: b.materialId,
+    name: b.material.name,
+    unit: b.material.unit,
+    bomQty: toNum(b.quantity),
+    stock: toNum(b.material.stock),
+    avgCost: toNum(b.material.avgCost),
+  }));
+  const needs = bomNeeds(lines, cs.quantity);
+
+  // Ghi nhận vật tư + xuất kho + đánh dấu đã áp định mức trong CÙNG một giao dịch.
+  await prisma.$transaction(async (tx) => {
+    for (const n of needs) {
+      const outUnitCost = n.avgCost > 0 ? n.avgCost : null; // giá vốn bình quân → COGS
+      await tx.materialUsage.create({
+        data: {
+          caseId,
+          materialId: n.materialId,
+          name: n.name,
+          unit: n.unit,
+          quantity: n.need,
+          note: "Theo định mức dịch vụ",
+          performedById: user.id,
+        },
+      });
+      await tx.material.update({ where: { id: n.materialId }, data: { stock: { decrement: n.need } } });
+      await tx.stockMovement.create({
+        data: { materialId: n.materialId, type: "OUT", quantity: n.need, unitCost: outUnitCost, note: "Định mức dịch vụ", createdById: user.id },
+      });
+    }
+    await tx.caseService.update({ where: { id: caseServiceId }, data: { bomApplied: true } });
+  });
+  refresh(caseId);
 }
 
 // ---- Tải ảnh trước / sau / tái khám ----

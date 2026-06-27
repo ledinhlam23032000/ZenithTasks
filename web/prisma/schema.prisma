@@ -267,6 +267,8 @@ model Service {
   active       Boolean       @default(true)
   createdAt    DateTime      @default(now())
   caseServices CaseService[]
+  // Định mức vật tư tiêu hao mặc định cho dịch vụ này (BOM) — B5 giai đoạn 2.
+  materials    ServiceMaterial[]
 }
 
 model Material {
@@ -283,6 +285,25 @@ model Material {
   createdAt  DateTime        @default(now())
   usages    MaterialUsage[]
   movements StockMovement[]
+  // Dịch vụ nào dùng vật tư này theo định mức (BOM) — B5 giai đoạn 2.
+  serviceMaterials ServiceMaterial[]
+}
+
+// Định mức vật tư theo dịch vụ (BOM — Bill Of Materials) — B5 giai đoạn 2.
+// Mỗi dòng = 1 dịch vụ tiêu hao mặc định `quantity` đơn vị của 1 vật tư cho MỖI lần làm.
+// Khi thêm dịch vụ vào hồ sơ, nhân viên bấm "Trừ vật tư theo định mức" để hệ thống tự
+// ghi nhận vật tư đã dùng (× số lượng dịch vụ) + trừ kho — tránh quên ghi vật tư.
+model ServiceMaterial {
+  id         String   @id @default(cuid())
+  serviceId  String
+  service    Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  materialId String
+  material   Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  quantity   Decimal  @default(1) @db.Decimal(10, 2) // Định mức tiêu hao / 1 lần dịch vụ
+  createdAt  DateTime @default(now())
+
+  @@unique([serviceId, materialId])
+  @@index([serviceId])
 }
 
 enum StockType {
@@ -371,6 +392,8 @@ model CaseService {
   doctor      User?       @relation("CaseServiceDoctor", fields: [doctorId], references: [id])
   performedAt DateTime?
   note        String?
+  // Đã trừ vật tư theo định mức (BOM) cho dòng dịch vụ này chưa — tránh trừ kho 2 lần (B5 gđ2).
+  bomApplied  Boolean     @default(false)
   createdAt   DateTime    @default(now())
 }
 

@@ -35,7 +35,7 @@ phần "Đánh giá" trong lịch sử hội thoại + `web/DU-AN.md`.
 | B2 | **Kênh giao tiếp** (Zalo/SMS/Email) | ✅ Bậc 1 | ✅ Nút Gọi/SMS/Zalo deep-link kèm mẫu tin (Đợt 5). 🔑 Bậc 2–3 (gửi thật, tự động) cần tài khoản SMS/Email/Zalo OA — Email cũng cần thêm field email cho Customer. |
 | B3 | **Sổ công nợ chủ động** | ✅ Một phần | ✅ Trang `/cong-no`: lọc theo tuổi nợ + cảnh báo vượt ngưỡng + nút liên hệ (Đợt 5). ⏳ Còn: kế hoạch trả góp (cần schema mới). |
 | B4 | **Lịch hẹn nâng cao** | ⏳ Chưa làm | Chống trùng lịch, tài nguyên phòng/giường, link khách tự xác nhận. |
-| B5 | **Kho theo chuẩn y tế** | ✅ Một phần | ✅ Giá vốn bình quân + giá trị tồn kho + COGS (Đợt 4). ✅ Cảnh báo FEFO/hạn dùng (đã có ở B1). ⏳ Còn: định mức vật tư/dịch vụ (BOM), phiếu nhập kho nhiều dòng. |
+| B5 | **Kho theo chuẩn y tế** | ✅ Một phần | ✅ Giá vốn bình quân + giá trị tồn kho + COGS (Đợt 4). ✅ Cảnh báo FEFO/hạn dùng (đã có ở B1). ✅ Định mức vật tư theo dịch vụ (BOM) + nút tự trừ kho theo định mức (Đợt 6). ⏳ Còn: phiếu nhập kho nhiều dòng. |
 | B6 | **Hồ sơ y khoa chuẩn** | ⏳ Chưa làm | Phiếu đồng ý (consent) ký số, tiền sử/dị ứng/chống chỉ định, mẫu hồ sơ. |
 
 ## NHÓM C — PHÂN TÍCH & RA QUYẾT ĐỊNH (BI)
@@ -238,13 +238,49 @@ phần "Đánh giá" trong lịch sử hội thoại + `web/DU-AN.md`.
 - ⏳ Còn: "kế hoạch trả góp" (installment plan) — cần model DB mới (số kỳ, ngày hẹn trả từng kỳ);
   hiện thay bằng field `note` có sẵn ở hồ sơ để nhân viên ghi tay khi thoả thuận trả góp.
 
+## CHI TIẾT ĐỢT 6 — Đã làm (B5 giai đoạn 2: định mức vật tư theo dịch vụ — BOM)
+
+> Nối tiếp Đợt 4 (giá vốn kho). Mục tiêu: khai báo "1 lần làm dịch vụ X tiêu hao mặc định
+> bao nhiêu vật tư", để khi thêm dịch vụ vào hồ sơ, nhân viên bấm 1 nút là tự ghi nhận vật
+> tư đã dùng + trừ kho — chống quên ghi vật tư (đúng họ lỗi đã gây ra Đợt 4). TSC pass,
+> **70/70 test** (thêm 8 test service-bom). Smoke test THẬT bằng trình duyệt (Playwright +
+> Chromium): khai báo định mức Botox 2 lọ/lần cho dịch vụ filler → thêm dịch vụ (SL 2) vào hồ
+> sơ → bấm "Trừ VT" → kiểm DB: tồn Botox 54→50 (đúng 2×2=4), MaterialUsage 4 lọ, StockMovement
+> OUT 4 @ giá vốn 500.000, cờ bomApplied=true, nút đổi thành nhãn "Đã trừ VT".
+
+### Schema (migration `20260627120000_service_bom`)
+- Model **`ServiceMaterial`** (BOM): `serviceId` + `materialId` + `quantity` (định mức/lần),
+  unique theo `[serviceId, materialId]`. Quan hệ: `Service.materials` + `Material.serviceMaterials`.
+- Cờ **`CaseService.bomApplied`** (Boolean, mặc định false): đánh dấu dòng dịch vụ đã trừ vật
+  tư theo định mức → chống trừ kho 2 lần.
+
+### `lib/service-bom.ts` (THUẦN, có test)
+- `scaleBomQty(bomQty, serviceQty)` (định mức × SL dịch vụ, lấy SL phần nguyên), `bomNeeds`
+  (quy đổi cả danh sách + đánh dấu `short` khi thiếu tồn, bỏ dòng định mức 0), `bomShortages`,
+  `bomCost` (giá vốn ước tính = Σ need × giá vốn).
+
+### Danh mục (`/danh-muc`) — khai báo định mức
+- Server action `addServiceMaterial` (upsert theo [serviceId, materialId]) + `removeServiceMaterial`.
+- `ServiceBomButton` (modal, ở `catalog-forms.tsx`): mỗi dịch vụ có nút "Định mức vật tư" (huy
+  hiệu số dòng) → liệt kê/thêm/xóa định mức (Combobox chọn vật tư + số định mức/lần). Chỉ
+  ADMIN/MANAGER (cổ đông không thấy).
+
+### Hồ sơ (`/ho-so/[id]`) — áp định mức
+- Server action `applyServiceBom`: nạp định mức của dịch vụ → tạo MaterialUsage (× SL dịch vụ)
+  + trừ kho + ghi StockMovement OUT (đơn giá = giá vốn bình quân → COGS) trong **1 giao dịch**,
+  rồi set `bomApplied=true`. Quyền `case.clinical`, tôn trọng khóa hồ sơ.
+- Dòng dịch vụ (gắn danh mục, có định mức, chưa áp) hiện nút **"Trừ VT"** (ConfirmButton). Đã
+  áp → đổi thành nhãn "Đã trừ VT". Vật tư cần thêm/bớt khác vẫn ghi tay như cũ.
+- ⏳ Còn (B5): phiếu nhập kho nhiều dòng (1 phiếu nhập nhiều vật tư cùng lúc).
+
 ## QUY TRÌNH LÀM VIỆC (cho phiên sau)
 1. Chạy `web/BAN-GIAO.md` mục 10 để dựng sandbox. **Lưu ý proxy:** trong môi trường này, tải
    Prisma engine cần đi qua proxy — đặt `HTTPS_PROXY` + `NODE_EXTRA_CA_CERTS=/root/.ccr/ca-bundle.crt`
    và `CHECKPOINT_DISABLE=1`; nếu `npm install` lỗi ECONNRESET ở `@prisma/engines`, tải engine bằng
    `curl --proxy` rồi `gunzip` vào `node_modules/@prisma/engines/schema-engine-debian-openssl-3.0.x`.
 2. Làm theo thứ tự ưu tiên: hết Nhóm A (A5, A7) → B1 (giá trị cao nhất) → D2/D4/D5/B2/B3 (✅ xong,
-   Đợt 3-5) → C → còn lại (B4, B5 giai đoạn 2, B6).
+   Đợt 3-5) → B5 giai đoạn 2 BOM (✅ xong, Đợt 6) → C (BI/phân tích) → còn lại (B4 lịch hẹn nâng
+   cao, B6 hồ sơ y khoa/consent, B5 phiếu nhập nhiều dòng).
 3. Mỗi mục: viết code + test → `npx tsc --noEmit` + `npx vitest run` → commit (tiếng Việt) →
    cập nhật trạng thái ở bảng trên + ghi changelog vào `web/DU-AN.md`.
 
