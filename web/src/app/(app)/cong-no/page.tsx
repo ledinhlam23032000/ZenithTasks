@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { toNum, formatVND, formatVNDShort } from "@/lib/money";
 import { fmtDate } from "@/lib/format";
 import { DEBT_BUCKETS, DEBT_BUCKET_LABEL, debtAgeDays, debtAgingBucket, isOverThreshold } from "@/lib/debt-aging";
+import { nextDueDate } from "@/lib/debt-plan";
 import { tplDebtReminder } from "@/lib/message-templates";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent } from "@/components/ui/card";
@@ -41,6 +42,7 @@ export default async function DebtLedgerPage({
       debtAmount: true,
       createdAt: true,
       customer: { select: { id: true, fullName: true, phoneLast5: true } },
+      debtPlan: { select: { dayOfMonth: true, monthlyAmount: true } },
     },
   });
 
@@ -142,6 +144,11 @@ export default async function DebtLedgerPage({
                     <TD className="text-right tabular-nums">
                       <span className={r.over ? "font-semibold text-rose-600" : "text-slate-700"}>{formatVND(r.debt)}</span>
                       {r.over && <div className="text-xs text-rose-500">Vượt ngưỡng</div>}
+                      {r.debtPlan && (
+                        <div className="text-xs font-medium text-emerald-600">
+                          Hẹn {formatVNDShort(toNum(r.debtPlan.monthlyAmount))}/th · kỳ {fmtDate(nextDueDate(r.debtPlan.dayOfMonth, now))}
+                        </div>
+                      )}
                     </TD>
                     <TD>
                       <ContactButtons

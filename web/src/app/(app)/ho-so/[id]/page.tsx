@@ -63,6 +63,8 @@ import {
 } from "../actions";
 import { deleteConsent } from "../consent-actions";
 import { AddConsentButton } from "./consent-widgets";
+import { DebtPlanCard } from "./debt-plan-widgets";
+import { debtPlanStatus } from "@/lib/debt-plan";
 
 export const dynamic = "force-dynamic";
 
@@ -83,6 +85,7 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
         photos: { orderBy: { takenAt: "desc" } },
         followUps: { orderBy: { scheduledAt: "desc" }, include: { createdBy: { select: { fullName: true } } } },
         consents: { orderBy: { signedAt: "desc" }, include: { createdBy: { select: { fullName: true } } } },
+        debtPlan: true,
       },
     }),
     getActiveServices(),
@@ -115,6 +118,26 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
   const gross = total + voucher + discount; // giá gốc trước ưu đãi & voucher (total = net sau voucher)
   const commissionAmount = toNum(record.commissionAmount);
   const canVoidPayment = userCan(user, "payment.manage") && !lockedForMe;
+
+  // ----- Hẹn nợ (trả góp) — tính lịch + trạng thái để hiển thị (lib/debt-plan.ts) -----
+  const dp = record.debtPlan;
+  let debtPlanForm: { dayOfMonth: number; monthlyAmount: number; startDate: string; note: string } | null = null;
+  let debtPlanSummary: { nextDue: string; monthly: string; monthsLeft: string; behind: string | null } | null = null;
+  if (dp && debt > 0) {
+    const monthly = toNum(dp.monthlyAmount);
+    const paidSincePlan = record.payments.filter((p) => p.paidAt >= dp.createdAt).reduce((s, p) => s + toNum(p.amount), 0);
+    const st = debtPlanStatus(
+      { dayOfMonth: dp.dayOfMonth, monthlyAmount: monthly, startDate: dp.startDate },
+      { debtRemaining: debt, originalDebt: debt + paidSincePlan, paidSincePlan, now: new Date() },
+    );
+    debtPlanForm = { dayOfMonth: dp.dayOfMonth, monthlyAmount: monthly, startDate: toDatetimeLocal(dp.startDate).slice(0, 10), note: dp.note ?? "" };
+    debtPlanSummary = {
+      nextDue: fmtDate(st.nextDue),
+      monthly: formatVND(monthly),
+      monthsLeft: st.monthsLeft === Infinity ? "—" : `~${st.monthsLeft} tháng (≈ ${fmtDate(st.finalDue)})`,
+      behind: st.isBehind ? formatVND(st.behindAmount) : null,
+    };
+  }
 
   return (
     <div className="space-y-6">
@@ -516,6 +539,17 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
                     </div>
                   ))}
                 </div>
+              )}
+
+              {(debt > 0 || dp) && (
+                <DebtPlanCard
+                  caseId={record.id}
+                  canManage={canPay}
+                  plan={debtPlanForm}
+                  summary={debtPlanSummary}
+                  defaultDay={new Date().getDate()}
+                  todayLocal={toDatetimeLocal(new Date()).slice(0, 10)}
+                />
               )}
             </CardContent>
           </Card>

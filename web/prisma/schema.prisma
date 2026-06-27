@@ -160,6 +160,7 @@ model User {
   payrollEntries       PayrollEntry[]
   cashTransactions     CashTransaction[]
   consentsRecorded     CaseConsent[]
+  debtPlans            DebtPlan[]        @relation("DebtPlanCreatedBy")
 }
 
 // ============================ CHẤM CÔNG & LƯƠNG ============================
@@ -375,6 +376,7 @@ model CaseRecord {
   followUps   FollowUp[]
   appointment Appointment?
   consents    CaseConsent[]
+  debtPlan    DebtPlan?
 
   @@index([status])
   @@index([createdAt])
@@ -566,6 +568,23 @@ model CaseConsent {
   createdAt    DateTime         @default(now())
 
   @@index([caseId])
+}
+
+// Kế hoạch trả nợ (hẹn nợ) cho 1 hồ sơ công nợ — mỗi tháng vào "ngày X" trả "Y đồng"
+// tới khi hết nợ. Mỗi hồ sơ chỉ có 1 kế hoạch (caseId unique). Tính lịch/trạng thái
+// bằng hàm thuần `lib/debt-plan.ts`; KHÔNG sinh từng dòng kỳ (suy ra từ tham số).
+model DebtPlan {
+  id            String     @id @default(cuid())
+  caseId        String     @unique
+  case          CaseRecord @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  dayOfMonth    Int // ngày trả hàng tháng (1..28)
+  monthlyAmount Decimal    @db.Decimal(14, 0) // số tiền trả mỗi tháng (VND)
+  startDate     DateTime // mốc kỳ trả đầu tiên
+  note          String?
+  createdById   String?
+  createdBy     User?      @relation("DebtPlanCreatedBy", fields: [createdById], references: [id])
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
 }
 
 // Hồ sơ Cộng tác viên (đối tác giới thiệu khách). Khớp với khách qua TÊN

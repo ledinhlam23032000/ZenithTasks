@@ -19,6 +19,21 @@
 - **A5 — Sao lưu tự động**: `scripts/backup.mjs` (`pg_dump -Fc` + ảnh `tar.gz` + giữ 14 bản + ghi `backup-status.json`); `npm run backup`; `docker-entrypoint.sh` chạy nền 1 lần lúc khởi động rồi mỗi 24h. Sao lưu OFFSITE vẫn là `windows/Sao-Luu.ps1`.
 - Lưu ý kỹ thuật: trong sandbox Postgres có thể tự dừng (stale pid) → `pg_ctlcluster 16 main start`. DB sandbox cần `npm run db:seed` để có dữ liệu thử (admin/123456).
 
+## Đợt hẹn nợ / trả góp công nợ (B3 bổ sung) — "Đợt 15"
+> TSC pass, **123/123 test** (+12 test `debt-plan`). Smoke test THẬT (Playwright + DB):
+> lập hẹn nợ trên hồ sơ HS00002 → hiện "Ngày 15 hằng tháng" + 3.000.000/tháng → /cong-no
+> hiện gợi ý kỳ tới → kiểm tra hàng DebtPlan trong DB (day=15, 3.000.000) → dọn dữ liệu test.
+- **Tính năng**: khách công nợ "hẹn nợ" — mỗi tháng vào **ngày X** trả **Y đồng** tới khi hết
+  nợ (theo yêu cầu: "ngày bao nhiêu hàng tháng sẽ trả, mỗi tháng trả bao nhiêu").
+- **Model `DebtPlan`** (migration `20260627150000_debt_plan`): 1 hồ sơ 1 kế hoạch (caseId unique),
+  `dayOfMonth` 1..28, `monthlyAmount`, `startDate`, `note`. KHÔNG sinh từng dòng kỳ — suy ra lịch.
+- **`lib/debt-plan.ts`** (THUẦN, có test): `nextDueDate`, `monthsToClear`, `duePeriods`,
+  `expectedPaidByNow`, `debtPlanStatus` (kỳ tới + dự kiến hết nợ + đang chậm so với cam kết).
+- **Giao diện**: thẻ Tài chính của hồ sơ có khối "Hẹn nợ (trả góp)" — `DebtPlanCard` (modal lập/sửa
+  + hủy). `/cong-no` mỗi hàng có nợ + có kế hoạch hiện "Hẹn {tiền}/th · kỳ {ngày}". Quyền `payment.add`.
+- **Actions** `cong-no/actions.ts`: `saveDebtPlan` (upsert, cặp `useFormAction` — không revalidate),
+  `deleteDebtPlan` (ConfirmButton — revalidate). Audit `SAVE_DEBT_PLAN`/`DELETE_DEBT_PLAN`.
+
 ## Đợt AI trung lập nhà cung cấp (chọn model giá rẻ tuỳ ý) — "Đợt 14"
 > TSC pass, **111/111 test** (+9 test `resolveAiConfig`). Theo yêu cầu: "cân nhắc AI giá rẻ
 > của Trung Quốc như DeepSeek… không thiên vị AI nào".
