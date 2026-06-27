@@ -197,6 +197,7 @@ VN (`TZ` trong docker-compose). Ngày chấm công dùng `vnDateOnly()`.
 - **Khi đóng gói code gửi ra ngoài**: che `PHONE_ENC_KEY` demo, loại trừ `.env`/secrets.
 - **Audit**: `lib/audit.ts` — đã gắn DELETE_PAYMENT, UPDATE_PAYMENT, DELETE_CASE, APPLY_VOUCHER, DELETE_CARE, REVEAL_PHONE, EDIT_CASE_DATE, EDIT_ATTENDANCE… Trang xem ở `/nhat-ky`.
 - **Tải ảnh**: chỉ nhận ảnh bitmap (JPG/PNG/WEBP/HEIC), KHÔNG nhận SVG. Giới hạn 8MB.
+- **Cổng khách — action CÔNG KHAI (D3)**: `khach/[token]/actions.ts` (`portalConfirmAppointment`/`portalRequestReschedule`) chạy KHÔNG đăng nhập → bảo mật dựa HOÀN TOÀN vào kiểm token → khách → lịch hẹn thuộc đúng khách + rate-limit (`bump`). KHÔNG tự đổi giờ (chỉ ghi nhận yêu cầu). Khi thêm action public mới ở cổng khách, BẮT BUỘC theo đúng khuôn này.
 - **KHÔNG** ghi định danh model (`claude-opus-*`…) vào commit/PR/code/comment — chỉ dùng khi trả lời chat.
 
 ## 10. Chạy & kiểm thử trong sandbox

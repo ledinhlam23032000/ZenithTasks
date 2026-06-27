@@ -53,7 +53,7 @@ phần "Đánh giá" trong lịch sử hội thoại + `web/DU-AN.md`.
 |----|----------|-----------|---------|
 | D1 | **AI trợ lý vận hành** | ⏳ Chưa làm | 🔑 Cần `ANTHROPIC_API_KEY`. Hỏi đáp số liệu, tóm tắt hồ sơ, gợi ý upsell (có người duyệt). |
 | D2 | **So sánh ảnh trước/sau (slider)** | ✅ Xong | Kéo so sánh (clip-path), chọn ảnh trái/phải bất kỳ. Chưa làm: đóng dấu ngày/logo, xuất ảnh ghép. |
-| D3 | **Cổng khách hàng nâng cao** | ⏳ Chưa làm | Khách tự đặt lại lịch, xác nhận hẹn, đánh giá (NPS). Token có hạn dùng. |
+| D3 | **Cổng khách hàng nâng cao** | ✅ Một phần | ✅ Khách tự xác nhận lịch hẹn + đề nghị đổi lịch ngay trên cổng khách (Đợt 12). ⏳ Còn: đánh giá NPS, token có hạn dùng/thu hồi tự động. |
 | D4 | **Tìm kiếm toàn cục (Ctrl/Cmd+K)** | ✅ Xong | Command palette tìm khách/hồ sơ/vật tư + điều hướng menu. |
 | D5 | **Màn "đầu ca lễ tân"** | ✅ Xong | Gộp khách chưa đến + đang chờ + việc tồn đọng (link `/viec-hom-nay`). |
 
@@ -394,6 +394,24 @@ phần "Đánh giá" trong lịch sử hội thoại + `web/DU-AN.md`.
 - Trang in `ho-so/[id]/consent/[consentId]` (dùng `.invoice-sheet`): header thương hiệu + nội dung
   + 2 ô ký (đại diện trung tâm / người đồng ý). ⚠️ "Ký số" thực thụ (chữ ký điện tử) chưa làm —
   hiện in giấy cho khách ký tay rồi lưu (đúng thực tế phòng khám); có thể nâng cấp ký trên màn sau.
+
+## CHI TIẾT ĐỢT 12 — Đã làm (D3 phần 1: cổng khách tự xác nhận / đổi lịch)
+
+> Trên cổng khách (`/khach/[token]`, công khai) thêm mục "Lịch hẹn sắp tới": khách tự **xác nhận
+> sẽ đến** hoặc **đề nghị đổi lịch**. TSC pass, **100/100 test**. Smoke test THẬT (Playwright +
+> Chromium, KHÔNG đăng nhập): mở cổng bằng token → xác nhận → lịch hẹn chuyển CONFIRMED; gửi đề
+> nghị đổi → tạo CareMessage (NOTE/IN) cho nhân viên + ghi note lên lịch hẹn.
+
+### Bảo mật (PUBLIC action — quan trọng)
+- `khach/[token]/actions.ts` (server action công khai, KHÔNG đăng nhập): mọi thao tác kiểm
+  **token → khách → lịch hẹn thuộc đúng khách đó**. Có **chống spam** (rate-limit `bump` theo token:
+  xác nhận 40 lần / đổi lịch 12 lần / 15 phút). **KHÔNG tự đổi giờ** (tránh trùng lịch) — chỉ ghi
+  nhận yêu cầu để nhân viên gọi lại sắp xếp.
+
+### UI
+- `khach/[token]/appointment-actions.tsx` (client): nút "Xác nhận sẽ đến" / "Đề nghị đổi lịch"
+  (mở ô nhập khung giờ mong muốn). Trang cổng khách thêm section "Lịch hẹn sắp tới".
+- ⏳ Còn (D3): đánh giá NPS sau dịch vụ; token cổng khách có hạn dùng / tự thu hồi.
 
 ## QUY TRÌNH LÀM VIỆC (cho phiên sau)
 1. Chạy `web/BAN-GIAO.md` mục 10 để dựng sandbox. **Lưu ý proxy:** trong môi trường này, tải

@@ -8,6 +8,8 @@ import { tierFor, pointsFor } from "@/lib/loyalty";
 import { withMediaToken } from "@/lib/media-token";
 import { Badge } from "@/components/ui/badge";
 import { PhotoGallery } from "@/components/ui/photo-gallery";
+import { APPT_STATUS } from "@/lib/status";
+import { PortalAppointmentActions } from "./appointment-actions";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Hồ sơ của tôi" };
@@ -20,6 +22,11 @@ export default async function CustomerPortalPage({ params }: { params: Promise<{
       cases: { orderBy: { createdAt: "desc" }, include: { services: { select: { name: true } } } },
       photos: { orderBy: { takenAt: "desc" }, take: 12 },
       followUps: { where: { scheduledAt: { gte: new Date(Date.now() - 86400000) } }, orderBy: { scheduledAt: "asc" }, take: 5 },
+      appointments: {
+        where: { scheduledAt: { gte: new Date(Date.now() - 3 * 3600000) }, status: { in: ["BOOKED", "CONFIRMED"] } },
+        orderBy: { scheduledAt: "asc" },
+        take: 5,
+      },
     },
   });
   if (!customer) notFound();
@@ -54,6 +61,24 @@ export default async function CustomerPortalPage({ params }: { params: Promise<{
             <span className="text-slate-400">· {points.toLocaleString("vi-VN")} điểm</span>
           </div>
         </div>
+
+        {/* Lịch hẹn sắp tới — khách tự xác nhận / đề nghị đổi (D3) */}
+        {customer.appointments.length > 0 && (
+          <Section icon={<CalendarClock className="h-4 w-4 text-brand-500" />} title="Lịch hẹn sắp tới">
+            <ul className="space-y-3">
+              {customer.appointments.map((a) => (
+                <li key={a.id} className="rounded-xl border border-slate-100 p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="font-medium text-slate-800">{fmtDateTime(a.scheduledAt)}</span>
+                    <Badge tone={APPT_STATUS[a.status].tone}>{APPT_STATUS[a.status].label}</Badge>
+                  </div>
+                  {a.serviceInterest && <p className="mt-0.5 text-xs text-slate-500">{a.serviceInterest}</p>}
+                  <PortalAppointmentActions token={token} appointmentId={a.id} status={a.status} />
+                </li>
+              ))}
+            </ul>
+          </Section>
+        )}
 
         {/* Lịch tái khám sắp tới */}
         {customer.followUps.length > 0 && (

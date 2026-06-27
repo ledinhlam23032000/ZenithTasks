@@ -19,6 +19,17 @@
 - **A5 — Sao lưu tự động**: `scripts/backup.mjs` (`pg_dump -Fc` + ảnh `tar.gz` + giữ 14 bản + ghi `backup-status.json`); `npm run backup`; `docker-entrypoint.sh` chạy nền 1 lần lúc khởi động rồi mỗi 24h. Sao lưu OFFSITE vẫn là `windows/Sao-Luu.ps1`.
 - Lưu ý kỹ thuật: trong sandbox Postgres có thể tự dừng (stale pid) → `pg_ctlcluster 16 main start`. DB sandbox cần `npm run db:seed` để có dữ liệu thử (admin/123456).
 
+## Đợt cổng khách tự xác nhận / đổi lịch (D3 gđ1) — "Đợt 12"
+> Trên cổng khách công khai (`/khach/[token]`) thêm "Lịch hẹn sắp tới": khách tự xác nhận sẽ đến /
+> đề nghị đổi lịch. TSC pass, **100/100 test**. Smoke test THẬT (Playwright, KHÔNG đăng nhập): xác
+> nhận → lịch hẹn CONFIRMED; đề nghị đổi → tạo CareMessage (NOTE/IN) + ghi note lịch hẹn.
+- **`khach/[token]/actions.ts`** (server action CÔNG KHAI): `portalConfirmAppointment` +
+  `portalRequestReschedule`. Mọi thao tác kiểm token → khách → lịch hẹn thuộc đúng khách. Chống
+  spam bằng `rate-limit.bump` (theo token). KHÔNG tự đổi giờ — chỉ ghi nhận yêu cầu cho nhân viên.
+- **`khach/[token]/appointment-actions.tsx`** (client): nút xác nhận / đề nghị đổi (ô nhập khung giờ).
+- ⚠️ Đây là action PUBLIC → bảo mật dựa hoàn toàn vào việc kiểm quyền sở hữu theo token + rate-limit.
+- ⏳ Còn (D3): đánh giá NPS; token cổng khách có hạn dùng / tự thu hồi.
+
 ## Đợt phiếu đồng ý / consent (B6 hoàn tất) — "Đợt 11"
 > Soạn mẫu phiếu → ghi nhận trên hồ sơ (tự điền tên/ngày/dịch vụ) → in cho khách ký tay. TSC pass,
 > **100/100 test** (+5 test `consent`). Smoke test THẬT (Playwright + Chromium): /mau-phieu hiện
