@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { PieChart, Users, AlertTriangle, Crown, Filter } from "lucide-react";
+import { PieChart, Users, AlertTriangle, Crown, Filter, Megaphone } from "lucide-react";
 import { requireCap } from "@/lib/auth";
 import { formatVND, formatVNDShort } from "@/lib/money";
 import { SOURCE_LABEL } from "@/lib/status";
@@ -118,6 +118,42 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
           </CardContent>
         </Card>
       </div>
+
+      {/* ROI Marketing (C3) */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Megaphone className="h-4 w-4 text-brand-500" /> ROI Marketing ({days} ngày)
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="rounded-xl bg-slate-50 px-4 py-3">
+              <p className="text-xs text-slate-500">Chi phí marketing</p>
+              <p className="mt-0.5 text-lg font-bold text-rose-600">{formatVND(a.marketing.spend)}</p>
+              <p className="text-xs text-slate-400">Từ Sổ thu chi (mục Marketing)</p>
+            </div>
+            <div className="rounded-xl bg-slate-50 px-4 py-3">
+              <p className="text-xs text-slate-500">Doanh thu nguồn marketing</p>
+              <p className="mt-0.5 text-lg font-bold text-emerald-600">{formatVND(a.marketing.revenue)}</p>
+              <p className="text-xs text-slate-400">Tiền thực thu từ khách nguồn MKT/FB/Zalo/TikTok/Hotline</p>
+            </div>
+            <div className="rounded-xl bg-brand-50 px-4 py-3">
+              <p className="text-xs text-brand-700">ROI</p>
+              <p className="mt-0.5 text-lg font-bold text-brand-700">
+                {a.marketing.roi !== null ? `${a.marketing.roi.toLocaleString("vi-VN")} lần` : "—"}
+              </p>
+              <p className="text-xs text-brand-600/70">
+                {a.marketing.roi !== null ? `1đ chi marketing → ${a.marketing.roi.toLocaleString("vi-VN")}đ thu về` : "Chưa ghi chi phí marketing"}
+              </p>
+            </div>
+          </div>
+          <p className="mt-3 text-xs text-slate-400">
+            Lưu ý: cần ghi chi phí marketing ở <b>Sổ thu chi</b> (mục “Marketing &amp; quảng cáo”) thì ROI mới chính xác.
+            Doanh thu tính theo tiền thực thu trong kỳ từ khách thuộc nhóm nguồn marketing.
+          </p>
+        </CardContent>
+      </Card>
 
       {/* Radar khách rời bỏ */}
       <Card>

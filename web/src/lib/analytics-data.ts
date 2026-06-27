@@ -1,7 +1,10 @@
 import { prisma } from "./db";
 import { toNum } from "./money";
-import { rfmScore, rfmSegment, funnelRates, SEGMENTS, type Segment, type FunnelStep } from "./analytics";
+import { rfmScore, rfmSegment, funnelRates, marketingRoi, SEGMENTS, type Segment, type FunnelStep } from "./analytics";
 import type { CustomerSource } from "@/generated/prisma/client";
+
+// Các nguồn khách coi là "đến từ marketing" (để tính ROI marketing — C3).
+const MARKETING_SOURCES: CustomerSource[] = ["MARKETING", "FACEBOOK", "ZALO", "TIKTOK", "HOTLINE"];
 
 // ============================================================================
 // LẮP RÁP SỐ LIỆU PHÂN TÍCH (Nhóm C) — truy vấn DB rồi dùng `analytics.ts` (thuần)
@@ -34,6 +37,7 @@ export type BusinessAnalytics = {
   caseFunnel: FunnelStep[];
   apptFunnel: FunnelStep[];
   bySource: SourceLtv[];
+  marketing: { spend: number; revenue: number; roi: number | null }; // C3 — ROI marketing trong kỳ
 };
 
 export async function getBusinessAnalytics(days = 90): Promise<BusinessAnalytics> {
@@ -107,7 +111,23 @@ export async function getBusinessAnalytics(days = 90): Promise<BusinessAnalytics
     })
     .sort((a, b) => b.revenue - a.revenue);
 
+  // --- ROI marketing trong kỳ (C3): chi phí marketing (Sổ thu chi) vs tiền THỰC THU
+  // từ khách thuộc nguồn marketing (theo ngày thu) ---
+  const [spendAgg, mktRevAgg] = await Promise.all([
+    prisma.cashTransaction.aggregate({
+      where: { type: "EXPENSE", category: "MARKETING", occurredAt: { gte: since } },
+      _sum: { amount: true },
+    }),
+    prisma.payment.aggregate({
+      where: { paidAt: { gte: since }, case: { customer: { source: { in: MARKETING_SOURCES } } } },
+      _sum: { amount: true },
+    }),
+  ]);
+  const mktSpend = toNum(spendAgg._sum.amount);
+  const mktRevenue = toNum(mktRevAgg._sum.amount);
+
   return {
+    marketing: { spend: mktSpend, revenue: mktRevenue, roi: marketingRoi(mktRevenue, mktSpend) },
     days,
     totalCustomers: rfmRows.length,
     segCount,

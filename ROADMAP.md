@@ -44,7 +44,7 @@ phần "Đánh giá" trong lịch sử hội thoại + `web/DU-AN.md`.
 |----|----------|-----------|---------|
 | C1 | **Giữ chân khách (RFM/Cohort)** + radar khách rời bỏ | ✅ Một phần | ✅ Phân khúc RFM + radar khách nguy cơ rời bỏ kèm nút liên hệ (Đợt 7, `/phan-tich`). ⏳ Còn: cohort theo tháng, tự đẩy danh sách vào workqueue B1. |
 | C2 | **LTV & dự báo doanh thu** | ✅ Một phần | ✅ LTV (giá trị vòng đời) theo nguồn khách (Đợt 7). ⏳ Còn: dự báo doanh thu theo xu hướng + lịch hẹn. |
-| C3 | **ROI theo kênh nguồn** | ⏳ Chưa làm | Doanh thu/khách theo nguồn vs chi phí marketing (cần nguồn chi phí marketing — gắn với Sổ thu chi). |
+| C3 | **ROI theo kênh nguồn** | ✅ Xong | ✅ ROI Marketing trên `/phan-tich`: chi phí marketing (Sổ thu chi) vs doanh thu thực thu từ khách nguồn marketing (Đợt 13). |
 | C4 | **Phễu chuyển đổi** | ✅ Xong | ✅ Phễu hồ sơ (mở → tư vấn → chốt → thu) + phễu lịch hẹn (hẹn → đến), tỉ lệ từng bước (Đợt 7, `/phan-tich`). |
 
 ## NHÓM D — TRẢI NGHIỆM & SÁNG TẠO
@@ -63,7 +63,7 @@ phần "Đánh giá" trong lịch sử hội thoại + `web/DU-AN.md`.
 |----|----------|-----------|---------|
 | E1 | Sửa tài liệu phóng đại LOC (60k → ~15k thực) | ✅ Xong | Sửa trong `PROJECT-OVERVIEW.md`. |
 | E2 | Tách tầng domain cho logic tiền | ✅ Một phần | `lib/case-math.ts` (toán thuần, có test). Còn các module khác có thể tách dần. |
-| E3 | Dọn cảnh báo lint biến không dùng | ⏳ Chưa làm | Vài action có biến `m`/`name` không dùng. |
+| E3 | Dọn cảnh báo lint biến không dùng | ✅ Xong | Đã xóa 5 cảnh báo (biến `m`/`PageHeader`/`BarChart` không dùng + 1 disable-directive thừa + 1 no-img-element) — Đợt 13. Còn 15 lỗi `react-hooks/set-state-in-effect` (rule mới, code cũ — sửa cần refactor effect, để sau). |
 
 ---
 
@@ -412,6 +412,26 @@ phần "Đánh giá" trong lịch sử hội thoại + `web/DU-AN.md`.
 - `khach/[token]/appointment-actions.tsx` (client): nút "Xác nhận sẽ đến" / "Đề nghị đổi lịch"
   (mở ô nhập khung giờ mong muốn). Trang cổng khách thêm section "Lịch hẹn sắp tới".
 - ⏳ Còn (D3): đánh giá NPS sau dịch vụ; token cổng khách có hạn dùng / tự thu hồi.
+
+## CHI TIẾT ĐỢT 13 — Đã làm (C3 ROI marketing + E3 dọn lint)
+
+> Hai việc nhỏ chốt lại các nhóm còn dở. TSC pass, **102/102 test** (+2 test `marketingRoi`).
+> Smoke test THẬT (Playwright): `/phan-tich` hiện section "ROI Marketing" đủ 3 ô (chi phí / doanh
+> thu nguồn marketing / ROI).
+
+### C3 — ROI Marketing (trên `/phan-tich`)
+- `lib/analytics.ts`: `marketingRoi(revenue, spend)` (số lần, null nếu chưa có chi phí) + test.
+- `lib/analytics-data.ts`: thêm chi phí marketing (Sổ thu chi `EXPENSE`/`MARKETING` trong kỳ) +
+  doanh thu thực thu trong kỳ từ khách nguồn marketing (MARKETING/FACEBOOK/ZALO/TIKTOK/HOTLINE).
+- Trang `/phan-tich`: card "ROI Marketing" (chi phí / doanh thu / ROI = doanh thu ÷ chi phí).
+
+### E3 — Dọn lint
+- Xóa 5 cảnh báo: biến `m` (cham-soc/actions), import `PageHeader` (khach-hang/[id]/page) + `BarChart`
+  (multi-chart) không dùng; sửa vị trí `eslint-disable` ở avatar (vừa hết "directive thừa" vừa hết
+  cảnh báo `no-img-element`).
+- ⚠️ Còn 15 lỗi `react-hooks/set-state-in-effect` (rule mới của eslint-config-next 16, áp lên code
+  cũ: command-palette, v.v.). Sửa đúng cần refactor effect (có rủi ro đổi hành vi) → để đợt riêng;
+  KHÔNG chặn `next build`.
 
 ## QUY TRÌNH LÀM VIỆC (cho phiên sau)
 1. Chạy `web/BAN-GIAO.md` mục 10 để dựng sandbox. **Lưu ý proxy:** trong môi trường này, tải

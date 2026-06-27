@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { rfmScore, rfmSegment, isChurnRisk, funnelRates, DEFAULT_RFM, type RfmThresholds } from "../analytics";
+import { rfmScore, rfmSegment, isChurnRisk, funnelRates, marketingRoi, DEFAULT_RFM, type RfmThresholds } from "../analytics";
 
 describe("rfmScore", () => {
   it("recency: gần đây→3, vừa→2, lâu→1 (theo ngưỡng mặc định 30/90)", () => {
@@ -66,6 +66,15 @@ describe("funnelRates", () => {
     ]);
     expect(out[1].pctOfTop).toBe(0);
     expect(out[1].pctOfPrev).toBe(0);
+  });
+});
+
+describe("marketingRoi", () => {
+  it("doanh thu / chi phí (làm tròn 1 số lẻ)", () => {
+    expect(marketingRoi(32_000_000, 10_000_000)).toBe(3.2);
+  });
+  it("chưa có chi phí → null (không chia 0)", () => {
+    expect(marketingRoi(5_000_000, 0)).toBeNull();
   });
 });
 

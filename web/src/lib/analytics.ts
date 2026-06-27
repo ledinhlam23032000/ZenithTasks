@@ -86,3 +86,11 @@ export function funnelRates(steps: FunnelInput[]): FunnelStep[] {
 function round1(n: number): number {
   return Math.round(n * 10) / 10;
 }
+
+/**
+ * ROI marketing = doanh thu (từ khách nguồn marketing) / chi phí marketing. Trả số lần
+ * (vd 3.2 nghĩa là 1đ chi marketing thu về 3.2đ). null nếu CHƯA có chi phí (không chia 0).
+ */
+export function marketingRoi(revenue: number, spend: number): number | null {
+  return spend > 0 ? round1(revenue / spend) : null;
+}

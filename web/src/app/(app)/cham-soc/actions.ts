@@ -67,10 +67,9 @@ export async function updateCareMessage(_prev: CareFormState, formData: FormData
   }
   const { id, channel, direction, content } = parsed.data;
 
-  const m = await prisma.careMessage.update({
+  await prisma.careMessage.update({
     where: { id },
     data: { channel, direction, content },
-    select: { customerId: true },
   });
 
   return { ok: true, nonce: Date.now() };

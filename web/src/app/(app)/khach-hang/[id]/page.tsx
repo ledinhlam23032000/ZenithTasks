@@ -34,7 +34,6 @@ import {
   CARE_CHANNEL,
   APPT_STATUS,
 } from "@/lib/status";
-import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";

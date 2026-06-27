@@ -19,6 +19,17 @@
 - **A5 — Sao lưu tự động**: `scripts/backup.mjs` (`pg_dump -Fc` + ảnh `tar.gz` + giữ 14 bản + ghi `backup-status.json`); `npm run backup`; `docker-entrypoint.sh` chạy nền 1 lần lúc khởi động rồi mỗi 24h. Sao lưu OFFSITE vẫn là `windows/Sao-Luu.ps1`.
 - Lưu ý kỹ thuật: trong sandbox Postgres có thể tự dừng (stale pid) → `pg_ctlcluster 16 main start`. DB sandbox cần `npm run db:seed` để có dữ liệu thử (admin/123456).
 
+## Đợt ROI marketing + dọn lint (C3 + E3) — "Đợt 13"
+> TSC pass, **102/102 test** (+2 test `marketingRoi`). Smoke test THẬT (Playwright): `/phan-tich`
+> hiện section "ROI Marketing".
+- **C3**: `lib/analytics.ts` `marketingRoi(revenue, spend)` (có test). `analytics-data.ts` thêm chi
+  phí marketing (Sổ thu chi EXPENSE/MARKETING trong kỳ) + doanh thu thực thu từ khách nguồn marketing.
+  Trang `/phan-tich` thêm card "ROI Marketing" (chi phí / doanh thu / ROI). ⚠️ ROI chỉ chính xác khi
+  chủ ghi chi phí marketing ở Sổ thu chi (mục "Marketing & quảng cáo").
+- **E3**: xóa 5 cảnh báo lint (biến `m`/`PageHeader`/`BarChart` không dùng + sửa vị trí
+  `eslint-disable` ở avatar). Còn 15 lỗi `react-hooks/set-state-in-effect` (rule mới áp code cũ —
+  sửa cần refactor effect, để đợt riêng; không chặn build).
+
 ## Đợt cổng khách tự xác nhận / đổi lịch (D3 gđ1) — "Đợt 12"
 > Trên cổng khách công khai (`/khach/[token]`) thêm "Lịch hẹn sắp tới": khách tự xác nhận sẽ đến /
 > đề nghị đổi lịch. TSC pass, **100/100 test**. Smoke test THẬT (Playwright, KHÔNG đăng nhập): xác
