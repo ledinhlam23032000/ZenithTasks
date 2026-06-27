@@ -14,6 +14,8 @@ import {
   Lock,
   Unlock,
   Boxes,
+  FileSignature,
+  Printer,
 } from "lucide-react";
 import { requireCap } from "@/lib/auth";
 import { userCan } from "@/lib/permissions";
@@ -59,6 +61,8 @@ import {
   deleteCase,
   applyServiceBom,
 } from "../actions";
+import { deleteConsent } from "../consent-actions";
+import { AddConsentButton } from "./consent-widgets";
 
 export const dynamic = "force-dynamic";
 
@@ -66,7 +70,7 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
   const user = await requireCap("mod:ho-so");
   const { id } = await params;
 
-  const [record, services, materials, consultants, doctors] = await Promise.all([
+  const [record, services, materials, consultants, doctors, consentTemplates] = await Promise.all([
     prisma.caseRecord.findUnique({
       where: { id },
       include: {
@@ -78,12 +82,14 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
         materials: { orderBy: { performedAt: "desc" }, include: { performedBy: { select: { fullName: true } } } },
         photos: { orderBy: { takenAt: "desc" } },
         followUps: { orderBy: { scheduledAt: "desc" }, include: { createdBy: { select: { fullName: true } } } },
+        consents: { orderBy: { signedAt: "desc" }, include: { createdBy: { select: { fullName: true } } } },
       },
     }),
     getActiveServices(),
     getActiveMaterials(),
     getConsultants(),
     getDoctors(),
+    prisma.consentTemplate.findMany({ where: { active: true }, orderBy: { title: "asc" }, select: { id: true, title: true, body: true } }),
   ]);
 
   if (!record) notFound();
@@ -386,6 +392,61 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
                   caseId={record.id}
                   deleteAction={canClinical ? deletePhoto : undefined}
                 />
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Phiếu đồng ý (consent) — B6 gđ2 */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileSignature className="h-4 w-4 text-brand-500" /> Phiếu đồng ý
+              </CardTitle>
+              {canClinical && (
+                <AddConsentButton
+                  caseId={record.id}
+                  customerName={record.customer.fullName}
+                  caseCode={record.code}
+                  services={record.services.map((s) => s.name).join(", ")}
+                  templates={consentTemplates}
+                  todayLocal={toDatetimeLocal(new Date()).slice(0, 10)}
+                />
+              )}
+            </CardHeader>
+            <CardContent className="pt-0">
+              {record.consents.length === 0 ? (
+                <EmptyState title="Chưa có phiếu đồng ý" description="Ghi nhận phiếu đồng ý/cam kết khách đã ký (in ra cho khách ký tay)." />
+              ) : (
+                <ul className="space-y-2.5">
+                  {record.consents.map((c) => (
+                    <li key={c.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-100 p-2.5">
+                      <div className="min-w-0">
+                        <p className="font-medium text-slate-800">{c.title}</p>
+                        <p className="text-xs text-slate-500">
+                          Người ký: {c.signerName}{c.relationship ? ` (${c.relationship})` : ""} · {fmtDate(c.signedAt)}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Link
+                          href={`/ho-so/${record.id}/consent/${c.id}`}
+                          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-brand-600 hover:bg-brand-50"
+                        >
+                          <Printer className="h-3.5 w-3.5" /> In phiếu
+                        </Link>
+                        {canClinical && (
+                          <ConfirmButton
+                            action={deleteConsent}
+                            fields={{ id: c.id, caseId: record.id }}
+                            confirmText={`Xóa phiếu đồng ý "${c.title}"?`}
+                            className="text-slate-300 hover:text-rose-500"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </ConfirmButton>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
               )}
             </CardContent>
           </Card>

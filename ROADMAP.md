@@ -36,7 +36,7 @@ phần "Đánh giá" trong lịch sử hội thoại + `web/DU-AN.md`.
 | B3 | **Sổ công nợ chủ động** | ✅ Một phần | ✅ Trang `/cong-no`: lọc theo tuổi nợ + cảnh báo vượt ngưỡng + nút liên hệ (Đợt 5). ⏳ Còn: kế hoạch trả góp (cần schema mới). |
 | B4 | **Lịch hẹn nâng cao** | ✅ Một phần | ✅ Chống trùng lịch cùng người phụ trách (cảnh báo + cho ghi đè "Vẫn đặt") — Đợt 9. ⏳ Còn: tài nguyên phòng/giường, link khách tự xác nhận. |
 | B5 | **Kho theo chuẩn y tế** | ✅ Xong | ✅ Giá vốn bình quân + giá trị tồn kho + COGS (Đợt 4). ✅ Cảnh báo FEFO/hạn dùng (B1). ✅ Định mức vật tư theo dịch vụ (BOM) + nút tự trừ kho (Đợt 6). ✅ Phiếu nhập kho nhiều dòng (Đợt 10). |
-| B6 | **Hồ sơ y khoa chuẩn** | ✅ Một phần | ✅ Tiền sử/dị ứng/chống chỉ định + cảnh báo an toàn ở trang khách & hồ sơ (Đợt 8). ⏳ Còn: phiếu đồng ý (consent) ký số, mẫu hồ sơ. |
+| B6 | **Hồ sơ y khoa chuẩn** | ✅ Xong | ✅ Tiền sử/dị ứng/chống chỉ định + cảnh báo an toàn (Đợt 8). ✅ Phiếu đồng ý (consent) + mẫu phiếu + ghi nhận trên hồ sơ + in cho khách ký (Đợt 11). |
 
 ## NHÓM C — PHÂN TÍCH & RA QUYẾT ĐỊNH (BI)
 
@@ -371,6 +371,29 @@ phần "Đánh giá" trong lịch sử hội thoại + `web/DU-AN.md`.
   chung cả phiếu. Quyền ADMIN/MANAGER.
 - `kho/stock-in-batch.tsx`: modal nhiều dòng (thêm/xóa dòng động), gắn nút "Nhập kho" lên trang
   `/kho` (chỉ ADMIN/MANAGER). Dùng `onSubmit`+`preventDefault` (tránh React 19 reset mất dòng đã nhập).
+
+## CHI TIẾT ĐỢT 11 — Đã làm (B6 hoàn tất: phiếu đồng ý / consent)
+
+> Soạn mẫu phiếu đồng ý → ghi nhận trên hồ sơ (tự điền tên/ngày/dịch vụ) → in cho khách ký tay.
+> TSC pass, **100/100 test** (+5 test `consent`). Smoke test THẬT (Playwright + Chromium): trang
+> `/mau-phieu` hiện mẫu; trên hồ sơ bấm "Ghi nhận đồng ý" → chọn mẫu → nội dung tự thay {{ten}} →
+> "Hồ Phương Thảo" (hết placeholder); lưu → phiếu hiện trên hồ sơ + DB có snapshot; trang in
+> `/ho-so/[id]/consent/[id]` render đủ tiêu đề + nội dung + ô ký 2 bên.
+
+### Schema (migration `20260627140000_consent`)
+- `ConsentTemplate` (mẫu phiếu: title + body + active). `CaseConsent` (phiếu đã ký cho hồ sơ — lưu
+  SNAPSHOT title/body tại thời điểm ký + signerName + relationship + signedAt + note).
+
+### `lib/consent.ts` (THUẦN, có test)
+- `fillConsentTemplate(body, vars)` thay placeholder `{{ten}}/{{ngay}}/{{dichvu}}/{{mahoso}}`.
+
+### Trang/UI
+- `/mau-phieu` (module mới ADMIN/MANAGER): CRUD mẫu phiếu (thêm/sửa/ẩn/xóa), gợi ý placeholder.
+- Hồ sơ (`ho-so/[id]`): card "Phiếu đồng ý" + `AddConsentButton` (chọn mẫu → tự điền, sửa được;
+  người ký mặc định = tên khách) + nút "In phiếu" + xóa. Action `addConsent`/`deleteConsent`.
+- Trang in `ho-so/[id]/consent/[consentId]` (dùng `.invoice-sheet`): header thương hiệu + nội dung
+  + 2 ô ký (đại diện trung tâm / người đồng ý). ⚠️ "Ký số" thực thụ (chữ ký điện tử) chưa làm —
+  hiện in giấy cho khách ký tay rồi lưu (đúng thực tế phòng khám); có thể nâng cấp ký trên màn sau.
 
 ## QUY TRÌNH LÀM VIỆC (cho phiên sau)
 1. Chạy `web/BAN-GIAO.md` mục 10 để dựng sandbox. **Lưu ý proxy:** trong môi trường này, tải

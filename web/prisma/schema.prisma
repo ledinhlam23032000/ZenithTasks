@@ -159,6 +159,7 @@ model User {
   attendances          Attendance[]
   payrollEntries       PayrollEntry[]
   cashTransactions     CashTransaction[]
+  consentsRecorded     CaseConsent[]
 }
 
 // ============================ CHẤM CÔNG & LƯƠNG ============================
@@ -373,6 +374,7 @@ model CaseRecord {
   photos      Photo[]
   followUps   FollowUp[]
   appointment Appointment?
+  consents    CaseConsent[]
 
   @@index([status])
   @@index([createdAt])
@@ -530,6 +532,40 @@ model CashTransaction {
 
   @@index([occurredAt])
   @@index([type])
+}
+
+// ============================ PHIẾU ĐỒNG Ý (CONSENT) — B6 gđ2 ============================
+
+// Mẫu phiếu (đồng ý phẫu thuật, cam kết, mẫu hồ sơ y khoa…) — quản trị soạn sẵn nội dung.
+model ConsentTemplate {
+  id        String        @id @default(cuid())
+  title     String // Tên phiếu, vd "Phiếu đồng ý phẫu thuật thẩm mỹ"
+  body      String // Nội dung phiếu (văn bản). Có thể chứa {{tên}}, {{ngày}}, {{dịch vụ}}.
+  active    Boolean       @default(true)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  consents  CaseConsent[]
+}
+
+// Phiếu đồng ý đã ghi nhận cho một hồ sơ điều trị. Lưu SNAPSHOT nội dung tại thời điểm ký
+// (mẫu có thể đổi sau). "Ký" ở đây là ghi nhận khách đã đồng ý/ký giấy — in ra cho khách ký tay.
+model CaseConsent {
+  id           String           @id @default(cuid())
+  caseId       String
+  case         CaseRecord       @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  templateId   String?
+  template     ConsentTemplate? @relation(fields: [templateId], references: [id])
+  title        String // snapshot tên phiếu
+  body         String // snapshot nội dung
+  signerName   String // người ký (khách hoặc người giám hộ)
+  relationship String? // quan hệ với khách nếu người giám hộ ký (vd "Mẹ", "Vợ")
+  signedAt     DateTime         @default(now())
+  note         String?
+  createdById  String?
+  createdBy    User?            @relation(fields: [createdById], references: [id])
+  createdAt    DateTime         @default(now())
+
+  @@index([caseId])
 }
 
 // Hồ sơ Cộng tác viên (đối tác giới thiệu khách). Khớp với khách qua TÊN

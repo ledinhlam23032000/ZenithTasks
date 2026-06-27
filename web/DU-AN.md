@@ -19,6 +19,24 @@
 - **A5 — Sao lưu tự động**: `scripts/backup.mjs` (`pg_dump -Fc` + ảnh `tar.gz` + giữ 14 bản + ghi `backup-status.json`); `npm run backup`; `docker-entrypoint.sh` chạy nền 1 lần lúc khởi động rồi mỗi 24h. Sao lưu OFFSITE vẫn là `windows/Sao-Luu.ps1`.
 - Lưu ý kỹ thuật: trong sandbox Postgres có thể tự dừng (stale pid) → `pg_ctlcluster 16 main start`. DB sandbox cần `npm run db:seed` để có dữ liệu thử (admin/123456).
 
+## Đợt phiếu đồng ý / consent (B6 hoàn tất) — "Đợt 11"
+> Soạn mẫu phiếu → ghi nhận trên hồ sơ (tự điền tên/ngày/dịch vụ) → in cho khách ký tay. TSC pass,
+> **100/100 test** (+5 test `consent`). Smoke test THẬT (Playwright + Chromium): /mau-phieu hiện
+> mẫu; ghi nhận đồng ý → prefill thay {{ten}} đúng → lưu → phiếu hiện + DB có snapshot; trang in
+> render đủ tiêu đề/nội dung/ô ký.
+- **Schema** (migration `20260627140000_consent`): `ConsentTemplate` (mẫu) + `CaseConsent` (phiếu đã
+  ký — lưu SNAPSHOT title/body + signerName/relationship/signedAt).
+- **`lib/consent.ts`** (toán THUẦN, có test): `fillConsentTemplate` thay placeholder
+  `{{ten}}/{{ngay}}/{{dichvu}}/{{mahoso}}`.
+- **`/mau-phieu`** (module mới ADMIN/MANAGER): CRUD mẫu phiếu (`mau-phieu/actions.ts` + `template-forms.tsx`).
+- **Hồ sơ** (`ho-so/[id]`): card "Phiếu đồng ý" + `AddConsentButton` (chọn mẫu → tự điền, sửa được)
+  + nút In + xóa. Action ở `ho-so/consent-actions.ts`. Trang in `ho-so/[id]/consent/[consentId]`
+  (dùng `.invoice-sheet`, 2 ô ký).
+- ⚠️ "Ký số" thực thụ chưa làm — in giấy cho khách ký tay (đúng thực tế); placeholder hỗ trợ ở
+  `consent-widgets.tsx` (controlled title/body để chọn mẫu là tự điền).
+- ⚠️ Lưu ý dev: route lồng mới `[id]/consent/[consentId]` lần đầu bị Turbopack biên dịch theo yêu
+  cầu → request đầu có thể 404 trong dev; `next build` (production) biên dịch sẵn nên không sao.
+
 ## Đợt phiếu nhập kho nhiều dòng (B5 hoàn tất) — "Đợt 10"
 > Nhập nhiều vật tư trong MỘT phiếu, gửi trong 1 giao dịch. TSC pass, **95/95 test** (+5 test
 > `stock-in`). Smoke test THẬT (Playwright + Chromium): nhập 2 dòng → tồn + giá vốn bình quân +

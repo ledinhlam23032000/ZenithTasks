@@ -38,7 +38,7 @@ web/
     (app)/                      # Khu vực đăng nhập (có app-shell, sidebar)
       dashboard, viec-hom-nay, dau-ca, cong-no, lich-hen, tiep-nhan, khach-hang, ho-so/[id], cham-soc,
       bao-cao, phan-tich, hieu-suat, cong-tac-vien, lich-lam-viec, luong, thu-chi,
-      nhan-su/[id], nhat-ky, he-thong, danh-muc, kho, cham-cong, tai-khoan
+      nhan-su/[id], nhat-ky, he-thong, danh-muc, mau-phieu, kho, cham-cong, tai-khoan
       <mỗi mục>/actions.ts       # Server actions của mục đó
       <mỗi mục>/*-forms.tsx      # Form client (modal)
     login/, dat-lich/           # Công khai
@@ -54,7 +54,7 @@ docker-compose.yml              # GỐC repo — dùng khi VẬN HÀNH (có volu
 web/docker-compose.yml          # CHỈ là DB cho lập trình — KHÔNG dùng khi vận hành
 ```
 
-### Các trang & route (32 page, hầu hết `export const dynamic = "force-dynamic"`)
+### Các trang & route (34 page, hầu hết `export const dynamic = "force-dynamic"`)
 Chỉ 3 trang KHÔNG dynamic: `/` (redirect), `/login`, `/khong-co-quyen`. **Hệ quả quan trọng**: mọi trang dữ liệu luôn tải mới khi điều hướng → `revalidatePath` gần như THỪA (xem mục 8 về `useFormAction`).
 
 ## 4. Thư viện `src/lib/` (chức năng từng file)
@@ -97,6 +97,7 @@ Chỉ 3 trang KHÔNG dynamic: `/` (redirect), `/login`, `/khong-co-quyen`. **H�
 - **analytics-data.ts** — `getBusinessAnalytics(days)` (Nhóm C): truy vấn + lắp ráp RFM/phân khúc/radar khách rời bỏ/phễu hồ sơ + lịch hẹn/LTV theo nguồn. Dùng `analytics.ts` (thuần) để chấm điểm.
 - **schedule.ts** — chống trùng lịch THUẦN (có test, B4): `slotConflict`/`findConflicts`/`minutesApart` + `SLOT_WINDOW_MIN` (30'). Dùng ở `lich-hen/actions.ts` (`consultantConflictMessage`).
 - **stock-in.ts** — phiếu nhập kho nhiều dòng THUẦN (có test, B5): `validStockInLines`/`parseStockInLines`/`stockInTotal`. Dùng ở `kho/actions.ts` (`stockInBatch` — nhập nhiều vật tư 1 giao dịch).
+- **consent.ts** — phiếu đồng ý THUẦN (có test, B6 gđ2): `fillConsentTemplate` thay placeholder `{{ten}}/{{ngay}}/{{dichvu}}/{{mahoso}}` + `CONSENT_PLACEHOLDERS`. Dùng ở `/mau-phieu` + `ho-so/[id]/consent-widgets.tsx`.
 - **scripts/backup.mjs** (ngoài lib) — sao lưu tự động (A5): `pg_dump -Fc` + ảnh + status JSON; `npm run backup`.
 
 ## 5. Mô hình dữ liệu (Prisma)
@@ -109,6 +110,7 @@ Chỉ 3 trang KHÔNG dynamic: `/` (redirect), `/login`, `/khong-co-quyen`. **H�
 - **CaseService** (`listPrice`=giá gốc, `unitPrice`=giá ưu đãi, `quantity`, `discount`, `finalPrice`), **Payment** (`amount`, `method`, `paidAt`, `receivedById`), **MaterialUsage**, **Photo** (`type`, `url`, `caption`, `followUpIndex`, `caseId` nullable — giữ ảnh khi xóa hồ sơ).
 - **Service** (`listPrice` niêm yết + `defaultPrice` ưu đãi), **Material** (`stock`, `minStock`, `lotNo`, `expiryDate`, `avgCost` = giá vốn bình quân), **StockMovement** (`type`, `quantity`, `unitCost` = đơn giá tại thời điểm GD). Khi thêm/sửa/xóa vật tư trong hồ sơ → tự trừ/hoàn tồn + ghi `StockMovement` (nguyên tử, xem `ho-so/actions.ts`). Giá vốn: xem `lib/inventory-cost.ts`.
 - **ServiceMaterial** (B5 gđ2 — định mức vật tư/BOM: `serviceId`+`materialId`+`quantity` định mức/lần, unique theo cặp). Khi thêm dịch vụ vào hồ sơ, `applyServiceBom` đọc bảng này để tự ghi MaterialUsage + trừ kho (× SL dịch vụ). `CaseService.bomApplied` (Boolean) chống trừ kho 2 lần. Xem `lib/service-bom.ts`.
+- **ConsentTemplate** + **CaseConsent** (B6 gđ2 — phiếu đồng ý): mẫu phiếu (quản ở `/mau-phieu`) + phiếu đã ghi nhận cho hồ sơ (lưu snapshot title/body). Card "Phiếu đồng ý" + in ở `ho-so/[id]/consent/[consentId]`. Xem `lib/consent.ts`.
 - **Attendance** (chấm công theo ngày), **Shift** (ca làm), **PayrollEntry** (theo tháng: `baseSalary`, `commission` nhập tay, `bonus`, `adjustment`…).
 - **CareMessage** (nhật ký chăm sóc: `channel`, `direction`), **FollowUp** (hẹn tái khám), **AuditLog**, **CashTransaction** (sổ thu chi), **Collaborator** (hồ sơ CTV: `name @unique`, `phone`, `bank*`, `note`, `active`).
 
