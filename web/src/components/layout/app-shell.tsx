@@ -34,6 +34,7 @@ import {
   PieChart,
   FileSignature,
   UserSearch,
+  Sparkles,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -66,6 +67,7 @@ const ICONS: Record<string, LucideIcon> = {
   PieChart,
   FileSignature,
   UserSearch,
+  Sparkles,
 };
 
 export type NavItemData = { href: string; label: string; icon: string };

@@ -19,6 +19,25 @@
 - **A5 — Sao lưu tự động**: `scripts/backup.mjs` (`pg_dump -Fc` + ảnh `tar.gz` + giữ 14 bản + ghi `backup-status.json`); `npm run backup`; `docker-entrypoint.sh` chạy nền 1 lần lúc khởi động rồi mỗi 24h. Sao lưu OFFSITE vẫn là `windows/Sao-Luu.ps1`.
 - Lưu ý kỹ thuật: trong sandbox Postgres có thể tự dừng (stale pid) → `pg_ctlcluster 16 main start`. DB sandbox cần `npm run db:seed` để có dữ liệu thử (admin/123456).
 
+## Đợt trợ lý AI hỏi-đáp số liệu (D1) — "Đợt 17"
+> TSC pass, **133/133 test** (+6 test `assistant`). E2E THẬT (Playwright + mock AI OpenAI-compat
+> + DB seed): mở `/tro-ly` → gõ câu hỏi → đường getAssistantContext (truy vấn thật) →
+> formatAssistantContext → ai.ts gọi chuẩn OpenAI → câu trả lời hiện trên UI. (Cũng là lần đầu
+> chạy thực đường OpenAI-compatible của lớp AI Đợt 14.)
+- **An toàn theo thiết kế**: AI KHÔNG truy cập thẳng DB. Máy chủ tính sẵn "ảnh chụp" số liệu
+  KINH DOANH (doanh thu/công nợ/dịch vụ bán chạy/RFM/churn/tồn kho/leads/ROI) — KHÔNG gồm SĐT
+  / dữ liệu y khoa — rồi đưa cho AI trả lời CHỈ dựa trên đó (chống bịa số + rò rỉ).
+- **`lib/assistant.ts`** (THUẦN, có test): `formatAssistantContext` (số liệu → văn bản gọn),
+  `ASSISTANT_SYSTEM` (lời nhắc), `SUGGESTED_QUESTIONS`.
+- **`lib/assistant-data.ts`**: `getAssistantContext()` tái dùng `getBusinessAnalytics(30)` +
+  truy vấn doanh thu 30 ngày / khách-hồ sơ mới / lịch hẹn hôm nay / công nợ + top nợ / dịch vụ
+  bán chạy / tồn kho thấp / leads.
+- **Trang `/tro-ly`** (module mới `tro-ly`, icon `Sparkles`, quyền ADMIN/MANAGER/SHAREHOLDER):
+  ô hỏi + câu hỏi gợi ý + lịch sử hỏi-đáp trong phiên. Action `askAssistant` (audit `ASK_ASSISTANT`).
+  Chưa cấu hình AI → hiện hướng dẫn bật. 🔑 Cần `AI_API_KEY` (nhà cung cấp bất kỳ — anh đã cắm DeepSeek).
+- **Sửa kèm**: `prisma/rotate-phone-key.ts` nay mã hoá lại CẢ `Lead` (Đợt 16 thêm SĐT cho lead) —
+  trước chỉ xử lý `Customer`, đổi khoá sẽ làm hỏng SĐT lead.
+
 ## Sửa lẻ — nút Liên hệ hiện SỐ + chép số (UX trên máy tính)
 > Nút Gọi/SMS là deep-link `tel:`/`sms:` chỉ chạy trên điện thoại; trên MÁY TÍNH bấm
 > không có gì. Sau khi "Liên hệ", `ContactButtons` giờ HIỆN SỐ ĐẦY ĐỦ (font mono) + nút

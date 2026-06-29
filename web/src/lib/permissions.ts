@@ -34,6 +34,7 @@ export const MODULES: ModuleDef[] = [
   { key: "cham-soc", href: "/cham-soc", label: "Chăm sóc KH", icon: "MessageCircleHeart", roles: ["ADMIN", "MANAGER", "CARE", "SHAREHOLDER"] },
   { key: "bao-cao", href: "/bao-cao", label: "Báo cáo", icon: "TrendingUp", roles: ["ADMIN", "MANAGER", "SHAREHOLDER"] },
   { key: "phan-tich", href: "/phan-tich", label: "Phân tích kinh doanh", icon: "PieChart", roles: ["ADMIN", "MANAGER", "SHAREHOLDER"] },
+  { key: "tro-ly", href: "/tro-ly", label: "Trợ lý AI", icon: "Sparkles", roles: ["ADMIN", "MANAGER", "SHAREHOLDER"] },
   { key: "hieu-suat", href: "/hieu-suat", label: "Hiệu suất nhân sự", icon: "Activity", roles: ["ADMIN", "MANAGER", "SHAREHOLDER"] },
   { key: "cong-tac-vien", href: "/cong-tac-vien", label: "Cộng tác viên", icon: "Handshake", roles: ["ADMIN", "MANAGER", "SHAREHOLDER"] },
   { key: "lich-lam-viec", href: "/lich-lam-viec", label: "Lịch làm việc", icon: "CalendarDays", roles: ALL },

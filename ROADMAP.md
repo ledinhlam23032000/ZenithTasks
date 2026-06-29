@@ -52,7 +52,7 @@ phần "Đánh giá" trong lịch sử hội thoại + `web/DU-AN.md`.
 
 | Mã | Hạng mục | Trạng thái | Ghi chú |
 |----|----------|-----------|---------|
-| D1 | **AI trợ lý vận hành** | ✅ Một phần | ✅ Lớp AI TRUNG LẬP NHÀ CUNG CẤP (Đợt 14: DeepSeek/Qwen/Gemini/OpenAI/Claude/tự host) + ✅ AI soạn tin chăm sóc đã chạy. ⏳ Còn: trợ lý hỏi-đáp số liệu / tóm tắt hồ sơ / gợi ý upsell. 🔑 Cần API key 1 nhà cung cấp bất kỳ (`AI_API_KEY`). |
+| D1 | **AI trợ lý vận hành** | ✅ Phần lớn xong | ✅ Lớp AI TRUNG LẬP NHÀ CUNG CẤP (Đợt 14) + ✅ AI soạn tin chăm sóc + ✅ **Trợ lý hỏi-đáp số liệu `/tro-ly`** (Đợt 17: hỏi doanh thu/công nợ/dịch vụ/khách rời bỏ/tồn kho; AI chỉ trả lời dựa trên ảnh chụp số liệu, không truy cập DB). ⏳ Còn (tuỳ chọn): tóm tắt từng hồ sơ + gợi ý upsell tự động. 🔑 Cần `AI_API_KEY`. |
 | D2 | **So sánh ảnh trước/sau (slider)** | ✅ Xong | Kéo so sánh (clip-path), chọn ảnh trái/phải bất kỳ. Chưa làm: đóng dấu ngày/logo, xuất ảnh ghép. |
 | D3 | **Cổng khách hàng nâng cao** | ✅ Một phần | ✅ Khách tự xác nhận lịch hẹn + đề nghị đổi lịch ngay trên cổng khách (Đợt 12). ⏳ Còn: đánh giá NPS, token có hạn dùng/thu hồi tự động. |
 | D4 | **Tìm kiếm toàn cục (Ctrl/Cmd+K)** | ✅ Xong | Command palette tìm khách/hồ sơ/vật tư + điều hướng menu. |
