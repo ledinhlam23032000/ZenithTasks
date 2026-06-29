@@ -71,7 +71,14 @@ foreach ($k in $want.Keys) { if (-not $seen.ContainsKey($k)) { $result += "$k=$(
 Write-Host "Da luu cau hinh AI vao: $envFile" -ForegroundColor Green
 
 Write-Host 'Dang khoi dong lai ung dung de ap dung...' -ForegroundColor Yellow
-docker compose -f "$Compose" up -d
+# --force-recreate de ap dung bien moi; --remove-orphans de don container cu bi ket
+# (tranh loi "container name already in use" khi up that bai giua chung lan truoc).
+docker compose -f "$Compose" up -d --force-recreate --remove-orphans
+if ($LASTEXITCODE -ne 0) {
+  Write-Host 'Khoi dong lai bi loi (co the do container cu ket ten). Dang don dep va thu lai...' -ForegroundColor Yellow
+  docker rm -f zenithtasks-app-1 2>$null
+  docker compose -f "$Compose" up -d
+}
 
 Write-Host ''
 Write-Host '================ DA BAT AI ================' -ForegroundColor Green
