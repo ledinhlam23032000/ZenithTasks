@@ -11,6 +11,7 @@ import { audit } from "@/lib/audit";
 import { toNum } from "@/lib/money";
 import { computeCaseTotals } from "@/lib/case-math";
 import { bomNeeds, type BomLine } from "@/lib/service-bom";
+import { isAllowedDocMime, docExt, safeStoredName } from "@/lib/upload";
 import type { Prisma } from "@/generated/prisma/client";
 
 // Client dùng được cho cả prisma thường lẫn trong $transaction.
@@ -616,6 +617,41 @@ export async function deletePhoto(formData: FormData): Promise<void> {
   const caseId = String(formData.get("caseId") ?? "");
   if (!id || (await isLockedFor(caseId, user.role))) return;
   await prisma.photo.delete({ where: { id } }).catch(() => {});
+  if (caseId) refresh(caseId);
+}
+
+// ---- Giấy tờ hành chính: tải FILE lên (thay cho gõ tay phiếu đồng ý) ----
+export async function uploadCaseDocument(_prev: CaseActionState, formData: FormData): Promise<CaseActionState> {
+  const user = await requireCap("case.clinical");
+  const caseId = String(formData.get("caseId") ?? "");
+  if (await isLockedFor(caseId, user.role)) return { error: LOCKED_MSG };
+  const title = String(formData.get("title") ?? "").trim();
+  const file = formData.get("file");
+  if (!caseId) return { error: "Thiếu hồ sơ." };
+  if (!title) return { error: "Vui lòng nhập tên giấy tờ." };
+  if (!(file instanceof File) || file.size === 0) return { error: "Vui lòng chọn tệp." };
+  if (file.size > 15 * 1024 * 1024) return { error: "Tệp tối đa 15MB." };
+  if (!isAllowedDocMime(file.type)) return { error: "Định dạng không hỗ trợ (chỉ PDF, ảnh JPG/PNG, Word, Excel)." };
+
+  const fname = safeStoredName(caseId, docExt(file.type, file.name));
+  const dir = path.join(process.cwd(), "public", "uploads");
+  await fs.mkdir(dir, { recursive: true });
+  await fs.writeFile(path.join(dir, fname), Buffer.from(await file.arrayBuffer()));
+
+  await prisma.caseDocument.create({
+    data: { caseId, title, fileName: file.name.slice(0, 200), url: `/media/${fname}`, mime: file.type, uploadedById: user.id },
+  });
+  await audit(user.id, "UPLOAD_DOCUMENT", { entity: "CaseDocument", entityId: caseId, meta: { title } });
+  return { ok: true, nonce: Date.now() };
+}
+
+export async function deleteCaseDocument(formData: FormData): Promise<void> {
+  const user = await requireCap("case.clinical");
+  const id = String(formData.get("id") ?? "");
+  const caseId = String(formData.get("caseId") ?? "");
+  if (!id || (await isLockedFor(caseId, user.role))) return;
+  await prisma.caseDocument.delete({ where: { id } }).catch(() => {});
+  await audit(user.id, "DELETE_DOCUMENT", { entity: "CaseDocument", entityId: id });
   if (caseId) refresh(caseId);
 }
 

@@ -15,6 +15,8 @@ import {
   Unlock,
   Boxes,
   FileSignature,
+  FileText,
+  ExternalLink,
   Printer,
 } from "lucide-react";
 import { requireCap } from "@/lib/auth";
@@ -63,6 +65,8 @@ import {
 } from "../actions";
 import { deleteConsent } from "../consent-actions";
 import { AddConsentButton } from "./consent-widgets";
+import { deleteCaseDocument } from "../actions";
+import { UploadDocumentButton } from "./case-document-widgets";
 import { DebtPlanCard } from "./debt-plan-widgets";
 import { debtPlanStatus } from "@/lib/debt-plan";
 
@@ -85,6 +89,7 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
         photos: { orderBy: { takenAt: "desc" } },
         followUps: { orderBy: { scheduledAt: "desc" }, include: { createdBy: { select: { fullName: true } } } },
         consents: { orderBy: { signedAt: "desc" }, include: { createdBy: { select: { fullName: true } } } },
+        documents: { orderBy: { createdAt: "desc" }, include: { uploadedBy: { select: { fullName: true } } } },
         debtPlan: true,
       },
     }),
@@ -461,6 +466,55 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
                             action={deleteConsent}
                             fields={{ id: c.id, caseId: record.id }}
                             confirmText={`Xóa phiếu đồng ý "${c.title}"?`}
+                            className="text-slate-300 hover:text-rose-500"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </ConfirmButton>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Giấy tờ hành chính — tải FILE lên (thay cho gõ tay) */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-4 w-4 text-brand-500" /> Giấy tờ hành chính
+              </CardTitle>
+              {canClinical && <UploadDocumentButton caseId={record.id} />}
+            </CardHeader>
+            <CardContent className="pt-0">
+              {record.documents.length === 0 ? (
+                <EmptyState title="Chưa có giấy tờ" description="Tải file đã soạn/đã ký sẵn (PDF, ảnh, Word…) lên rồi bấm Xem — khỏi gõ tay." />
+              ) : (
+                <ul className="space-y-2.5">
+                  {record.documents.map((doc) => (
+                    <li key={doc.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-100 p-2.5">
+                      <div className="min-w-0">
+                        <p className="truncate font-medium text-slate-800">{doc.title}</p>
+                        <p className="truncate text-xs text-slate-500">
+                          {doc.fileName} · {fmtDate(doc.createdAt)}
+                          {doc.uploadedBy?.fullName ? ` · ${doc.uploadedBy.fullName}` : ""}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <a
+                          href={doc.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-brand-600 hover:bg-brand-50"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" /> Xem
+                        </a>
+                        {canClinical && (
+                          <ConfirmButton
+                            action={deleteCaseDocument}
+                            fields={{ id: doc.id, caseId: record.id }}
+                            confirmText={`Xóa giấy tờ "${doc.title}"?`}
                             className="text-slate-300 hover:text-rose-500"
                           >
                             <Trash2 className="h-3.5 w-3.5" />

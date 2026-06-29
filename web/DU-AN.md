@@ -19,6 +19,19 @@
 - **A5 — Sao lưu tự động**: `scripts/backup.mjs` (`pg_dump -Fc` + ảnh `tar.gz` + giữ 14 bản + ghi `backup-status.json`); `npm run backup`; `docker-entrypoint.sh` chạy nền 1 lần lúc khởi động rồi mỗi 24h. Sao lưu OFFSITE vẫn là `windows/Sao-Luu.ps1`.
 - Lưu ý kỹ thuật: trong sandbox Postgres có thể tự dừng (stale pid) → `pg_ctlcluster 16 main start`. DB sandbox cần `npm run db:seed` để có dữ liệu thử (admin/123456).
 
+## Đợt giấy tờ hành chính — tải FILE lên (thay gõ tay) — "Đợt 21"
+> TSC pass, **150/150 test** (+6 test `upload`). E2E THẬT (Playwright + DB): tải PDF lên hồ sơ →
+> hiện trong danh sách → `/media` phục vụ đúng `application/pdf` (mở xem được). Theo yêu cầu:
+> "mẫu phiếu đồng ý gõ tay bất tiện → cho gửi file lên rồi bấm xem".
+- **Model `CaseDocument`** (migration `20260627180000_case_document`): tiêu đề + tên tệp gốc +
+  url + mime + người tải. `lib/upload.ts` THUẦN (có test): `isAllowedDocMime`/`docExt`/
+  `safeStoredName`/`prettyFileSize` (cho PDF, ảnh, Word, Excel; chống path traversal).
+- **Giao diện**: thẻ "Giấy tờ hành chính" trên hồ sơ — nút "Tải giấy tờ lên" (tiêu đề + chọn
+  file ≤15MB) + danh sách + nút **"Xem"** (mở `/media/<tệp>`, PDF xem ngay trên trình duyệt) +
+  xoá. Action `uploadCaseDocument`/`deleteCaseDocument` (quyền `case.clinical`, tôn trọng khoá hồ sơ).
+- **Route `/media`**: thêm content-type PDF/Word/Excel (trước chỉ ảnh) — vẫn yêu cầu đăng nhập
+  hoặc vé ký (giấy tờ nhạy cảm KHÔNG công khai). Tính năng phiếu đồng ý gõ tay (Đợt 11) vẫn giữ.
+
 ## Đợt sửa 2 lỗi: tên CTV + tự trừ kho theo dịch vụ — "Đợt 20"
 > TSC pass, 144/144 test. E2E THẬT (Playwright + DB) cho CẢ HAI lỗi: PASS.
 - **Lỗi 1 — không sửa được TÊN cộng tác viên:** form sửa CTV để ô tên `readOnly` (khoá cứng vì

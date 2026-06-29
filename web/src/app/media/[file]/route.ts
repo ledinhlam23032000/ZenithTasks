@@ -20,6 +20,12 @@ const TYPES: Record<string, string> = {
   heic: "image/heic",
   heif: "image/heif",
   gif: "image/gif",
+  // Giấy tờ hành chính (CaseDocument): PDF mở xem ngay trên trình duyệt; Word/Excel tải về.
+  pdf: "application/pdf",
+  doc: "application/msword",
+  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  xls: "application/vnd.ms-excel",
+  xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 };
 
 export async function GET(req: Request, { params }: { params: Promise<{ file: string }> }) {

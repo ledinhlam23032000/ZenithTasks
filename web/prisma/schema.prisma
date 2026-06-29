@@ -170,6 +170,7 @@ model User {
   consentsRecorded     CaseConsent[]
   debtPlans            DebtPlan[]        @relation("DebtPlanCreatedBy")
   leadsCreated         Lead[]            @relation("LeadCreatedBy")
+  documentsUploaded    CaseDocument[]    @relation("DocUploadedBy")
 }
 
 // ============================ CHẤM CÔNG & LƯƠNG ============================
@@ -426,6 +427,7 @@ model CaseRecord {
   followUps   FollowUp[]
   appointment Appointment?
   consents    CaseConsent[]
+  documents   CaseDocument[]
   debtPlan    DebtPlan?
 
   @@index([status])
@@ -635,6 +637,23 @@ model DebtPlan {
   createdBy     User?      @relation("DebtPlanCreatedBy", fields: [createdById], references: [id])
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
+}
+
+// Giấy tờ hành chính tải lên cho 1 hồ sơ (D - phiếu đồng ý đã ký, giấy tờ, PDF/ảnh/Word…).
+// Thay cho việc gõ tay nội dung: nhân viên tải file đã soạn/đã ký lên rồi bấm "Xem".
+model CaseDocument {
+  id           String     @id @default(cuid())
+  caseId       String
+  case         CaseRecord @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  title        String // tiêu đề giấy tờ (vd "Phiếu đồng ý phẫu thuật")
+  fileName     String // tên tệp gốc để hiển thị
+  url          String // đường dẫn phục vụ qua /media/<tệp>
+  mime         String
+  uploadedById String?
+  uploadedBy   User?      @relation("DocUploadedBy", fields: [uploadedById], references: [id])
+  createdAt    DateTime   @default(now())
+
+  @@index([caseId])
 }
 
 // Hồ sơ Cộng tác viên (đối tác giới thiệu khách). Khớp với khách qua TÊN
