@@ -19,6 +19,16 @@
 - **A5 — Sao lưu tự động**: `scripts/backup.mjs` (`pg_dump -Fc` + ảnh `tar.gz` + giữ 14 bản + ghi `backup-status.json`); `npm run backup`; `docker-entrypoint.sh` chạy nền 1 lần lúc khởi động rồi mỗi 24h. Sao lưu OFFSITE vẫn là `windows/Sao-Luu.ps1`.
 - Lưu ý kỹ thuật: trong sandbox Postgres có thể tự dừng (stale pid) → `pg_ctlcluster 16 main start`. DB sandbox cần `npm run db:seed` để có dữ liệu thử (admin/123456).
 
+## Đợt mở rộng "Khách tham khảo" gồm khách chưa hoàn tất — "Đợt 22"
+> TSC pass, 150/150 test. E2E THẬT (Playwright): trang `/khach-tham-khao` có thêm mục "Đã đến,
+> chưa hoàn tất" (22 hồ sơ dở từ seed) + nút "Liên hệ" chăm sóc + badge trạng thái. Theo yêu cầu:
+> gộp cả khách hỏi online (chưa đến) VÀ khách đã đến nhưng hồ sơ chưa làm/đang dở.
+- Trang `/khach-tham-khao` giờ 2 phần: (1) **Khách tham khảo** (leads online, như cũ) + (2) **Đã đến,
+  chưa hoàn tất** — hồ sơ trạng thái OPEN/CONSULTED/SERVICED (chưa COMPLETED/CANCELLED), kèm trạng
+  thái + kết quả tư vấn + số dịch vụ + **nút Liên hệ (Gọi/SMS/Zalo + chép số)** mẫu tin "mời quay lại"
+  (`tplWinback`) + link mở hồ sơ để chốt. Đổi tiêu đề trang thành "Khách tham khảo & chưa chốt".
+- Không đổi schema (chỉ đọc dữ liệu sẵn có).
+
 ## Đợt giấy tờ hành chính — tải FILE lên (thay gõ tay) — "Đợt 21"
 > TSC pass, **150/150 test** (+6 test `upload`). E2E THẬT (Playwright + DB): tải PDF lên hồ sơ →
 > hiện trong danh sách → `/media` phục vụ đúng `application/pdf` (mở xem được). Theo yêu cầu:

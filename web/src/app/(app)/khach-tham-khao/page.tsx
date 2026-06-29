@@ -1,10 +1,11 @@
 import Link from "next/link";
-import { UserSearch, Sparkles, TrendingUp, Trash2, ArrowRightCircle, Phone } from "lucide-react";
+import { UserSearch, Sparkles, TrendingUp, Trash2, ArrowRightCircle, Phone, FolderOpen } from "lucide-react";
 import { requireCap } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { maskPhone } from "@/lib/phone";
 import { fmtDate } from "@/lib/format";
-import { SOURCE_LABEL } from "@/lib/status";
+import { SOURCE_LABEL, CASE_STATUS, CONSULT_RESULT } from "@/lib/status";
+import { tplWinback } from "@/lib/message-templates";
 import { LEAD_STATUSES, LEAD_STATUS_LABEL, LEAD_STATUS_TONE, summarizeLeads, type LeadStatusKey } from "@/lib/leads";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent } from "@/components/ui/card";
@@ -13,8 +14,12 @@ import { Badge } from "@/components/ui/badge";
 import { Table, THead, TH, TR, TD } from "@/components/ui/table";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ConfirmButton } from "@/components/ui/confirm-button";
+import { ContactButtons } from "@/components/ui/contact-buttons";
 import { AddLeadButton, EditLeadButton, LeadStatusSelect } from "./lead-widgets";
 import { deleteLead, convertLeadToCustomer } from "./actions";
+
+// Hồ sơ "đã đến nhưng chưa hoàn tất" = khách đã tới, hồ sơ còn đang dở (chưa COMPLETED/CANCELLED).
+const ACTIVE_CASE_STATUSES = ["OPEN", "CONSULTED", "SERVICED"] as const;
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Khách tham khảo" };
@@ -35,13 +40,30 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
   const summary = summarizeLeads(leads.map((l) => ({ status: l.status as LeadStatusKey })));
   const filtered = statusFilter === "all" ? leads : leads.filter((l) => l.status === statusFilter);
 
+  // Khách ĐÃ ĐẾN nhưng hồ sơ CHƯA HOÀN TẤT (đang dở / chưa làm / cân nhắc) — cần theo đuổi & chăm.
+  const incompleteCases = await prisma.caseRecord.findMany({
+    where: { status: { in: [...ACTIVE_CASE_STATUSES] } },
+    orderBy: { createdAt: "desc" },
+    take: TAKE,
+    select: {
+      id: true,
+      code: true,
+      status: true,
+      consultResult: true,
+      createdAt: true,
+      chiefComplaint: true,
+      customer: { select: { id: true, fullName: true, phoneLast5: true } },
+      _count: { select: { services: true } },
+    },
+  });
+
   const qs = (s: string) => (s === "all" ? "/khach-tham-khao" : `/khach-tham-khao?status=${s}`);
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Khách tham khảo"
-        description="Khách từ nhiều nguồn giới thiệu tới tham khảo dịch vụ — chưa hẹn, chưa đến. Theo dõi & chăm để chuyển thành khách."
+        title="Khách tham khảo & chưa chốt"
+        description="Gồm: khách hỏi online (chưa đến) VÀ khách đã đến nhưng hồ sơ còn dở. Theo dõi & chăm để chốt."
         icon={<UserSearch className="h-5 w-5" />}
         actions={<AddLeadButton />}
       />
@@ -153,6 +175,63 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
                           <Trash2 className="h-4 w-4" />
                         </ConfirmButton>
                       </div>
+                    </TD>
+                  </TR>
+                ))}
+              </tbody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Đã đến nhưng CHƯA HOÀN TẤT hồ sơ — cần theo đuổi & chăm sóc để chốt */}
+      <Card>
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3">
+          <h2 className="inline-flex items-center gap-2 text-sm font-semibold text-slate-800">
+            <FolderOpen className="h-4 w-4 text-amber-500" /> Đã đến, chưa hoàn tất ({incompleteCases.length})
+          </h2>
+          <p className="text-xs text-slate-400">Khách đã tới nhưng hồ sơ còn dở (chưa làm xong / đang cân nhắc) — gọi/nhắn mời quay lại hoàn tất.</p>
+        </div>
+        <CardContent className="pt-0">
+          {incompleteCases.length === 0 ? (
+            <EmptyState icon={<FolderOpen className="h-6 w-6" />} title="Không có hồ sơ dang dở" description="Mọi hồ sơ đã hoàn tất hoặc đã hủy." />
+          ) : (
+            <Table>
+              <THead>
+                <TR>
+                  <TH>Khách</TH>
+                  <TH>Hồ sơ</TH>
+                  <TH>Trạng thái</TH>
+                  <TH>Liên hệ</TH>
+                </TR>
+              </THead>
+              <tbody>
+                {incompleteCases.map((c) => (
+                  <TR key={c.id}>
+                    <TD>
+                      <Link href={`/khach-hang/${c.customer.id}`} className="font-medium text-slate-800 hover:text-brand-600">
+                        {c.customer.fullName}
+                      </Link>
+                    </TD>
+                    <TD>
+                      <Link href={`/ho-so/${c.id}`} className="text-slate-500 hover:text-brand-600">{c.code}</Link>
+                      <div className="text-xs text-slate-400">
+                        {fmtDate(c.createdAt)} · {c._count.services} dịch vụ
+                        {c.chiefComplaint ? ` · ${c.chiefComplaint}` : ""}
+                      </div>
+                    </TD>
+                    <TD>
+                      <div className="flex flex-wrap items-center gap-1">
+                        <Badge tone={CASE_STATUS[c.status].tone}>{CASE_STATUS[c.status].label}</Badge>
+                        <Badge tone={CONSULT_RESULT[c.consultResult].tone}>{CONSULT_RESULT[c.consultResult].label}</Badge>
+                      </div>
+                    </TD>
+                    <TD>
+                      <ContactButtons
+                        customerId={c.customer.id}
+                        last5={c.customer.phoneLast5}
+                        smsBody={tplWinback({ fullName: c.customer.fullName })}
+                      />
                     </TD>
                   </TR>
                 ))}
