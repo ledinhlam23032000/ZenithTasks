@@ -54,7 +54,7 @@ phần "Đánh giá" trong lịch sử hội thoại + `web/DU-AN.md`.
 |----|----------|-----------|---------|
 | D1 | **AI trợ lý vận hành** | ✅ Phần lớn xong | ✅ Lớp AI TRUNG LẬP NHÀ CUNG CẤP (Đợt 14) + ✅ AI soạn tin chăm sóc + ✅ **Trợ lý hỏi-đáp số liệu `/tro-ly`** (Đợt 17: hỏi doanh thu/công nợ/dịch vụ/khách rời bỏ/tồn kho; AI chỉ trả lời dựa trên ảnh chụp số liệu, không truy cập DB). ⏳ Còn (tuỳ chọn): tóm tắt từng hồ sơ + gợi ý upsell tự động. 🔑 Cần `AI_API_KEY`. |
 | D2 | **So sánh ảnh trước/sau (slider)** | ✅ Xong | Kéo so sánh (clip-path), chọn ảnh trái/phải bất kỳ. Chưa làm: đóng dấu ngày/logo, xuất ảnh ghép. |
-| D3 | **Cổng khách hàng nâng cao** | ✅ Một phần | ✅ Khách tự xác nhận lịch hẹn + đề nghị đổi lịch ngay trên cổng khách (Đợt 12). ⏳ Còn: đánh giá NPS, token có hạn dùng/thu hồi tự động. |
+| D3 | **Cổng khách hàng nâng cao** | ✅ Xong | ✅ Khách tự xác nhận/đổi lịch (Đợt 12). ✅ Đánh giá NPS từ cổng khách + thẻ NPS ở Phân tích; ✅ link cổng khách có hạn 90 ngày + thu hồi (Đợt 18). |
 | D4 | **Tìm kiếm toàn cục (Ctrl/Cmd+K)** | ✅ Xong | Command palette tìm khách/hồ sơ/vật tư + điều hướng menu. |
 | D5 | **Màn "đầu ca lễ tân"** | ✅ Xong | Gộp khách chưa đến + đang chờ + việc tồn đọng (link `/viec-hom-nay`). |
 

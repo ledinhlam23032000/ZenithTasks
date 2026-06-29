@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { Crown, FolderHeart, Images, CalendarClock, Receipt } from "lucide-react";
+import { Crown, FolderHeart, Images, CalendarClock, Receipt, Star } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { toNum, formatVND } from "@/lib/money";
 import { fmtDate, fmtDateTime } from "@/lib/format";
@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { PhotoGallery } from "@/components/ui/photo-gallery";
 import { APPT_STATUS } from "@/lib/status";
 import { PortalAppointmentActions } from "./appointment-actions";
+import { PortalNpsForm } from "./nps-form";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Hồ sơ của tôi" };
@@ -27,9 +28,25 @@ export default async function CustomerPortalPage({ params }: { params: Promise<{
         orderBy: { scheduledAt: "asc" },
         take: 5,
       },
+      // Đã đánh giá trong 30 ngày gần đây chưa (ẩn form nếu vừa đánh giá).
+      npsResponses: { where: { createdAt: { gte: new Date(Date.now() - 30 * 86400000) } }, take: 1, select: { id: true } },
     },
   });
   if (!customer) notFound();
+
+  // Link cổng khách hết hạn (D3 gđ2) → hiện thông báo thân thiện thay vì lộ dữ liệu.
+  if (customer.portalTokenExpiresAt && customer.portalTokenExpiresAt.getTime() < Date.now()) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
+        <div className="max-w-md rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
+          <p className="text-lg font-semibold text-slate-800">Liên kết đã hết hạn</p>
+          <p className="mt-2 text-sm text-slate-500">Vui lòng liên hệ phòng khám (0941 567 496) để được cấp lại liên kết xem hồ sơ.</p>
+        </div>
+      </div>
+    );
+  }
+
+  const canRate = customer.cases.length > 0 && customer.npsResponses.length === 0;
 
   const lifetimePaid = customer.cases.reduce((s, c) => s + toNum(c.paidAmount), 0);
   const totalDebt = customer.cases.reduce((s, c) => s + toNum(c.debtAmount), 0);
@@ -133,6 +150,13 @@ export default async function CustomerPortalPage({ params }: { params: Promise<{
             </span>
             <span className="text-lg font-bold text-rose-600">{formatVND(totalDebt)}</span>
           </div>
+        )}
+
+        {/* Đánh giá trải nghiệm (NPS) — chỉ hiện khi khách đã có lịch sử điều trị & chưa đánh giá gần đây */}
+        {canRate && (
+          <Section icon={<Star className="h-4 w-4 text-amber-500" />} title="Đánh giá trải nghiệm">
+            <PortalNpsForm token={token} />
+          </Section>
         )}
 
         <p className="pt-2 text-center text-xs text-slate-400">

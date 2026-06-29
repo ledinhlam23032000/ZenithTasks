@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { PieChart, Users, AlertTriangle, Crown, Filter, Megaphone } from "lucide-react";
+import { PieChart, Users, AlertTriangle, Crown, Filter, Megaphone, Star } from "lucide-react";
 import { requireCap } from "@/lib/auth";
 import { formatVND, formatVNDShort } from "@/lib/money";
 import { SOURCE_LABEL } from "@/lib/status";
@@ -152,6 +152,40 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
             Lưu ý: cần ghi chi phí marketing ở <b>Sổ thu chi</b> (mục “Marketing &amp; quảng cáo”) thì ROI mới chính xác.
             Doanh thu tính theo tiền thực thu trong kỳ từ khách thuộc nhóm nguồn marketing.
           </p>
+        </CardContent>
+      </Card>
+
+      {/* NPS — đánh giá trải nghiệm khách (D3 gđ2) */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Star className="h-4 w-4 text-amber-500" /> Đánh giá trải nghiệm — NPS ({days} ngày)
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-0">
+          {a.nps.count === 0 ? (
+            <p className="text-sm text-slate-400">Chưa có đánh giá nào trong kỳ. Khách tự đánh giá từ cổng khách hàng (link riêng).</p>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-4">
+              <div className="rounded-xl bg-brand-50 px-4 py-3">
+                <p className="text-xs text-brand-700">Điểm NPS</p>
+                <p className="mt-0.5 text-2xl font-bold text-brand-700">{a.nps.score}</p>
+                <p className="text-xs text-brand-600/70">{a.nps.count} lượt · TB {a.nps.average}/10</p>
+              </div>
+              <div className="rounded-xl bg-emerald-50 px-4 py-3">
+                <p className="text-xs text-emerald-700">Hài lòng (9–10)</p>
+                <p className="mt-0.5 text-lg font-bold text-emerald-600">{a.nps.promoters}</p>
+              </div>
+              <div className="rounded-xl bg-slate-50 px-4 py-3">
+                <p className="text-xs text-slate-500">Bình thường (7–8)</p>
+                <p className="mt-0.5 text-lg font-bold text-slate-600">{a.nps.passives}</p>
+              </div>
+              <div className="rounded-xl bg-rose-50 px-4 py-3">
+                <p className="text-xs text-rose-700">Chưa hài lòng (0–6)</p>
+                <p className="mt-0.5 text-lg font-bold text-rose-600">{a.nps.detractors}</p>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 

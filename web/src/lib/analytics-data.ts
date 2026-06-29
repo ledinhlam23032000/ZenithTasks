@@ -1,6 +1,7 @@
 import { prisma } from "./db";
 import { toNum } from "./money";
 import { rfmScore, rfmSegment, funnelRates, marketingRoi, SEGMENTS, type Segment, type FunnelStep } from "./analytics";
+import { npsSummary, type NpsSummary } from "./nps";
 import type { CustomerSource } from "@/generated/prisma/client";
 
 // Các nguồn khách coi là "đến từ marketing" (để tính ROI marketing — C3).
@@ -38,6 +39,7 @@ export type BusinessAnalytics = {
   apptFunnel: FunnelStep[];
   bySource: SourceLtv[];
   marketing: { spend: number; revenue: number; roi: number | null }; // C3 — ROI marketing trong kỳ
+  nps: NpsSummary; // D3 gđ2 — đánh giá trải nghiệm khách trong kỳ
 };
 
 export async function getBusinessAnalytics(days = 90): Promise<BusinessAnalytics> {
@@ -126,8 +128,13 @@ export async function getBusinessAnalytics(days = 90): Promise<BusinessAnalytics
   const mktSpend = toNum(spendAgg._sum.amount);
   const mktRevenue = toNum(mktRevAgg._sum.amount);
 
+  // --- NPS trong kỳ (D3 gđ2) ---
+  const npsRows = await prisma.npsResponse.findMany({ where: { createdAt: { gte: since } }, select: { score: true } });
+  const nps = npsSummary(npsRows.map((r) => r.score));
+
   return {
     marketing: { spend: mktSpend, revenue: mktRevenue, roi: marketingRoi(mktRevenue, mktSpend) },
+    nps,
     days,
     totalCustomers: rfmRows.length,
     segCount,

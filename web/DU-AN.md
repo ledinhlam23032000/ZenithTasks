@@ -19,6 +19,20 @@
 - **A5 — Sao lưu tự động**: `scripts/backup.mjs` (`pg_dump -Fc` + ảnh `tar.gz` + giữ 14 bản + ghi `backup-status.json`); `npm run backup`; `docker-entrypoint.sh` chạy nền 1 lần lúc khởi động rồi mỗi 24h. Sao lưu OFFSITE vẫn là `windows/Sao-Luu.ps1`.
 - Lưu ý kỹ thuật: trong sandbox Postgres có thể tự dừng (stale pid) → `pg_ctlcluster 16 main start`. DB sandbox cần `npm run db:seed` để có dữ liệu thử (admin/123456).
 
+## Đợt cổng khách: đánh giá NPS + link có hạn (D3 hoàn tất) — "Đợt 18"
+> TSC pass, **139/139 test** (+6 test `nps`). E2E THẬT (Playwright, cổng khách CÔNG KHAI):
+> mở `/khach/<token>` → mục "Đánh giá trải nghiệm" → chọn điểm 9 + góp ý → gửi → lời cảm ơn;
+> kiểm DB có NpsResponse(score=9). Đặt token hết hạn → trang hiện "Liên kết đã hết hạn".
+- **NPS (đánh giá trải nghiệm)**: model `NpsResponse` (score 0–10 + comment). `lib/nps.ts`
+  THUẦN (có test): `npsCategory` (0–6 chưa hài lòng / 7–8 bình thường / 9–10 hài lòng),
+  `npsSummary` (NPS = %hài lòng − %chưa hài lòng, điểm TB, đếm nhóm). Khách tự đánh giá ở
+  cổng khách (action công khai `portalSubmitNps`, rate-limit, chỉ hiện khi đã có lịch sử điều
+  trị & chưa đánh giá trong 30 ngày). Thẻ "NPS" trên `/phan-tich` (điểm + TB + 3 nhóm).
+- **Link cổng khách có HẠN + thu hồi (D3)**: thêm `Customer.portalTokenExpiresAt`. `genPortalLink`
+  đặt hạn 90 ngày; cổng khách kiểm hạn → hết hạn hiện thông báo thân thiện (không lộ dữ liệu).
+  Thu hồi (`revokePortalLink`) xoá cả token lẫn hạn. (Action công khai `customerByToken` cũng
+  từ chối token hết hạn.)
+
 ## Đợt trợ lý AI hỏi-đáp số liệu (D1) — "Đợt 17"
 > TSC pass, **133/133 test** (+6 test `assistant`). E2E THẬT (Playwright + mock AI OpenAI-compat
 > + DB seed): mở `/tro-ly` → gõ câu hỏi → đường getAssistantContext (truy vấn thật) →

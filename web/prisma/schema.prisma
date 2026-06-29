@@ -218,6 +218,8 @@ model Customer {
   phoneHash    String
   // Token cổng khách hàng (link riêng để khách tự xem lịch sử/ảnh). Null = chưa bật.
   portalToken  String?        @unique
+  // Hạn dùng của link cổng khách (D3 gđ2). Null = không hết hạn (link cũ trước khi có tính năng).
+  portalTokenExpiresAt DateTime?
   source       CustomerSource @default(OTHER)
   sourceDetail String? // Tên CTV / chiến dịch / nguồn cụ thể
   address      String?
@@ -236,10 +238,24 @@ model Customer {
   photos       Photo[]
   careMessages CareMessage[]
   followUps    FollowUp[]
+  npsResponses NpsResponse[]
 
   @@index([phoneLast5])
   @@index([phoneHash])
   @@index([fullName])
+}
+
+// Đánh giá trải nghiệm của khách (NPS 0–10) — khách tự gửi từ cổng khách (D3 gđ2).
+model NpsResponse {
+  id         String   @id @default(cuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  score      Int // 0..10
+  comment    String?
+  createdAt  DateTime @default(now())
+
+  @@index([customerId])
+  @@index([createdAt])
 }
 
 // ============================ KHÁCH THAM KHẢO (LEADS) ============================

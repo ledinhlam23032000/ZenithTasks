@@ -125,7 +125,8 @@ export async function genPortalLink(formData: FormData): Promise<void> {
   const id = String(formData.get("customerId") ?? "");
   if (!id) return;
   const token = crypto.randomBytes(24).toString("base64url");
-  await prisma.customer.update({ where: { id }, data: { portalToken: token } }).catch(() => {});
+  const expiresAt = new Date(Date.now() + 90 * 86_400_000); // link cổng khách hết hạn sau 90 ngày
+  await prisma.customer.update({ where: { id }, data: { portalToken: token, portalTokenExpiresAt: expiresAt } }).catch(() => {});
   revalidatePath(`/khach-hang/${id}`);
 }
 
@@ -134,7 +135,7 @@ export async function revokePortalLink(formData: FormData): Promise<void> {
   await requireUser([...ROLES]);
   const id = String(formData.get("customerId") ?? "");
   if (!id) return;
-  await prisma.customer.update({ where: { id }, data: { portalToken: null } }).catch(() => {});
+  await prisma.customer.update({ where: { id }, data: { portalToken: null, portalTokenExpiresAt: null } }).catch(() => {});
   revalidatePath(`/khach-hang/${id}`);
 }
 
