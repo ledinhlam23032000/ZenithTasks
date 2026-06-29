@@ -32,11 +32,12 @@ phần "Đánh giá" trong lịch sử hội thoại + `web/DU-AN.md`.
 | Mã | Hạng mục | Trạng thái | Ghi chú |
 |----|----------|-----------|---------|
 | B1 | **Trung tâm nhắc & thông báo tự động** | ✅ Phần lõi xong | Trang **"Việc cần làm hôm nay"** (`/viec-hom-nay`) tổng hợp tự động: tái khám đến hạn, hẹn chưa đến, công nợ quá hạn, sinh nhật khách, khách nguội, kho cảnh báo (`lib/workqueue.ts`, không đổi schema). ⏳ Còn: Web Push lên điện thoại + việc có người phụ trách/đánh dấu xong (cần schema + cron + VAPID). |
-| B2 | **Kênh giao tiếp** (Zalo/SMS/Email) | ✅ Bậc 1 | ✅ Nút Gọi/SMS/Zalo deep-link kèm mẫu tin (Đợt 5). 🔑 Bậc 2–3 (gửi thật, tự động) cần tài khoản SMS/Email/Zalo OA — Email cũng cần thêm field email cho Customer. |
-| B3 | **Sổ công nợ chủ động** | ✅ Một phần | ✅ Trang `/cong-no`: lọc theo tuổi nợ + cảnh báo vượt ngưỡng + nút liên hệ (Đợt 5). ⏳ Còn: kế hoạch trả góp (cần schema mới). |
-| B4 | **Lịch hẹn nâng cao** | ✅ Một phần | ✅ Chống trùng lịch cùng người phụ trách (cảnh báo + cho ghi đè "Vẫn đặt") — Đợt 9. ⏳ Còn: tài nguyên phòng/giường, link khách tự xác nhận. |
+| B2 | **Kênh giao tiếp** (Zalo/SMS/Email) | ✅ Bậc 1 | ✅ Nút Gọi/SMS/Zalo deep-link kèm mẫu tin (Đợt 5) + hiện SỐ đầy đủ & nút "Chép số" để gọi tay trên máy tính (sửa lẻ sau Đợt 16). 🔑 Bậc 2–3 (gửi thật, tự động) cần tài khoản SMS/Email/Zalo OA — Email cũng cần thêm field email cho Customer. |
+| B3 | **Sổ công nợ chủ động** | ✅ Xong | ✅ Trang `/cong-no`: lọc theo tuổi nợ + cảnh báo vượt ngưỡng + nút liên hệ (Đợt 5). ✅ Kế hoạch trả góp / hẹn nợ (Đợt 15: model `DebtPlan` — ngày X hằng tháng trả Y đồng, hiện kỳ tới + cảnh báo trả chậm). |
+| B4 | **Lịch hẹn nâng cao** | ✅ Một phần | ✅ Chống trùng lịch cùng người phụ trách (cảnh báo + cho ghi đè "Vẫn đặt") — Đợt 9. ✅ Link khách tự xác nhận/đổi lịch (D3, Đợt 12). ⏳ Còn: tài nguyên phòng/giường. |
 | B5 | **Kho theo chuẩn y tế** | ✅ Xong | ✅ Giá vốn bình quân + giá trị tồn kho + COGS (Đợt 4). ✅ Cảnh báo FEFO/hạn dùng (B1). ✅ Định mức vật tư theo dịch vụ (BOM) + nút tự trừ kho (Đợt 6). ✅ Phiếu nhập kho nhiều dòng (Đợt 10). |
 | B6 | **Hồ sơ y khoa chuẩn** | ✅ Xong | ✅ Tiền sử/dị ứng/chống chỉ định + cảnh báo an toàn (Đợt 8). ✅ Phiếu đồng ý (consent) + mẫu phiếu + ghi nhận trên hồ sơ + in cho khách ký (Đợt 11). |
+| B7 | **Khách tham khảo (leads)** | ✅ Xong | Khách từ nguồn giới thiệu tới tham khảo, chưa hẹn/chưa đến → trang `/khach-tham-khao`: theo dõi phễu (mới/đã liên hệ/đã chuyển/tỉ lệ chuyển đổi) + chuyển 1 bấm thành khách hàng (Đợt 16). |
 
 ## NHÓM C — PHÂN TÍCH & RA QUYẾT ĐỊNH (BI)
 
@@ -51,7 +52,7 @@ phần "Đánh giá" trong lịch sử hội thoại + `web/DU-AN.md`.
 
 | Mã | Hạng mục | Trạng thái | Ghi chú |
 |----|----------|-----------|---------|
-| D1 | **AI trợ lý vận hành** | ⏳ Chưa làm | 🔑 Cần `ANTHROPIC_API_KEY`. Hỏi đáp số liệu, tóm tắt hồ sơ, gợi ý upsell (có người duyệt). |
+| D1 | **AI trợ lý vận hành** | ✅ Một phần | ✅ Lớp AI TRUNG LẬP NHÀ CUNG CẤP (Đợt 14: DeepSeek/Qwen/Gemini/OpenAI/Claude/tự host) + ✅ AI soạn tin chăm sóc đã chạy. ⏳ Còn: trợ lý hỏi-đáp số liệu / tóm tắt hồ sơ / gợi ý upsell. 🔑 Cần API key 1 nhà cung cấp bất kỳ (`AI_API_KEY`). |
 | D2 | **So sánh ảnh trước/sau (slider)** | ✅ Xong | Kéo so sánh (clip-path), chọn ảnh trái/phải bất kỳ. Chưa làm: đóng dấu ngày/logo, xuất ảnh ghép. |
 | D3 | **Cổng khách hàng nâng cao** | ✅ Một phần | ✅ Khách tự xác nhận lịch hẹn + đề nghị đổi lịch ngay trên cổng khách (Đợt 12). ⏳ Còn: đánh giá NPS, token có hạn dùng/thu hồi tự động. |
 | D4 | **Tìm kiếm toàn cục (Ctrl/Cmd+K)** | ✅ Xong | Command palette tìm khách/hồ sơ/vật tư + điều hướng menu. |
