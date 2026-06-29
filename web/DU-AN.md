@@ -19,6 +19,18 @@
 - **A5 — Sao lưu tự động**: `scripts/backup.mjs` (`pg_dump -Fc` + ảnh `tar.gz` + giữ 14 bản + ghi `backup-status.json`); `npm run backup`; `docker-entrypoint.sh` chạy nền 1 lần lúc khởi động rồi mỗi 24h. Sao lưu OFFSITE vẫn là `windows/Sao-Luu.ps1`.
 - Lưu ý kỹ thuật: trong sandbox Postgres có thể tự dừng (stale pid) → `pg_ctlcluster 16 main start`. DB sandbox cần `npm run db:seed` để có dữ liệu thử (admin/123456).
 
+## Đợt thiết kế lại Trợ lý AI thành màn chat + render markdown — "Đợt 23"
+> TSC pass, **157/157 test** (+7 test `markdown`). E2E THẬT (Playwright + mock AI trả markdown):
+> màn chào + gợi ý → hỏi → câu trả lời render **đậm**/danh sách (không còn dấu `**` thô). Theo yêu
+> cầu: "giao diện AI như màn chat thường + câu trả lời đặc sắc hơn".
+- **Render markdown** (vấn đề chính): trước hiện thô `**Căng da**`. Thêm `lib/markdown.ts` THUẦN
+  (có test): `parseInline` (đậm/nghiêng/mã) + `parseBlocks` (tiêu đề/danh sách/đoạn) — KHÔNG dùng
+  HTML thô (an toàn). Component `components/ui/markdown.tsx` render thành React (đậm, danh sách…).
+- **Thiết kế lại `/tro-ly` thành màn chat đầy đủ** (`assistant-chat.tsx` viết lại): bố cục cao toàn
+  màn, bong bóng hỏi (phải) / trả lời (trái, avatar tia sáng), màn chào + ô gợi ý khi trống, hiệu
+  ứng "đang gõ" (3 chấm nhún), tự cuộn xuống cuối, ô nhập cố định dưới (Enter gửi/Shift+Enter xuống
+  dòng), nút "Cuộc trò chuyện mới". Trang `tro-ly/page.tsx` bỏ PageHeader (chat tự có tiêu đề).
+
 ## Đợt mở rộng "Khách tham khảo" gồm khách chưa hoàn tất — "Đợt 22"
 > TSC pass, 150/150 test. E2E THẬT (Playwright): trang `/khach-tham-khao` có thêm mục "Đã đến,
 > chưa hoàn tất" (22 hồ sơ dở từ seed) + nút "Liên hệ" chăm sóc + badge trạng thái. Theo yêu cầu:
