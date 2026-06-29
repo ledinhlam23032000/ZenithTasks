@@ -84,8 +84,13 @@ async function main() {
   }
 
   console.log(`Hoàn tất: ${ok} thành công, ${fail} lỗi.`);
-  if (fail === 0) console.log("→ Bây giờ đặt PHONE_ENC_KEY = NEW_PHONE_ENC_KEY trong .env rồi khởi động lại.");
   await prisma.$disconnect();
+  if (fail > 0) {
+    // Thoát mã lỗi để script tự động KHÔNG đổi PHONE_ENC_KEY khi còn bản ghi giải mã hỏng.
+    console.error("→ CÓ LỖI: KHÔNG đổi PHONE_ENC_KEY. Giữ nguyên khoá cũ và kiểm tra lại.");
+    process.exit(2);
+  }
+  console.log("→ Bây giờ đặt PHONE_ENC_KEY = NEW_PHONE_ENC_KEY trong .env rồi khởi động lại.");
 }
 
 main().catch((e) => {
