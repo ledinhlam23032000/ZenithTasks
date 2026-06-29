@@ -221,7 +221,7 @@ npx next dev -p 3939                              # dev server (Turbopack; biên
 
 ## 11. Triển khai (Windows, máy chủ phòng khám)
 - Repo clone vào **`%USERPROFILE%\ZenithTasks`**. Script ở **`%USERPROFILE%\ZenithTasks\windows\`**:
-  - **`Chay-Zenith.bat`** — cài/cập nhật + chạy (clone/pull + `docker compose up -d --build`). Tự cài Git/Docker qua winget nếu thiếu.
+  - ⭐ **`Chay-Zenith.bat`** — **NÚT CHÍNH chủ hay bấm** (cài / cập nhật / sửa lỗi / chạy — tất cả trong 1 cú đúp). Tự xin quyền admin, tự cài Git/Docker qua winget nếu thiếu, rồi: **`git fetch` + `git reset --hard origin/<nhánh>`** (cập nhật SẠCH, không kẹt conflict; KHÔNG đụng `.env`/khoá vì chúng untracked) → **`docker compose up -d --build --force-recreate --remove-orphans`** → `docker image prune`. Migration **tự chạy** khi container khởi động (`docker-entrypoint.sh` gọi `prisma migrate deploy`). ⇒ Bấm file này là chủ có ngay bản mới nhất + schema mới + app chạy. Mở sẵn `http://localhost:3000`.
   - **`Sua-Loi.bat`** — CẬP NHẬT SẠCH (`git reset --hard origin` + `build --no-cache app` + `up -d --force-recreate` + `migrate deploy`). Dùng khi cập nhật lỡ dở / đổi schema. Tự xin quyền admin.
   - **`Mo-App.bat`** (mở), **`Phat-Hanh-Mang`/`Dia-Chi-Co-Dinh`** (Cloudflare Tunnel ra Internet), **`Sao-Luu`/`Cai-Sao-Luu-Tu-Dong`** (sao lưu DB + uploads), **`Cai-AI-Key`** (trình chọn nhà cung cấp AI — DeepSeek/Qwen/Gemini/OpenAI/Claude/tự host — rồi ghi `AI_API_KEY`/`AI_BASE_URL`/`AI_MODEL`/`AI_PROVIDER` vào `.env`), **`Doi-Khoa-SDT`** (tự động đổi `PHONE_ENC_KEY`: sao lưu → tạo khoá → mã hoá lại Customer+Lead → cập nhật `.env` → restart; tự dừng + giữ khoá cũ nếu lỗi), **`Xem-Loi`** (xuất log).
 - **docker-compose.yml GỐC** (dùng khi vận hành): service `db` (Postgres, volume `zenith_db`) + `app` (build `./web`, cổng 3000, volumes `zenith_uploads:/app/public/uploads` + `zenith_secrets:/app/.runtime`). Env qua `.env` cạnh file (xem `.env.example`): `AUTH_SECRET`, `PHONE_ENC_KEY`, `APP_ORIGINS` (tên miền sau Cloudflare), AI: `AI_API_KEY`/`AI_BASE_URL`/`AI_MODEL`/`AI_PROVIDER` (hoặc `ANTHROPIC_API_KEY` cách cũ)…
@@ -229,6 +229,7 @@ npx next dev -p 3939                              # dev server (Turbopack; biên
 - Đăng nhập lần đầu: `admin / 123456` (đổi ngay).
 
 ## 12. Git & quy trình bàn giao
+- 🔴 **CỰC KỲ QUAN TRỌNG cho phiên/AI sau:** chủ vận hành bằng cách bấm **`Chay-Zenith.bat`**, mà file này kéo code từ nhánh **`claude/lucid-cori-fg136w`**. ⇒ **Mọi thay đổi đã hoàn tất BẮT BUỘC phải có mặt trên nhánh `claude/lucid-cori-fg136w`** (đẩy thẳng, hoặc fast-forward từ nhánh dev của phiên sang nhánh này). Nếu chỉ đẩy lên nhánh khác, **chủ bấm nút sẽ KHÔNG thấy gì mới**. Sau khi push xong, chủ chỉ cần bấm `Chay-Zenith.bat` là cập nhật + chạy.
 - **Nhánh phát triển**: `claude/lucid-cori-fg136w`. Develop + commit + push CHỈ lên nhánh này. (PR #3 đã tồn tại — KHÔNG tạo PR mới trừ khi chủ yêu cầu.)
 - **Push**: `git push -u origin claude/lucid-cori-fg136w`, retry 4 lần (2s,4s,8s,16s) nếu lỗi mạng.
 - **Footer commit** (bắt buộc) — dạng:
