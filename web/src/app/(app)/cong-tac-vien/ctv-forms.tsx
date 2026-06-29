@@ -93,7 +93,8 @@ export function EditCollaboratorButton({ ctv, small }: { ctv: CtvProfile; small?
       <Modal open={open} onClose={() => setOpen(false)} title={`Sửa hồ sơ — ${ctv.name}`} size="lg">
         <form action={action} className="space-y-4">
           <input type="hidden" name="id" value={ctv.id} />
-          <Fields ctv={ctv} lockName />
+          <Fields ctv={ctv} />
+          <p className="-mt-2 text-xs text-slate-400">Đổi tên sẽ tự cập nhật cho tất cả khách đã gắn CTV này (giữ nguyên hiệu suất).</p>
           {state.error && <p className="text-sm text-rose-600">{state.error}</p>}
           <div className="flex justify-end gap-2">
             <Button type="button" variant="secondary" onClick={() => setOpen(false)}>Hủy</Button>

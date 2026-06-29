@@ -187,7 +187,7 @@ export async function addCaseService(_prev: CaseActionState, formData: FormData)
 
   const c = await prisma.caseRecord.findUnique({ where: { id: d.caseId }, select: { doctorId: true } });
   await withCaseLock(d.caseId, async (tx) => {
-    await tx.caseService.create({
+    const created = await tx.caseService.create({
       data: {
         caseId: d.caseId,
         serviceId: d.serviceId || null,
@@ -200,9 +200,47 @@ export async function addCaseService(_prev: CaseActionState, formData: FormData)
         doctorId: c?.doctorId ?? null,
       },
     });
+    // TỰ ĐỘNG trừ kho theo định mức (BOM) nếu dịch vụ có khai báo định mức vật tư.
+    // (Trước đây phải bấm nút "Trừ VT" thủ công.) Dịch vụ không có định mức → bỏ qua.
+    if (created.serviceId) {
+      await applyBomTx(tx, { caseServiceId: created.id, caseId: d.caseId, serviceId: created.serviceId, quantity: created.quantity, userId: user.id });
+    }
     await recalc(d.caseId, tx);
   });
   return { ok: true, nonce: Date.now() };
+}
+
+// Trừ vật tư theo ĐỊNH MỨC (BOM) của 1 dòng dịch vụ, trong 1 giao dịch `tx`.
+// No-op nếu dịch vụ chưa khai báo định mức. Đánh dấu bomApplied để chống trừ 2 lần.
+async function applyBomTx(
+  tx: Prisma.TransactionClient,
+  opts: { caseServiceId: string; caseId: string; serviceId: string; quantity: number; userId: string },
+): Promise<void> {
+  const bom = await tx.serviceMaterial.findMany({
+    where: { serviceId: opts.serviceId },
+    include: { material: { select: { name: true, unit: true, stock: true, avgCost: true } } },
+  });
+  if (bom.length === 0) return;
+  const lines: BomLine[] = bom.map((b) => ({
+    materialId: b.materialId,
+    name: b.material.name,
+    unit: b.material.unit,
+    bomQty: toNum(b.quantity),
+    stock: toNum(b.material.stock),
+    avgCost: toNum(b.material.avgCost),
+  }));
+  const needs = bomNeeds(lines, opts.quantity);
+  for (const n of needs) {
+    const outUnitCost = n.avgCost > 0 ? n.avgCost : null; // giá vốn bình quân → COGS
+    await tx.materialUsage.create({
+      data: { caseId: opts.caseId, materialId: n.materialId, name: n.name, unit: n.unit, quantity: n.need, note: "Theo định mức dịch vụ", performedById: opts.userId },
+    });
+    await tx.material.update({ where: { id: n.materialId }, data: { stock: { decrement: n.need } } });
+    await tx.stockMovement.create({
+      data: { materialId: n.materialId, type: "OUT", quantity: n.need, unitCost: outUnitCost, note: "Định mức dịch vụ", createdById: opts.userId },
+    });
+  }
+  await tx.caseService.update({ where: { id: opts.caseServiceId }, data: { bomApplied: true } });
 }
 
 export async function removeCaseService(formData: FormData): Promise<void> {
@@ -523,41 +561,9 @@ export async function applyServiceBom(formData: FormData): Promise<void> {
   });
   if (!cs || cs.caseId !== caseId || !cs.serviceId || cs.bomApplied) return;
 
-  const bom = await prisma.serviceMaterial.findMany({
-    where: { serviceId: cs.serviceId },
-    include: { material: { select: { name: true, unit: true, stock: true, avgCost: true } } },
-  });
-  const lines: BomLine[] = bom.map((b) => ({
-    materialId: b.materialId,
-    name: b.material.name,
-    unit: b.material.unit,
-    bomQty: toNum(b.quantity),
-    stock: toNum(b.material.stock),
-    avgCost: toNum(b.material.avgCost),
-  }));
-  const needs = bomNeeds(lines, cs.quantity);
-
-  // Ghi nhận vật tư + xuất kho + đánh dấu đã áp định mức trong CÙNG một giao dịch.
+  // Dùng chung helper với addCaseService (auto-apply). Trong 1 giao dịch.
   await prisma.$transaction(async (tx) => {
-    for (const n of needs) {
-      const outUnitCost = n.avgCost > 0 ? n.avgCost : null; // giá vốn bình quân → COGS
-      await tx.materialUsage.create({
-        data: {
-          caseId,
-          materialId: n.materialId,
-          name: n.name,
-          unit: n.unit,
-          quantity: n.need,
-          note: "Theo định mức dịch vụ",
-          performedById: user.id,
-        },
-      });
-      await tx.material.update({ where: { id: n.materialId }, data: { stock: { decrement: n.need } } });
-      await tx.stockMovement.create({
-        data: { materialId: n.materialId, type: "OUT", quantity: n.need, unitCost: outUnitCost, note: "Định mức dịch vụ", createdById: user.id },
-      });
-    }
-    await tx.caseService.update({ where: { id: caseServiceId }, data: { bomApplied: true } });
+    await applyBomTx(tx, { caseServiceId, caseId, serviceId: cs.serviceId as string, quantity: cs.quantity, userId: user.id });
   });
   refresh(caseId);
 }

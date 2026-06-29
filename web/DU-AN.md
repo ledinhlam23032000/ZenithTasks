@@ -19,6 +19,19 @@
 - **A5 — Sao lưu tự động**: `scripts/backup.mjs` (`pg_dump -Fc` + ảnh `tar.gz` + giữ 14 bản + ghi `backup-status.json`); `npm run backup`; `docker-entrypoint.sh` chạy nền 1 lần lúc khởi động rồi mỗi 24h. Sao lưu OFFSITE vẫn là `windows/Sao-Luu.ps1`.
 - Lưu ý kỹ thuật: trong sandbox Postgres có thể tự dừng (stale pid) → `pg_ctlcluster 16 main start`. DB sandbox cần `npm run db:seed` để có dữ liệu thử (admin/123456).
 
+## Đợt sửa 2 lỗi: tên CTV + tự trừ kho theo dịch vụ — "Đợt 20"
+> TSC pass, 144/144 test. E2E THẬT (Playwright + DB) cho CẢ HAI lỗi: PASS.
+- **Lỗi 1 — không sửa được TÊN cộng tác viên:** form sửa CTV để ô tên `readOnly` (khoá cứng vì
+  hiệu suất CTV gộp theo TÊN). Sửa: **cho sửa tên**, và khi đổi tên thì `updateCollaborator` tự
+  **cập nhật `Customer.sourceDetail`** của mọi khách đã gắn CTV đó (trong 1 giao dịch) → đổi tên
+  hoạt động + KHÔNG mất liên kết hiệu suất. E2E: đổi "CTV Bảo Trâm"→"...SUA", khách Huỳnh Ngọc Anh
+  tự đổi theo.
+- **Lỗi 2 — kho không tự trừ khi khách dùng dịch vụ (vd tiêm botox):** trước đây phải bấm nút
+  "Trừ VT" thủ công. Sửa: **`addCaseService` TỰ ĐỘNG trừ kho theo định mức** (BOM) nếu dịch vụ có
+  khai báo định mức — tách helper `applyBomTx` dùng chung với nút thủ công (vẫn giữ cho dịch vụ cũ).
+  E2E: thêm dịch vụ "Tiêm filler" (định mức 1 Botox) → Botox 54→53 + ghi MaterialUsage, KHÔNG cần bấm gì.
+  ⚠️ Điều kiện: phải khai báo ĐỊNH MỨC cho dịch vụ 1 lần ở Danh mục (vd "1 lần tiêm = 1 lọ botox").
+
 ## Đợt chất lượng mã nguồn — trọn Nhóm E — "Đợt 19"
 > TSC pass, **144/144 test** (+5 test `pnl`). Lint giảm 17→15 (0 cảnh báo biến không dùng).
 - **E1** — số liệu THỰC: `PROJECT-OVERVIEW.md` sửa "~15k LOC, 19 model, 22 migration" → con số
