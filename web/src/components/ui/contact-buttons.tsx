@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Phone, MessageCircle, MessageSquareText, Eye, LoaderCircle } from "lucide-react";
+import { Phone, MessageCircle, MessageSquareText, Eye, LoaderCircle, Copy, Check } from "lucide-react";
 import { revealPhone } from "@/app/(app)/khach-hang/actions";
 
 /**
@@ -21,6 +21,7 @@ export function ContactButtons({
 }) {
   const [phone, setPhone] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
   const [pending, start] = useTransition();
 
   function reveal() {
@@ -30,6 +31,17 @@ export function ContactButtons({
       if (r.error) setErr(r.error);
       else if (r.phone) setPhone(r.phone);
     });
+  }
+
+  async function copyNumber() {
+    if (!phone) return;
+    try {
+      await navigator.clipboard.writeText(phone);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      setErr("Trình duyệt không cho sao chép — hãy bôi đen số để chép tay.");
+    }
   }
 
   if (!phone) {
@@ -53,10 +65,20 @@ export function ContactButtons({
   const zaloHref = `https://zalo.me/${phone}`;
 
   return (
-    <span className="inline-flex items-center gap-1.5">
+    <span className="inline-flex flex-wrap items-center gap-1.5">
+      {/* Số đầy đủ + chép — để bấm gọi tay trên ĐT chăm sóc riêng (deep-link tel: chỉ chạy trên điện thoại). */}
+      <button
+        type="button"
+        onClick={copyNumber}
+        title="Bấm để sao chép số"
+        className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-1.5 py-0.5 font-mono text-xs font-semibold text-slate-700 hover:bg-slate-200"
+      >
+        {phone}
+        {copied ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5 text-slate-400" />}
+      </button>
       <a
         href={`tel:${phone}`}
-        title="Gọi điện"
+        title="Gọi điện (trên điện thoại)"
         className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-100"
       >
         <Phone className="h-3.5 w-3.5" /> Gọi
@@ -77,6 +99,8 @@ export function ContactButtons({
       >
         <MessageCircle className="h-3.5 w-3.5" /> Zalo
       </a>
+      {copied && <span className="text-xs text-emerald-600">Đã chép</span>}
+      {err && <span className="text-xs text-rose-600">{err}</span>}
     </span>
   );
 }

@@ -19,6 +19,12 @@
 - **A5 — Sao lưu tự động**: `scripts/backup.mjs` (`pg_dump -Fc` + ảnh `tar.gz` + giữ 14 bản + ghi `backup-status.json`); `npm run backup`; `docker-entrypoint.sh` chạy nền 1 lần lúc khởi động rồi mỗi 24h. Sao lưu OFFSITE vẫn là `windows/Sao-Luu.ps1`.
 - Lưu ý kỹ thuật: trong sandbox Postgres có thể tự dừng (stale pid) → `pg_ctlcluster 16 main start`. DB sandbox cần `npm run db:seed` để có dữ liệu thử (admin/123456).
 
+## Sửa lẻ — nút Liên hệ hiện SỐ + chép số (UX trên máy tính)
+> Nút Gọi/SMS là deep-link `tel:`/`sms:` chỉ chạy trên điện thoại; trên MÁY TÍNH bấm
+> không có gì. Sau khi "Liên hệ", `ContactButtons` giờ HIỆN SỐ ĐẦY ĐỦ (font mono) + nút
+> "Chép số" (clipboard) → nhân viên đọc/sao chép rồi gọi bằng ĐT chăm sóc riêng của PK.
+> Nút Gọi/SMS/Zalo vẫn còn cho ai dùng điện thoại. TSC pass.
+
 ## Đợt khách tham khảo / leads — "Đợt 16"
 > TSC pass, **127/127 test** (+4 test `leads`). Smoke test THẬT (Playwright + DB): mở
 > /khach-tham-khao → thêm khách tham khảo (có SĐT) → hiện trong danh sách → "Chuyển khách"
