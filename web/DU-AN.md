@@ -19,6 +19,21 @@
 - **A5 — Sao lưu tự động**: `scripts/backup.mjs` (`pg_dump -Fc` + ảnh `tar.gz` + giữ 14 bản + ghi `backup-status.json`); `npm run backup`; `docker-entrypoint.sh` chạy nền 1 lần lúc khởi động rồi mỗi 24h. Sao lưu OFFSITE vẫn là `windows/Sao-Luu.ps1`.
 - Lưu ý kỹ thuật: trong sandbox Postgres có thể tự dừng (stale pid) → `pg_ctlcluster 16 main start`. DB sandbox cần `npm run db:seed` để có dữ liệu thử (admin/123456).
 
+## Đợt chất lượng mã nguồn — trọn Nhóm E — "Đợt 19"
+> TSC pass, **144/144 test** (+5 test `pnl`). Lint giảm 17→15 (0 cảnh báo biến không dùng).
+- **E1** — số liệu THỰC: `PROJECT-OVERVIEW.md` sửa "~15k LOC, 19 model, 22 migration" → con số
+  đã kiểm chứng **~21k LOC, 25 model, 25 migration**.
+- **E2** — tách tầng domain tiền: thêm `lib/pnl.ts` (`computePnl` THUẦN, có test) — tách toán
+  Lãi/Lỗ ra khỏi `getMonthlyPnl` trong `reports.ts` (giờ chỉ truy vấn DB rồi gọi `computePnl`).
+  Cùng với `case-math.ts` + `inventory-cost.ts` đã có → logic tiền chính đều ở lib thuần có test.
+- **E3** — lint: xác nhận **0 cảnh báo biến không dùng** (đã dọn từ Đợt 13). Sửa `two-factor.tsx`
+  bỏ 2 `setState-in-effect` (suy trạng thái bật/tắt ngay khi render — giữ nguyên hành vi). Còn 15
+  lỗi `react-hooks` (React Compiler) KHÔNG chặn build: phần lớn false-positive trên Server Component
+  (`Date.now()` khi render RSC) + truy cập `window` an toàn-SSR; số còn lại (command-palette,
+  permission-editor) cần refactor effect tương tác → để đợt riêng tránh rủi ro.
+- **Gom label/enum**: rà soát — nhãn trạng thái đã tập trung ở `lib/status.ts`; nhãn theo miền
+  (`leads.ts`, `nps.ts`, `finance.ts`) đặt cùng module domain là HỢP LÝ, không có trùng lặp cần gom.
+
 ## Đợt cổng khách: đánh giá NPS + link có hạn (D3 hoàn tất) — "Đợt 18"
 > TSC pass, **139/139 test** (+6 test `nps`). E2E THẬT (Playwright, cổng khách CÔNG KHAI):
 > mở `/khach/<token>` → mục "Đánh giá trải nghiệm" → chọn điểm 9 + góp ý → gửi → lời cảm ơn;

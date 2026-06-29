@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { toNum } from "@/lib/money";
 import { monthRange, lastMonthRange, growthPct } from "@/lib/dates";
 import { REVENUE_TRANSFER_CODES } from "@/lib/finance";
+import { computePnl } from "@/lib/pnl";
 
 /** Lãi/Lỗ tháng hiện tại: doanh thu dịch vụ (từ hồ sơ) + thu khác − tổng chi (sổ thu chi). */
 export async function getMonthlyPnl() {
@@ -12,18 +13,12 @@ export async function getMonthlyPnl() {
     prisma.payment.aggregate({ where: { paidAt: m }, _sum: { amount: true } }),
     prisma.cashTransaction.findMany({ where: { occurredAt: m }, select: { type: true, amount: true, category: true } }),
   ]);
-  const serviceRevenue = toNum(payAgg._sum.amount);
-  let otherIncome = 0;
-  let totalExpense = 0;
-  for (const t of cash) {
-    const a = toNum(t.amount);
-    if (t.type === "INCOME") {
-      if (!REVENUE_TRANSFER_CODES.includes(t.category)) otherIncome += a; // bỏ "ứng từ doanh thu" để khỏi tính trùng
-    } else {
-      totalExpense += a;
-    }
-  }
-  return { serviceRevenue, otherIncome, totalExpense, profit: serviceRevenue + otherIncome - totalExpense };
+  // Toán Lãi/Lỗ tách ở `lib/pnl.ts` (thuần, có test).
+  return computePnl(
+    toNum(payAgg._sum.amount),
+    cash.map((t) => ({ type: t.type, category: t.category, amount: toNum(t.amount) })),
+    REVENUE_TRANSFER_CODES,
+  );
 }
 
 export type SalesPoint = { label: string; value: number };

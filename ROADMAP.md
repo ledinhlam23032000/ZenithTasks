@@ -62,9 +62,9 @@ phần "Đánh giá" trong lịch sử hội thoại + `web/DU-AN.md`.
 
 | Mã | Hạng mục | Trạng thái | Ghi chú |
 |----|----------|-----------|---------|
-| E1 | Sửa tài liệu phóng đại LOC (60k → ~15k thực) | ✅ Xong | Sửa trong `PROJECT-OVERVIEW.md`. |
-| E2 | Tách tầng domain cho logic tiền | ✅ Một phần | `lib/case-math.ts` (toán thuần, có test). Còn các module khác có thể tách dần. |
-| E3 | Dọn cảnh báo lint biến không dùng | ✅ Xong | Đã xóa 5 cảnh báo (biến `m`/`PageHeader`/`BarChart` không dùng + 1 disable-directive thừa + 1 no-img-element) — Đợt 13. Còn 15 lỗi `react-hooks/set-state-in-effect` (rule mới, code cũ — sửa cần refactor effect, để sau). |
+| E1 | Sửa tài liệu phóng đại LOC | ✅ Xong | `PROJECT-OVERVIEW.md`: 60k → số THỰC đã kiểm chứng ~21k LOC, 25 model, 25 migration (Đợt 19). |
+| E2 | Tách tầng domain cho logic tiền | ✅ Xong | `lib/case-math.ts` (toán hồ sơ) + `lib/inventory-cost.ts` (giá vốn kho) + `lib/pnl.ts` (Lãi/Lỗ — Đợt 19, tách khỏi `reports.ts`) — đều THUẦN, có test. |
+| E3 | Dọn lint | ✅ Phần lớn xong | ✅ **0 cảnh báo biến không dùng** (Đợt 13 + xác nhận lại Đợt 19). ✅ Sửa `two-factor.tsx` (suy trạng thái khi render thay vì setState-in-effect). Còn **15 lỗi `react-hooks`** (React Compiler strictness) — **KHÔNG chặn `next build`/runtime**: phần lớn là FALSE-POSITIVE trên Server Component (gọi `Date.now()` khi render RSC là đúng) + truy cập `window` an toàn-SSR (portal-link/app-shell); số còn lại (command-palette, permission-editor) sửa cần refactor effect tương tác → để đợt riêng tránh rủi ro hồi quy. |
 
 ---
 

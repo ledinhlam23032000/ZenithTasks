@@ -28,7 +28,7 @@ Core business needs it covers:
 - **PostgreSQL** + **Prisma 7** (driver adapter `@prisma/adapter-pg`)
 - Auth: **JWT** (`jose`) in an httpOnly cookie + **bcryptjs** (cost 12); optional **TOTP 2FA** (hand-rolled, RFC 6238)
 - Charts: **recharts**. Tests: **vitest**. CI: GitHub Actions.
-- Deploy: **Docker Compose** (app + Postgres). ~15k LOC TS/TSX hand-written (excl. generated Prisma client), 19 Prisma models, 22 migrations.
+- Deploy: **Docker Compose** (app + Postgres). ~21k LOC TS/TSX hand-written (excl. generated Prisma client), 25 Prisma models, 25 migrations (figures verified, not estimated).
 
 > ⚠️ **This Next.js has breaking changes vs older versions** (App Router, async `params`/`searchParams`,
 > server actions). See `web/AGENTS.md`. Don't assume older Next.js APIs.
