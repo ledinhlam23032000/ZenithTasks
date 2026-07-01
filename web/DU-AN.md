@@ -553,3 +553,10 @@ Chưa có Sửa (cần bổ sung):
 ### 4) Lưu trữ ở máy phòng khám, tải về khi cần xem (đúng ý chủ)
 - Ảnh/tệp lưu ở **chính máy chủ phòng khám** trong volume Docker `zenith_uploads` (`docker-compose.yml` gốc), KHÔNG mất khi cập nhật/`build --no-cache`. Phục vụ **theo yêu cầu** qua route `/media/[file]` — bản web chỉ hiện thu nhỏ, bấm mới tải ảnh đầy đủ từ máy về xem.
 - **An toàn dù xóa ở điện thoại**: ảnh đã nằm ở máy phòng khám; `windows/Sao-Luu.ps1` sao lưu cả DB **lẫn** thư mục `uploads` ra ổ ngoài/Google Drive. (Lưu ý: `web/docker-compose.yml` chỉ là DB cho lập trình — KHÔNG dùng khi vận hành; script Windows luôn chạy compose ở thư mục gốc.)
+
+## Tự động cập nhật phiên bản (đợt mới nhất)
+- Trước đây chỉ có cập nhật THỦ CÔNG (phải bấm `Chay-Zenith.bat` hoặc `Sua-Loi.bat`). Nay thêm **`windows/Cai-Tu-Dong-Cap-Nhat.bat`** — chạy 1 lần để hẹn lịch Windows Task Scheduler (task `ZenithTuDongCapNhat`, chạy `Tu-Dong-Cap-Nhat.ps1` mỗi ngày 02:00 sáng — giờ phòng khám đóng cửa).
+- **`Tu-Dong-Cap-Nhat.ps1`** (chạy ngầm, không cần ai bấm): `git fetch` rồi so `HEAD` với `origin/<branch>` — CHỈ cập nhật khi thật sự có bản mới (tránh rebuild thừa mỗi đêm). Nếu có: `reset --hard` + `docker compose build app` (có cache, nhanh hơn `Sua-Loi.bat` vì không cần `--no-cache` cho việc cập nhật định kỳ) + `up -d --force-recreate` + `migrate deploy` + kiểm tra `http://localhost:3000/login` phản hồi chưa.
+- **An toàn**: nếu `docker compose build` lỗi (vd thiếu RAM), script DỪNG NGAY, KHÔNG đụng tới container đang chạy → phòng khám không bị gián đoạn dù cập nhật đêm đó thất bại.
+- Ghi nhật ký mỗi lần chạy vào `%USERPROFILE%\zenith-tu-dong-cap-nhat.log` để xem lại (thành công/thất bại/không có gì mới). Tắt tính năng: mở Task Scheduler (Windows) → tìm `ZenithTuDongCapNhat` → Disable hoặc Delete.
+- `Sua-Loi.bat` (thủ công, `--no-cache`, xin quyền admin có tương tác) vẫn giữ nguyên làm phương án "sửa lỗi mạnh tay" khi nghi lệch schema — khác mục đích với cập nhật tự động định kỳ này.
