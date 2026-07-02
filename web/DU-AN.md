@@ -568,3 +568,9 @@ Chưa có Sửa (cần bổ sung):
 - **Đặt lịch công khai dễ dùng trên điện thoại**: tách ngày/giờ, thêm 8 khung giờ chọn nhanh và vẫn cho nhập giờ khác. Nội dung nói rõ đây là giờ mong muốn, trung tâm sẽ xác nhận.
 - **Biểu đồ ổn định khi render máy chủ**: truyền kích thước khởi tạo cho `ResponsiveContainer`, tránh cảnh báo `width/height = -1` trước khi trình duyệt đo xong.
 - Kiểm tra: TypeScript đạt, 157 test đạt, Docker production build thành công; `/dat-lich`, `/dashboard`, `/ho-so/[id]` trả HTTP 200 và có đúng nội dung mới.
+
+## Đợt nâng cấp trải nghiệm điện thoại — 02/07/2026
+- **Thanh truy cập nhanh ở đáy màn hình**: tối đa 4 mục quan trọng, tự chọn theo quyền người dùng. Nội dung trang có thêm khoảng trống đáy để thanh không che nút và dữ liệu.
+- **Hồ sơ khách trên điện thoại**: bỏ bảng kéo ngang; mỗi khách là một dòng thông tin rõ tên, trạng thái, số điện thoại đã che, nguồn, lượt khám, giới tính và ngày tạo. Máy tính vẫn giữ bảng đầy đủ.
+- **Lịch hẹn trên điện thoại**: mỗi lịch hiển thị giờ, khách, loại hẹn, dịch vụ, nguồn, người phụ trách và trạng thái trong một khối dọc; nút sửa/xóa và đổi trạng thái vẫn dùng được tại chỗ.
+- `F:\a\Chay-Zenith.bat` đã đối chiếu SHA-256 và giống hoàn toàn `windows/Chay-Zenith.bat` trong repo. File cập nhật đúng nhánh `claude/lucid-cori-fg136w`, dựng Docker và mở `http://localhost:3000`.

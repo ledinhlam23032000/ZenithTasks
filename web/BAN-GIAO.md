@@ -59,9 +59,11 @@ Chỉ 3 trang KHÔNG dynamic: `/` (redirect), `/login`, `/khong-co-quyen`. **H�
 
 ### Quy ước trải nghiệm người dùng
 - Menu trong `permissions.ts` có trường `group`, chia 5 nhóm: **Hôm nay / Khách hàng / Phân tích / Vận hành / Quản trị**. Giữ nhóm khi thêm module mới để sidebar không trở lại thành danh sách dài.
+- Trên điện thoại, `AppShell` có thanh truy cập nhanh cố định ở đáy màn hình. Các mục được chọn theo quyền từ Tổng quan / Việc cần làm / Lịch hẹn / Tiếp nhận / Hồ sơ khách; không viết cứng mục mà người dùng không có quyền.
 - Tổng quan hiển thị `WorkSummary` ngay dưới lời chào nếu người dùng có quyền `mod:viec-hom-nay`; chi tiết vẫn nằm tại `/viec-hom-nay`.
 - Hồ sơ điều trị có thanh điều hướng neo cố định (`#tong-quan`, `#tu-van`, `#dich-vu`, `#vat-tu`, `#hinh-anh`, `#giay-to`, `#tai-chinh`, `#tai-kham`). Khi thêm khối lớn mới, cân nhắc thêm neo tương ứng.
 - Đặt lịch công khai tách **ngày** và **giờ**, có các khung giờ chọn nhanh nhưng vẫn cho nhập giờ khác. Đây là giờ mong muốn, không được mô tả là giờ còn trống khi chưa có mô hình sức chứa.
+- Danh sách Lịch hẹn và Hồ sơ khách dùng dạng thẻ ở màn hình nhỏ (`sm:hidden`) và giữ bảng ở màn hình lớn (`hidden sm:block`). Khi bổ sung cột mới, cập nhật cả hai cách hiển thị.
 
 ## 4. Thư viện `src/lib/` (chức năng từng file)
 - **db.ts** — Prisma client lazy (Proxy).

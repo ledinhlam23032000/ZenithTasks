@@ -61,6 +61,13 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
     { key: "done", label: "Đã làm dịch vụ" },
   ];
   const qs = (k: string) => `/khach-hang?loc=${k}${q ? `&q=${encodeURIComponent(q)}` : ""}`;
+  const customerRows = customers.map((customer) => {
+    const statuses = customer.cases.map((item) => item.status);
+    const done = statuses.some((status) => DONE_STATUSES.includes(status));
+    const allCancelled = statuses.length > 0 && statuses.every((status) => status === "CANCELLED");
+    const displayStatus: "done" | "cancelled" | "undone" = done ? "done" : allCancelled ? "cancelled" : "undone";
+    return { ...customer, displayStatus };
+  });
 
   return (
     <div className="space-y-6">
@@ -120,6 +127,35 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
           {customers.length === 0 ? (
             <EmptyState icon={<Users className="h-6 w-6" />} title="Không có khách hàng phù hợp" description="Thử từ khóa khác hoặc lập hồ sơ mới." />
           ) : (
+            <>
+            <div className="divide-y divide-slate-100 sm:hidden">
+              {customerRows.map((customer) => (
+                <Link key={customer.id} href={`/khach-hang/${customer.id}`} className="block py-4 active:bg-slate-50">
+                  <div className="flex items-start gap-3">
+                    <Avatar name={customer.fullName} className="h-10 w-10" />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="truncate font-semibold text-slate-900">{customer.fullName}</p>
+                          <p className="mt-0.5 inline-flex items-center gap-1 font-mono text-xs text-slate-500">
+                            <ShieldCheck className="h-3 w-3 text-brand-400" /> {maskPhone(customer.phoneLast5)}
+                          </p>
+                        </div>
+                        <CustomerStatus status={customer.displayStatus} />
+                      </div>
+                      <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-slate-500">
+                        <span>Nguồn: <b className="font-medium text-slate-700">{SOURCE_LABEL[customer.source]}</b></span>
+                        <span>Lượt khám: <b className="font-medium text-slate-700">{customer._count.cases}</b></span>
+                        <span>{customer.gender ? GENDER_LABEL[customer.gender] : "Chưa có giới tính"}</span>
+                        <span>Tạo {fmtDate(customer.createdAt)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+
+            <div className="hidden sm:block">
             <Table>
               <THead>
                 <TR className="hover:bg-transparent">
@@ -133,12 +169,7 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
                 </TR>
               </THead>
               <tbody>
-                {customers.map((c) => {
-                  const statuses = c.cases.map((x) => x.status);
-                  const done = statuses.some((s) => DONE_STATUSES.includes(s));
-                  const hasCase = statuses.length > 0;
-                  const allCancelled = hasCase && statuses.every((s) => s === "CANCELLED");
-                  return (
+                {customerRows.map((c) => (
                     <TR key={c.id}>
                       <TD>
                         <Link href={`/khach-hang/${c.id}`} className="flex items-center gap-2.5">
@@ -147,13 +178,7 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
                         </Link>
                       </TD>
                       <TD>
-                        {done ? (
-                          <Badge tone="green" dot>Đã làm dịch vụ</Badge>
-                        ) : allCancelled ? (
-                          <Badge tone="slate" dot>Đã hủy</Badge>
-                        ) : (
-                          <Badge tone="amber" dot>Chưa làm</Badge>
-                        )}
+                        <CustomerStatus status={c.displayStatus} />
                       </TD>
                       <TD className="font-mono text-xs text-slate-500">
                         <span className="inline-flex items-center gap-1">
@@ -165,13 +190,20 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
                       <TD className="text-center font-medium text-slate-700">{c._count.cases}</TD>
                       <TD className="text-slate-500">{fmtDate(c.createdAt)}</TD>
                     </TR>
-                  );
-                })}
+                ))}
               </tbody>
             </Table>
+            </div>
+            </>
           )}
         </CardContent>
       </Card>
     </div>
   );
+}
+
+function CustomerStatus({ status }: { status: "done" | "cancelled" | "undone" }) {
+  if (status === "done") return <Badge tone="green" dot>Đã làm</Badge>;
+  if (status === "cancelled") return <Badge tone="slate" dot>Đã hủy</Badge>;
+  return <Badge tone="amber" dot>Chưa làm</Badge>;
 }

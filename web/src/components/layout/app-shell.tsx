@@ -105,6 +105,14 @@ export function AppShell({
     (groups[item.group] ??= []).push(item);
     return groups;
   }, {});
+  const preferredMobileHrefs = ["/dashboard", "/viec-hom-nay", "/lich-hen", "/tiep-nhan", "/khach-hang"];
+  const mobileNav = preferredMobileHrefs
+    .map((href) => nav.find((item) => item.href === href))
+    .filter((item): item is NavItemData => Boolean(item));
+  for (const item of nav) {
+    if (mobileNav.length >= 4) break;
+    if (!mobileNav.some((current) => current.href === item.href)) mobileNav.push(item);
+  }
 
   const navList = (
     <nav className="flex-1 min-h-0 space-y-5 overflow-y-auto px-3 py-4">
@@ -251,8 +259,32 @@ export function AppShell({
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 lg:px-8">{children}</main>
+        <main className="mx-auto w-full max-w-7xl flex-1 px-4 pt-6 pb-24 sm:px-6 lg:px-8 lg:py-6">{children}</main>
       </div>
+
+      <nav
+        className="fixed inset-x-0 bottom-0 z-30 grid border-t border-slate-200 bg-white/95 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1.5 shadow-[0_-8px_24px_rgba(15,23,42,0.08)] backdrop-blur lg:hidden"
+        style={{ gridTemplateColumns: `repeat(${Math.max(mobileNav.length, 1)}, minmax(0, 1fr))` }}
+        aria-label="Truy cập nhanh"
+      >
+        {mobileNav.slice(0, 4).map((item) => {
+          const Icon = ICONS[item.icon] ?? LayoutDashboard;
+          const active = isActive(item.href);
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                "flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-md px-1 text-[11px] font-medium",
+                active ? "bg-brand-50 text-brand-700" : "text-slate-500",
+              )}
+            >
+              <Icon className={cn("h-5 w-5", active ? "text-brand-600" : "text-slate-400")} />
+              <span className="max-w-full truncate">{item.label}</span>
+            </Link>
+          );
+        })}
+      </nav>
 
       <ChangePasswordModal open={pwOpen} onClose={() => setPwOpen(false)} />
       <CommandPalette nav={nav} open={searchOpen} onOpenChange={setSearchOpen} />

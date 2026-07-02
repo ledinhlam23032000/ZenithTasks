@@ -202,6 +202,79 @@ export default async function AppointmentsPage({
               description="Chưa có khách nào được đặt lịch trong ngày này."
             />
           ) : (
+            <>
+            <div className="divide-y divide-slate-100 sm:hidden">
+              {appts.map((appointment) => {
+                const name = appointment.customer?.fullName ?? appointment.guestName ?? "Khách";
+                const last5 = appointment.customer?.phoneLast5 ?? appointment.phoneLast5;
+                return (
+                  <article key={appointment.id} className="py-4">
+                    <div className="flex items-start gap-3">
+                      <div className="w-12 shrink-0 rounded-lg bg-slate-100 px-1 py-2 text-center text-sm font-bold text-slate-800">
+                        {fmtTime(appointment.scheduledAt)}
+                      </div>
+                      <Avatar name={name} className="h-10 w-10" />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            {appointment.customer ? (
+                              <Link href={`/khach-hang/${appointment.customer.id}`} className="block truncate font-semibold text-slate-900">
+                                {name}
+                              </Link>
+                            ) : (
+                              <p className="truncate font-semibold text-slate-900">{name}</p>
+                            )}
+                            <p className="text-xs text-slate-400">{maskPhone(last5)}</p>
+                          </div>
+                          <Badge tone={APPT_TYPE[appointment.type].tone}>{APPT_TYPE[appointment.type].label}</Badge>
+                        </div>
+                        <p className="mt-2 text-sm text-slate-700">{appointment.serviceInterest ?? "Chưa xác định dịch vụ"}</p>
+                        <p className="mt-1 text-xs text-slate-500">
+                          {SOURCE_LABEL[appointment.source]}
+                          {appointment.consultant?.fullName ? ` · ${appointment.consultant.fullName}` : ""}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="mt-3 flex items-center justify-between gap-2 pl-[3.75rem]">
+                      {canManage ? (
+                        <AppointmentStatusControl id={appointment.id} status={appointment.status} />
+                      ) : (
+                        <Badge tone={APPT_STATUS[appointment.status].tone}>{APPT_STATUS[appointment.status].label}</Badge>
+                      )}
+                      {canDelete && (
+                        <div className="flex items-center gap-1">
+                          <EditAppointmentButton
+                            appointment={{
+                              id: appointment.id,
+                              guestName: appointment.guestName ?? appointment.customer?.fullName ?? "",
+                              phoneLast5: appointment.phoneLast5 ?? appointment.customer?.phoneLast5 ?? "",
+                              scheduledAt: toDatetimeLocal(appointment.scheduledAt),
+                              type: appointment.type,
+                              serviceInterest: appointment.serviceInterest ?? "",
+                              source: appointment.source,
+                              sourceDetail: appointment.sourceDetail ?? "",
+                              consultantId: appointment.consultantId ?? "",
+                              note: appointment.note ?? "",
+                            }}
+                            services={services.map((service) => ({ id: service.id, name: service.name }))}
+                            consultants={consultants}
+                          />
+                          <DeleteButton
+                            action={deleteAppointment}
+                            id={appointment.id}
+                            label=""
+                            confirmText={`Xóa lịch hẹn của ${name}? (Lịch thường nên đổi trạng thái "Hủy" thay vì xóa.)`}
+                            className="rounded-md p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-500"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+
+            <div className="hidden sm:block">
             <Table>
               <THead>
                 <TR className="hover:bg-transparent">
@@ -289,6 +362,8 @@ export default async function AppointmentsPage({
                 })}
               </tbody>
             </Table>
+            </div>
+            </>
           )}
         </CardContent>
       </Card>
