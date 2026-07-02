@@ -19,12 +19,21 @@ export async function GET(req: Request) {
   const fileBase = `bang-luong-${format(monthDate, "yyyy-MM")}`;
   const p = await getPayroll(monthDate, standardDays);
 
-  const staffCols = ["Nhân viên", "Vai trò", "Ngày công", "Ngày chuẩn", "Lương cứng", "Hoa hồng", "Thưởng", "Điều chỉnh", "Tổng nhận"];
+  const staffCols = [
+    "Nhân viên", "Vai trò", "Ngày công", "Ngày chuẩn",
+    "Thực thu TV", "Trong đó thu nợ cũ (TV)", "Thực thu BS", "Trong đó thu nợ cũ (BS)", "Nợ KH còn lại",
+    "Lương cứng", "Hoa hồng", "Thưởng", "Điều chỉnh", "Tổng nhận",
+  ];
   const staffRows: Cell[][] = p.rows.map((r) => [
     r.name,
     ROLE_LABELS[r.role],
     r.daysWorked,
     standardDays,
+    r.collectedConsult.total,
+    r.collectedConsult.fromDebt,
+    r.collectedDoctor.total,
+    r.collectedDoctor.fromDebt,
+    r.debtOutstanding,
     r.baseActual,
     r.commission,
     r.bonus,

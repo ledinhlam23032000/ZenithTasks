@@ -51,8 +51,14 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
       />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          label="Thực thu trong tháng"
+          value={formatVND(p.collectedAll.total)}
+          sub={`Ca tháng này ${formatVND(p.collectedAll.fromNew)} · thu nợ cũ ${formatVND(p.collectedAll.fromDebt)}`}
+          icon={<Banknote className="h-5 w-5" />}
+          tone="green"
+        />
         <StatCard label="Tổng chi lương" value={formatVND(p.totalStaff)} icon={<Wallet className="h-5 w-5" />} tone="brand" />
-        <StatCard label="Lương cứng (ngày công)" value={formatVND(p.totalBase)} icon={<Banknote className="h-5 w-5" />} tone="blue" />
         <StatCard label="Hoa hồng nhân viên" value={formatVND(p.totalCommission)} icon={<Coins className="h-5 w-5" />} tone="amber" />
         <StatCard label="Hoa hồng cộng tác viên" value={formatVND(p.totalCtv)} icon={<HandCoins className="h-5 w-5" />} tone="pink" />
       </div>
@@ -60,16 +66,21 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
       <Card>
         <CardHeader>
           <CardTitle>Bảng lương — {format(monthDate, "MM/yyyy")}</CardTitle>
-          {isAdmin && <span className="text-xs text-slate-400">Bấm “Sửa” để nhập lương cứng / hoa hồng / thưởng / điều chỉnh.</span>}
+          <span className="text-xs text-slate-400">
+            Thực thu = tiền thật đã về trong tháng từ hồ sơ mình phụ trách (kể cả khách trả nợ ca cũ) — căn cứ nhập hoa hồng.
+            {isAdmin && " Bấm “Sửa” để nhập lương cứng / hoa hồng / thưởng / điều chỉnh."}
+          </span>
         </CardHeader>
         <CardContent className="overflow-x-auto pt-0">
           <Table>
             <THead>
               <TR className="hover:bg-transparent">
                 <TH>Nhân viên</TH>
-                <TH>Vai trò</TH>
                 <TH className="text-center">Ngày công</TH>
-                <TH className="text-right">Doanh số</TH>
+                <TH className="text-right">DS chốt (TV)</TH>
+                <TH className="text-right">Thực thu (TV)</TH>
+                <TH className="text-right">Thực thu (BS)</TH>
+                <TH className="text-right">Nợ KH còn lại</TH>
                 <TH className="text-right">Lương cứng</TH>
                 <TH className="text-right">Hoa hồng</TH>
                 <TH className="text-right">Thưởng/ĐC</TH>
@@ -84,10 +95,23 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
                     <Link href={`/hieu-suat/${r.id}?m=${monthValue}`} className="font-medium text-slate-800 hover:text-brand-600 hover:underline">
                       {r.name}
                     </Link>
+                    <span className="block text-xs text-slate-400">{ROLE_LABELS[r.role]}</span>
                   </TD>
-                  <TD className="text-slate-500">{ROLE_LABELS[r.role]}</TD>
                   <TD className="text-center tabular-nums">{r.daysWorked}/{standardDays}</TD>
                   <TD className="text-right tabular-nums text-slate-600">{formatVND(revMap.get(r.id) ?? 0)}</TD>
+                  <TD className="text-right tabular-nums">
+                    <span className="font-medium text-emerald-700">{formatVND(r.collectedConsult.total)}</span>
+                    {r.collectedConsult.fromDebt > 0 && (
+                      <span className="block text-[11px] text-slate-400">nợ cũ {formatVND(r.collectedConsult.fromDebt)}</span>
+                    )}
+                  </TD>
+                  <TD className="text-right tabular-nums">
+                    <span className="font-medium text-emerald-700">{formatVND(r.collectedDoctor.total)}</span>
+                    {r.collectedDoctor.fromDebt > 0 && (
+                      <span className="block text-[11px] text-slate-400">nợ cũ {formatVND(r.collectedDoctor.fromDebt)}</span>
+                    )}
+                  </TD>
+                  <TD className="text-right tabular-nums text-rose-600">{r.debtOutstanding > 0 ? formatVND(r.debtOutstanding) : "—"}</TD>
                   <TD className="text-right tabular-nums">{formatVND(r.baseActual)}</TD>
                   <TD className="text-right tabular-nums text-amber-600">{formatVND(r.commission)}</TD>
                   <TD className="text-right tabular-nums text-slate-600">{formatVND(r.bonus + r.adjustment)}</TD>

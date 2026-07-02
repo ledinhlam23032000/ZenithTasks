@@ -2,7 +2,10 @@ import { startOfMonth, endOfMonth, subMonths, subYears, startOfYear, startOfWeek
 import { vi } from "date-fns/locale";
 import { prisma } from "@/lib/db";
 import { toNum } from "@/lib/money";
+import { collectionsByStaff, type StaffCollection } from "@/lib/collections";
 import type { Role } from "@/generated/prisma/client";
+
+const EMPTY_COLLECTION: StaffCollection = { total: 0, fromNew: 0, fromDebt: 0 };
 
 export type TrendPoint = { label: string; value: number };
 export type RangeSeries = { thisWeek: TrendPoint[]; weeksOfMonth: TrendPoint[]; m12: TrendPoint[]; y5: TrendPoint[] };
@@ -25,19 +28,25 @@ export type StaffPerfRow = {
   doctorCases: number;
   doctorRevenue: number;
   totalRevenue: number; // doanh số phụ trách (tư vấn + mổ, có thể trùng nếu kiêm)
+  collectedConsult: StaffCollection; // thực thu trong tháng theo vai trò tư vấn (gồm thu nợ ca cũ)
+  collectedDoctor: StaffCollection; // thực thu trong tháng theo vai trò bác sĩ
 };
 
 export async function getStaffPerformance(monthDate: Date) {
   const gte = startOfMonth(monthDate);
   const lte = endOfMonth(monthDate);
 
-  const [users, consultG, consultAgreedG, doctorG, attendanceG, careG] = await Promise.all([
+  const [users, consultG, consultAgreedG, doctorG, attendanceG, careG, monthPayments] = await Promise.all([
     prisma.user.findMany({ where: { active: true }, select: { id: true, fullName: true, role: true, avatarUrl: true }, orderBy: [{ role: "asc" }, { fullName: "asc" }] }),
     prisma.caseRecord.groupBy({ by: ["consultantId"], where: { createdAt: { gte, lte }, consultantId: { not: null } }, _count: { _all: true }, _sum: { totalAmount: true } }),
     prisma.caseRecord.groupBy({ by: ["consultantId"], where: { createdAt: { gte, lte }, consultResult: "AGREED", consultantId: { not: null } }, _count: { _all: true } }),
     prisma.caseRecord.groupBy({ by: ["doctorId"], where: { createdAt: { gte, lte }, doctorId: { not: null } }, _count: { _all: true }, _sum: { totalAmount: true } }),
     prisma.attendance.groupBy({ by: ["userId"], where: { date: { gte, lte } }, _count: { _all: true } }),
     prisma.careMessage.groupBy({ by: ["createdById"], where: { createdAt: { gte, lte }, createdById: { not: null } }, _count: { _all: true } }),
+    prisma.payment.findMany({
+      where: { paidAt: { gte, lte } },
+      select: { amount: true, paidAt: true, case: { select: { createdAt: true, consultantId: true, doctorId: true } } },
+    }),
   ]);
 
   const cCount = new Map(consultG.map((g) => [g.consultantId, g._count._all]));
@@ -47,6 +56,16 @@ export async function getStaffPerformance(monthDate: Date) {
   const dRev = new Map(doctorG.map((g) => [g.doctorId, toNum(g._sum.totalAmount)]));
   const days = new Map(attendanceG.map((g) => [g.userId, g._count._all]));
   const care = new Map(careG.map((g) => [g.createdById, g._count._all]));
+  const collected = collectionsByStaff(
+    monthPayments.map((p) => ({
+      amount: toNum(p.amount),
+      paidAt: p.paidAt,
+      caseCreatedAt: p.case.createdAt,
+      consultantId: p.case.consultantId,
+      doctorId: p.case.doctorId,
+    })),
+    gte,
+  );
 
   const rows: StaffPerfRow[] = users.map((u) => {
     const consultCases = cCount.get(u.id) ?? 0;
@@ -67,6 +86,8 @@ export async function getStaffPerformance(monthDate: Date) {
       doctorCases: dCount.get(u.id) ?? 0,
       doctorRevenue,
       totalRevenue: consultRevenue + doctorRevenue,
+      collectedConsult: collected.consultants.get(u.id) ?? EMPTY_COLLECTION,
+      collectedDoctor: collected.doctors.get(u.id) ?? EMPTY_COLLECTION,
     };
   });
 
@@ -78,15 +99,44 @@ export async function getStaffDetail(userId: string, monthDate: Date) {
   const lte = endOfMonth(monthDate);
   const inc = { customer: { select: { id: true, fullName: true, code: true } } };
 
-  const [user, consultCases, doctorCases, daysWorked, careCount] = await Promise.all([
+  const [user, consultCases, doctorCases, daysWorked, careCount, collectedPayments] = await Promise.all([
     prisma.user.findUnique({ where: { id: userId }, select: { id: true, fullName: true, role: true, code: true, avatarUrl: true } }),
     prisma.caseRecord.findMany({ where: { consultantId: userId, createdAt: { gte, lte } }, include: inc, orderBy: { createdAt: "desc" } }),
     prisma.caseRecord.findMany({ where: { doctorId: userId, createdAt: { gte, lte } }, include: inc, orderBy: { createdAt: "desc" } }),
     prisma.attendance.count({ where: { userId, date: { gte, lte } } }),
     prisma.careMessage.count({ where: { createdById: userId, createdAt: { gte, lte } } }),
+    // Từng khoản tiền thật đã về trong tháng từ hồ sơ mình phụ trách (tư vấn hoặc mổ)
+    prisma.payment.findMany({
+      where: { paidAt: { gte, lte }, case: { OR: [{ consultantId: userId }, { doctorId: userId }] } },
+      select: {
+        id: true, amount: true, paidAt: true, method: true,
+        case: {
+          select: {
+            id: true, code: true, createdAt: true, consultantId: true, doctorId: true,
+            customer: { select: { id: true, fullName: true, code: true } },
+          },
+        },
+      },
+      orderBy: { paidAt: "desc" },
+    }),
   ]);
 
-  return { user, consultCases, doctorCases, daysWorked, careCount };
+  const collections = collectedPayments.map((p) => ({
+    id: p.id,
+    amount: toNum(p.amount),
+    paidAt: p.paidAt,
+    method: p.method,
+    caseId: p.case.id,
+    caseCode: p.case.code,
+    customer: p.case.customer,
+    isDebtCollection: p.case.createdAt < gte, // ca tạo trước tháng này → khoản này là thu nợ cũ
+    asConsultant: p.case.consultantId === userId,
+    asDoctor: p.case.doctorId === userId,
+  }));
+  const collectedTotal = collections.reduce((s, c) => s + c.amount, 0);
+  const collectedFromDebt = collections.filter((c) => c.isDebtCollection).reduce((s, c) => s + c.amount, 0);
+
+  return { user, consultCases, doctorCases, daysWorked, careCount, collections, collectedTotal, collectedFromDebt };
 }
 
 // ============================================================================
