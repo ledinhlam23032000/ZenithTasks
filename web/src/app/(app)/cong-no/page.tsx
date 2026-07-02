@@ -1,6 +1,8 @@
 import Link from "next/link";
-import { Wallet, AlertTriangle, Clock } from "lucide-react";
+import { startOfMonth } from "date-fns";
+import { Wallet, AlertTriangle, Clock, HandCoins } from "lucide-react";
 import { requireCap } from "@/lib/auth";
+import { userCan } from "@/lib/permissions";
 import { prisma } from "@/lib/db";
 import { toNum, formatVND, formatVNDShort } from "@/lib/money";
 import { fmtDate } from "@/lib/format";
@@ -15,6 +17,7 @@ import { Table, THead, TH, TR, TD } from "@/components/ui/table";
 import { EmptyState } from "@/components/ui/empty-state";
 import { buttonVariants } from "@/components/ui/button";
 import { ContactButtons } from "@/components/ui/contact-buttons";
+import { DebtCollectButton } from "./debt-collect-button";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Sổ công nợ" };
@@ -25,51 +28,76 @@ const TAKE = 200;
 export default async function DebtLedgerPage({
   searchParams,
 }: {
-  searchParams: Promise<{ bucket?: string; threshold?: string }>;
+  searchParams: Promise<{ bucket?: string; threshold?: string; tv?: string }>;
 }) {
-  await requireCap("mod:cong-no");
+  const user = await requireCap("mod:cong-no");
+  const canCollect = userCan(user, "payment.add");
   const sp = await searchParams;
   const bucket = DEBT_BUCKETS.includes(sp.bucket as never) ? (sp.bucket as (typeof DEBT_BUCKETS)[number]) : "all";
   const threshold = Number(sp.threshold ?? DEFAULT_THRESHOLD) || 0;
-
-  const cases = await prisma.caseRecord.findMany({
-    where: { debtAmount: { gt: 0 } },
-    orderBy: { debtAmount: "desc" },
-    take: TAKE,
-    select: {
-      id: true,
-      code: true,
-      debtAmount: true,
-      createdAt: true,
-      customer: { select: { id: true, fullName: true, phoneLast5: true } },
-      debtPlan: { select: { dayOfMonth: true, monthlyAmount: true } },
-    },
-  });
+  const tvFilter = (sp.tv ?? "").trim();
 
   const now = new Date();
+  const monthStart = startOfMonth(now);
+
+  const [cases, monthDebtPayments] = await Promise.all([
+    prisma.caseRecord.findMany({
+      where: { debtAmount: { gt: 0 } },
+      orderBy: { debtAmount: "desc" },
+      take: TAKE,
+      select: {
+        id: true,
+        code: true,
+        debtAmount: true,
+        createdAt: true,
+        customer: { select: { id: true, fullName: true, phoneLast5: true } },
+        consultant: { select: { id: true, fullName: true } },
+        debtPlan: { select: { dayOfMonth: true, monthlyAmount: true } },
+      },
+    }),
+    // "Đã thu nợ tháng này" = tiền thu trong tháng từ hồ sơ tạo TRƯỚC tháng (đồng bộ định nghĩa với bảng lương)
+    prisma.payment.aggregate({
+      where: { paidAt: { gte: monthStart }, case: { createdAt: { lt: monthStart } } },
+      _sum: { amount: true },
+    }),
+  ]);
+
   const rows = cases.map((c) => {
     const days = debtAgeDays(c.createdAt, now);
     const debt = toNum(c.debtAmount);
     return { ...c, days, debt, bucket: debtAgingBucket(days), over: isOverThreshold(debt, threshold) };
   });
 
-  const filtered = bucket === "all" ? rows : rows.filter((r) => r.bucket === bucket);
+  const consultants = [...new Map(rows.filter((r) => r.consultant).map((r) => [r.consultant!.id, r.consultant!])).values()]
+    .sort((a, b) => a.fullName.localeCompare(b.fullName, "vi"));
+
+  const filtered = rows
+    .filter((r) => (bucket === "all" ? true : r.bucket === bucket))
+    .filter((r) => (tvFilter ? r.consultant?.id === tvFilter : true));
   const totalDebt = rows.reduce((s, r) => s + r.debt, 0);
   const overCount = rows.filter((r) => r.over).length;
-  const oldestDays = rows.reduce((m, r) => Math.max(m, r.days), 0);
+  const collectedDebtThisMonth = toNum(monthDebtPayments._sum.amount);
 
-  const qs = (b: string) => `/cong-no?bucket=${b}${threshold !== DEFAULT_THRESHOLD ? `&threshold=${threshold}` : ""}`;
+  const qs = (b: string, tv = tvFilter) =>
+    `/cong-no?bucket=${b}${threshold !== DEFAULT_THRESHOLD ? `&threshold=${threshold}` : ""}${tv ? `&tv=${tv}` : ""}`;
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Sổ công nợ"
-        description="Theo dõi nợ theo tuổi nợ, cảnh báo hồ sơ vượt ngưỡng — chủ động gọi/nhắc khách trả nợ."
+        description="Theo dõi nợ theo tuổi nợ, thu nợ / tất toán ngay tại đây — khách trả nợ tháng nào tính vào thực thu tháng đó."
         icon={<Wallet className="h-5 w-5" />}
       />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Tổng công nợ" value={formatVNDShort(totalDebt)} sub={`${rows.length} hồ sơ còn nợ`} icon={<Wallet className="h-5 w-5" />} tone="red" />
+        <StatCard
+          label="Đã thu nợ tháng này"
+          value={formatVNDShort(collectedDebtThisMonth)}
+          sub="Tiền thu trong tháng từ ca các tháng trước"
+          icon={<HandCoins className="h-5 w-5" />}
+          tone="green"
+        />
         <StatCard
           label="Vượt ngưỡng cảnh báo"
           value={String(overCount)}
@@ -77,8 +105,7 @@ export default async function DebtLedgerPage({
           icon={<AlertTriangle className="h-5 w-5" />}
           tone="amber"
         />
-        <StatCard label="Nợ lâu nhất" value={`${oldestDays} ngày`} icon={<Clock className="h-5 w-5" />} tone="purple" />
-        <StatCard label="Đang xem" value={String(filtered.length)} sub={bucket === "all" ? "Tất cả tuổi nợ" : DEBT_BUCKET_LABEL[bucket]} tone="slate" />
+        <StatCard label="Nợ lâu nhất" value={`${rows.reduce((m, r) => Math.max(m, r.days), 0)} ngày`} icon={<Clock className="h-5 w-5" />} tone="purple" />
       </div>
 
       <Card>
@@ -93,8 +120,18 @@ export default async function DebtLedgerPage({
               </Link>
             ))}
           </div>
-          <form action="/cong-no" className="flex items-center gap-2 text-xs text-slate-500">
+          <form action="/cong-no" className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
             {bucket !== "all" && <input type="hidden" name="bucket" value={bucket} />}
+            <select
+              name="tv"
+              defaultValue={tvFilter}
+              className="rounded-md border border-slate-200 px-2 py-1 text-xs focus:border-brand-400 focus:outline-none"
+            >
+              <option value="">Mọi tư vấn viên</option>
+              {consultants.map((c) => (
+                <option key={c.id} value={c.id}>{c.fullName}</option>
+              ))}
+            </select>
             Ngưỡng cảnh báo
             <input
               name="threshold"
@@ -110,16 +147,18 @@ export default async function DebtLedgerPage({
 
         <CardContent className="pt-0">
           {filtered.length === 0 ? (
-            <EmptyState icon={<Wallet className="h-6 w-6" />} title="Không có hồ sơ công nợ" description="Không có hồ sơ nào khớp tuổi nợ đã chọn." />
+            <EmptyState icon={<Wallet className="h-6 w-6" />} title="Không có hồ sơ công nợ" description="Không có hồ sơ nào khớp bộ lọc đã chọn." />
           ) : (
             <Table>
               <THead>
                 <TR>
                   <TH>Khách hàng</TH>
                   <TH>Hồ sơ</TH>
+                  <TH>Tư vấn viên</TH>
                   <TH>Tuổi nợ</TH>
                   <TH className="text-right">Công nợ</TH>
                   <TH>Liên hệ</TH>
+                  {canCollect && <TH className="text-right">Thu nợ</TH>}
                 </TR>
               </THead>
               <tbody>
@@ -136,6 +175,7 @@ export default async function DebtLedgerPage({
                       </Link>
                       <div className="text-xs text-slate-400">{fmtDate(r.createdAt)}</div>
                     </TD>
+                    <TD className="text-slate-600">{r.consultant?.fullName ?? <span className="text-slate-300">—</span>}</TD>
                     <TD>
                       <Badge tone={r.bucket === "60+" ? "red" : r.bucket === "30-60" ? "amber" : "slate"}>
                         {r.days} ngày
@@ -157,6 +197,11 @@ export default async function DebtLedgerPage({
                         smsBody={tplDebtReminder({ fullName: r.customer.fullName, debtAmount: r.debt, caseCode: r.code })}
                       />
                     </TD>
+                    {canCollect && (
+                      <TD className="text-right">
+                        <DebtCollectButton caseId={r.id} caseCode={r.code} customerName={r.customer.fullName} debt={r.debt} />
+                      </TD>
+                    )}
                   </TR>
                 ))}
               </tbody>

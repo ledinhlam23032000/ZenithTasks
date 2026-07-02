@@ -614,6 +614,7 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
                   canManage={canPay}
                   plan={debtPlanForm}
                   summary={debtPlanSummary}
+                  settled={!!dp && debt <= 0}
                   defaultDay={new Date().getDate()}
                   todayLocal={toDatetimeLocal(new Date()).slice(0, 10)}
                 />
