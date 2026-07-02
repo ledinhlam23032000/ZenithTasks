@@ -25,7 +25,7 @@ Mô hình vận hành: **1 máy chủ** (máy của trung tâm, chạy Docker, g
 - **PostgreSQL + Prisma 7** với driver adapter `@prisma/adapter-pg`. Client tạo **lazy qua Proxy** ở `src/lib/db.ts` → build KHÔNG cần `DATABASE_URL`. Prisma client sinh ra ở `src/generated/prisma/`.
 - **Server Actions** cho mọi thao tác ghi (`"use server"`). Trang là Server Components (`force-dynamic`), form là Client Components.
 - **Auth**: JWT (thư viện `jose`) trong cookie httpOnly **`zsession`** (payload `{uid, role, name}`, 30 ngày). Mật khẩu **bcryptjs cost 12**, tối thiểu 8 ký tự. Đăng nhập KHÔNG phân biệt hoa/thường. Tuỳ chọn **2FA TOTP** (`src/lib/totp.ts`).
-- **Biểu đồ**: `recharts` (Bar/Line/Area/Pie/Composed) — bọc trong `components/ui/multi-chart.tsx` + `range-chart.tsx`.
+- **Biểu đồ**: `recharts` (Bar/Line/Area/Pie/Composed) — bọc trong `components/ui/multi-chart.tsx` + `range-chart.tsx`. `ResponsiveContainer` có `initialDimension` để không cảnh báo kích thước khi render phía máy chủ.
 - **Test**: `vitest` (`src/lib/__tests__`). CI: `.github/workflows/ci.yml`.
 - **proxy.ts** (middleware): `PUBLIC_PATHS = ["/login","/dat-lich","/khach"]`; matcher loại trừ `api|_next/static|_next/image|favicon.ico|img|uploads|.*\\..*`.
 
@@ -56,6 +56,12 @@ web/docker-compose.yml          # CHỈ là DB cho lập trình — KHÔNG dùng
 
 ### Các trang & route (34 page, hầu hết `export const dynamic = "force-dynamic"`)
 Chỉ 3 trang KHÔNG dynamic: `/` (redirect), `/login`, `/khong-co-quyen`. **Hệ quả quan trọng**: mọi trang dữ liệu luôn tải mới khi điều hướng → `revalidatePath` gần như THỪA (xem mục 8 về `useFormAction`).
+
+### Quy ước trải nghiệm người dùng
+- Menu trong `permissions.ts` có trường `group`, chia 5 nhóm: **Hôm nay / Khách hàng / Phân tích / Vận hành / Quản trị**. Giữ nhóm khi thêm module mới để sidebar không trở lại thành danh sách dài.
+- Tổng quan hiển thị `WorkSummary` ngay dưới lời chào nếu người dùng có quyền `mod:viec-hom-nay`; chi tiết vẫn nằm tại `/viec-hom-nay`.
+- Hồ sơ điều trị có thanh điều hướng neo cố định (`#tong-quan`, `#tu-van`, `#dich-vu`, `#vat-tu`, `#hinh-anh`, `#giay-to`, `#tai-chinh`, `#tai-kham`). Khi thêm khối lớn mới, cân nhắc thêm neo tương ứng.
+- Đặt lịch công khai tách **ngày** và **giờ**, có các khung giờ chọn nhanh nhưng vẫn cho nhập giờ khác. Đây là giờ mong muốn, không được mô tả là giờ còn trống khi chưa có mô hình sức chứa.
 
 ## 4. Thư viện `src/lib/` (chức năng từng file)
 - **db.ts** — Prisma client lazy (Proxy).

@@ -1,7 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
-import { CalendarCheck, LoaderCircle, CheckCircle2 } from "lucide-react";
+import { useActionState, useState } from "react";
+import { CalendarCheck, LoaderCircle, CheckCircle2, Clock3 } from "lucide-react";
 import { Input, Label, Select, Textarea } from "@/components/ui/field";
 import { buttonVariants } from "@/components/ui/button";
 import { createPublicAppointment, type BookingState } from "./actions";
@@ -9,11 +9,15 @@ import { createPublicAppointment, type BookingState } from "./actions";
 export function BookingForm({
   services,
   defaultDateTime,
+  minDate,
 }: {
   services: { id: string; name: string }[];
   defaultDateTime: string;
+  minDate: string;
 }) {
   const [state, action, pending] = useActionState<BookingState, FormData>(createPublicAppointment, {});
+  const [date, setDate] = useState(defaultDateTime.slice(0, 10));
+  const [time, setTime] = useState(defaultDateTime.slice(11, 16) || "09:00");
 
   if (state.ok) {
     return (
@@ -54,9 +58,37 @@ export function BookingForm({
           ))}
         </Select>
       </div>
-      <div>
-        <Label htmlFor="b-time">Ngày giờ mong muốn *</Label>
-        <Input id="b-time" name="scheduledAt" type="datetime-local" defaultValue={defaultDateTime} required />
+      <div className="space-y-3">
+        <input type="hidden" name="scheduledAt" value={`${date}T${time}`} />
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <Label htmlFor="b-date">Ngày mong muốn *</Label>
+            <Input id="b-date" type="date" value={date} min={minDate} onChange={(e) => setDate(e.target.value)} required />
+          </div>
+          <div>
+            <Label htmlFor="b-time">Giờ mong muốn *</Label>
+            <div className="relative">
+              <Clock3 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Input id="b-time" type="time" value={time} step={1800} onChange={(e) => setTime(e.target.value)} className="pl-9" required />
+            </div>
+          </div>
+        </div>
+        <div>
+          <p className="mb-2 text-xs font-medium text-slate-500">Chọn nhanh khung giờ</p>
+          <div className="grid grid-cols-4 gap-2">
+            {["08:00", "09:00", "10:00", "11:00", "13:30", "14:30", "15:30", "16:30"].map((slot) => (
+              <button
+                key={slot}
+                type="button"
+                onClick={() => setTime(slot)}
+                className={`h-9 rounded-md border text-sm font-medium transition ${time === slot ? "border-brand-600 bg-brand-50 text-brand-700" : "border-slate-200 bg-white text-slate-600 hover:border-brand-300"}`}
+              >
+                {slot}
+              </button>
+            ))}
+          </div>
+          <p className="mt-2 text-xs text-slate-400">Đây là thời gian mong muốn. Trung tâm sẽ liên hệ xác nhận lại.</p>
+        </div>
       </div>
       <div>
         <Label htmlFor="b-note">Ghi chú</Label>

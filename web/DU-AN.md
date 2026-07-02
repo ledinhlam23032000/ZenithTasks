@@ -560,3 +560,11 @@ Chưa có Sửa (cần bổ sung):
 - **An toàn**: nếu `docker compose build` lỗi (vd thiếu RAM), script DỪNG NGAY, KHÔNG đụng tới container đang chạy → phòng khám không bị gián đoạn dù cập nhật đêm đó thất bại.
 - Ghi nhật ký mỗi lần chạy vào `%USERPROFILE%\zenith-tu-dong-cap-nhat.log` để xem lại (thành công/thất bại/không có gì mới). Tắt tính năng: mở Task Scheduler (Windows) → tìm `ZenithTuDongCapNhat` → Disable hoặc Delete.
 - `Sua-Loi.bat` (thủ công, `--no-cache`, xin quyền admin có tương tác) vẫn giữ nguyên làm phương án "sửa lỗi mạnh tay" khi nghi lệch schema — khác mục đích với cập nhật tự động định kỳ này.
+
+## Đợt nâng cấp trải nghiệm sử dụng — 02/07/2026
+- **Sidebar theo nhóm công việc**: chia menu thành Hôm nay / Khách hàng / Phân tích / Vận hành / Quản trị. Mục nào không có quyền tự biến mất, tiêu đề nhóm vẫn giữ đúng thứ tự nghiệp vụ.
+- **Việc cần xử lý ngay trên Tổng quan**: hiển thị tổng số việc tồn và tối đa 4 nhóm ưu tiên; bấm để mở danh sách `/viec-hom-nay`. Áp dụng cho cả dashboard quản lý và dashboard nhân viên có quyền.
+- **Hồ sơ dài dễ di chuyển hơn**: thêm thanh neo cố định để nhảy nhanh tới Tổng quan, Tư vấn, Dịch vụ, Vật tư, Hình ảnh, Giấy tờ, Tài chính, Tái khám; có cuộn ngang trên điện thoại.
+- **Đặt lịch công khai dễ dùng trên điện thoại**: tách ngày/giờ, thêm 8 khung giờ chọn nhanh và vẫn cho nhập giờ khác. Nội dung nói rõ đây là giờ mong muốn, trung tâm sẽ xác nhận.
+- **Biểu đồ ổn định khi render máy chủ**: truyền kích thước khởi tạo cho `ResponsiveContainer`, tránh cảnh báo `width/height = -1` trước khi trình duyệt đo xong.
+- Kiểm tra: TypeScript đạt, 157 test đạt, Docker production build thành công; `/dat-lich`, `/dashboard`, `/ho-so/[id]` trả HTTP 200 và có đúng nội dung mới.

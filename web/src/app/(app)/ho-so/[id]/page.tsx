@@ -211,7 +211,7 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
       )}
 
       {/* Thẻ khách */}
-      <Card>
+      <Card id="tong-quan" className="scroll-mt-32">
         <CardContent className="flex flex-wrap items-center gap-4 py-4">
           <Avatar name={record.customer.fullName} className="h-12 w-12" />
           <div className="flex-1">
@@ -237,11 +237,24 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
         compact
       />
 
+      <nav className="sticky top-16 z-20 -mx-4 overflow-x-auto border-y border-slate-200 bg-white/95 px-4 py-2 backdrop-blur sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8" aria-label="Điều hướng hồ sơ">
+        <div className="flex min-w-max items-center gap-1">
+          <SectionLink href="#tong-quan" label="Tổng quan" />
+          {canClinical && <SectionLink href="#tu-van" label="Tư vấn" />}
+          <SectionLink href="#dich-vu" label="Dịch vụ" />
+          <SectionLink href="#vat-tu" label="Vật tư" />
+          <SectionLink href="#hinh-anh" label="Hình ảnh" />
+          <SectionLink href="#giay-to" label="Giấy tờ" />
+          <SectionLink href="#tai-chinh" label="Tài chính" />
+          <SectionLink href="#tai-kham" label="Tái khám" />
+        </div>
+      </nav>
+
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
           {/* Thông tin tư vấn */}
           {canClinical && (
-            <Card>
+            <Card id="tu-van" className="scroll-mt-32">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Stethoscope className="h-4 w-4 text-brand-500" /> Thông tin tư vấn
@@ -267,7 +280,7 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
           )}
 
           {/* Dịch vụ */}
-          <Card>
+          <Card id="dich-vu" className="scroll-mt-32">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Receipt className="h-4 w-4 text-brand-500" /> Dịch vụ &amp; chi phí
@@ -345,7 +358,7 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
           </Card>
 
           {/* Vật tư */}
-          <Card>
+          <Card id="vat-tu" className="scroll-mt-32">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Package className="h-4 w-4 text-brand-500" /> Vật tư sử dụng
@@ -400,7 +413,7 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
           </Card>
 
           {/* Ảnh */}
-          <Card>
+          <Card id="hinh-anh" className="scroll-mt-32">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Images className="h-4 w-4 text-brand-500" /> Ảnh trước - sau - tái khám
@@ -425,7 +438,7 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
           </Card>
 
           {/* Phiếu đồng ý (consent) — B6 gđ2 */}
-          <Card>
+          <Card id="giay-to" className="scroll-mt-32">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <FileSignature className="h-4 w-4 text-brand-500" /> Phiếu đồng ý
@@ -531,7 +544,7 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
 
         {/* Cột phải: tài chính + tái khám */}
         <div className="space-y-6">
-          <Card>
+          <Card id="tai-chinh" className="scroll-mt-32">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Wallet className="h-4 w-4 text-brand-500" /> Tài chính
@@ -608,7 +621,7 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
             </CardContent>
           </Card>
 
-          <Card>
+          <Card id="tai-kham" className="scroll-mt-32">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <RefreshCw className="h-4 w-4 text-violet-500" /> Tái khám
@@ -660,5 +673,13 @@ function Row({ label, value, valueClass = "text-slate-800" }: { label: string; v
       <span className="text-sm text-slate-500">{label}</span>
       <span className={`text-sm font-semibold ${valueClass}`}>{value}</span>
     </div>
+  );
+}
+
+function SectionLink({ href, label }: { href: string; label: string }) {
+  return (
+    <a href={href} className="rounded-md px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900">
+      {label}
+    </a>
   );
 }

@@ -70,7 +70,7 @@ const ICONS: Record<string, LucideIcon> = {
   Sparkles,
 };
 
-export type NavItemData = { href: string; label: string; icon: string };
+export type NavItemData = { href: string; label: string; icon: string; group: string };
 export type ShellUser = { fullName: string; roleLabel: string; username: string; avatarUrl?: string | null };
 
 export function AppShell({
@@ -87,10 +87,8 @@ export function AppShell({
   const [menuOpen, setMenuOpen] = useState(false);
   const [pwOpen, setPwOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
-  const [isMac, setIsMac] = useState(false);
 
   useEffect(() => {
-    setIsMac(/Mac/.test(navigator.platform));
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
@@ -103,9 +101,18 @@ export function AppShell({
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
 
+  const navGroups = nav.reduce<Record<string, NavItemData[]>>((groups, item) => {
+    (groups[item.group] ??= []).push(item);
+    return groups;
+  }, {});
+
   const navList = (
-    <nav className="flex-1 min-h-0 space-y-1 overflow-y-auto px-3 py-4">
-      {nav.map((item) => {
+    <nav className="flex-1 min-h-0 space-y-5 overflow-y-auto px-3 py-4">
+      {Object.entries(navGroups).map(([group, items]) => (
+        <div key={group}>
+          <p className="mb-1 px-3 text-[10px] font-semibold uppercase text-slate-400">{group}</p>
+          <div className="space-y-1">
+          {items.map((item) => {
         const Icon = ICONS[item.icon] ?? LayoutDashboard;
         const active = isActive(item.href);
         return (
@@ -114,7 +121,7 @@ export function AppShell({
             href={item.href}
             onClick={() => setMobileOpen(false)}
             className={cn(
-              "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+              "group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
               active
                 ? "bg-brand-50 text-brand-700"
                 : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
@@ -124,7 +131,10 @@ export function AppShell({
             {item.label}
           </Link>
         );
-      })}
+          })}
+          </div>
+        </div>
+      ))}
     </nav>
   );
 
@@ -183,7 +193,7 @@ export function AppShell({
             <Search className="h-4 w-4" />
             <span className="hidden sm:inline">Tìm kiếm…</span>
             <kbd className="hidden rounded-md border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] font-medium sm:inline">
-              {isMac ? "⌘K" : "Ctrl+K"}
+              Ctrl+K
             </kbd>
           </button>
 

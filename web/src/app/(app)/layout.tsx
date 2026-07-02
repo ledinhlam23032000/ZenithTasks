@@ -7,7 +7,7 @@ import { AppShell } from "@/components/layout/app-shell";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
-  const nav = navForUser(user).map((n) => ({ href: n.href, label: n.label, icon: n.icon }));
+  const nav = navForUser(user).map((n) => ({ href: n.href, label: n.label, icon: n.icon, group: n.group }));
   // Cảnh báo bảo mật chỉ hiện cho ADMIN (người có thể xử lý).
   const warnings = user.role === "ADMIN" ? securityWarnings() : [];
 
