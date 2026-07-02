@@ -87,6 +87,15 @@ export function AppShell({
   const [menuOpen, setMenuOpen] = useState(false);
   const [pwOpen, setPwOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>(() => {
+    if (typeof window === "undefined") return {};
+    try {
+      const saved = localStorage.getItem("zenith:sidebar-collapsed");
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -98,6 +107,19 @@ export function AppShell({
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, []);
+
+  const toggleGroup = (group: string, defaultOpen: boolean) => {
+    setCollapsedGroups((prev) => {
+      const currentlyOpen = group in prev ? !prev[group] : defaultOpen;
+      const next = { ...prev, [group]: currentlyOpen };
+      try {
+        localStorage.setItem("zenith:sidebar-collapsed", JSON.stringify(next));
+      } catch {
+        /* localStorage indisponible */
+      }
+      return next;
+    });
+  };
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
 
@@ -114,35 +136,51 @@ export function AppShell({
     if (!mobileNav.some((current) => current.href === item.href)) mobileNav.push(item);
   }
 
+  const groupEntries = Object.entries(navGroups);
+
   const navList = (
-    <nav className="flex-1 min-h-0 space-y-5 overflow-y-auto px-3 py-4">
-      {Object.entries(navGroups).map(([group, items]) => (
-        <div key={group}>
-          <p className="mb-1 px-3 text-[10px] font-semibold uppercase text-slate-400">{group}</p>
-          <div className="space-y-1">
-          {items.map((item) => {
-        const Icon = ICONS[item.icon] ?? LayoutDashboard;
-        const active = isActive(item.href);
+    <nav className="flex-1 min-h-0 space-y-1 overflow-y-auto px-3 py-4">
+      {groupEntries.map(([group, items], groupIndex) => {
+        const defaultOpen = groupIndex === 0 || items.some((item) => isActive(item.href));
+        const open = group in collapsedGroups ? !collapsedGroups[group] : defaultOpen;
         return (
-          <Link
-            key={item.href}
-            href={item.href}
-            onClick={() => setMobileOpen(false)}
-            className={cn(
-              "group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-              active
-                ? "bg-brand-50 text-brand-700"
-                : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
+          <div key={group} className="pb-1">
+            <button
+              type="button"
+              onClick={() => toggleGroup(group, defaultOpen)}
+              className="flex w-full items-center justify-between rounded-md px-3 py-1.5 text-[10px] font-semibold uppercase text-slate-400 hover:text-slate-600"
+              aria-expanded={open}
+            >
+              {group}
+              <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", open ? "rotate-0" : "-rotate-90")} />
+            </button>
+            {open && (
+              <div className="mt-1 space-y-1">
+                {items.map((item) => {
+                  const Icon = ICONS[item.icon] ?? LayoutDashboard;
+                  const active = isActive(item.href);
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => setMobileOpen(false)}
+                      className={cn(
+                        "group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                        active
+                          ? "bg-brand-50 text-brand-700"
+                          : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
+                      )}
+                    >
+                      <Icon className={cn("h-[18px] w-[18px]", active ? "text-brand-600" : "text-slate-400 group-hover:text-slate-600")} />
+                      {item.label}
+                    </Link>
+                  );
+                })}
+              </div>
             )}
-          >
-            <Icon className={cn("h-[18px] w-[18px]", active ? "text-brand-600" : "text-slate-400 group-hover:text-slate-600")} />
-            {item.label}
-          </Link>
-        );
-          })}
           </div>
-        </div>
-      ))}
+        );
+      })}
     </nav>
   );
 
