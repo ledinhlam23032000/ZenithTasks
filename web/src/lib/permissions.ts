@@ -23,7 +23,8 @@ export type ModuleDef = { key: string; href: string; label: string; icon: string
 export const MODULES: ModuleDef[] = [
   { key: "dashboard", href: "/dashboard", label: "Tổng quan", icon: "LayoutDashboard", group: "Hôm nay", roles: [...ALL, "SHAREHOLDER"] },
   { key: "viec-hom-nay", href: "/viec-hom-nay", label: "Việc cần làm", icon: "ListTodo", group: "Hôm nay", roles: ["ADMIN", "MANAGER", "TELESALE", "RECEPTION", "CONSULTANT", "DOCTOR", "CARE"] },
-  { key: "dau-ca", href: "/dau-ca", label: "Đầu ca lễ tân", icon: "Sunrise", group: "Hôm nay", roles: ["ADMIN", "MANAGER", "RECEPTION", "TELESALE"] },
+  // Vận hành hằng ngày của lễ tân/telesale — ADMIN/MANAGER không cần thấy trong menu (dùng khi cần thì cấp quyền riêng ở Phân quyền).
+  { key: "dau-ca", href: "/dau-ca", label: "Đầu ca lễ tân", icon: "Sunrise", group: "Hôm nay", roles: ["RECEPTION", "TELESALE"] },
   { key: "cham-cong", href: "/cham-cong", label: "Chấm công", icon: "CalendarCheck", group: "Hôm nay", roles: ALL },
   { key: "lich-hen", href: "/lich-hen", label: "Lịch hẹn", icon: "CalendarClock", group: "Khách hàng", roles: ["ADMIN", "MANAGER", "TELESALE", "RECEPTION", "CONSULTANT", "SHAREHOLDER"] },
   { key: "khach-tham-khao", href: "/khach-tham-khao", label: "Khách tham khảo", icon: "UserSearch", group: "Khách hàng", roles: ["ADMIN", "MANAGER", "TELESALE", "RECEPTION"] },
@@ -34,15 +35,18 @@ export const MODULES: ModuleDef[] = [
   { key: "ho-so", href: "/ho-so", label: "Hồ sơ điều trị", icon: "FolderHeart", group: "Khách hàng", roles: ["ADMIN", "MANAGER", "CONSULTANT", "DOCTOR", "RECEPTION", "SHAREHOLDER"], hidden: true },
   { key: "cham-soc", href: "/cham-soc", label: "Chăm sóc KH", icon: "MessageCircleHeart", group: "Khách hàng", roles: ["ADMIN", "MANAGER", "CARE", "SHAREHOLDER"] },
   { key: "bao-cao", href: "/bao-cao", label: "Báo cáo", icon: "TrendingUp", group: "Phân tích", roles: ["ADMIN", "MANAGER", "SHAREHOLDER"] },
-  { key: "phan-tich", href: "/phan-tich", label: "Phân tích kinh doanh", icon: "PieChart", group: "Phân tích", roles: ["ADMIN", "MANAGER", "SHAREHOLDER"] },
-  { key: "tro-ly", href: "/tro-ly", label: "Trợ lý AI", icon: "Sparkles", group: "Phân tích", roles: ["ADMIN", "MANAGER", "SHAREHOLDER"] },
+  // Gộp chung tab với "Báo cáo" (xem components/ui/page-tabs.tsx) — vẫn là module riêng để phân quyền, chỉ ẩn khỏi menu.
+  { key: "phan-tich", href: "/phan-tich", label: "Phân tích kinh doanh", icon: "PieChart", group: "Phân tích", roles: ["ADMIN", "MANAGER", "SHAREHOLDER"], hidden: true },
+  { key: "tro-ly", href: "/tro-ly", label: "Trợ lý AI", icon: "Sparkles", group: "Phân tích", roles: ["ADMIN", "MANAGER", "SHAREHOLDER"], hidden: true },
   { key: "hieu-suat", href: "/hieu-suat", label: "Hiệu suất nhân sự", icon: "Activity", group: "Phân tích", roles: ["ADMIN", "MANAGER", "SHAREHOLDER"] },
-  { key: "cong-tac-vien", href: "/cong-tac-vien", label: "Cộng tác viên", icon: "Handshake", group: "Phân tích", roles: ["ADMIN", "MANAGER", "SHAREHOLDER"] },
-  { key: "lich-lam-viec", href: "/lich-lam-viec", label: "Lịch làm việc", icon: "CalendarDays", group: "Vận hành", roles: ALL },
+  // Gộp chung tab với "Hiệu suất nhân sự".
+  { key: "cong-tac-vien", href: "/cong-tac-vien", label: "Cộng tác viên", icon: "Handshake", group: "Phân tích", roles: ["ADMIN", "MANAGER", "SHAREHOLDER"], hidden: true },
+  { key: "lich-lam-viec", href: "/lich-lam-viec", label: "Lịch làm việc", icon: "CalendarDays", group: "Vận hành", roles: ALL, hidden: true }, // gộp tab với "Chấm công"
   { key: "luong", href: "/luong", label: "Lương & hoa hồng", icon: "Wallet", group: "Vận hành", roles: ["ADMIN", "MANAGER"] },
   { key: "thu-chi", href: "/thu-chi", label: "Thu chi", icon: "Coins", group: "Vận hành", roles: ["ADMIN", "MANAGER", "SHAREHOLDER"] },
   { key: "danh-muc", href: "/danh-muc", label: "Danh mục dịch vụ", icon: "ListChecks", group: "Vận hành", roles: ["ADMIN", "MANAGER", "SHAREHOLDER"] },
-  { key: "kho", href: "/kho", label: "Kho vật tư", icon: "Boxes", group: "Vận hành", roles: ["ADMIN", "MANAGER", "SHAREHOLDER"] },
+  // Gộp chung tab với "Danh mục dịch vụ".
+  { key: "kho", href: "/kho", label: "Kho vật tư", icon: "Boxes", group: "Vận hành", roles: ["ADMIN", "MANAGER", "SHAREHOLDER"], hidden: true },
   { key: "nhan-su", href: "/nhan-su", label: "Nhân sự", icon: "Contact", group: "Quản trị", roles: ["ADMIN"] },
   { key: "nhat-ky", href: "/nhat-ky", label: "Nhật ký hệ thống", icon: "ScrollText", group: "Quản trị", roles: ["ADMIN"] },
   { key: "he-thong", href: "/he-thong", label: "Tình trạng hệ thống", icon: "ServerCog", group: "Quản trị", roles: ["ADMIN"] },

@@ -19,6 +19,8 @@ import { requireCap } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { isManagerial, ROLE_SHORT } from "@/lib/rbac";
 import { PageHeader } from "@/components/ui/page-header";
+import { PageTabs } from "@/components/ui/page-tabs";
+import { attendanceTabs } from "@/lib/nav-tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
@@ -116,6 +118,8 @@ export default async function SchedulePage({
         icon={<CalendarDays className="h-5 w-5" />}
         actions={managerial ? <NewShiftButton staff={staff} defaultDate={format(new Date(), "yyyy-MM-dd")} /> : undefined}
       />
+
+      <PageTabs tabs={attendanceTabs(user)} />
 
       {/* Thanh chuyển Tuần / Tháng */}
       <Card>

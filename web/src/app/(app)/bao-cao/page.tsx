@@ -8,6 +8,7 @@ import { formatVND, formatVNDShort } from "@/lib/money";
 import { maskPhone } from "@/lib/phone";
 import { SOURCE_LABEL } from "@/lib/status";
 import { PageHeader } from "@/components/ui/page-header";
+import { PageTabs } from "@/components/ui/page-tabs";
 import { StatCard } from "@/components/ui/stat-card";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -17,12 +18,13 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { ExportMenu } from "@/components/ui/export-menu";
 import { MultiChart } from "@/components/ui/multi-chart";
 import { SalesChart } from "./sales-chart";
+import { reportTabs } from "@/lib/nav-tabs";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Báo cáo" };
 
 export default async function ReportsPage({ searchParams }: { searchParams: Promise<{ m?: string }> }) {
-  await requireCap("mod:bao-cao");
+  const user = await requireCap("mod:bao-cao");
   const sp = await searchParams;
   const parsed = sp.m ? new Date(`${sp.m}-01T00:00:00`) : new Date();
   const monthDate = Number.isNaN(parsed.getTime()) ? new Date() : parsed;
@@ -55,6 +57,8 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
           </div>
         }
       />
+
+      <PageTabs tabs={reportTabs(user)} />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard

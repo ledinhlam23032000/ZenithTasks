@@ -6,18 +6,20 @@ import { getStaffPerformance } from "@/lib/performance";
 import { ROLE_LABELS } from "@/lib/rbac";
 import { formatVND } from "@/lib/money";
 import { PageHeader } from "@/components/ui/page-header";
+import { PageTabs } from "@/components/ui/page-tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { Table, THead, TH, TR, TD } from "@/components/ui/table";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ExportMenu } from "@/components/ui/export-menu";
+import { performanceTabs } from "@/lib/nav-tabs";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Hiệu suất nhân sự" };
 
 export default async function StaffPerfPage({ searchParams }: { searchParams: Promise<{ m?: string }> }) {
-  await requireCap("mod:hieu-suat");
+  const user = await requireCap("mod:hieu-suat");
   const sp = await searchParams;
   const parsed = sp.m ? new Date(`${sp.m}-01T00:00:00`) : new Date();
   const monthDate = Number.isNaN(parsed.getTime()) ? new Date() : parsed;
@@ -41,6 +43,8 @@ export default async function StaffPerfPage({ searchParams }: { searchParams: Pr
           </div>
         }
       />
+
+      <PageTabs tabs={performanceTabs(user)} />
 
       <Card>
         <CardContent className="overflow-x-auto pt-5">

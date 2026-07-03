@@ -39,7 +39,7 @@ export function AssistantChat({ aiOn }: { aiOn: boolean }) {
   const empty = turns.length === 0 && !pending;
 
   return (
-    <div className="flex h-[calc(100vh-7.5rem)] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+    <div className="flex h-[calc(100vh-10.5rem)] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
       {/* Thanh tiêu đề */}
       <div className="flex items-center gap-2.5 border-b border-slate-100 px-4 py-3">
         <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-brand-500 to-violet-500 text-white">

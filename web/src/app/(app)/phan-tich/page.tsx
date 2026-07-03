@@ -7,6 +7,7 @@ import { getBusinessAnalytics } from "@/lib/analytics-data";
 import { SEGMENTS, type Segment } from "@/lib/analytics";
 import { tplWinback } from "@/lib/message-templates";
 import { PageHeader } from "@/components/ui/page-header";
+import { PageTabs } from "@/components/ui/page-tabs";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { StatCard } from "@/components/ui/stat-card";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +15,7 @@ import type { Tone } from "@/components/ui/badge";
 import { Table, THead, TH, TR, TD } from "@/components/ui/table";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ContactButtons } from "@/components/ui/contact-buttons";
+import { reportTabs } from "@/lib/nav-tabs";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Phân tích kinh doanh" };
@@ -35,7 +37,7 @@ const RANGES = [
 ];
 
 export default async function AnalyticsPage({ searchParams }: { searchParams: Promise<{ days?: string }> }) {
-  await requireCap("mod:phan-tich");
+  const user = await requireCap("mod:phan-tich");
   const sp = await searchParams;
   const days = RANGES.some((r) => String(r.days) === sp.days) ? Number(sp.days) : 90;
 
@@ -64,6 +66,8 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
           </div>
         }
       />
+
+      <PageTabs tabs={reportTabs(user)} />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Khách có hồ sơ" value={String(a.totalCustomers)} sub="Đã từng làm dịch vụ" icon={<Users className="h-5 w-5" />} tone="blue" />

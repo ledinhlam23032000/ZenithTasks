@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { format } from "date-fns";
-import { ArrowLeft, Activity, CalendarCheck, MessageCircleHeart, Target, Stethoscope, Wallet } from "lucide-react";
+import { ArrowLeft, Activity, CalendarCheck, Target, Stethoscope, Wallet } from "lucide-react";
 import { requireCap } from "@/lib/auth";
 import { getStaffDetail } from "@/lib/performance";
 import { ROLE_LABELS } from "@/lib/rbac";
