@@ -9,6 +9,8 @@ import { isManagerial, ROLE_LABELS } from "@/lib/rbac";
 import { vnDateOnly } from "@/lib/dates";
 import { fmtTime } from "@/lib/format";
 import { PageHeader } from "@/components/ui/page-header";
+import { PageTabs } from "@/components/ui/page-tabs";
+import { attendanceTabs } from "@/lib/nav-tabs";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { StatCard } from "@/components/ui/stat-card";
 import { Badge } from "@/components/ui/badge";
@@ -136,6 +138,8 @@ export default async function ChamCongPage({
           </div>
         }
       />
+
+      <PageTabs tabs={attendanceTabs(user)} />
 
       <div className="grid gap-4 sm:grid-cols-2">
         <CheckInWidget

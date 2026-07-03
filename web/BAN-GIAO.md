@@ -58,7 +58,9 @@ web/docker-compose.yml          # CHỈ là DB cho lập trình — KHÔNG dùng
 Chỉ 3 trang KHÔNG dynamic: `/` (redirect), `/login`, `/khong-co-quyen`. **Hệ quả quan trọng**: mọi trang dữ liệu luôn tải mới khi điều hướng → `revalidatePath` gần như THỪA (xem mục 8 về `useFormAction`).
 
 ### Quy ước trải nghiệm người dùng
-- Menu trong `permissions.ts` có trường `group`, chia 5 nhóm: **Hôm nay / Khách hàng / Phân tích / Vận hành / Quản trị**. Giữ nhóm khi thêm module mới để sidebar không trở lại thành danh sách dài.
+- Menu trong `permissions.ts` có trường `group`, chia 5 nhóm: **Hôm nay / Khách hàng / Phân tích / Vận hành / Quản trị**. Giữ nhóm khi thêm module mới để sidebar không trở lại thành danh sách dài. Mỗi nhóm trong sidebar tự đóng/mở (bấm tiêu đề nhóm) — mặc định chỉ mở nhóm "Hôm nay" + nhóm chứa trang đang xem, trạng thái lưu `localStorage`.
+- **Gộp trang liên quan chung 1 mục menu** (đỡ dài mà không mất chức năng): đặt `hidden: true` cho module phụ trong `permissions.ts` (vẫn là module riêng để phân quyền, chỉ ẩn khỏi sidebar/Ctrl+K), rồi thêm `<PageTabs tabs={...} />` (từ `lib/nav-tabs.ts`) ngay dưới `PageHeader` của các trang liên quan để điều hướng qua lại. Đã áp dụng: Báo cáo⟷Phân tích kinh doanh⟷Trợ lý AI, Hiệu suất nhân sự⟷Cộng tác viên, Danh mục dịch vụ⟷Kho vật tư, Chấm công⟷Lịch làm việc. `nav-tabs.ts` tự lọc tab theo quyền từng người — khi thêm nhóm gộp mới, viết hàm tương tự (không hard-code tab cho người không có quyền).
+- Mục chỉ dành riêng 1-2 vai trò vận hành (vd "Đầu ca lễ tân" — chỉ RECEPTION/TELESALE) thì đặt `roles` đúng vai trò đó, KHÔNG thêm ADMIN/MANAGER mặc định — tránh sidebar quản trị bị nhét việc vận hành không liên quan. ADMIN cần xem thì cấp quyền riêng qua Phân quyền.
 - Trên điện thoại, `AppShell` có thanh truy cập nhanh cố định ở đáy màn hình. Các mục được chọn theo quyền từ Tổng quan / Việc cần làm / Lịch hẹn / Tiếp nhận / Hồ sơ khách; không viết cứng mục mà người dùng không có quyền.
 - Tổng quan hiển thị `WorkSummary` ngay dưới lời chào nếu người dùng có quyền `mod:viec-hom-nay`; chi tiết vẫn nằm tại `/viec-hom-nay`.
 - Hồ sơ điều trị có thanh điều hướng neo cố định (`#tong-quan`, `#tu-van`, `#dich-vu`, `#vat-tu`, `#hinh-anh`, `#giay-to`, `#tai-chinh`, `#tai-kham`). Khi thêm khối lớn mới, cân nhắc thêm neo tương ứng.
@@ -78,10 +80,12 @@ Chỉ 3 trang KHÔNG dynamic: `/` (redirect), `/login`, `/khong-co-quyen`. **H�
 - **dates.ts** — `vnDateOnly()` (mốc ngày theo giờ VN cho cột @db.Date).
 - **status.ts** — nhãn + tone cho các enum (CASE_STATUS, CONSULT_RESULT, APPT_STATUS/TYPE, SOURCE_LABEL, PAYMENT_LABEL, CARE_CHANNEL, GENDER_LABEL).
 - **finance.ts** — danh mục thu/chi sổ thu chi; `CATEGORY_LABEL`, `categoriesFor(type)`; `REVENUE_TRANSFER_CODES = ["ADVANCE_REVENUE","SERVICE"]` (loại khỏi "thu khác" trong P&L để tránh tính trùng).
-- **payroll.ts** — `getPayroll(monthDate, standardDays=26)` → bảng lương.
-- **reports.ts** — `getReports()`, `getMonthlyPnl()`, `getSalesSeries()` (mốc tuần/tháng/năm).
-- **dashboard.ts** — `getAdminDashboard()`, `getStaffSnapshot()`.
-- **performance.ts** — `getStaffPerformance/getStaffDetail` (hiệu suất nhân sự); `getCollaborators/getCollaboratorDetail/getCollaboratorSeries` (cộng tác viên); `rangeBounds(range)`.
+- **collections.ts** — `collectionsByStaff/collectionsTotal` THUẦN (có test): gom tiền THỰC THU (Payment) trong 1 kỳ về từng nhân sự (tư vấn viên + bác sĩ, cùng 1 khoản ghi cho cả 2), tách "ca tháng này" (`fromNew`) / "thu nợ ca cũ" (`fromDebt`, hồ sơ tạo trước kỳ). Dùng ở `payroll.ts` + `performance.ts` — đây là CĂN CỨ để quản lý nhập hoa hồng (khách trả nợ tháng nào tính thực thu tháng đó, không phải tháng chốt ca).
+- **payroll.ts** — `getPayroll(monthDate, standardDays=26)` → bảng lương, có thêm `collectedConsult/collectedDoctor` (thực thu từng người, dùng `collections.ts`) + `debtOutstanding` (nợ khách mình phụ trách còn lại) + `collectedAll` (thực thu toàn trung tâm trong tháng).
+- **reports.ts** — `getReports(monthDate?)`, `getMonthlyPnl(monthDate?)` (nhận tháng bất kỳ, mặc định tháng hiện tại — "tháng trước" luôn lùi 1 tháng từ mốc xem), `getSalesSeries()` (mốc tuần/tháng/năm, luôn tương đối "hiện tại" — không theo tháng chọn).
+- **dashboard.ts** — `getAdminDashboard()` (CHỈ tháng hiện tại — dùng cho `/dashboard`), `getStaffSnapshot()`.
+- **performance.ts** — `getStaffPerformance/getStaffDetail` (hiệu suất nhân sự, có `collectedConsult/collectedDoctor`; `getStaffDetail` có thêm `collections` = danh sách từng khoản tiền đã thu trong tháng của người đó); `getCollaborators/getCollaboratorDetail/getCollaboratorSeries` (cộng tác viên); `rangeBounds(range)`.
+- **nav-tabs.ts** — `reportTabs/performanceTabs/catalogTabs/attendanceTabs(user)`: danh sách tab (đã lọc theo quyền) cho các nhóm trang gộp chung 1 mục sidebar — xem mục "Quy ước trải nghiệm người dùng".
 - **lookups.ts** — `getActiveServices/getActiveMaterials/getConsultants/getDoctors`. `getConsultants` trả **MỌI nhân sự đang hoạt động** (ai cũng có thể là người tư vấn).
 - **loyalty.ts** — hạng thành viên + điểm theo chi tiêu thực (`tierFor/pointsFor/nextTier`).
 - **media.ts** — `photoSrc(url)`: map URL cũ `/uploads/<f>` → `/media/<f>`, URL khác giữ nguyên.
@@ -100,7 +104,7 @@ Chỉ 3 trang KHÔNG dynamic: `/` (redirect), `/login`, `/khong-co-quyen`. **H�
 - **system-status.ts** — `getSystemStatus()`/`humanBytes()` (A7): số liệu trang Tình trạng hệ thống.
 - **search-actions.ts** — `globalSearch(query)` (D4): tìm khách hàng/hồ sơ/vật tư cho command palette, lọc theo quyền (`moduleCan`).
 - **debt-aging.ts** — tuổi nợ THUẦN (có test, B3): `debtAgeDays`, `debtAgingBucket` (4 mốc 0-15/15-30/30-60/60+), `isOverThreshold`. Dùng ở `/cong-no`.
-- **debt-plan.ts** — kế hoạch trả nợ / hẹn nợ THUẦN (có test, B3 bổ sung): `clampDayOfMonth` (1..28), `nextDueDate`, `monthsToClear`, `duePeriods`, `expectedPaidByNow`, `debtPlanStatus` (kỳ tới + số tháng còn lại + đang chậm bao nhiêu). Dùng ở hồ sơ (`DebtPlanCard` qua `cong-no/actions.ts` `saveDebtPlan`/`deleteDebtPlan`) + gợi ý kỳ tới ở `/cong-no`. Model `DebtPlan` (1 hồ sơ 1 kế hoạch, caseId unique).
+- **debt-plan.ts** — kế hoạch trả nợ / hẹn nợ THUẦN (có test, B3 bổ sung): `clampDayOfMonth` (1..31), `dueDateInMonth` (ngày X của 1 tháng cụ thể — tháng thiếu ngày 29/30/31 tự lùi về ngày cuối tháng), `nextDueDate`, `monthsToClear`, `duePeriods`, `expectedPaidByNow`, `debtPlanStatus` (kỳ tới + số tháng còn lại + đang chậm bao nhiêu). Dùng ở hồ sơ (`DebtPlanCard` qua `cong-no/actions.ts` `saveDebtPlan`/`deleteDebtPlan`) + gợi ý kỳ tới ở `/cong-no`. Model `DebtPlan` (1 hồ sơ 1 kế hoạch, caseId unique). `DebtPlanCard` tự hiện "Đã tất toán" khi còn kế hoạch mà nợ đã về 0.
 - **leads.ts** — khách tham khảo THUẦN (có test): `LEAD_STATUSES`/`LEAD_STATUS_LABEL`/`LEAD_STATUS_TONE`, `summarizeLeads` (phễu: tổng/đang theo đuổi/đã chuyển/tỉ lệ chuyển đổi). Dùng ở `/khach-tham-khao` (module `khach-tham-khao`, icon `UserSearch`). Actions `khach-tham-khao/actions.ts`: createLead/updateLead (cặp useFormAction), setLeadStatus/deleteLead/convertLeadToCustomer. `convertLeadToCustomer` COPY thẳng SĐT đã mã hoá sang Customer (không giải mã), chống trùng theo phoneHash.
 - **upload.ts** — tệp giấy tờ tải lên THUẦN (có test): `isAllowedDocMime`/`docExt`/`safeStoredName`/`prettyFileSize` (PDF/ảnh/Word/Excel, chống path traversal). Dùng ở `uploadCaseDocument` (ho-so/actions). Model `CaseDocument` (giấy tờ hành chính/phiếu đồng ý ĐÃ KÝ tải lên thay vì gõ tay) hiện ở thẻ "Giấy tờ hành chính" của hồ sơ; xem qua `/media/<tệp>` (route đã thêm content-type PDF/Word/Excel, vẫn gate đăng nhập/vé).
 - **nps.ts** — đánh giá NPS THUẦN (có test, D3 gđ2): `clampScore` (0..10), `npsCategory`, `npsSummary` (NPS = %promoter − %detractor + điểm TB + đếm nhóm). Dùng ở cổng khách (`portalSubmitNps`) + thẻ NPS trên `/phan-tich` (qua `getBusinessAnalytics`). Model `NpsResponse`. Link cổng khách có `Customer.portalTokenExpiresAt` (90 ngày, `genPortalLink`/`revokePortalLink`).
@@ -123,7 +127,7 @@ Chỉ 3 trang KHÔNG dynamic: `/` (redirect), `/login`, `/khong-co-quyen`. **H�
 - **CaseService** (`listPrice`=giá gốc, `unitPrice`=giá ưu đãi, `quantity`, `discount`, `finalPrice`), **Payment** (`amount`, `method`, `paidAt`, `receivedById`), **MaterialUsage**, **Photo** (`type`, `url`, `caption`, `followUpIndex`, `caseId` nullable — giữ ảnh khi xóa hồ sơ).
 - **Service** (`listPrice` niêm yết + `defaultPrice` ưu đãi), **Material** (`stock`, `minStock`, `lotNo`, `expiryDate`, `avgCost` = giá vốn bình quân), **StockMovement** (`type`, `quantity`, `unitCost` = đơn giá tại thời điểm GD). Khi thêm/sửa/xóa vật tư trong hồ sơ → tự trừ/hoàn tồn + ghi `StockMovement` (nguyên tử, xem `ho-so/actions.ts`). Giá vốn: xem `lib/inventory-cost.ts`.
 - **ServiceMaterial** (B5 gđ2 — định mức vật tư/BOM: `serviceId`+`materialId`+`quantity` định mức/lần, unique theo cặp). **Khi thêm dịch vụ vào hồ sơ (`addCaseService`) hệ thống TỰ ĐỘNG trừ kho theo định mức** (Đợt 20 — helper `applyBomTx`): đọc bảng này → ghi MaterialUsage + trừ kho (× SL dịch vụ) + đánh dấu `CaseService.bomApplied`. Nút "Trừ VT" thủ công (`applyServiceBom`) VẪN còn cho dịch vụ thêm trước khi có auto, hoặc dịch vụ khai báo định mức sau. `bomApplied` chống trừ 2 lần. Điều kiện: dịch vụ phải có định mức (khai báo ở `danh-muc` qua `ServiceBomButton`). Xem `lib/service-bom.ts`.
-- **DebtPlan** (B3 bổ sung — hẹn nợ/trả góp: `caseId` unique + `dayOfMonth` 1..28 + `monthlyAmount` + `startDate` + `note`). Mỗi hồ sơ 1 kế hoạch. KHÔNG sinh từng dòng kỳ — lịch & trạng thái suy ra bằng `lib/debt-plan.ts`. Xem ở thẻ Tài chính của hồ sơ.
+- **DebtPlan** (B3 bổ sung — hẹn nợ/trả góp: `caseId` unique + `dayOfMonth` 1..31 (tháng thiếu ngày tự lùi cuối tháng) + `monthlyAmount` + `startDate` + `note`). Mỗi hồ sơ 1 kế hoạch. KHÔNG sinh từng dòng kỳ — lịch & trạng thái suy ra bằng `lib/debt-plan.ts`. Xem ở thẻ Tài chính của hồ sơ.
 - **Lead** + enum **LeadStatus** (NEW/CONTACTED/CONVERTED/LOST) — khách tham khảo: `fullName` + SĐT mã hoá (tuỳ chọn, như Customer) + `source`/`sourceDetail` + `serviceInterest` + `status`. Phễu trước Customer/Appointment. `convertLeadToCustomer` chuyển thành Customer. Xem `lib/leads.ts` + `/khach-tham-khao`.
 - **ConsentTemplate** + **CaseConsent** (B6 gđ2 — phiếu đồng ý): mẫu phiếu (quản ở `/mau-phieu`) + phiếu đã ghi nhận cho hồ sơ (lưu snapshot title/body). Card "Phiếu đồng ý" + in ở `ho-so/[id]/consent/[consentId]`. Xem `lib/consent.ts`.
 - **Attendance** (chấm công theo ngày), **Shift** (ca làm), **PayrollEntry** (theo tháng: `baseSalary`, `commission` nhập tay, `bonus`, `adjustment`…).
@@ -149,13 +153,19 @@ Chỉ 3 trang KHÔNG dynamic: `/` (redirect), `/login`, `/khong-co-quyen`. **H�
 
 ### Lương & hoa hồng (`payroll.ts`)
 - Lương cứng theo **ngày công** (`baseSalary × ngày công ÷ ngày chuẩn`, mặc định 26). Hoa hồng + thưởng + điều chỉnh **nhập tay** trong `PayrollEntry`. **ĐÃ BỎ toàn bộ logic % theo bậc** (tư vấn/bác sĩ/điều dưỡng).
+- **Thực thu (căn cứ nhập hoa hồng)**: doanh thu chia 2 dạng — **giá trị chốt** (`totalAmount`, gồm cả nợ chưa thu) và **thực thu** (tiền THẬT đã về, theo `Payment.paidAt`). Khách trả nợ tháng nào thì khoản đó tính vào thực thu tháng đó của tư vấn viên VÀ bác sĩ phụ trách hồ sơ (không phải tháng chốt ca) — xem `lib/collections.ts`. `/luong` và `/hieu-suat` hiện cột Thực thu (tách rõ "ca tháng này" / "thu nợ ca cũ") + Nợ khách còn lại, để quản lý biết đúng doanh số thật trước khi nhập hoa hồng tay.
 
 ### Sổ thu chi & Lãi/Lỗ (`finance.ts`, `reports.ts`)
 - **Sổ thu chi** (`/thu-chi`): dòng tiền vận hành nhập tay. Thẻ: Tổng thu / Tổng chi / **Số dư sổ** (KHÔNG hiện doanh thu/lãi lỗ — để kế toán/lễ tân không thấy).
-- **Lãi/Lỗ** chuyển sang **Báo cáo** (`getMonthlyPnl` = doanh thu dịch vụ + thu khác − tổng chi). Hạng mục thu có "Ứng từ doanh thu để chi trả" (`ADVANCE_REVENUE`).
+- **Lãi/Lỗ** chuyển sang **Báo cáo** (`getMonthlyPnl(monthDate?)` = doanh thu dịch vụ + thu khác − tổng chi, xem được tháng bất kỳ). Hạng mục thu có "Ứng từ doanh thu để chi trả" (`ADVANCE_REVENUE`).
+
+### Công nợ (`/cong-no`)
+- Thu nợ / tất toán ngay tại sổ công nợ (không cần mở hồ sơ): nút "Thu nợ" mỗi dòng mở modal mặc định điền đủ số còn lại — bấm là **tất toán** (nợ về 0); sửa số tiền để thu một phần. Dùng lại `addPayment` (khoá hồ sơ + `recalc` nguyên tử, xem mục 9).
+- Thẻ "Đã thu nợ tháng này" = thực thu trong tháng từ hồ sơ tạo TRƯỚC tháng (đồng bộ định nghĩa với `lib/collections.ts`). Có lọc theo tư vấn viên.
+- Hẹn nợ: ngày trả hằng tháng nhận **1..31** (không còn giới hạn 28) — tháng thiếu ngày tự lùi về ngày cuối tháng, xem `lib/debt-plan.ts`.
 
 ### Đếm số liệu (đồng bộ Tổng quan ↔ Báo cáo)
-- Mọi đếm theo **`createdAt` trong tháng**. Tỉ lệ chốt = AGREED / tổng ca tháng. "Dịch vụ nổi bật" xếp theo **số lượt** rồi doanh thu.
+- Mọi đếm theo **`createdAt` trong tháng**. Tỉ lệ chốt = AGREED / tổng ca tháng. "Dịch vụ nổi bật" xếp theo **số lượt** rồi doanh thu. **Báo cáo xem được tháng bất kỳ** (`?m=yyyy-MM`, giống Lương/Hiệu suất) — "Phân bổ nguồn khách" lọc đúng theo tháng đang xem (trước đây đếm nhầm toàn thời gian).
 
 ### Hiệu suất nhân sự & Cộng tác viên
 - `/hieu-suat` (bảng → bấm xem từng ca của 1 người). `/cong-tac-vien` (gộp theo `Customer.sourceDetail` nguồn=COLLABORATOR; có hồ sơ CTV sửa được qua model `Collaborator`; biểu đồ tăng trưởng theo tuần/tháng/năm + so sánh CTV).

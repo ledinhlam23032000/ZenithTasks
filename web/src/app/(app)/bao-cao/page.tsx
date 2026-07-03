@@ -1,12 +1,14 @@
 import Link from "next/link";
+import { format } from "date-fns";
 import { TrendingUp, Target, Receipt, Stethoscope, Sparkles, PieChart, ShieldCheck, ArrowUpRight, ArrowDownRight, Scale, Coins } from "lucide-react";
 import { requireCap } from "@/lib/auth";
-import { getAdminDashboard } from "@/lib/dashboard";
 import { getReports, getSalesSeries, getMonthlyPnl } from "@/lib/reports";
+import { getStaffPerformance } from "@/lib/performance";
 import { formatVND, formatVNDShort } from "@/lib/money";
 import { maskPhone } from "@/lib/phone";
 import { SOURCE_LABEL } from "@/lib/status";
 import { PageHeader } from "@/components/ui/page-header";
+import { PageTabs } from "@/components/ui/page-tabs";
 import { StatCard } from "@/components/ui/stat-card";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -16,16 +18,28 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { ExportMenu } from "@/components/ui/export-menu";
 import { MultiChart } from "@/components/ui/multi-chart";
 import { SalesChart } from "./sales-chart";
+import { reportTabs } from "@/lib/nav-tabs";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Báo cáo" };
 
-export default async function ReportsPage() {
-  await requireCap("mod:bao-cao");
-  const [d, r, sales, pnl] = await Promise.all([getAdminDashboard(), getReports(), getSalesSeries(), getMonthlyPnl()]);
+export default async function ReportsPage({ searchParams }: { searchParams: Promise<{ m?: string }> }) {
+  const user = await requireCap("mod:bao-cao");
+  const sp = await searchParams;
+  const parsed = sp.m ? new Date(`${sp.m}-01T00:00:00`) : new Date();
+  const monthDate = Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+  const monthValue = format(monthDate, "yyyy-MM");
+
+  const [r, sales, pnl, perf] = await Promise.all([
+    getReports(monthDate),
+    getSalesSeries(),
+    getMonthlyPnl(monthDate),
+    getStaffPerformance(monthDate),
+  ]);
+  const consultants = perf.filter((p) => p.consultCases > 0).map((p) => ({ id: p.id, name: p.name, consults: p.consultCases, rate: p.consultRate, revenue: p.consultRevenue }));
 
   const maxSource = Math.max(...r.sources.map((s) => s.count), 1);
-  const monthLabel = new Date().toLocaleDateString("vi-VN", { month: "2-digit", year: "numeric" });
+  const monthLabel = format(monthDate, "MM/yyyy");
 
   return (
     <div className="space-y-6">
@@ -33,19 +47,29 @@ export default async function ReportsPage() {
         title="Báo cáo &amp; phân tích"
         description="Doanh thu, tăng trưởng, hiệu suất nhân viên và công nợ của phòng khám."
         icon={<TrendingUp className="h-5 w-5" />}
-        actions={<ExportMenu excelHref="/bao-cao/export?format=xlsx" wordHref="/bao-cao/export?format=doc" />}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <form method="GET" className="flex items-center gap-2">
+              <input type="month" name="m" defaultValue={monthValue} className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-brand-400 focus:outline-none" />
+              <button className="rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700">Xem</button>
+            </form>
+            <ExportMenu excelHref={`/bao-cao/export?format=xlsx&m=${monthValue}`} wordHref={`/bao-cao/export?format=doc&m=${monthValue}`} />
+          </div>
+        }
       />
+
+      <PageTabs tabs={reportTabs(user)} />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
-          label="Doanh thu tháng này"
+          label={`Doanh thu tháng ${monthLabel}`}
           value={formatVNDShort(r.revenue.thisMonth)}
           icon={<TrendingUp className="h-5 w-5" />}
           tone="brand"
           trend={{ value: r.revenue.growth, label: `Tháng trước: ${formatVND(r.revenue.lastMonth)}` }}
         />
         <StatCard
-          label="Số ca tháng này"
+          label={`Số ca tháng ${monthLabel}`}
           value={r.cases.thisMonth}
           icon={<Stethoscope className="h-5 w-5" />}
           tone="blue"
@@ -53,8 +77,8 @@ export default async function ReportsPage() {
         />
         <StatCard
           label="Tỉ lệ chốt tư vấn"
-          value={`${d.consultRate.rate}%`}
-          sub={`${d.consultRate.agreed}/${d.consultRate.total} ca`}
+          value={`${r.consultRate.rate}%`}
+          sub={`${r.consultRate.agreed}/${r.consultRate.total} ca`}
           icon={<Target className="h-5 w-5" />}
           tone="amber"
         />
@@ -88,25 +112,27 @@ export default async function ReportsPage() {
         </CardContent>
       </Card>
 
-      {/* Biểu đồ doanh thu */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Doanh thu 14 ngày gần nhất</CardTitle>
-          <span className="text-sm text-slate-400">Tiền thực thu theo ngày</span>
-        </CardHeader>
-        <CardContent>
-          <MultiChart data={r.revenueSeries} valueLabel="Doanh thu" defaultType="bar" />
-        </CardContent>
-      </Card>
+      {/* Biểu đồ doanh thu — chỉ áp dụng khi xem tháng hiện tại */}
+      {r.isCurrentMonth && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Doanh thu 14 ngày gần nhất</CardTitle>
+            <span className="text-sm text-slate-400">Tiền thực thu theo ngày</span>
+          </CardHeader>
+          <CardContent>
+            <MultiChart data={r.revenueSeries} valueLabel="Doanh thu" defaultType="bar" />
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Hiệu suất tư vấn */}
         <Card>
           <CardHeader>
-            <CardTitle>Hiệu suất tư vấn viên (tháng)</CardTitle>
+            <CardTitle>Hiệu suất tư vấn viên · {monthLabel}</CardTitle>
           </CardHeader>
           <CardContent className="pt-0">
-            {d.consultants.length === 0 ? (
+            {consultants.length === 0 ? (
               <EmptyState title="Chưa có dữ liệu" />
             ) : (
               <Table>
@@ -119,19 +145,13 @@ export default async function ReportsPage() {
                   </TR>
                 </THead>
                 <tbody>
-                  {d.consultants.map((c) => (
+                  {consultants.map((c) => (
                     <TR key={c.id}>
                       <TD>
-                        {c.id === "none" ? (
-                          <div className="flex items-center gap-2">
-                            <Avatar name={c.name} className="h-7 w-7 text-[10px]" /> <span className="font-medium text-slate-500">{c.name}</span>
-                          </div>
-                        ) : (
-                          <Link href={`/hieu-suat/${c.id}`} className="flex items-center gap-2 group">
-                            <Avatar name={c.name} className="h-7 w-7 text-[10px]" />{" "}
-                            <span className="font-medium text-slate-800 group-hover:text-brand-600 group-hover:underline">{c.name}</span>
-                          </Link>
-                        )}
+                        <Link href={`/hieu-suat/${c.id}?m=${monthValue}`} className="flex items-center gap-2 group">
+                          <Avatar name={c.name} className="h-7 w-7 text-[10px]" />{" "}
+                          <span className="font-medium text-slate-800 group-hover:text-brand-600 group-hover:underline">{c.name}</span>
+                        </Link>
                       </TD>
                       <TD className="text-center">{c.consults}</TD>
                       <TD className="text-center">
@@ -149,7 +169,7 @@ export default async function ReportsPage() {
         {/* Năng suất bác sĩ */}
         <Card>
           <CardHeader>
-            <CardTitle>Năng suất bác sĩ (tháng)</CardTitle>
+            <CardTitle>Năng suất bác sĩ · {monthLabel}</CardTitle>
           </CardHeader>
           <CardContent className="pt-0">
             {r.doctors.length === 0 ? (
@@ -167,7 +187,7 @@ export default async function ReportsPage() {
                   {r.doctors.map((c) => (
                     <TR key={c.id}>
                       <TD>
-                        <Link href={`/hieu-suat/${c.id}`} className="flex items-center gap-2 group">
+                        <Link href={`/hieu-suat/${c.id}?m=${monthValue}`} className="flex items-center gap-2 group">
                           <Avatar name={c.name} className="h-7 w-7 text-[10px]" />{" "}
                           <span className="font-medium text-slate-800 group-hover:text-brand-600 group-hover:underline">{c.name}</span>
                         </Link>
@@ -186,7 +206,7 @@ export default async function ReportsPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-brand-500" /> Dịch vụ nổi bật (tháng)
+              <Sparkles className="h-4 w-4 text-brand-500" /> Dịch vụ nổi bật · {monthLabel}
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-0">
@@ -213,7 +233,7 @@ export default async function ReportsPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <PieChart className="h-4 w-4 text-brand-500" /> Phân bổ nguồn khách
+              <PieChart className="h-4 w-4 text-brand-500" /> Phân bổ nguồn khách · {monthLabel}
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-0">

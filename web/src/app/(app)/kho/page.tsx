@@ -6,11 +6,13 @@ import { toNum, formatVND, formatVNDShort } from "@/lib/money";
 import { stockValue, totalStockValue } from "@/lib/inventory-cost";
 import { fmtDate, fmtDateTime } from "@/lib/format";
 import { PageHeader } from "@/components/ui/page-header";
+import { PageTabs } from "@/components/ui/page-tabs";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { StatCard } from "@/components/ui/stat-card";
 import { Badge } from "@/components/ui/badge";
 import { Table, THead, TH, TR, TD } from "@/components/ui/table";
 import { EmptyState } from "@/components/ui/empty-state";
+import { catalogTabs } from "@/lib/nav-tabs";
 import { StockInBatchButton } from "./stock-in-batch";
 
 export const dynamic = "force-dynamic";
@@ -76,6 +78,8 @@ export default async function KhoPage() {
         icon={<Boxes className="h-5 w-5" />}
         actions={canStockIn ? <StockInBatchButton materials={materials.map((m) => ({ id: m.id, name: m.name, unit: m.unit }))} /> : undefined}
       />
+
+      <PageTabs tabs={catalogTabs(user)} />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Số mặt hàng" value={materials.length} icon={<Boxes className="h-5 w-5" />} tone="brand" />

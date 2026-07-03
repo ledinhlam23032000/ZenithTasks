@@ -1,31 +1,35 @@
 import { format } from "date-fns";
 import { requireCap } from "@/lib/auth";
-import { getAdminDashboard } from "@/lib/dashboard";
 import { getReports } from "@/lib/reports";
+import { getStaffPerformance } from "@/lib/performance";
 import { maskPhone } from "@/lib/phone";
 import { SOURCE_LABEL } from "@/lib/status";
 import { xlsxResponse, wordResponse, type Cell } from "@/lib/export";
 
 export const dynamic = "force-dynamic";
 
-/** Xuất báo cáo tổng hợp: ?format=xlsx (mặc định) | doc. */
+/** Xuất báo cáo tổng hợp của 1 tháng: ?format=xlsx (mặc định) | doc &m=yyyy-MM. */
 export async function GET(request: Request) {
   await requireCap("mod:bao-cao");
-  const fmt = new URL(request.url).searchParams.get("format") ?? "xlsx";
-  const [d, r] = await Promise.all([getAdminDashboard(), getReports()]);
-  const monthLabel = format(new Date(), "MM/yyyy");
-  const fileBase = `bao-cao-${format(new Date(), "yyyy-MM")}`;
+  const url = new URL(request.url);
+  const fmt = url.searchParams.get("format") ?? "xlsx";
+  const m = url.searchParams.get("m");
+  const parsed = m ? new Date(`${m}-01T00:00:00`) : new Date();
+  const monthDate = Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+  const [r, perf] = await Promise.all([getReports(monthDate), getStaffPerformance(monthDate)]);
+  const monthLabel = format(monthDate, "MM/yyyy");
+  const fileBase = `bao-cao-${format(monthDate, "yyyy-MM")}`;
 
   const overview: Cell[][] = [
     ["Doanh thu tháng này", r.revenue.thisMonth],
     ["Doanh thu tháng trước", r.revenue.lastMonth],
     ["Tăng trưởng (%)", r.revenue.growth],
     ["Số ca tháng này", r.cases.thisMonth],
-    ["Tỉ lệ chốt tư vấn (%)", d.consultRate.rate],
-    ["Số ca chốt / tổng", `${d.consultRate.agreed}/${d.consultRate.total}`],
+    ["Tỉ lệ chốt tư vấn (%)", r.consultRate.rate],
+    ["Số ca chốt / tổng", `${r.consultRate.agreed}/${r.consultRate.total}`],
     ["Công nợ tồn", r.outstandingDebt],
   ];
-  const consultants: Cell[][] = d.consultants.map((c) => [c.name, c.consults, c.rate, c.revenue]);
+  const consultants: Cell[][] = perf.filter((p) => p.consultCases > 0).map((p) => [p.name, p.consultCases, p.consultRate, p.consultRevenue]);
   const doctors: Cell[][] = r.doctors.map((c) => [c.name, c.cases, c.revenue]);
   const services: Cell[][] = r.topServices.map((s) => [s.name, s.count, s.revenue]);
   const sources: Cell[][] = r.sources.map((s) => [SOURCE_LABEL[s.source], s.count]);

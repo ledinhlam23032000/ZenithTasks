@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CalendarClock, LoaderCircle, Pencil, AlertTriangle, Trash2 } from "lucide-react";
+import { CalendarClock, LoaderCircle, Pencil, AlertTriangle, Trash2, CheckCircle2 } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/field";
@@ -18,6 +18,7 @@ export function DebtPlanCard({
   canManage,
   plan,
   summary,
+  settled = false,
   defaultDay,
   todayLocal,
 }: {
@@ -25,11 +26,35 @@ export function DebtPlanCard({
   canManage: boolean;
   plan: DebtPlanFormValues | null;
   summary: DebtPlanSummary | null;
+  settled?: boolean; // có kế hoạch nhưng nợ đã về 0 → hoàn thành
   defaultDay: number; // ngày trong tháng hôm nay (gợi ý mặc định)
   todayLocal: string; // yyyy-MM-dd
 }) {
   const [open, setOpen] = useState(false);
   const [state, action, pending] = useFormAction(saveDebtPlan, () => setOpen(false));
+
+  if (settled) {
+    return (
+      <div className="mt-3 border-t border-slate-100 pt-3">
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Hẹn nợ (trả góp)</p>
+        <div className="mt-2 flex items-center justify-between rounded-lg bg-emerald-50 p-2.5 text-sm">
+          <span className="inline-flex items-center gap-1.5 font-medium text-emerald-700">
+            <CheckCircle2 className="h-4 w-4" /> Đã tất toán — hoàn thành kế hoạch trả nợ
+          </span>
+          {canManage && (
+            <ConfirmButton
+              action={deleteDebtPlan}
+              fields={{ caseId }}
+              confirmText="Gỡ kế hoạch hẹn nợ đã hoàn thành?"
+              className="inline-flex items-center gap-1 text-xs text-slate-400 hover:text-rose-500"
+            >
+              <Trash2 className="h-3.5 w-3.5" /> Gỡ
+            </ConfirmButton>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mt-3 border-t border-slate-100 pt-3">
@@ -89,8 +114,8 @@ export function DebtPlanCard({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label htmlFor="dp-day">Ngày trả hằng tháng *</Label>
-              <Input id="dp-day" name="dayOfMonth" type="number" min={1} max={28} defaultValue={plan?.dayOfMonth ?? Math.min(28, defaultDay)} required />
-              <p className="mt-1 text-xs text-slate-400">1–28 (tránh tháng thiếu ngày)</p>
+              <Input id="dp-day" name="dayOfMonth" type="number" min={1} max={31} defaultValue={plan?.dayOfMonth ?? defaultDay} required />
+              <p className="mt-1 text-xs text-slate-400">1–31 · tháng thiếu ngày tự lùi về cuối tháng</p>
             </div>
             <div>
               <Label htmlFor="dp-amount">Mỗi tháng trả (VND) *</Label>

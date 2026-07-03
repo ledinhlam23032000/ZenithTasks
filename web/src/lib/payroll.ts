@@ -1,6 +1,7 @@
 import { startOfMonth, endOfMonth, format } from "date-fns";
 import { prisma } from "@/lib/db";
 import { toNum } from "@/lib/money";
+import { collectionsByStaff, collectionsTotal, type StaffCollection } from "@/lib/collections";
 import type { Role } from "@/generated/prisma/client";
 
 export const STANDARD_DAYS_DEFAULT = 26;
@@ -11,6 +12,8 @@ function roleBaseDefault(role: Role): number {
   if (role === "NURSE" || role === "CONSULTANT") return 8_000_000;
   return 0;
 }
+
+const EMPTY_COLLECTION: StaffCollection = { total: 0, fromNew: 0, fromDebt: 0 };
 
 export type PayrollRow = {
   id: string;
@@ -24,6 +27,9 @@ export type PayrollRow = {
   bonus: number;
   adjustment: number;
   total: number;
+  collectedConsult: StaffCollection; // thực thu trong tháng theo vai trò TƯ VẤN (gồm thu nợ ca cũ)
+  collectedDoctor: StaffCollection; // thực thu trong tháng theo vai trò BÁC SĨ
+  debtOutstanding: number; // khách của mình (tư vấn/bác sĩ) còn nợ cộng dồn tới hiện tại
 };
 
 export async function getPayroll(monthDate: Date, standardDays = STANDARD_DAYS_DEFAULT) {
@@ -31,7 +37,7 @@ export async function getPayroll(monthDate: Date, standardDays = STANDARD_DAYS_D
   const lte = endOfMonth(monthDate);
   const monthStr = format(monthDate, "yyyy-MM");
 
-  const [users, monthCases, attendance, entries] = await Promise.all([
+  const [users, monthCases, attendance, entries, monthPayments, debtConsultG, debtDoctorG] = await Promise.all([
     prisma.user.findMany({
       where: { active: true },
       select: { id: true, fullName: true, role: true, code: true, baseSalary: true },
@@ -46,7 +52,30 @@ export async function getPayroll(monthDate: Date, standardDays = STANDARD_DAYS_D
     }),
     prisma.attendance.findMany({ where: { date: { gte, lte } }, select: { userId: true } }),
     prisma.payrollEntry.findMany({ where: { month: monthStr } }),
+    prisma.payment.findMany({
+      where: { paidAt: { gte, lte } },
+      select: {
+        amount: true,
+        paidAt: true,
+        case: { select: { createdAt: true, consultantId: true, doctorId: true } },
+      },
+    }),
+    prisma.caseRecord.groupBy({ by: ["consultantId"], where: { debtAmount: { gt: 0 }, consultantId: { not: null } }, _sum: { debtAmount: true } }),
+    prisma.caseRecord.groupBy({ by: ["doctorId"], where: { debtAmount: { gt: 0 }, doctorId: { not: null } }, _sum: { debtAmount: true } }),
   ]);
+
+  // Thực thu trong tháng theo nhân sự (tiền thật đã về, gồm thu nợ từ ca các tháng trước)
+  const attributions = monthPayments.map((p) => ({
+    amount: toNum(p.amount),
+    paidAt: p.paidAt,
+    caseCreatedAt: p.case.createdAt,
+    consultantId: p.case.consultantId,
+    doctorId: p.case.doctorId,
+  }));
+  const collected = collectionsByStaff(attributions, gte);
+  const collectedAll = collectionsTotal(attributions, gte);
+  const debtByConsult = new Map(debtConsultG.map((g) => [g.consultantId as string, toNum(g._sum.debtAmount)]));
+  const debtByDoctor = new Map(debtDoctorG.map((g) => [g.doctorId as string, toNum(g._sum.debtAmount)]));
 
   // Ngày công (Attendance đã unique theo user/ngày)
   const days = new Map<string, number>();
@@ -66,7 +95,13 @@ export async function getPayroll(monthDate: Date, standardDays = STANDARD_DAYS_D
     const adjustment = e ? toNum(e.adjustment) : 0;
 
     const total = baseActual + commission + bonus + adjustment;
-    return { id: u.id, name: u.fullName, code: u.code, role: u.role, daysWorked, baseFull, baseActual, commission, bonus, adjustment, total };
+    const collectedConsult = collected.consultants.get(u.id) ?? EMPTY_COLLECTION;
+    const collectedDoctor = collected.doctors.get(u.id) ?? EMPTY_COLLECTION;
+    const debtOutstanding = (debtByConsult.get(u.id) ?? 0) + (debtByDoctor.get(u.id) ?? 0);
+    return {
+      id: u.id, name: u.fullName, code: u.code, role: u.role, daysWorked, baseFull, baseActual,
+      commission, bonus, adjustment, total, collectedConsult, collectedDoctor, debtOutstanding,
+    };
   });
 
   // Hoa hồng cộng tác viên (theo nguồn khách) — số tiền nhập tay ở từng hồ sơ.
@@ -91,5 +126,6 @@ export async function getPayroll(monthDate: Date, standardDays = STANDARD_DAYS_D
     totalBonus: rows.reduce((s, r) => s + r.bonus + r.adjustment, 0),
     totalStaff: rows.reduce((s, r) => s + r.total, 0),
     totalCtv: ctv.reduce((s, r) => s + r.amount, 0),
+    collectedAll, // thực thu toàn trung tâm trong tháng (mỗi khoản đếm 1 lần)
   };
 }

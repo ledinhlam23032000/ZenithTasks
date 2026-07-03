@@ -6,9 +6,9 @@ import { monthRange, lastMonthRange, growthPct } from "@/lib/dates";
 import { REVENUE_TRANSFER_CODES } from "@/lib/finance";
 import { computePnl } from "@/lib/pnl";
 
-/** Lãi/Lỗ tháng hiện tại: doanh thu dịch vụ (từ hồ sơ) + thu khác − tổng chi (sổ thu chi). */
-export async function getMonthlyPnl() {
-  const m = monthRange();
+/** Lãi/Lỗ của 1 tháng bất kỳ: doanh thu dịch vụ (từ hồ sơ) + thu khác − tổng chi (sổ thu chi). */
+export async function getMonthlyPnl(monthDate = new Date()) {
+  const m = monthRange(monthDate);
   const [payAgg, cash] = await Promise.all([
     prisma.payment.aggregate({ where: { paidAt: m }, _sum: { amount: true } }),
     prisma.cashTransaction.findMany({ where: { occurredAt: m }, select: { type: true, amount: true, category: true } }),
@@ -87,15 +87,20 @@ export async function getSalesSeries() {
 
 export type Reports = Awaited<ReturnType<typeof getReports>>;
 
-export async function getReports() {
+/** Báo cáo của 1 tháng bất kỳ (mặc định tháng hiện tại). "Tháng trước" luôn là tháng liền trước `monthDate`. */
+export async function getReports(monthDate = new Date()) {
   const now = new Date();
-  const month = monthRange(now);
-  const last = lastMonthRange(now);
+  const isCurrentMonth = format(monthDate, "yyyy-MM") === format(now, "yyyy-MM");
+  const month = monthRange(monthDate);
+  const last = lastMonthRange(monthDate);
   const since14 = startOfDay(subDays(now, 13));
 
-  const [payments14, revThis, revLast, topServicesRaw, sourceRaw, debtAgg, topDebtors, doctorGroups, doctors, casesThis, casesLast] =
+  const [payments14, revThis, revLast, topServicesRaw, sourceRaw, debtAgg, topDebtors, doctorGroups, doctors, casesThis, casesLast, agreedThis] =
     await Promise.all([
-      prisma.payment.findMany({ where: { paidAt: { gte: since14 } }, select: { amount: true, paidAt: true } }),
+      // Biểu đồ "14 ngày gần nhất" chỉ có ý nghĩa khi xem tháng hiện tại — tháng quá khứ thì bỏ trống.
+      isCurrentMonth
+        ? prisma.payment.findMany({ where: { paidAt: { gte: since14 } }, select: { amount: true, paidAt: true } })
+        : Promise.resolve([]),
       prisma.payment.aggregate({ where: { paidAt: month }, _sum: { amount: true } }),
       prisma.payment.aggregate({ where: { paidAt: last }, _sum: { amount: true } }),
       prisma.caseService.groupBy({
@@ -104,7 +109,8 @@ export async function getReports() {
         _count: { _all: true },
         _sum: { finalPrice: true },
       }),
-      prisma.customer.groupBy({ by: ["source"], _count: { _all: true } }),
+      // Nguồn khách PHẢI lọc theo tháng (khách tạo trong tháng) — trước đây đếm toàn bộ lịch sử, sai khi xem theo tháng.
+      prisma.customer.groupBy({ by: ["source"], where: { createdAt: month }, _count: { _all: true } }),
       prisma.caseRecord.aggregate({ _sum: { debtAmount: true } }),
       prisma.caseRecord.findMany({
         where: { debtAmount: { gt: 0 } },
@@ -121,9 +127,10 @@ export async function getReports() {
       prisma.user.findMany({ where: { role: "DOCTOR" }, select: { id: true, fullName: true } }),
       prisma.caseRecord.count({ where: { createdAt: month } }),
       prisma.caseRecord.count({ where: { createdAt: last } }),
+      prisma.caseRecord.count({ where: { createdAt: month, consultResult: "AGREED" } }),
     ]);
 
-  // Doanh thu 14 ngày
+  // Doanh thu 14 ngày (chỉ tháng hiện tại)
   const buckets = new Map<string, number>();
   for (let i = 13; i >= 0; i--) {
     buckets.set(format(subDays(now, i), "yyyy-MM-dd"), 0);
@@ -140,9 +147,11 @@ export async function getReports() {
   const revenueLastMonth = toNum(revLast._sum.amount);
 
   return {
+    isCurrentMonth,
     revenueSeries,
     revenue: { thisMonth: revenueThisMonth, lastMonth: revenueLastMonth, growth: growthPct(revenueThisMonth, revenueLastMonth) },
     cases: { thisMonth: casesThis, lastMonth: casesLast, growth: growthPct(casesThis, casesLast) },
+    consultRate: { total: casesThis, agreed: agreedThis, rate: casesThis > 0 ? Math.round((agreedThis / casesThis) * 100) : 0 },
     topServices: topServicesRaw
       .map((s) => ({ name: s.name, count: s._count._all, revenue: toNum(s._sum.finalPrice) }))
       .sort((a, b) => b.count - a.count || b.revenue - a.revenue) // xếp theo SỐ LƯỢT, rồi doanh thu

@@ -6,25 +6,33 @@
 // ============================================================================
 
 export type DebtPlanLike = {
-  dayOfMonth: number; // ngày trả hàng tháng (1..28)
+  dayOfMonth: number; // ngày trả hàng tháng (1..31 — tháng thiếu ngày tự lùi về ngày cuối tháng)
   monthlyAmount: number; // số tiền trả mỗi tháng (VND)
   startDate: Date; // mốc kỳ trả đầu tiên
 };
 
-/** Chuẩn hoá ngày trong tháng về 1..28 (tránh lệ thuộc tháng thiếu ngày 29/30/31). */
+/** Chuẩn hoá ngày trong tháng về 1..31. */
 export function clampDayOfMonth(day: number): number {
   if (!Number.isFinite(day)) return 1;
-  return Math.min(28, Math.max(1, Math.trunc(day)));
+  return Math.min(31, Math.max(1, Math.trunc(day)));
 }
 
 const atMidnight = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 
+/** Số ngày của tháng (month theo chuẩn JS 0..11). */
+const daysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate();
+
+/** "Ngày X" của một tháng cụ thể — tháng thiếu ngày (29/30/31) thì lùi về ngày cuối tháng. */
+export function dueDateInMonth(dayOfMonth: number, year: number, month: number): Date {
+  const day = clampDayOfMonth(dayOfMonth);
+  return new Date(year, month, Math.min(day, daysInMonth(year, month)));
+}
+
 /** Ngày đáo hạn KẾ TIẾP (đúng "ngày X" trong tháng) vào hoặc sau `from`. */
 export function nextDueDate(dayOfMonth: number, from: Date): Date {
-  const day = clampDayOfMonth(dayOfMonth);
   const base = atMidnight(from);
-  let candidate = new Date(base.getFullYear(), base.getMonth(), day);
-  if (candidate < base) candidate = new Date(base.getFullYear(), base.getMonth() + 1, day);
+  let candidate = dueDateInMonth(dayOfMonth, base.getFullYear(), base.getMonth());
+  if (candidate < base) candidate = dueDateInMonth(dayOfMonth, base.getFullYear(), base.getMonth() + 1);
   return candidate;
 }
 
@@ -40,16 +48,15 @@ export function monthsToClear(debtRemaining: number, monthlyAmount: number): num
  * Dùng để ước lượng đáng lẽ đã phải trả bao nhiêu theo cam kết.
  */
 export function duePeriods(plan: DebtPlanLike, now: Date): number {
-  const day = clampDayOfMonth(plan.dayOfMonth);
   const start = atMidnight(plan.startDate);
   const cur = atMidnight(now);
-  if (cur < new Date(start.getFullYear(), start.getMonth(), day)) {
+  if (cur < dueDateInMonth(plan.dayOfMonth, start.getFullYear(), start.getMonth())) {
     // chưa tới kỳ đầu tiên
     const monthDiff = (cur.getFullYear() - start.getFullYear()) * 12 + (cur.getMonth() - start.getMonth());
     return Math.max(0, monthDiff);
   }
   const monthDiff = (cur.getFullYear() - start.getFullYear()) * 12 + (cur.getMonth() - start.getMonth());
-  const passedThisMonth = cur.getDate() >= day ? 1 : 0;
+  const passedThisMonth = cur >= dueDateInMonth(plan.dayOfMonth, cur.getFullYear(), cur.getMonth()) ? 1 : 0;
   return Math.max(0, monthDiff + passedThisMonth);
 }
 
@@ -81,7 +88,7 @@ export function debtPlanStatus(
   const finalDue =
     monthsLeft === Infinity || monthsLeft === 0
       ? nextDue
-      : nextDueDate(plan.dayOfMonth, new Date(nextDue.getFullYear(), nextDue.getMonth() + (monthsLeft - 1), nextDue.getDate()));
+      : dueDateInMonth(plan.dayOfMonth, nextDue.getFullYear(), nextDue.getMonth() + (monthsLeft - 1));
   const expected = expectedPaidByNow(plan, opts.originalDebt, opts.now);
   const behindAmount = Math.max(0, expected - Math.max(0, opts.paidSincePlan));
   return { nextDue, monthsLeft, finalDue, behindAmount, isBehind: behindAmount > 0 };

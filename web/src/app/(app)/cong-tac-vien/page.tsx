@@ -4,6 +4,7 @@ import { requireCap } from "@/lib/auth";
 import { getCollaborators, getCollaboratorSeries, rangeBounds } from "@/lib/performance";
 import { formatVND } from "@/lib/money";
 import { PageHeader } from "@/components/ui/page-header";
+import { PageTabs } from "@/components/ui/page-tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatCard } from "@/components/ui/stat-card";
 import { MultiChart } from "@/components/ui/multi-chart";
@@ -14,6 +15,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { ExportMenu } from "@/components/ui/export-menu";
 import { isShareholder } from "@/lib/rbac";
+import { performanceTabs } from "@/lib/nav-tabs";
 import { NewCollaboratorButton } from "./ctv-forms";
 
 export const dynamic = "force-dynamic";
@@ -61,6 +63,8 @@ export default async function CollaboratorsPage({ searchParams }: { searchParams
           </div>
         }
       />
+
+      <PageTabs tabs={performanceTabs(user)} />
 
       <div className="grid gap-4 sm:grid-cols-3">
         <StatCard label={`Doanh số CTV · ${label}`} value={formatVND(totalRevenue)} icon={<Wallet className="h-5 w-5" />} tone="green" />

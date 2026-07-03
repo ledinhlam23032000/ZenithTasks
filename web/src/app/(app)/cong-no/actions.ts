@@ -11,7 +11,7 @@ export type DebtPlanState = { ok?: boolean; error?: string; nonce?: number };
 
 const schema = z.object({
   caseId: z.string().min(1),
-  dayOfMonth: z.coerce.number().int().min(1, "Ngày trả từ 1–28.").max(28, "Ngày trả từ 1–28."),
+  dayOfMonth: z.coerce.number().int().min(1, "Ngày trả từ 1–31.").max(31, "Ngày trả từ 1–31."),
   monthlyAmount: z.coerce.number().positive("Số tiền mỗi tháng phải lớn hơn 0."),
   startDate: z.string().trim().optional(),
   note: z.string().trim().optional(),

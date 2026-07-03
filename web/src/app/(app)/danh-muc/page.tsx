@@ -4,12 +4,14 @@ import { requireCap } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { formatVND, toNum } from "@/lib/money";
 import { PageHeader } from "@/components/ui/page-header";
+import { PageTabs } from "@/components/ui/page-tabs";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, THead, TH, TR, TD } from "@/components/ui/table";
 import { buttonVariants } from "@/components/ui/button";
 import { DeleteButton } from "@/components/ui/delete-button";
 import { isShareholder } from "@/lib/rbac";
+import { catalogTabs } from "@/lib/nav-tabs";
 import { NewServiceButton, NewMaterialButton, EditServiceButton, EditMaterialButton, ServiceBomButton } from "./catalog-forms";
 import { toggleService, toggleMaterial, deleteService, deleteMaterial, stockIn } from "./actions";
 import type { Prisma } from "@/generated/prisma/client";
@@ -46,6 +48,8 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
         description="Cấu hình các dịch vụ và vật tư sử dụng trong hồ sơ điều trị."
         icon={<ListChecks className="h-5 w-5" />}
       />
+
+      <PageTabs tabs={catalogTabs(user)} />
 
       <form action="/danh-muc" className="flex items-center gap-2">
         <div className="relative flex-1">
