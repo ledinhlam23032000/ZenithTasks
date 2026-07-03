@@ -574,3 +574,31 @@ Chưa có Sửa (cần bổ sung):
 - **Hồ sơ khách trên điện thoại**: bỏ bảng kéo ngang; mỗi khách là một dòng thông tin rõ tên, trạng thái, số điện thoại đã che, nguồn, lượt khám, giới tính và ngày tạo. Máy tính vẫn giữ bảng đầy đủ.
 - **Lịch hẹn trên điện thoại**: mỗi lịch hiển thị giờ, khách, loại hẹn, dịch vụ, nguồn, người phụ trách và trạng thái trong một khối dọc; nút sửa/xóa và đổi trạng thái vẫn dùng được tại chỗ.
 - `F:\a\Chay-Zenith.bat` đã đối chiếu SHA-256 và giống hoàn toàn `windows/Chay-Zenith.bat` trong repo. File cập nhật đúng nhánh `claude/lucid-cori-fg136w`, dựng Docker và mở `http://localhost:3000`.
+
+## Đại phẫu: thực thu theo nhân sự · công nợ · báo cáo theo tháng · gộp menu — 03/07/2026
+Chủ phản ánh nhiều vấn đề sau khi dùng thật; đã "đóng vai người dùng" trải nghiệm từng trang (chạy app thật + seed data), xác nhận từng vấn đề trước khi sửa. 4 đợt, mỗi đợt 1 commit, kiểm thử thật bằng trình duyệt (Playwright).
+
+### 1) Thực thu theo nhân sự (khách trả nợ tháng nào tính hoa hồng tháng đó)
+- **Vấn đề**: chủ tính hoa hồng theo tiền THẬT thu được; công nợ cộng dồn thì tháng sau khách trả bao nhiêu mới tính hoa hồng tháng đó — nhưng app không tách được "doanh số chốt" khỏi "tiền đã thu thật", cũng không biết nợ cộng dồn của từng người bao nhiêu.
+- **Giải pháp**: `lib/collections.ts` (thuần, 7 test) gom từng khoản `Payment` trong kỳ về CẢ tư vấn viên lẫn bác sĩ của hồ sơ, tách "ca tháng này" / "thu nợ ca cũ" (hồ sơ tạo trước kỳ). Áp dụng ở `/luong` (cột Thực thu TV/BS + Nợ còn lại), `/hieu-suat` (cột tương tự + trang chi tiết liệt kê từng khoản thu trong tháng), xuất Excel/Word theo.
+- Quyết định nghiệp vụ (đã hỏi chủ trước khi làm): khách trả nợ tính thực thu cho CẢ tư vấn viên và bác sĩ (không chỉ 1 bên); hoa hồng vẫn NHẬP TAY, app chỉ hiện số liệu thực thu làm căn cứ (không tự động tính % — chủ chưa muốn khai báo % từng người).
+
+### 2) Công nợ: hẹn nợ tới ngày 31, thu nợ/tất toán ngay
+- Hẹn nợ trước đây giới hạn ngày trả 1..28 (vô lý vì tháng có tới 31 ngày) → sửa `lib/debt-plan.ts` nhận **1..31**, tháng thiếu ngày tự lùi về ngày cuối tháng (`dueDateInMonth`), không nhảy nhầm sang tháng sau.
+- Thêm nút "Thu nợ" ngay tại `/cong-no` (không cần mở hồ sơ) — mặc định điền đủ số nợ còn lại, bấm là "Thu đủ & tất toán"; sửa số tiền để thu một phần. Dùng lại `addPayment` (nguyên tử, có khoá hồ sơ).
+- Hồ sơ có hẹn nợ mà nợ đã về 0 → thẻ hiện đúng "Đã tất toán — hoàn thành" (trước đây hiện sai "Chưa có hẹn nợ" vì điều kiện chỉ xét `debt > 0`).
+
+### 3) Báo cáo xem được theo tháng bất kỳ + sửa lỗi đếm nguồn khách
+- `getReports()`/`getMonthlyPnl()` trước đây khoá cứng "tháng hiện tại" → nhận `monthDate` tuỳ chọn, có ô chọn tháng giống Lương/Hiệu suất.
+- **Bug đã sửa**: "Phân bổ nguồn khách" đếm khách TOÀN THỜI GIAN dù đang xem báo cáo 1 tháng cụ thể — giờ lọc đúng theo tháng đang xem.
+- "Hiệu suất tư vấn viên" trên Báo cáo đổi sang dùng `getStaffPerformance(monthDate)` (trước đây lấy từ dashboard, luôn là tháng hiện tại dù đã chọn tháng khác). Biểu đồ "14 ngày gần nhất" tự ẩn khi xem tháng quá khứ.
+
+### 4) Gộp menu 23 → 18 mục (ADMIN) + "Đầu ca lễ tân" đúng người dùng
+- Chủ phản ánh sidebar cồng kềnh, nhiều mục tương tự nhau, và ADMIN thấy "Đầu ca lễ tân" dù không dùng tới.
+- Gộp 4 nhóm trang liên quan chung 1 mục menu, điều hướng qua `<PageTabs>` (route/action/quyền riêng của từng trang GIỮ NGUYÊN — chỉ gộp trình bày): Báo cáo⟷Phân tích kinh doanh⟷Trợ lý AI, Hiệu suất nhân sự⟷Cộng tác viên, Danh mục dịch vụ⟷Kho vật tư, Chấm công⟷Lịch làm việc.
+- "Đầu ca lễ tân": bớt ADMIN/MANAGER khỏi vai trò mặc định, chỉ còn RECEPTION/TELESALE (2 vai trò thật sự dùng mỗi sáng).
+- Sidebar cũng đã đóng/mở theo nhóm (từ đợt trước đó cùng ngày) — 2 thay đổi cộng lại giảm đáng kể độ dài menu nhìn thấy cùng lúc.
+
+### Kiểm thử
+- `tsc --noEmit` sạch; `vitest run`: 169/169 (thêm test `collections.ts` + mở rộng test `debt-plan.ts` cho ngày 29/30/31).
+- Trải nghiệm thật bằng Playwright: thu nợ 1 phần + tất toán (số liệu DB đổi đúng), chuyển tháng ở `/bao-cao` ra đúng số liệu tháng đó, chuyển qua lại đủ 4 cặp tab gộp, xác nhận lễ tân thấy "Đầu ca lễ tân" còn ADMIN thì không (và vào thẳng URL bị chặn đúng).
