@@ -4,7 +4,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { requireUser, verifyPassword, hashPassword } from "@/lib/auth";
+import { requireUser, verifyPassword, hashPassword, createSession } from "@/lib/auth";
 import { generateSecret, totpVerify, otpauthURL } from "@/lib/totp";
 import { audit } from "@/lib/audit";
 
@@ -80,6 +80,9 @@ export async function changePassword(_prev: PasswordState, formData: FormData): 
 
   await prisma.user.update({ where: { id: user.id }, data: { passwordHash: await hashPassword(parsed.data.next) } });
   await prisma.auditLog.create({ data: { actorId: user.id, action: "CHANGE_PASSWORD" } }).catch(() => {});
+  // Làm mới phiên ngay: mật khẩu mới (tối thiểu 8 ký tự) chắc chắn không còn là mật khẩu
+  // demo "123456" (chỉ 6 ký tự) → tắt cảnh báo "mật khẩu yếu" mà không cần đăng xuất lại.
+  await createSession({ uid: user.id, role: user.role, name: user.fullName, weakPw: false });
   return { ok: true };
 }
 

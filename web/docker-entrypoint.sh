@@ -43,7 +43,16 @@ until npx prisma migrate deploy; do
 done
 
 # Chỉ nạp dữ liệu mẫu khi bảng User còn trống (không ghi đè dữ liệu thật).
-COUNT=$(node --input-type=commonjs -e "const {Client}=require('pg');(async()=>{try{const c=new Client({connectionString:process.env.DATABASE_URL});await c.connect();const r=await c.query('SELECT COUNT(*)::int AS n FROM \"User\"');process.stdout.write(String(r.rows[0].n));await c.end();}catch(e){process.stdout.write('0');}})();")
+# QUAN TRỌNG: nếu câu đếm LỖI (mất kết nối, quyền truy vấn...) phải DỪNG hẳn —
+# TUYỆT ĐỐI không được coi lỗi = "0 người dùng" rồi chạy seed (seed xoá sạch bảng
+# trước khi nạp mẫu → có thể xoá mất dữ liệu thật của phòng khám đang chạy).
+# Dùng `if ! COUNT=$(...)` (không gán trần) vì script chạy dưới `set -e`: gán trần
+# thất bại sẽ khiến shell (dash) thoát NGAY tại dòng đó, không kịp in cảnh báo dưới đây.
+if ! COUNT=$(node --input-type=commonjs -e "const {Client}=require('pg');(async()=>{try{const c=new Client({connectionString:process.env.DATABASE_URL});await c.connect();const r=await c.query('SELECT COUNT(*)::int AS n FROM \"User\"');process.stdout.write(String(r.rows[0].n));await c.end();}catch(e){process.stderr.write(String(e&&e.message||e));process.stdout.write('ERROR');process.exitCode=1;}})();"); then
+  echo "❌ Không đếm được số người dùng hiện có trong CSDL — DỪNG khởi động để tránh nạp đè dữ liệu thật." >&2
+  echo "   (Migration ở bước trên đã chạy xong; lỗi này thường do CSDL chập chờn ngay sau đó. Khởi động lại container để thử lại.)" >&2
+  exit 1
+fi
 
 if [ "$COUNT" = "0" ]; then
   echo "🌱 Cơ sở dữ liệu trống — nạp dữ liệu mẫu..."

@@ -10,6 +10,11 @@ import { checkLoginAllowed, registerLoginFailure, clearLoginFailures } from "@/l
 
 export type LoginState = { error?: string };
 
+// Mật khẩu chung gán cho MỌI tài khoản khi seed dữ liệu mẫu (xem prisma/seed.ts).
+// Đăng nhập bằng đúng chuỗi này → phiên được đánh dấu "mật khẩu yếu" để cảnh báo
+// đổi ngay (banner ở AppShell) — phòng khi phòng khám lên thật mà quên đổi.
+const DEMO_PASSWORD = "123456";
+
 const schema = z.object({
   username: z.string().min(1),
   password: z.string().min(1),
@@ -69,7 +74,7 @@ export async function loginAction(_prev: LoginState, formData: FormData): Promis
   }
 
   clearLoginFailures(ip, uname);
-  await createSession({ uid: user.id, role: user.role, name: user.fullName });
+  await createSession({ uid: user.id, role: user.role, name: user.fullName, weakPw: parsed.data.password === DEMO_PASSWORD });
   await prisma.auditLog.create({ data: { actorId: user.id, action: "LOGIN", ip } }).catch(() => {});
 
   redirect("/dashboard");

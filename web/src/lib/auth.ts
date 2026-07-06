@@ -21,6 +21,8 @@ export type SessionPayload = {
   uid: string;
   role: Role;
   name: string;
+  /** true nếu đăng nhập bằng mật khẩu demo dùng chung khi seed (xem login/actions.ts). */
+  weakPw?: boolean;
 };
 
 export type SafeUser = {
@@ -77,6 +79,7 @@ export const getSession = cache(async (): Promise<SessionPayload | null> => {
       uid: payload.uid as string,
       role: payload.role as Role,
       name: payload.name as string,
+      weakPw: payload.weakPw as boolean | undefined,
     };
   } catch {
     return null;

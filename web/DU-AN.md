@@ -19,6 +19,18 @@
 - **A5 — Sao lưu tự động**: `scripts/backup.mjs` (`pg_dump -Fc` + ảnh `tar.gz` + giữ 14 bản + ghi `backup-status.json`); `npm run backup`; `docker-entrypoint.sh` chạy nền 1 lần lúc khởi động rồi mỗi 24h. Sao lưu OFFSITE vẫn là `windows/Sao-Luu.ps1`.
 - Lưu ý kỹ thuật: trong sandbox Postgres có thể tự dừng (stale pid) → `pg_ctlcluster 16 main start`. DB sandbox cần `npm run db:seed` để có dữ liệu thử (admin/123456).
 
+## Đợt vá an toàn dữ liệu & hạ tầng (kiểm định QA phát hiện) — "Đợt 24"
+> Xuất phát từ 1 vòng kiểm định QA độc lập phát hiện 4 lỗ hổng nghiêm trọng liên quan tới MẤT DỮ LIỆU
+> và ĐĂNG NHẬP — ưu tiên cao hơn mọi lỗi UI/UX vì hậu quả không thể đảo ngược. Tự kiểm thử bằng dữ
+> liệu/kịch bản THẬT (không chỉ đọc code): TSC pass, 171/171 test, dựng Docker daemon trong sandbox để
+> build thật + diễn tập sao lưu/phục hồi, forge JWT thật để tái hiện đúng lỗi vòng lặp đăng nhập,
+> Playwright thật cho banner mật khẩu yếu.
+- **Sao lưu tự động ĐANG HỎNG THẬT**: `Dockerfile` chỉ cài `openssl ca-certificates` → container KHÔNG có `pg_dump` → `scripts/backup.mjs` lỗi ENOENT âm thầm dù trang Hệ thống báo "đã bật sao lưu tự động". Thêm `postgresql-client-16` (khớp đúng major version với service `db` trong compose, qua kho APT chính thức apt.postgresql.org vì Debian bookworm mặc định chỉ có client v15). Đã diễn tập: sao lưu → `pg_restore` vào DB trống → khôi phục đúng 100% (16 khách, 30 hồ sơ, tài khoản admin) + kiểm cơ chế giữ N bản gần nhất (RETAIN).
+- **Nguy cơ seed tự xoá dữ liệu thật**: `docker-entrypoint.sh` cũ coi LỖI đếm bảng `User` (mất kết nối/quyền truy vấn thoáng qua) = "0 người dùng" rồi tự chạy seed (seed mở đầu bằng loạt `deleteMany()`). Sửa: lỗi đếm → DỪNG hẳn (`exit 1`, có thông báo rõ), KHÔNG bao giờ suy ra "trống" từ lỗi. Đã kiểm cả 2 nhánh (DB thật có dữ liệu → bỏ qua seed; DB lỗi kết nối → dừng, không seed) chạy thật qua `dash` (khớp shebang `/bin/sh` + `set -e` của script thật).
+- **Vòng lặp đăng nhập vô hạn**: `proxy.ts` cũ chỉ kiểm tra cookie phiên có tồn tại (không xác thực JWT) → cookie hỏng (đổi `AUTH_SECRET`, hết hạn) vẫn bị coi "đã đăng nhập" → trang tự phát hiện sai → đá về `/login` → `/login` lại thấy cookie "có" → đá ngược lại → `ERR_TOO_MANY_REDIRECTS`. Next.js 16 chạy proxy bằng Node.js runtime (không còn giới hạn Edge) nên xác thực JWT thật ngay trong proxy an toàn; cookie hỏng bị xoá thẳng trên response trước khi chuyển hướng. Tái hiện đúng lỗi gốc bằng JWT ký sai khoá + xác nhận đã hết loop, đối chứng phiên hợp lệ vẫn hoạt động bình thường.
+- **Cảnh báo mật khẩu demo chưa đổi**: thêm cờ `weakPw` vào JWT khi đăng nhập bằng đúng mật khẩu seed `123456` (`login/actions.ts`) → banner đỏ cho CHÍNH người đó (mọi vai trò, không riêng ADMIN) ở `(app)/layout.tsx`, link `/tai-khoan`. Đổi mật khẩu (`changePassword`) tự làm mới session `weakPw:false` ngay, không cần đăng xuất lại.
+- Việc này nằm trong "Đợt 0" của kế hoạch đại tu 6 đợt lớn hơn (an toàn hạ tầng → bảo mật/mặt-tiền-khách → chống-nổ-chậm → tính-năng-mới → đánh-bóng-UI → sản-phẩm-hoá) — các đợt sau xem tiếp trong hội thoại/PR liên quan.
+
 ## Đợt thiết kế lại Trợ lý AI thành màn chat + render markdown — "Đợt 23"
 > TSC pass, **157/157 test** (+7 test `markdown`). E2E THẬT (Playwright + mock AI trả markdown):
 > màn chào + gợi ý → hỏi → câu trả lời render **đậm**/danh sách (không còn dấu `**` thô). Theo yêu

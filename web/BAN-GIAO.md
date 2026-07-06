@@ -27,7 +27,7 @@ Mô hình vận hành: **1 máy chủ** (máy của trung tâm, chạy Docker, g
 - **Auth**: JWT (thư viện `jose`) trong cookie httpOnly **`zsession`** (payload `{uid, role, name}`, 30 ngày). Mật khẩu **bcryptjs cost 12**, tối thiểu 8 ký tự. Đăng nhập KHÔNG phân biệt hoa/thường. Tuỳ chọn **2FA TOTP** (`src/lib/totp.ts`).
 - **Biểu đồ**: `recharts` (Bar/Line/Area/Pie/Composed) — bọc trong `components/ui/multi-chart.tsx` + `range-chart.tsx`. `ResponsiveContainer` có `initialDimension` để không cảnh báo kích thước khi render phía máy chủ.
 - **Test**: `vitest` (`src/lib/__tests__`). CI: `.github/workflows/ci.yml`.
-- **proxy.ts** (middleware): `PUBLIC_PATHS = ["/login","/dat-lich","/khach"]`; matcher loại trừ `api|_next/static|_next/image|favicon.ico|img|uploads|.*\\..*`.
+- **proxy.ts** (middleware): `PUBLIC_PATHS = ["/login","/dat-lich","/khach"]`; matcher loại trừ `api|_next/static|_next/image|favicon.ico|img|uploads|.*\\..*`. Next 16 chạy proxy bằng Node.js runtime (không còn giới hạn Edge) nên proxy **xác thực chữ ký JWT thật** (`jwtVerify`) chứ không chỉ kiểm tra cookie có tồn tại — cookie hỏng (hết hạn/đổi `AUTH_SECRET`/sửa tay) bị **xoá ngay trên response** trước khi chuyển hướng, tránh vòng lặp `ERR_TOO_MANY_REDIRECTS` giữa `/login` ↔ trang cần đăng nhập.
 
 ## 3. Bản đồ thư mục
 ```
@@ -220,6 +220,7 @@ VN (`TZ` trong docker-compose). Ngày chấm công dùng `vnDateOnly()`.
 - **SĐT khách**: luôn mã hoá **AES-256-GCM**. Số đầy đủ chỉ lộ cho **ADMIN + MANAGER** qua server action `revealPhone(customerId)` (ghi audit `REVEAL_PHONE`) — chỉ giải mã KHI BẤM, KHÔNG giải mã lúc render. Nhân sự khác chỉ thấy 5 số cuối (`maskPhone`).
 - **Ảnh y khoa** (A1): route `/media/[file]` có xác thực (đăng nhập hoặc vé ký `?t=`) — KHÔNG còn công khai. Xem mục 8.6.
 - **Khoá mã hoá**: `lib/security-status.ts` cảnh báo (banner đỏ cho ADMIN) khi `PHONE_ENC_KEY` còn là khoá demo. Đổi khoá thật rồi `npm run rotate:phone`.
+- **Mật khẩu demo**: đăng nhập bằng đúng mật khẩu seed `123456` → JWT được đánh dấu `weakPw:true` (xem `login/actions.ts`) → banner đỏ **"Tài khoản của bạn vẫn dùng mật khẩu mặc định"** hiện cho CHÍNH người đó (mọi vai trò, không riêng ADMIN) ở `(app)/layout.tsx`, link thẳng `/tai-khoan`. Đổi mật khẩu (`changePassword`) tự làm mới session với `weakPw:false` ngay, không cần đăng xuất lại.
 - **Toán tiền nguyên tử** (A3): mọi thao tác động tới tiền trong hồ sơ chạy qua `withCaseLock` (`$transaction` + `FOR UPDATE`). Toán đặt ở `lib/case-math.ts` (thuần, có test) — sửa logic tiền thì sửa ở đó + cập nhật test.
 - **`AUTH_SECRET`**: tự sinh ngẫu nhiên mỗi máy, lưu trong volume `zenith_secrets` (KHÔNG commit). Có thể đặt riêng qua `.env`.
 - **`PHONE_ENC_KEY`**: hiện dùng khoá DEMO tương thích cũ (trong `docker-entrypoint.sh`). Đổi khoá cần **mã hoá lại** dữ liệu (`prisma/rotate-phone-key.ts`) — KHÔNG tự đổi. **Repo phải để PRIVATE.**
@@ -275,6 +276,9 @@ npx next dev -p 3939                              # dev server (Turbopack; biên
 7. **`cd` không giữ giữa các lần gọi Bash; `sleep` foreground bị chặn** → dùng vòng `until`/`run_in_background`.
 8. Sau đổi schema mà quên `prisma generate` → tsc báo lỗi kiểu.
 9. **React 19 tự RESET `<form action={fn}>` sau mỗi lần gửi** → mất dữ liệu input không kiểm soát khi action trả về (lỗi/cảnh báo, không đóng modal). Nếu cần GIỮ dữ liệu sau khi gửi (vd cảnh báo trùng lịch B4 để bấm "Vẫn đặt"), dùng `onSubmit` + `e.preventDefault()` rồi gọi action thủ công (KHÔNG dùng prop `action`). Lưu ý: field thêm bằng `formData.set()` ở client BỊ Next/React lược bỏ khi gọi server action → muốn truyền "biến thể" thì tạo **action server riêng** (vd `createAppointmentForced`) thay vì cờ trong FormData.
+10. **`Dockerfile` thiếu `pg_dump`** → `scripts/backup.mjs` gọi `pg_dump` lỗi ENOENT trong container, sao lưu tự động im lặng thất bại dù trang Hệ thống báo "đã bật sao lưu". Đã thêm `postgresql-client-16` (khớp major version với service `db` trong compose) qua kho APT chính thức apt.postgresql.org — Debian bookworm mặc định chỉ có client v15, dùng CŨ hơn server không được Postgres đảm bảo tương thích.
+11. **`docker-entrypoint.sh` coi lỗi đếm User = "0 người dùng" rồi chạy seed** → seed mở đầu bằng loạt `deleteMany()` → mất kết nối/quyền truy vấn thoáng qua lúc khởi động có thể xoá sạch dữ liệu thật. Đã sửa: lỗi đếm → DỪNG hẳn (`exit 1`), KHÔNG bao giờ suy ra "trống" từ lỗi. Lưu ý viết dạng `if ! COUNT=$(...)` (không gán trần) vì script chạy `set -e` trên `dash` (`/bin/sh`) — gán trần thất bại khiến shell thoát NGAY tại dòng đó, không kịp in cảnh báo.
+12. **`proxy.ts` cũ chỉ kiểm tra cookie có tồn tại** (không xác thực JWT) → cookie hỏng (đổi `AUTH_SECRET`, hết hạn) vẫn bị coi "đã đăng nhập", trang tự phát hiện sai rồi đá về `/login`, `/login` lại thấy cookie "có" nên đá ngược lại → `ERR_TOO_MANY_REDIRECTS`. Next 16 chạy proxy bằng Node.js runtime nên xác thực JWT thật ngay trong proxy (dùng `jose`) là an toàn; cookie hỏng bị xoá thẳng trên response trước khi redirect.
 
 ## 14. TODO / lộ trình
 - **Zalo OA (GĐ2)** + **AI tự trả lời (GĐ3)**: cần lập Zalo OA lấy token (khách đang dùng Zalo cá nhân, không có API) — TẠM GÁC.
