@@ -614,5 +614,10 @@ Chủ phản ánh: (1) 2 hồ sơ đã trả nợ nhưng "Việc cần làm hôm
 - Trước đây ngưỡng chỉ nằm ở URL (`?threshold=`), rời trang là mất → cảm giác "không lưu". Nay lưu ở bảng cấu hình chung **`AppSetting`** (khoá `debt.threshold`), dùng chung mọi máy, giữ nguyên khi điều hướng. Migration `20260706120000_app_setting`.
 - `lib/settings.ts`: `getSetting/setSetting`, `getDebtThreshold()` (mặc định 5tr). Action `saveDebtThreshold` (chặn cổ đông, ghi audit `SET_DEBT_THRESHOLD`). `/cong-no` đọc ngưỡng từ DB; thanh lọc chuyển sang client `DebtFilters` (chọn tư vấn viên điều hướng URL + ô ngưỡng lưu DB).
 
+### 3) "Việc cần làm" không nhắc khách đang trả góp ĐÚNG hẹn
+- Chủ báo tiếp: 2 khách đã trả tiền kỳ này nhưng vẫn hiện ở "Công nợ cần thu". Soi dữ liệu: đây là khách có HẸN NỢ TRẢ GÓP, đã trả kỳ này nhưng vẫn còn DƯ NỢ (kỳ sau tới 30/07…) → `debtAmount>0` nên vẫn lọt vào danh sách. Không phải lỗi thuật toán tiền (khoản thu đã ghi đúng), mà là "việc cần làm" nhắc thừa với khách đang trả góp đúng hẹn.
+- Sửa `lib/workqueue.ts`: nhóm "Công nợ cần thu" nay BỎ QUA ca có hẹn nợ mà ĐÚNG hẹn (dùng `debtPlanStatus.isBehind` từ `lib/debt-plan.ts`, tính `paidSincePlan` = tiền trả kể từ khi lập kế hoạch). Chỉ nhắc ca KHÔNG có hẹn nợ, hoặc có hẹn nợ nhưng ĐANG CHẬM (kèm ghi chú "chậm hẹn X đ"). Sổ công nợ vẫn hiện đủ mọi dư nợ như cũ.
+- Kiểm thử thật: ca đúng hẹn (kỳ đầu chưa tới) tự biến mất khỏi "việc cần làm"; ca chậm hẹn vẫn hiện kèm "chậm hẹn".
+
 ### Kiểm thử
 - `tsc` sạch, `vitest` 169/169. Kiểm thử thật: đặt ngưỡng 10tr → rời trang → quay lại vẫn 10tr (DB `AppSetting.debt.threshold=10000000`); bấm "Thu nợ" trên Việc cần làm → hồ sơ HS00028 `debtAmount` về 0, số dòng công nợ giảm.
