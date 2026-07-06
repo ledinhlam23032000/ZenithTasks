@@ -7,12 +7,11 @@ function filterTabs(user: UserLike, tabs: (PageTab & { modKey: string })[]): Pag
   return tabs.filter((t) => userCan(user, `mod:${t.modKey}`)).map(({ href, label }) => ({ href, label }));
 }
 
-/** Báo cáo / Phân tích kinh doanh / Trợ lý AI — gộp chung 1 mục menu ("Báo cáo"). */
+/** Báo cáo / Phân tích kinh doanh — gộp chung 1 mục menu ("Báo cáo"). */
 export function reportTabs(user: UserLike): PageTab[] {
   return filterTabs(user, [
     { modKey: "bao-cao", href: "/bao-cao", label: "Báo cáo" },
     { modKey: "phan-tich", href: "/phan-tich", label: "Phân tích kinh doanh" },
-    { modKey: "tro-ly", href: "/tro-ly", label: "Trợ lý AI" },
   ]);
 }
 

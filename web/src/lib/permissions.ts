@@ -13,7 +13,7 @@ import type { Role } from "@/generated/prisma/client";
 
 const ALL: Role[] = ["ADMIN", "MANAGER", "TELESALE", "RECEPTION", "CONSULTANT", "DOCTOR", "NURSE", "CARE"];
 
-export type NavGroup = "Hôm nay" | "Khách hàng" | "Phân tích" | "Vận hành" | "Quản trị";
+export type NavGroup = "Hôm nay" | "Khách hàng" | "Phân tích" | "Trợ lý AI" | "Vận hành" | "Quản trị";
 export type ModuleDef = { key: string; href: string; label: string; icon: string; group: NavGroup; roles: Role[]; hidden?: boolean };
 
 // Các mục (menu) — đây cũng là nguồn duy nhất cho thanh điều hướng.
@@ -35,9 +35,10 @@ export const MODULES: ModuleDef[] = [
   { key: "ho-so", href: "/ho-so", label: "Hồ sơ điều trị", icon: "FolderHeart", group: "Khách hàng", roles: ["ADMIN", "MANAGER", "CONSULTANT", "DOCTOR", "RECEPTION", "SHAREHOLDER"], hidden: true },
   { key: "cham-soc", href: "/cham-soc", label: "Chăm sóc KH", icon: "MessageCircleHeart", group: "Khách hàng", roles: ["ADMIN", "MANAGER", "CARE", "SHAREHOLDER"] },
   { key: "bao-cao", href: "/bao-cao", label: "Báo cáo", icon: "TrendingUp", group: "Phân tích", roles: ["ADMIN", "MANAGER", "SHAREHOLDER"] },
-  // Gộp chung tab với "Báo cáo" (xem components/ui/page-tabs.tsx) — vẫn là module riêng để phân quyền, chỉ ẩn khỏi menu.
+  // Phân tích kinh doanh vẫn gộp tab với Báo cáo.
   { key: "phan-tich", href: "/phan-tich", label: "Phân tích kinh doanh", icon: "PieChart", group: "Phân tích", roles: ["ADMIN", "MANAGER", "SHAREHOLDER"], hidden: true },
-  { key: "tro-ly", href: "/tro-ly", label: "Trợ lý AI", icon: "Sparkles", group: "Phân tích", roles: ["ADMIN", "MANAGER", "SHAREHOLDER"], hidden: true },
+  // Để thành nhóm riêng và hiện trực tiếp: cổ đông lớn tuổi không phải tìm trong tab Báo cáo.
+  { key: "tro-ly", href: "/tro-ly", label: "Trợ lý AI", icon: "Sparkles", group: "Trợ lý AI", roles: ["ADMIN", "SHAREHOLDER"] },
   { key: "hieu-suat", href: "/hieu-suat", label: "Hiệu suất nhân sự", icon: "Activity", group: "Phân tích", roles: ["ADMIN", "MANAGER", "SHAREHOLDER"] },
   // Gộp chung tab với "Hiệu suất nhân sự".
   { key: "cong-tac-vien", href: "/cong-tac-vien", label: "Cộng tác viên", icon: "Handshake", group: "Phân tích", roles: ["ADMIN", "MANAGER", "SHAREHOLDER"], hidden: true },
@@ -86,6 +87,8 @@ export function parsePerms(raw: unknown): PermOverride {
 
 /** Người dùng có quyền này không (đã tính cả grant/deny tuỳ chỉnh)? */
 export function userCan(user: UserLike, key: string): boolean {
+  // Ranh giới cứng: dù bị cấp grant nhầm, chỉ Admin/Cổ đông được dùng Trợ lý AI.
+  if (key === "mod:tro-ly" && user.role !== "ADMIN" && user.role !== "SHAREHOLDER") return false;
   const p = parsePerms(user.permissions);
   if (p.deny.includes(key)) return false;
   if (p.grant.includes(key)) return true;

@@ -630,3 +630,10 @@ Chủ phản ánh: (1) 2 hồ sơ đã trả nợ nhưng "Việc cần làm hôm
 - **Chuẩn hoá UI mobile toàn hệ thống:** safe-area cho tai thỏ/home indicator, input 16px tránh Safari tự zoom, nút/form có vùng chạm lớn, modal và tìm kiếm thành bottom-sheet, tiêu đề/trang/hành động co giãn, card giảm padding và bảng rộng có chỉ dẫn vuốt ngang nhưng không bỏ cột/chức năng.
 - **An toàn dữ liệu:** service worker đổi phiên bản cache nhưng vẫn chỉ precache icon; không cache trang/dữ liệu nghiệp vụ nhạy cảm để tránh hiện dữ liệu cũ hoặc lộ dữ liệu khi máy mất mạng.
 - **Kiểm tra:** TypeScript sạch; lint các file thay đổi sạch; 169/169 test đạt. Chạy thật ở viewport iPhone 390×844: đăng nhập → dashboard dữ liệu thật, header/bottom nav/safe-area hiển thị đúng và console không có lỗi.
+
+## Đưa Trợ lý AI ra vị trí riêng cho Cổ đông — 06/07/2026
+
+- Nguyên nhân “mất hút”: đợt gộp menu 23→18 đã đặt `tro-ly` là `hidden: true` và chỉ để lại tab bên trong Báo cáo; chức năng/API key không hề mất.
+- Trả **Trợ lý AI** thành nhóm/menu riêng trên desktop và ô riêng trong “Tất cả chức năng” trên mobile; nếu tài khoản có quyền, `/tro-ly` được ưu tiên ngay thanh điều hướng đáy để cổ đông lớn tuổi mở bằng một chạm.
+- Bỏ Trợ lý AI khỏi dải tab Báo cáo để không còn hai cách tổ chức chồng chéo.
+- Khôi phục ranh giới cứng: chỉ ADMIN + SHAREHOLDER truy cập; MANAGER hoặc vai trò khác vẫn bị chặn dù có `grant` nhầm. Bổ sung test cho cả quyền và mục điều hướng của Cổ đông.

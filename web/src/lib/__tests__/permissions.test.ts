@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { userCan, diffFromDesired } from "../permissions";
+import { userCan, diffFromDesired, navForUser } from "../permissions";
 
 describe("userCan", () => {
   it("mặc định theo vai trò", () => {
@@ -11,6 +11,15 @@ describe("userCan", () => {
   });
   it("deny gỡ cả quyền mặc định", () => {
     expect(userCan({ role: "ADMIN", permissions: { grant: [], deny: ["mod:luong"] } }, "mod:luong")).toBe(false);
+  });
+  it("Trợ lý AI chỉ dành cho Admin và Cổ đông, grant không vượt được ranh giới", () => {
+    expect(userCan({ role: "ADMIN" }, "mod:tro-ly")).toBe(true);
+    expect(userCan({ role: "SHAREHOLDER" }, "mod:tro-ly")).toBe(true);
+    expect(userCan({ role: "MANAGER", permissions: { grant: ["mod:tro-ly"], deny: [] } }, "mod:tro-ly")).toBe(false);
+  });
+  it("Trợ lý AI hiện thành mục điều hướng riêng cho Cổ đông", () => {
+    const item = navForUser({ role: "SHAREHOLDER" }).find((nav) => nav.href === "/tro-ly");
+    expect(item).toMatchObject({ label: "Trợ lý AI", group: "Trợ lý AI" });
   });
 });
 

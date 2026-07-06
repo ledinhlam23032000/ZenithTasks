@@ -137,7 +137,8 @@ export function AppShell({
     (groups[item.group] ??= []).push(item);
     return groups;
   }, {});
-  const preferredMobileHrefs = ["/dashboard", "/viec-hom-nay", "/lich-hen"];
+  // Trợ lý AI đứng ngay thanh đáy nếu tài khoản có quyền (đặc biệt cho Cổ đông).
+  const preferredMobileHrefs = ["/dashboard", "/tro-ly", "/viec-hom-nay", "/lich-hen"];
   const mobileNav = preferredMobileHrefs
     .map((href) => nav.find((item) => item.href === href))
     .filter((item): item is NavItemData => Boolean(item));
