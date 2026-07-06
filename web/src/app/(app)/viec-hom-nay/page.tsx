@@ -12,11 +12,13 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { requireCap } from "@/lib/auth";
+import { userCan } from "@/lib/permissions";
 import { getWorkqueue } from "@/lib/workqueue";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
+import { DebtCollectButton } from "../cong-no/debt-collect-button";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Việc cần làm hôm nay" };
@@ -31,7 +33,8 @@ const ICONS: Record<string, LucideIcon> = {
 };
 
 export default async function WorkqueuePage() {
-  await requireCap("mod:viec-hom-nay");
+  const user = await requireCap("mod:viec-hom-nay");
+  const canCollect = userCan(user, "payment.add");
   const { sections, total } = await getWorkqueue();
   const active = sections.filter((s) => s.count > 0);
 
@@ -86,7 +89,10 @@ export default async function WorkqueuePage() {
                   <CardContent className="pt-0">
                     <ul className="divide-y divide-slate-100">
                       {s.items.map((it) => {
-                        const row = (
+                        // Nhóm công nợ + có quyền thu tiền: cho "Thu nợ" ngay tại đây (giảm nợ hồ sơ,
+                        // dòng tự biến mất sau khi tất toán). Tránh phải mở hồ sơ mới thu được.
+                        const showCollect = canCollect && !!it.collect;
+                        const info = (
                           <span className="flex items-center justify-between gap-3 py-2.5">
                             <span className="min-w-0">
                               <span className="block truncate font-medium text-slate-800">{it.title}</span>
@@ -94,18 +100,33 @@ export default async function WorkqueuePage() {
                             </span>
                             <span className="flex shrink-0 items-center gap-1.5">
                               {it.badge && <Badge tone={s.tone}>{it.badge}</Badge>}
-                              {it.href && <ChevronRight className="h-4 w-4 text-slate-300" />}
+                              {it.href && !showCollect && <ChevronRight className="h-4 w-4 text-slate-300" />}
                             </span>
                           </span>
                         );
+                        if (showCollect && it.collect) {
+                          return (
+                            <li key={it.id} className="flex items-center gap-2">
+                              <Link href={it.href ?? `/ho-so/${it.collect.caseId}`} className="min-w-0 flex-1 block rounded-lg px-1 transition hover:bg-slate-50">
+                                {info}
+                              </Link>
+                              <DebtCollectButton
+                                caseId={it.collect.caseId}
+                                caseCode={it.collect.caseCode}
+                                customerName={it.collect.customerName}
+                                debt={it.collect.debt}
+                              />
+                            </li>
+                          );
+                        }
                         return (
                           <li key={it.id}>
                             {it.href ? (
                               <Link href={it.href} className="block rounded-lg px-1 transition hover:bg-slate-50">
-                                {row}
+                                {info}
                               </Link>
                             ) : (
-                              <div className="px-1">{row}</div>
+                              <div className="px-1">{info}</div>
                             )}
                           </li>
                         );

@@ -86,6 +86,7 @@ Chỉ 3 trang KHÔNG dynamic: `/` (redirect), `/login`, `/khong-co-quyen`. **H�
 - **dashboard.ts** — `getAdminDashboard()` (CHỈ tháng hiện tại — dùng cho `/dashboard`), `getStaffSnapshot()`.
 - **performance.ts** — `getStaffPerformance/getStaffDetail` (hiệu suất nhân sự, có `collectedConsult/collectedDoctor`; `getStaffDetail` có thêm `collections` = danh sách từng khoản tiền đã thu trong tháng của người đó); `getCollaborators/getCollaboratorDetail/getCollaboratorSeries` (cộng tác viên); `rangeBounds(range)`.
 - **nav-tabs.ts** — `reportTabs/performanceTabs/catalogTabs/attendanceTabs(user)`: danh sách tab (đã lọc theo quyền) cho các nhóm trang gộp chung 1 mục sidebar — xem mục "Quy ước trải nghiệm người dùng".
+- **settings.ts** — cấu hình dùng chung dạng khoá–giá trị lưu ở DB (model `AppSetting`): `getSetting/setSetting`, `getDebtThreshold()` (ngưỡng cảnh báo công nợ, mặc định 5tr). Vì lưu DB nên KHÔNG mất khi rời trang / đổi máy (trước đây ngưỡng chỉ ở URL nên "không lưu"). Thêm cấu hình mới → thêm khoá + helper ở đây.
 - **lookups.ts** — `getActiveServices/getActiveMaterials/getConsultants/getDoctors`. `getConsultants` trả **MỌI nhân sự đang hoạt động** (ai cũng có thể là người tư vấn).
 - **loyalty.ts** — hạng thành viên + điểm theo chi tiêu thực (`tierFor/pointsFor/nextTier`).
 - **media.ts** — `photoSrc(url)`: map URL cũ `/uploads/<f>` → `/media/<f>`, URL khác giữ nguyên.
@@ -132,6 +133,7 @@ Chỉ 3 trang KHÔNG dynamic: `/` (redirect), `/login`, `/khong-co-quyen`. **H�
 - **ConsentTemplate** + **CaseConsent** (B6 gđ2 — phiếu đồng ý): mẫu phiếu (quản ở `/mau-phieu`) + phiếu đã ghi nhận cho hồ sơ (lưu snapshot title/body). Card "Phiếu đồng ý" + in ở `ho-so/[id]/consent/[consentId]`. Xem `lib/consent.ts`.
 - **Attendance** (chấm công theo ngày), **Shift** (ca làm), **PayrollEntry** (theo tháng: `baseSalary`, `commission` nhập tay, `bonus`, `adjustment`…).
 - **CareMessage** (nhật ký chăm sóc: `channel`, `direction`), **FollowUp** (hẹn tái khám), **AuditLog**, **CashTransaction** (sổ thu chi), **Collaborator** (hồ sơ CTV: `name @unique`, `phone`, `bank*`, `note`, `active`).
+- **AppSetting** (cấu hình khoá–giá trị dùng chung: `key @id` + `value` + `updatedAt`). Hiện dùng cho ngưỡng cảnh báo công nợ (`debt.threshold`). Xem `lib/settings.ts`.
 
 ## 6. Phân quyền (RBAC) — `src/lib/permissions.ts`
 - 2 loại quyền: **mục** `mod:<key>` (gate cả menu lẫn trang) và **năng lực** mịn.

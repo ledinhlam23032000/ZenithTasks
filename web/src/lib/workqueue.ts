@@ -1,6 +1,7 @@
 import { startOfDay, endOfDay, addDays, subDays } from "date-fns";
 import { prisma } from "./db";
 import { toNum } from "./money";
+import { debtPlanStatus } from "./debt-plan";
 import type { Tone } from "@/components/ui/badge";
 
 // ============================================================================
@@ -21,7 +22,15 @@ const DEBT_OVERDUE_DAYS = 15; // công nợ "cần thu" nếu hồ sơ tạo tr�
 const FOLLOWUP_LOOKAHEAD_DAYS = 2; // nhắc tái khám trong vài ngày tới
 const TAKE = 50;
 
-export type WorkItem = { id: string; title: string; subtitle?: string; href?: string; badge?: string };
+export type WorkItem = {
+  id: string;
+  title: string;
+  subtitle?: string;
+  href?: string;
+  badge?: string;
+  // Nếu có: cho phép "Thu nợ" ngay trên dòng (chỉ dùng cho nhóm công nợ).
+  collect?: { caseId: string; caseCode: string; customerName: string; debt: number };
+};
 export type WorkSection = { key: string; label: string; hint: string; tone: Tone; icon: string; count: number; items: WorkItem[] };
 
 function maskTail(last5: string | null | undefined): string {
@@ -52,7 +61,7 @@ export async function getWorkqueue(): Promise<{ sections: WorkSection[]; total: 
       where: { debtAmount: { gt: 0 }, createdAt: { lt: debtBefore } },
       orderBy: { debtAmount: "desc" },
       take: TAKE,
-      include: { customer: { select: { id: true, fullName: true, phoneLast5: true } } },
+      include: { customer: { select: { id: true, fullName: true, phoneLast5: true } }, debtPlan: true },
     }),
     prisma.material.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
     // Sinh nhật hôm nay (so theo tháng/ngày).
@@ -93,6 +102,42 @@ export async function getWorkqueue(): Promise<{ sections: WorkSection[]; total: 
   }
 
   const fmtTime = (d: Date) => new Intl.DateTimeFormat("vi-VN", { hour: "2-digit", minute: "2-digit" }).format(d);
+  const fmtVnd = (n: number) => new Intl.NumberFormat("vi-VN").format(n) + "đ";
+
+  // ---- Công nợ cần thu: BỎ QUA ca đang theo hẹn nợ (trả góp) mà ĐÚNG hẹn ----
+  // Khách đã trả đủ kỳ theo cam kết thì không nhắc nữa (dù còn dư nợ) — chỉ nhắc
+  // ca KHÔNG có hẹn nợ, hoặc có hẹn nợ nhưng ĐANG CHẬM. Cần tổng đã trả kể từ khi
+  // lập kế hoạch để biết chậm/đúng hẹn.
+  const plannedIds = debtors.filter((d) => d.debtPlan).map((d) => d.id);
+  const planPayments = plannedIds.length
+    ? await prisma.payment.findMany({ where: { caseId: { in: plannedIds } }, select: { caseId: true, amount: true, paidAt: true } })
+    : [];
+  const debtItems: WorkItem[] = [];
+  for (const c of debtors) {
+    const debt = toNum(c.debtAmount);
+    let behind = 0;
+    if (c.debtPlan) {
+      const since = c.debtPlan.createdAt;
+      const paidSincePlan = planPayments
+        .filter((p) => p.caseId === c.id && p.paidAt >= since)
+        .reduce((s, p) => s + toNum(p.amount), 0);
+      const st = debtPlanStatus(
+        { dayOfMonth: c.debtPlan.dayOfMonth, monthlyAmount: toNum(c.debtPlan.monthlyAmount), startDate: c.debtPlan.startDate },
+        { debtRemaining: debt, originalDebt: debt + paidSincePlan, paidSincePlan, now },
+      );
+      if (!st.isBehind) continue; // đúng hẹn → không nhắc
+      behind = st.behindAmount;
+    }
+    const base = `${c.code} ${maskTail(c.customer.phoneLast5)}`.trim();
+    debtItems.push({
+      id: c.id,
+      title: c.customer.fullName,
+      subtitle: behind > 0 ? `${base} · chậm hẹn ${fmtVnd(behind)}` : base,
+      href: `/ho-so/${c.id}`,
+      badge: fmtVnd(debt),
+      collect: { caseId: c.id, caseCode: c.code, customerName: c.customer.fullName, debt },
+    });
+  }
 
   const sections: WorkSection[] = [
     {
@@ -126,17 +171,11 @@ export async function getWorkqueue(): Promise<{ sections: WorkSection[]; total: 
     {
       key: "debt",
       label: "Công nợ cần thu",
-      hint: `Hồ sơ còn nợ, quá ${DEBT_OVERDUE_DAYS} ngày.`,
+      hint: `Nợ quá ${DEBT_OVERDUE_DAYS} ngày, chưa có hẹn trả góp hoặc đang chậm hẹn.`,
       tone: "red",
       icon: "Wallet",
-      count: debtors.length,
-      items: debtors.map((c) => ({
-        id: c.id,
-        title: c.customer.fullName,
-        subtitle: `${c.code} ${maskTail(c.customer.phoneLast5)}`.trim(),
-        href: `/ho-so/${c.id}`,
-        badge: new Intl.NumberFormat("vi-VN").format(toNum(c.debtAmount)) + "đ",
-      })),
+      count: debtItems.length,
+      items: debtItems,
     },
     {
       key: "birthday",
