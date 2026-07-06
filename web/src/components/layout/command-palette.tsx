@@ -27,26 +27,27 @@ export function CommandPalette({ nav, open, onOpenChange }: { nav: NavItemData[]
   }, [open, setOpen]);
 
   useEffect(() => {
+    let frame = 0;
     if (open) {
-      setQuery("");
-      setRemote([]);
-      setActive(0);
-      requestAnimationFrame(() => inputRef.current?.focus());
+      frame = requestAnimationFrame(() => {
+        setQuery("");
+        setRemote([]);
+        setActive(0);
+        inputRef.current?.focus();
+      });
       document.body.style.overflow = "hidden";
     } else {
       document.body.style.overflow = "";
     }
     return () => {
+      cancelAnimationFrame(frame);
       document.body.style.overflow = "";
     };
   }, [open]);
 
   useEffect(() => {
     const q = query.trim();
-    if (q.length < 2) {
-      setRemote([]);
-      return;
-    }
+    if (q.length < 2) return;
     const timer = setTimeout(() => {
       globalSearch(q).then(setRemote).catch(() => setRemote([]));
     }, 200);
@@ -64,7 +65,8 @@ export function CommandPalette({ nav, open, onOpenChange }: { nav: NavItemData[]
   const items = useMemo(() => [...navMatches, ...remote], [navMatches, remote]);
 
   useEffect(() => {
-    setActive(0);
+    const frame = requestAnimationFrame(() => setActive(0));
+    return () => cancelAnimationFrame(frame);
   }, [items.length]);
 
   const go = (item: Item) => {
@@ -80,18 +82,23 @@ export function CommandPalette({ nav, open, onOpenChange }: { nav: NavItemData[]
   }, {});
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center px-4 pt-[12vh]" onClick={() => setOpen(false)}>
+    <div className="fixed inset-0 z-[60] flex items-end justify-center sm:items-start sm:px-4 sm:pt-[12vh]" onClick={() => setOpen(false)}>
       <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm" aria-hidden />
       <div
-        className="relative w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-slate-200"
+        className="relative w-full max-w-lg overflow-hidden rounded-t-[1.75rem] bg-white pb-[env(safe-area-inset-bottom)] shadow-2xl ring-1 ring-slate-200 sm:rounded-2xl sm:pb-0"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center gap-2.5 border-b border-slate-100 px-4 py-3">
+        <div className="mx-auto mt-2 h-1.5 w-12 rounded-full bg-slate-200 sm:hidden" />
+        <div className="flex items-center gap-2.5 border-b border-slate-100 px-4 py-4 sm:py-3">
           <Search className="h-4 w-4 shrink-0 text-slate-400" />
           <input
             ref={inputRef}
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => {
+              const next = e.target.value;
+              setQuery(next);
+              if (next.trim().length < 2) setRemote([]);
+            }}
             onKeyDown={(e) => {
               if (e.key === "ArrowDown") {
                 e.preventDefault();
@@ -105,14 +112,14 @@ export function CommandPalette({ nav, open, onOpenChange }: { nav: NavItemData[]
               }
             }}
             placeholder="Tìm khách hàng, hồ sơ, vật tư, menu…"
-            className="w-full bg-transparent text-sm text-slate-700 placeholder:text-slate-400 outline-none"
+            className="h-8 w-full bg-transparent text-base text-slate-700 placeholder:text-slate-400 outline-none sm:h-auto sm:text-sm"
           />
           <kbd className="hidden shrink-0 rounded-md border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] font-medium text-slate-400 sm:inline">
             Esc
           </kbd>
         </div>
 
-        <div className="max-h-80 overflow-y-auto p-2">
+        <div className="max-h-[62dvh] overflow-y-auto p-2 sm:max-h-80">
           {query.trim().length < 2 ? (
             <p className="flex items-center gap-2 px-3 py-6 text-sm text-slate-400">
               <Compass className="h-4 w-4" /> Gõ tối thiểu 2 ký tự để tìm kiếm.

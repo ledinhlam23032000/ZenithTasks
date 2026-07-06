@@ -10,7 +10,7 @@ const baseField =
 
 export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(
   ({ className, ...props }, ref) => (
-    <input ref={ref} className={cn(baseField, "h-10", className)} {...props} />
+    <input ref={ref} className={cn(baseField, "h-11 sm:h-10", className)} {...props} />
   ),
 );
 Input.displayName = "Input";
@@ -24,7 +24,7 @@ Textarea.displayName = "Textarea";
 
 export const Select = React.forwardRef<HTMLSelectElement, React.SelectHTMLAttributes<HTMLSelectElement>>(
   ({ className, children, ...props }, ref) => (
-    <select ref={ref} className={cn(baseField, "h-10 pr-9 appearance-none bg-no-repeat", className)}
+    <select ref={ref} className={cn(baseField, "h-11 pr-9 appearance-none bg-no-repeat sm:h-10", className)}
       style={{
         backgroundImage:
           "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")",

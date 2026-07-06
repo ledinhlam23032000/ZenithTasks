@@ -621,3 +621,12 @@ Chủ phản ánh: (1) 2 hồ sơ đã trả nợ nhưng "Việc cần làm hôm
 
 ### Kiểm thử
 - `tsc` sạch, `vitest` 169/169. Kiểm thử thật: đặt ngưỡng 10tr → rời trang → quay lại vẫn 10tr (DB `AppSetting.debt.threshold=10000000`); bấm "Thu nợ" trên Việc cần làm → hồ sơ HS00028 `debtAmount` về 0, số dòng công nợ giảm.
+
+## Bản dùng thử mobile-first cài được trên iPhone — 06/07/2026
+
+- **Không tách thành một app thiếu chức năng:** giữ nguyên toàn bộ route, Server Action, dữ liệu và RBAC của web; thay lớp vỏ responsive thành trải nghiệm app. Vì vậy tài khoản đăng nhập trên điện thoại thấy đúng toàn bộ chức năng được cấp quyền như trên máy tính.
+- **Thanh điều hướng bằng ngón cái:** 3 module ưu tiên theo quyền + Tìm kiếm + Tất cả. “Tất cả” mở kho chức năng dạng bottom-sheet, chia nhóm và hiển thị mọi module có quyền bằng lưới biểu tượng 3 cột.
+- **Cài lên iPhone:** thêm nút “Cài ứng dụng lên điện thoại” ở đăng nhập và kho chức năng; iPhone có hướng dẫn Safari → Chia sẻ → Thêm vào MH chính, các trình duyệt hỗ trợ hộp cài thì mở trực tiếp. Manifest dùng tên ngắn “Hồng Phúc”, chế độ standalone và icon sẵn có.
+- **Chuẩn hoá UI mobile toàn hệ thống:** safe-area cho tai thỏ/home indicator, input 16px tránh Safari tự zoom, nút/form có vùng chạm lớn, modal và tìm kiếm thành bottom-sheet, tiêu đề/trang/hành động co giãn, card giảm padding và bảng rộng có chỉ dẫn vuốt ngang nhưng không bỏ cột/chức năng.
+- **An toàn dữ liệu:** service worker đổi phiên bản cache nhưng vẫn chỉ precache icon; không cache trang/dữ liệu nghiệp vụ nhạy cảm để tránh hiện dữ liệu cũ hoặc lộ dữ liệu khi máy mất mạng.
+- **Kiểm tra:** TypeScript sạch; lint các file thay đổi sạch; 169/169 test đạt. Chạy thật ở viewport iPhone 390×844: đăng nhập → dashboard dữ liệu thật, header/bottom nav/safe-area hiển thị đúng và console không có lỗi.

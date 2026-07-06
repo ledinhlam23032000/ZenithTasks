@@ -47,13 +47,17 @@
   }
   html {
     -webkit-text-size-adjust: 100%;
+    min-height: 100%;
+    background-color: #f5f7fa;
   }
   body {
+    min-height: 100dvh;
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
+    -webkit-tap-highlight-color: transparent;
   }
   ::selection {
     background-color: var(--color-brand-200);
@@ -76,6 +80,53 @@
   }
   *::-webkit-scrollbar-thumb:hover {
     background-color: #94a3b8;
+  }
+}
+
+/* ===== Trải nghiệm như app trên điện thoại ===== */
+@media (max-width: 639px) {
+  /* iOS tự phóng trang nếu trường nhập nhỏ hơn 16px. */
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+
+  button,
+  a {
+    touch-action: manipulation;
+  }
+
+  .mobile-safe-top {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .mobile-content {
+    min-width: 0;
+  }
+
+  .mobile-content > * {
+    min-width: 0;
+  }
+
+  .app-table-scroll {
+    margin-inline: -0.25rem;
+    width: calc(100% + 0.5rem);
+    padding-inline: 0.25rem;
+    scroll-behavior: smooth;
+    scrollbar-width: none;
+  }
+
+  .app-table-scroll::-webkit-scrollbar {
+    display: none;
+  }
+
+  .app-table-scroll table:has(th:nth-child(4)) {
+    min-width: 44rem;
+  }
+
+  .app-table-scroll table:has(th:nth-child(7)) {
+    min-width: 58rem;
   }
 }
 

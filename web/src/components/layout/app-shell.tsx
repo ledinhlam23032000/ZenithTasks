@@ -39,6 +39,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { Avatar } from "@/components/ui/avatar";
+import { InstallAppButton } from "@/components/install-app";
 import { logoutAction } from "@/lib/auth-actions";
 import { ChangePasswordModal } from "./change-password";
 import { CommandPalette } from "./command-palette";
@@ -108,6 +109,15 @@ export function AppShell({
     return () => document.removeEventListener("keydown", onKey);
   }, []);
 
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [mobileOpen]);
+
   const toggleGroup = (group: string, defaultOpen: boolean) => {
     setCollapsedGroups((prev) => {
       const currentlyOpen = group in prev ? !prev[group] : defaultOpen;
@@ -127,16 +137,17 @@ export function AppShell({
     (groups[item.group] ??= []).push(item);
     return groups;
   }, {});
-  const preferredMobileHrefs = ["/dashboard", "/viec-hom-nay", "/lich-hen", "/tiep-nhan", "/khach-hang"];
+  const preferredMobileHrefs = ["/dashboard", "/viec-hom-nay", "/lich-hen"];
   const mobileNav = preferredMobileHrefs
     .map((href) => nav.find((item) => item.href === href))
     .filter((item): item is NavItemData => Boolean(item));
   for (const item of nav) {
-    if (mobileNav.length >= 4) break;
+    if (mobileNav.length >= 3) break;
     if (!mobileNav.some((current) => current.href === item.href)) mobileNav.push(item);
   }
 
   const groupEntries = Object.entries(navGroups);
+  const activeNav = [...nav].sort((a, b) => b.href.length - a.href.length).find((item) => isActive(item.href));
 
   const navList = (
     <nav className="flex-1 min-h-0 space-y-1 overflow-y-auto px-3 py-4">
@@ -204,36 +215,98 @@ export function AppShell({
         </div>
       </aside>
 
-      {/* Drawer mobile */}
+      {/* Kho ứng dụng mobile: mọi chức năng vẫn nằm trong tầm ngón tay cái. */}
       {mobileOpen && (
-        <div className="fixed inset-0 z-40 lg:hidden">
-          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
-          <aside className="absolute left-0 top-0 flex h-full w-72 flex-col bg-white shadow-xl">
-            <div className="flex items-center justify-between pr-3">
-              {brand}
-              <button onClick={() => setMobileOpen(false)} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100">
-                <X className="h-5 w-5" />
-              </button>
+        <div className="fixed inset-0 z-50 flex items-end lg:hidden" role="dialog" aria-modal="true" aria-label="Tất cả chức năng">
+          <button className="absolute inset-0 bg-slate-950/45 backdrop-blur-sm" onClick={() => setMobileOpen(false)} aria-label="Đóng menu" />
+          <section className="relative flex max-h-[92dvh] w-full flex-col rounded-t-[1.75rem] bg-slate-50 shadow-2xl">
+            <div className="shrink-0 rounded-t-[1.75rem] border-b border-slate-200 bg-white px-4 pb-3 pt-2">
+              <div className="mx-auto mb-2 h-1.5 w-12 rounded-full bg-slate-200" />
+              <div className="flex items-center gap-3">
+                <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-brand-600 text-white shadow-lg shadow-brand-200">
+                  <LayoutDashboard className="h-5 w-5" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <h2 className="font-semibold text-slate-900">Tất cả chức năng</h2>
+                  <p className="truncate text-xs text-slate-500">{user.fullName} · {user.roleLabel}</p>
+                </div>
+                <button onClick={() => setMobileOpen(false)} className="rounded-full bg-slate-100 p-2.5 text-slate-500 active:bg-slate-200" aria-label="Đóng">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
             </div>
-            {navList}
-          </aside>
+
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileOpen(false);
+                  setSearchOpen(true);
+                }}
+                className="mb-4 flex min-h-12 w-full items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 text-left text-sm text-slate-400 shadow-sm"
+              >
+                <Search className="h-4.5 w-4.5" /> Tìm khách hàng, hồ sơ, vật tư…
+              </button>
+
+              <div className="space-y-5">
+                {groupEntries.map(([group, items]) => (
+                  <section key={group}>
+                    <h3 className="mb-2 px-1 text-[11px] font-bold uppercase tracking-[0.08em] text-slate-400">{group}</h3>
+                    <div className="grid grid-cols-3 gap-2">
+                      {items.map((item) => {
+                        const Icon = ICONS[item.icon] ?? LayoutDashboard;
+                        const active = isActive(item.href);
+                        return (
+                          <Link
+                            key={item.href}
+                            href={item.href}
+                            onClick={() => setMobileOpen(false)}
+                            className={cn(
+                              "flex min-h-[5.6rem] flex-col items-center justify-center gap-2 rounded-2xl border px-2 py-3 text-center text-xs font-semibold shadow-sm transition active:scale-[0.98]",
+                              active
+                                ? "border-brand-200 bg-brand-50 text-brand-700"
+                                : "border-slate-200 bg-white text-slate-600",
+                            )}
+                          >
+                            <span className={cn("inline-flex h-10 w-10 items-center justify-center rounded-2xl", active ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-500")}>
+                              <Icon className="h-5 w-5" />
+                            </span>
+                            <span className="line-clamp-2 leading-tight">{item.label}</span>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  </section>
+                ))}
+              </div>
+
+              <div className="mt-5">
+                <InstallAppButton />
+              </div>
+            </div>
+          </section>
         </div>
       )}
 
       {/* Cột nội dung */}
       <div className="flex min-h-screen min-w-0 flex-col">
-        <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-3 border-b border-slate-200 bg-white/80 px-4 backdrop-blur-md sm:px-6">
+        <header className="mobile-safe-top sticky top-0 z-30 flex min-h-16 items-center justify-between gap-2 border-b border-slate-200 bg-white/90 px-3 backdrop-blur-xl sm:h-16 sm:px-6">
           <button
             onClick={() => setMobileOpen(true)}
-            className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 lg:hidden"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-600 active:bg-slate-200 lg:hidden"
             aria-label="Mở menu"
           >
             <Menu className="h-5 w-5" />
           </button>
 
+          <div className="min-w-0 flex-1 sm:hidden">
+            <p className="truncate text-sm font-semibold text-slate-900">{activeNav?.label ?? "Ứng dụng quản trị"}</p>
+            <p className="truncate text-[10px] font-medium text-brand-600">BVĐK Hồng Phúc</p>
+          </div>
+
           <button
             onClick={() => setSearchOpen(true)}
-            className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-1.5 text-sm text-slate-400 hover:border-slate-300 hover:text-slate-600 sm:ml-2"
+            className="hidden items-center gap-2 rounded-xl border border-slate-200 px-3 py-1.5 text-sm text-slate-400 hover:border-slate-300 hover:text-slate-600 sm:ml-2 sm:flex"
             title="Tìm kiếm toàn cục"
           >
             <Search className="h-4 w-4" />
@@ -247,14 +320,14 @@ export function AppShell({
             <div className="relative">
               <button
                 onClick={() => setMenuOpen((o) => !o)}
-                className="flex items-center gap-2.5 rounded-xl py-1.5 pl-1.5 pr-2.5 text-left hover:bg-slate-100"
+                className="flex min-h-10 items-center gap-2.5 rounded-xl p-1 text-left hover:bg-slate-100 sm:py-1.5 sm:pl-1.5 sm:pr-2.5"
               >
                 <Avatar name={user.fullName} src={user.avatarUrl} />
                 <span className="hidden leading-tight sm:block">
                   <span className="block text-sm font-medium text-slate-800">{user.fullName}</span>
                   <span className="block text-xs text-slate-400">{user.roleLabel}</span>
                 </span>
-                <ChevronDown className="h-4 w-4 text-slate-400" />
+                <ChevronDown className="hidden h-4 w-4 text-slate-400 sm:block" />
               </button>
 
               {menuOpen && (
@@ -297,15 +370,14 @@ export function AppShell({
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-7xl flex-1 px-4 pt-6 pb-24 sm:px-6 lg:px-8 lg:py-6">{children}</main>
+        <main className="mobile-content mx-auto w-full max-w-7xl flex-1 px-3 pb-28 pt-4 sm:px-6 sm:pt-6 lg:px-8 lg:py-6">{children}</main>
       </div>
 
       <nav
-        className="fixed inset-x-0 bottom-0 z-30 grid border-t border-slate-200 bg-white/95 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1.5 shadow-[0_-8px_24px_rgba(15,23,42,0.08)] backdrop-blur lg:hidden"
-        style={{ gridTemplateColumns: `repeat(${Math.max(mobileNav.length, 1)}, minmax(0, 1fr))` }}
+        className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-slate-200 bg-white/95 px-1 pb-[max(0.4rem,env(safe-area-inset-bottom))] pt-1 shadow-[0_-8px_24px_rgba(15,23,42,0.08)] backdrop-blur-xl lg:hidden"
         aria-label="Truy cập nhanh"
       >
-        {mobileNav.slice(0, 4).map((item) => {
+        {mobileNav.slice(0, 3).map((item) => {
           const Icon = ICONS[item.icon] ?? LayoutDashboard;
           const active = isActive(item.href);
           return (
@@ -313,15 +385,33 @@ export function AppShell({
               key={item.href}
               href={item.href}
               className={cn(
-                "flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-md px-1 text-[11px] font-medium",
-                active ? "bg-brand-50 text-brand-700" : "text-slate-500",
+                "flex min-h-[3.4rem] flex-col items-center justify-center gap-0.5 rounded-xl px-1 text-[10px] font-semibold active:bg-slate-100",
+                active ? "text-brand-700" : "text-slate-500",
               )}
             >
-              <Icon className={cn("h-5 w-5", active ? "text-brand-600" : "text-slate-400")} />
+              <span className={cn("inline-flex h-7 min-w-10 items-center justify-center rounded-full", active && "bg-brand-100")}>
+                <Icon className={cn("h-5 w-5", active ? "text-brand-600" : "text-slate-400")} />
+              </span>
               <span className="max-w-full truncate">{item.label}</span>
             </Link>
           );
         })}
+        <button
+          type="button"
+          onClick={() => setSearchOpen(true)}
+          className="flex min-h-[3.4rem] flex-col items-center justify-center gap-0.5 rounded-xl px-1 text-[10px] font-semibold text-slate-500 active:bg-slate-100"
+        >
+          <span className="inline-flex h-7 min-w-10 items-center justify-center rounded-full"><Search className="h-5 w-5 text-slate-400" /></span>
+          Tìm kiếm
+        </button>
+        <button
+          type="button"
+          onClick={() => setMobileOpen(true)}
+          className="flex min-h-[3.4rem] flex-col items-center justify-center gap-0.5 rounded-xl px-1 text-[10px] font-semibold text-slate-500 active:bg-slate-100"
+        >
+          <span className="inline-flex h-7 min-w-10 items-center justify-center rounded-full"><Menu className="h-5 w-5 text-slate-400" /></span>
+          Tất cả
+        </button>
       </nav>
 
       <ChangePasswordModal open={pwOpen} onClose={() => setPwOpen(false)} />
