@@ -15,26 +15,27 @@ import { StatCard } from "@/components/ui/stat-card";
 import { Badge } from "@/components/ui/badge";
 import { Table, THead, TH, TR, TD } from "@/components/ui/table";
 import { EmptyState } from "@/components/ui/empty-state";
-import { buttonVariants } from "@/components/ui/button";
 import { ContactButtons } from "@/components/ui/contact-buttons";
+import { getDebtThreshold } from "@/lib/settings";
 import { DebtCollectButton } from "./debt-collect-button";
+import { DebtFilters } from "./debt-filters";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Sổ công nợ" };
 
-const DEFAULT_THRESHOLD = 5_000_000;
 const TAKE = 200;
 
 export default async function DebtLedgerPage({
   searchParams,
 }: {
-  searchParams: Promise<{ bucket?: string; threshold?: string; tv?: string }>;
+  searchParams: Promise<{ bucket?: string; tv?: string }>;
 }) {
   const user = await requireCap("mod:cong-no");
   const canCollect = userCan(user, "payment.add");
   const sp = await searchParams;
   const bucket = DEBT_BUCKETS.includes(sp.bucket as never) ? (sp.bucket as (typeof DEBT_BUCKETS)[number]) : "all";
-  const threshold = Number(sp.threshold ?? DEFAULT_THRESHOLD) || 0;
+  // Ngưỡng cảnh báo LƯU Ở DB (dùng chung mọi máy) — không còn nằm ở URL nên không mất khi rời trang.
+  const threshold = await getDebtThreshold();
   const tvFilter = (sp.tv ?? "").trim();
 
   const now = new Date();
@@ -79,7 +80,7 @@ export default async function DebtLedgerPage({
   const collectedDebtThisMonth = toNum(monthDebtPayments._sum.amount);
 
   const qs = (b: string, tv = tvFilter) =>
-    `/cong-no?bucket=${b}${threshold !== DEFAULT_THRESHOLD ? `&threshold=${threshold}` : ""}${tv ? `&tv=${tv}` : ""}`;
+    `/cong-no?bucket=${b}${tv ? `&tv=${tv}` : ""}`;
 
   return (
     <div className="space-y-6">
@@ -120,29 +121,8 @@ export default async function DebtLedgerPage({
               </Link>
             ))}
           </div>
-          <form action="/cong-no" className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
-            {bucket !== "all" && <input type="hidden" name="bucket" value={bucket} />}
-            <select
-              name="tv"
-              defaultValue={tvFilter}
-              className="rounded-md border border-slate-200 px-2 py-1 text-xs focus:border-brand-400 focus:outline-none"
-            >
-              <option value="">Mọi tư vấn viên</option>
-              {consultants.map((c) => (
-                <option key={c.id} value={c.id}>{c.fullName}</option>
-              ))}
-            </select>
-            Ngưỡng cảnh báo
-            <input
-              name="threshold"
-              type="number"
-              min={0}
-              step="any"
-              defaultValue={threshold}
-              className="w-28 rounded-md border border-slate-200 px-2 py-1 text-right text-xs focus:border-brand-400 focus:outline-none"
-            />
-            <button className={buttonVariants({ variant: "secondary", size: "sm" })}>Áp dụng</button>
-          </form>
+          <DebtFilters consultants={consultants} tvFilter={tvFilter} bucket={bucket} threshold={threshold} />
+
         </div>
 
         <CardContent className="pt-0">

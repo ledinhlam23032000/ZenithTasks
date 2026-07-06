@@ -4,10 +4,26 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireCap } from "@/lib/auth";
+import { isShareholder } from "@/lib/rbac";
 import { audit } from "@/lib/audit";
 import { clampDayOfMonth } from "@/lib/debt-plan";
+import { setSetting, DEBT_THRESHOLD_KEY } from "@/lib/settings";
 
 export type DebtPlanState = { ok?: boolean; error?: string; nonce?: number };
+
+/**
+ * Lưu ngưỡng cảnh báo công nợ (dùng chung toàn hệ thống, lưu ở DB nên KHÔNG mất
+ * khi rời trang / đổi máy). Cặp với `useFormAction` → KHÔNG gọi revalidatePath.
+ */
+export async function saveDebtThreshold(_prev: DebtPlanState, formData: FormData): Promise<DebtPlanState> {
+  const user = await requireCap("mod:cong-no");
+  if (isShareholder(user.role)) return { error: "Bạn chỉ có quyền xem, không đổi được ngưỡng." };
+  const n = Number(formData.get("threshold"));
+  if (!Number.isFinite(n) || n < 0) return { error: "Ngưỡng không hợp lệ." };
+  await setSetting(DEBT_THRESHOLD_KEY, String(Math.round(n)));
+  await audit(user.id, "SET_DEBT_THRESHOLD", { entity: "AppSetting", entityId: DEBT_THRESHOLD_KEY, meta: { value: Math.round(n) } });
+  return { ok: true, nonce: Date.now() };
+}
 
 const schema = z.object({
   caseId: z.string().min(1),

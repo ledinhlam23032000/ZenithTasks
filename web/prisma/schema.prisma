@@ -656,6 +656,14 @@ model CaseDocument {
   @@index([caseId])
 }
 
+// Cấu hình đơn giản dạng khoá–giá trị, dùng chung toàn hệ thống (mọi máy thấy như nhau).
+// Hiện dùng cho: ngưỡng cảnh báo công nợ ("debt.threshold"). Thêm cấu hình mới → thêm khoá.
+model AppSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
 // Hồ sơ Cộng tác viên (đối tác giới thiệu khách). Khớp với khách qua TÊN
 // (Customer.sourceDetail khi nguồn = COLLABORATOR). Hiệu suất tính theo tên.
 model Collaborator {

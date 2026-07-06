@@ -21,7 +21,15 @@ const DEBT_OVERDUE_DAYS = 15; // công nợ "cần thu" nếu hồ sơ tạo tr�
 const FOLLOWUP_LOOKAHEAD_DAYS = 2; // nhắc tái khám trong vài ngày tới
 const TAKE = 50;
 
-export type WorkItem = { id: string; title: string; subtitle?: string; href?: string; badge?: string };
+export type WorkItem = {
+  id: string;
+  title: string;
+  subtitle?: string;
+  href?: string;
+  badge?: string;
+  // Nếu có: cho phép "Thu nợ" ngay trên dòng (chỉ dùng cho nhóm công nợ).
+  collect?: { caseId: string; caseCode: string; customerName: string; debt: number };
+};
 export type WorkSection = { key: string; label: string; hint: string; tone: Tone; icon: string; count: number; items: WorkItem[] };
 
 function maskTail(last5: string | null | undefined): string {
@@ -136,6 +144,7 @@ export async function getWorkqueue(): Promise<{ sections: WorkSection[]; total: 
         subtitle: `${c.code} ${maskTail(c.customer.phoneLast5)}`.trim(),
         href: `/ho-so/${c.id}`,
         badge: new Intl.NumberFormat("vi-VN").format(toNum(c.debtAmount)) + "đ",
+        collect: { caseId: c.id, caseCode: c.code, customerName: c.customer.fullName, debt: toNum(c.debtAmount) },
       })),
     },
     {
