@@ -19,9 +19,10 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Avatar } from "@/components/ui/avatar";
 import { buttonVariants } from "@/components/ui/button";
 import { DeleteButton } from "@/components/ui/delete-button";
+import { ContactButtons } from "@/components/ui/contact-buttons";
 import { NewAppointmentButton, EditAppointmentButton } from "./new-appointment";
 import { AppointmentStatusControl } from "./appointment-status";
-import { deleteAppointment } from "./actions";
+import { deleteAppointment, revealAppointmentPhone } from "./actions";
 import { MonthCalendar } from "./month-calendar";
 
 export const dynamic = "force-dynamic";
@@ -224,7 +225,11 @@ export default async function AppointmentsPage({
                             ) : (
                               <p className="truncate font-semibold text-slate-900">{name}</p>
                             )}
-                            <p className="text-xs text-slate-400">{maskPhone(last5)}</p>
+                            {appointment.phoneEnc ? (
+                              <ContactButtons reveal={revealAppointmentPhone.bind(null, appointment.id)} last5={last5} />
+                            ) : (
+                              <p className="text-xs text-slate-400">{maskPhone(last5)}</p>
+                            )}
                           </div>
                           <Badge tone={APPT_TYPE[appointment.type].tone}>{APPT_TYPE[appointment.type].label}</Badge>
                         </div>
@@ -308,7 +313,11 @@ export default async function AppointmentsPage({
                                 <span className="font-medium text-slate-800">{name}</span>
                               )}
                             </div>
-                            <p className="text-xs text-slate-400">{maskPhone(last5)}</p>
+                            {a.phoneEnc ? (
+                              <ContactButtons reveal={revealAppointmentPhone.bind(null, a.id)} last5={last5} />
+                            ) : (
+                              <p className="text-xs text-slate-400">{maskPhone(last5)}</p>
+                            )}
                           </div>
                         </div>
                       </TD>

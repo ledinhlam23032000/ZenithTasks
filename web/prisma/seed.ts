@@ -106,7 +106,11 @@ async function main() {
 
   // ---- KHÁCH HÀNG ----
   const firstNames = ["Nguyễn", "Trần", "Lê", "Phạm", "Hoàng", "Huỳnh", "Vũ", "Đặng", "Bùi", "Đỗ", "Hồ", "Ngô", "Dương", "Lý"];
-  const midLast = ["Thị Mai", "Thị Hương", "Ngọc Anh", "Thu Hà", "Khánh Linh", "Phương Thảo", "Minh Châu", "Thuý Vân", "Hải Yến", "Bích Ngọc", "Quỳnh Như", "Diễm My", "Thanh Tâm", "Kim Chi"];
+  // Tách riêng tên đệm+tên theo giới tính (khớp quy ước tiếng Việt) — GIỚI TÍNH chọn trước,
+  // TÊN chọn theo đúng giới tính đó (trước đây random độc lập → sinh dữ liệu sai kiểu
+  // "Lê Thị Hương — Nam", trông thiếu chỉn chu khi demo).
+  const midLastFemale = ["Thị Mai", "Thị Hương", "Ngọc Anh", "Thu Hà", "Khánh Linh", "Phương Thảo", "Minh Châu", "Thuý Vân", "Hải Yến", "Bích Ngọc", "Quỳnh Như", "Diễm My", "Thanh Tâm", "Kim Chi"];
+  const midLastMale = ["Văn Hùng", "Minh Tuấn", "Anh Khoa", "Đình Phúc", "Quang Huy", "Thành Đạt", "Hữu Nghĩa", "Việt Anh", "Xuân Trường", "Công Danh", "Bảo Long", "Đức Thịnh"];
   const sources = ["MARKETING", "COLLABORATOR", "WALK_IN", "REFERRAL", "HOTLINE", "FACEBOOK", "ZALO", "TIKTOK"] as const;
   const sourceDetails: Record<string, string[]> = {
     MARKETING: ["Chiến dịch Hè 2026", "Google Ads", "Quảng cáo Facebook"],
@@ -121,7 +125,10 @@ async function main() {
 
   const customers: Customer[] = [];
   for (let i = 0; i < 16; i++) {
-    const fullName = `${pick(firstNames)} ${pick(midLast)}`;
+    // Đa số khách nữ (khớp thực tế phòng khám thẩm mỹ) — chọn GIỚI TÍNH trước rồi mới
+    // chọn tên đúng giới tính đó, không random độc lập (xem chú thích ở khai báo danh sách).
+    const gender: "FEMALE" | "MALE" = Math.random() > 0.2 ? "FEMALE" : "MALE";
+    const fullName = `${pick(firstNames)} ${pick(gender === "FEMALE" ? midLastFemale : midLastMale)}`;
     // SĐT giả: 09xxxxxxxx
     const phone = "09" + Math.floor(10000000 + Math.random() * 89999999).toString();
     const src = pick([...sources]);
@@ -129,7 +136,7 @@ async function main() {
       data: {
         code: `KH${String(i + 1).padStart(5, "0")}`,
         fullName,
-        gender: Math.random() > 0.2 ? "FEMALE" : "MALE",
+        gender,
         dob: new Date(1985 + Math.floor(Math.random() * 20), Math.floor(Math.random() * 12), 1 + Math.floor(Math.random() * 27)),
         phoneEnc: encryptPhone(phone),
         phoneLast5: phoneLast5(phone),
@@ -258,7 +265,10 @@ async function main() {
         consultResult: result,
         chiefComplaint: `Khách quan tâm ${chosen[0].name.toLowerCase()}`,
         totalAmount: agreed ? total : 0,
-        discountAmount: caseServicesData.reduce((a, s) => a + s.discount, 0),
+        // CHỈ tính khi thực sự có dịch vụ được tạo (agreed) — nếu không, discountAmount
+        // "mồ côi" (không khớp dịch vụ nào) làm thẻ Tài chính tự mâu thuẫn: "giảm giá X"
+        // trong khi "Chưa có dịch vụ" (đã gặp ở ca DECLINED/CONSIDERING trước khi sửa).
+        discountAmount: agreed ? caseServicesData.reduce((a, s) => a + s.discount, 0) : 0,
         paidAmount: paid,
         debtAmount: debt,
         createdById: consultantId,

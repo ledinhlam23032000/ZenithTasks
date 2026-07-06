@@ -2,20 +2,21 @@
 
 import { useState, useTransition } from "react";
 import { Phone, MessageCircle, MessageSquareText, Eye, LoaderCircle, Copy, Check } from "lucide-react";
-import { revealPhone } from "@/app/(app)/khach-hang/actions";
 
 /**
  * Nút liên hệ nhanh (B2 bậc 1): Gọi / SMS / Zalo qua deep-link, KHÔNG tự gửi —
  * nhân viên bấm rồi gửi thật từ app điện thoại của họ. Số đầy đủ chỉ hiện ra
- * khi bấm "Liên hệ" (gọi server action có kiểm tra quyền `phone.full` + ghi
- * nhật ký REVEAL_PHONE), giống quy ước AdminPhone ở trang khách hàng.
+ * khi bấm "Liên hệ" (gọi `reveal` — server action của nơi gọi, có kiểm tra quyền
+ * `phone.full` + ghi nhật ký REVEAL_PHONE), giống quy ước AdminPhone ở trang khách
+ * hàng. `reveal` nhận vào để component dùng CHUNG được cho nhiều nguồn SĐT mã hoá
+ * (Customer, Appointment đặt lịch online…) mà không phải biết trước là loại nào.
  */
 export function ContactButtons({
-  customerId,
+  reveal: revealFn,
   last5,
   smsBody,
 }: {
-  customerId: string;
+  reveal: () => Promise<{ phone?: string; error?: string }>;
   last5: string | null | undefined;
   smsBody?: string;
 }) {
@@ -27,7 +28,7 @@ export function ContactButtons({
   function reveal() {
     setErr(null);
     start(async () => {
-      const r = await revealPhone(customerId);
+      const r = await revealFn();
       if (r.error) setErr(r.error);
       else if (r.phone) setPhone(r.phone);
     });

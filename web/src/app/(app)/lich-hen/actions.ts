@@ -4,8 +4,32 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
+import { userCan } from "@/lib/permissions";
+import { decryptPhone } from "@/lib/phone";
+import { audit } from "@/lib/audit";
 import { findConflicts, minutesApart, SLOT_WINDOW_MIN, type ApptSlot } from "@/lib/schedule";
 import type { AppointmentStatus } from "@/generated/prisma/client";
+
+export type RevealState = { phone?: string; error?: string };
+
+/**
+ * Hiện SĐT đầy đủ của lịch hẹn KHI BẤM (chỉ người có quyền phone.full) + ghi nhật ký
+ * REVEAL_PHONE — chỉ áp dụng cho lịch đặt qua cổng công khai (/dat-lich, có phoneEnc);
+ * lịch tạo nội bộ chỉ thu 5 số cuối nên không có gì để giải mã.
+ */
+export async function revealAppointmentPhone(appointmentId: string): Promise<RevealState> {
+  const user = await requireUser();
+  if (!userCan(user, "phone.full")) return { error: "Bạn không có quyền xem số đầy đủ." };
+  const a = await prisma.appointment.findUnique({ where: { id: appointmentId }, select: { phoneEnc: true } });
+  if (!a?.phoneEnc) return { error: "Không có số điện thoại lưu cho lịch hẹn này." };
+  try {
+    const phone = decryptPhone(a.phoneEnc);
+    await audit(user.id, "REVEAL_PHONE", { entity: "Appointment", entityId: appointmentId });
+    return { phone };
+  } catch {
+    return { error: "Không giải mã được số điện thoại." };
+  }
+}
 
 // `conflict: true` → form hiện cảnh báo trùng lịch + nút "Vẫn đặt" (gửi lại kèm force=1).
 export type ApptFormState = { ok?: boolean; error?: string; conflict?: boolean };

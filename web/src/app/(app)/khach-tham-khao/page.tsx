@@ -15,6 +15,7 @@ import { Table, THead, TH, TR, TD } from "@/components/ui/table";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ConfirmButton } from "@/components/ui/confirm-button";
 import { ContactButtons } from "@/components/ui/contact-buttons";
+import { revealPhone } from "../khach-hang/actions";
 import { AddLeadButton, EditLeadButton, LeadStatusSelect } from "./lead-widgets";
 import { deleteLead, convertLeadToCustomer } from "./actions";
 
@@ -228,7 +229,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
                     </TD>
                     <TD>
                       <ContactButtons
-                        customerId={c.customer.id}
+                        reveal={revealPhone.bind(null, c.customer.id)}
                         last5={c.customer.phoneLast5}
                         smsBody={tplWinback({ fullName: c.customer.fullName })}
                       />

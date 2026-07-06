@@ -19,7 +19,7 @@ import { isManagerial, ROLE_LABELS } from "@/lib/rbac";
 import { userCan } from "@/lib/permissions";
 import { getAdminDashboard, getStaffSnapshot } from "@/lib/dashboard";
 import { getWorkqueue, type WorkSection } from "@/lib/workqueue";
-import { fmtRelative, fmtTime } from "@/lib/format";
+import { fmtRelative, fmtTime, shortName } from "@/lib/format";
 import { maskPhone } from "@/lib/phone";
 import { formatVND, formatVNDShort } from "@/lib/money";
 import { PageHeader } from "@/components/ui/page-header";
@@ -417,9 +417,4 @@ function getGreeting(): string {
   if (h < 14) return "Chào buổi trưa";
   if (h < 18) return "Chào buổi chiều";
   return "Chào buổi tối";
-}
-
-function shortName(full: string): string {
-  const parts = full.trim().split(/\s+/);
-  return parts[parts.length - 1];
 }

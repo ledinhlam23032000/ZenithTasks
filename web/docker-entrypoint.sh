@@ -42,6 +42,12 @@ until npx prisma migrate deploy; do
   sleep 2
 done
 
+# Dọn lưu trữ ảnh đại diện cũ (nếu có) — xem chi tiết trong chính script. An toàn chạy
+# lại nhiều lần; lỗi ở bước này KHÔNG chặn khởi động (không phải dữ liệu nghiệp vụ).
+if [ -f /app/scripts/migrate-avatar-storage.mjs ]; then
+  node /app/scripts/migrate-avatar-storage.mjs || true
+fi
+
 # Chỉ nạp dữ liệu mẫu khi bảng User còn trống (không ghi đè dữ liệu thật).
 # QUAN TRỌNG: nếu câu đếm LỖI (mất kết nối, quyền truy vấn...) phải DỪNG hẳn —
 # TUYỆT ĐỐI không được coi lỗi = "0 người dùng" rồi chạy seed (seed xoá sạch bảng

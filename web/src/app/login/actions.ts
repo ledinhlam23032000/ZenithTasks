@@ -15,6 +15,12 @@ export type LoginState = { error?: string };
 // đổi ngay (banner ở AppShell) — phòng khi phòng khám lên thật mà quên đổi.
 const DEMO_PASSWORD = "123456";
 
+// Hash bcrypt CỐ ĐỊNH, không tương ứng mật khẩu thật nào — dùng để so sánh khi tài
+// khoản không tồn tại, giúp bcrypt.compare() tốn thời gian TƯƠNG ĐƯƠNG nhánh "sai mật
+// khẩu" (tránh lộ qua độ trễ phản hồi việc tài khoản có tồn tại hay không).
+const DUMMY_HASH = "$2b$12$MCJ0ELYcGO1tNfm6KMrx5uo8uoPGh4yH8rar1nD1eXxlSATwmnzri";
+const WRONG_CREDENTIALS_MSG = "Sai tên đăng nhập hoặc mật khẩu.";
+
 const schema = z.object({
   username: z.string().min(1),
   password: z.string().min(1),
@@ -54,14 +60,16 @@ export async function loginAction(_prev: LoginState, formData: FormData): Promis
     where: { username: { equals: parsed.data.username, mode: "insensitive" } },
   });
   if (!user || !user.active) {
+    // So sánh với hash giả (kết quả bỏ qua) để thời gian phản hồi giống nhánh sai mật khẩu.
+    await verifyPassword(parsed.data.password, DUMMY_HASH);
     registerLoginFailure(ip, uname);
-    return { error: "Tài khoản không tồn tại hoặc đã bị khoá." };
+    return { error: WRONG_CREDENTIALS_MSG };
   }
 
   const ok = await verifyPassword(parsed.data.password, user.passwordHash);
   if (!ok) {
     registerLoginFailure(ip, uname);
-    return { error: "Sai mật khẩu. Vui lòng thử lại." };
+    return { error: WRONG_CREDENTIALS_MSG };
   }
 
   // Xác thực 2 lớp (chỉ với tài khoản đã bật) — không ảnh hưởng tài khoản chưa bật.

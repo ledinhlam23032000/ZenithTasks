@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, THead, TH, TR, TD } from "@/components/ui/table";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ContactButtons } from "@/components/ui/contact-buttons";
+import { revealPhone } from "../khach-hang/actions";
 import { getDebtThreshold } from "@/lib/settings";
 import { DebtCollectButton } from "./debt-collect-button";
 import { DebtFilters } from "./debt-filters";
@@ -172,7 +173,7 @@ export default async function DebtLedgerPage({
                     </TD>
                     <TD>
                       <ContactButtons
-                        customerId={r.customer.id}
+                        reveal={revealPhone.bind(null, r.customer.id)}
                         last5={r.customer.phoneLast5}
                         smsBody={tplDebtReminder({ fullName: r.customer.fullName, debtAmount: r.debt, caseCode: r.code })}
                       />

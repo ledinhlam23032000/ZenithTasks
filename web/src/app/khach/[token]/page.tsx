@@ -3,7 +3,7 @@ import { Crown, FolderHeart, Images, CalendarClock, Receipt, Star } from "lucide
 import { prisma } from "@/lib/db";
 import { toNum, formatVND } from "@/lib/money";
 import { fmtDate, fmtDateTime } from "@/lib/format";
-import { CASE_STATUS } from "@/lib/status";
+import { CASE_STATUS, CASE_STATUS_PORTAL } from "@/lib/status";
 import { tierFor, pointsFor } from "@/lib/loyalty";
 import { withMediaToken } from "@/lib/media-token";
 import { Badge } from "@/components/ui/badge";
@@ -20,7 +20,20 @@ export default async function CustomerPortalPage({ params }: { params: Promise<{
   const customer = await prisma.customer.findUnique({
     where: { portalToken: token },
     include: {
-      cases: { orderBy: { createdAt: "desc" }, include: { services: { select: { name: true } } } },
+      // select TƯỜNG MINH (không dùng include) — trang công khai, tránh kéo nhầm field
+      // nội bộ (vd chiefComplaint/ghi chú tư vấn) vào bộ nhớ rồi lỡ render ra cho khách.
+      cases: {
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          status: true,
+          createdAt: true,
+          totalAmount: true,
+          paidAmount: true,
+          debtAmount: true,
+          services: { select: { name: true } },
+        },
+      },
       photos: { orderBy: { takenAt: "desc" }, take: 12 },
       followUps: { where: { scheduledAt: { gte: new Date(Date.now() - 86400000) } }, orderBy: { scheduledAt: "asc" }, take: 5 },
       appointments: {
@@ -120,11 +133,12 @@ export default async function CustomerPortalPage({ params }: { params: Promise<{
               {customer.cases.map((c) => (
                 <li key={c.id} className="rounded-xl border border-slate-100 p-3">
                   <div className="flex items-center justify-between gap-2">
-                    <Badge tone={CASE_STATUS[c.status].tone}>{CASE_STATUS[c.status].label}</Badge>
+                    <Badge tone={CASE_STATUS[c.status].tone}>{CASE_STATUS_PORTAL[c.status]}</Badge>
                     <span className="text-xs text-slate-400">{fmtDate(c.createdAt)}</span>
                   </div>
                   <p className="mt-1 text-sm text-slate-700">
-                    {c.services.length > 0 ? c.services.map((s) => s.name).join(", ") : c.chiefComplaint || "—"}
+                    {/* KHÔNG hiện chiefComplaint (ghi chú nội bộ tư vấn viên) — chỉ hiện tên dịch vụ đã chốt. */}
+                    {c.services.length > 0 ? c.services.map((s) => s.name).join(", ") : "Đang tư vấn"}
                   </p>
                   <p className="mt-1 text-xs text-slate-500">
                     Thành tiền: <b className="text-slate-700">{formatVND(c.totalAmount)}</b> · Đã trả: {formatVND(c.paidAmount)}

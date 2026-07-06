@@ -15,6 +15,7 @@ import type { Tone } from "@/components/ui/badge";
 import { Table, THead, TH, TR, TD } from "@/components/ui/table";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ContactButtons } from "@/components/ui/contact-buttons";
+import { revealPhone } from "../khach-hang/actions";
 import { reportTabs } from "@/lib/nav-tabs";
 
 export const dynamic = "force-dynamic";
@@ -228,7 +229,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
                       <Badge tone={c.recencyDays >= 180 ? "red" : "amber"}>{c.recencyDays} ngày</Badge>
                     </TD>
                     <TD>
-                      <ContactButtons customerId={c.id} last5={c.phoneLast5} smsBody={tplWinback({ fullName: c.fullName })} />
+                      <ContactButtons reveal={revealPhone.bind(null, c.id)} last5={c.phoneLast5} smsBody={tplWinback({ fullName: c.fullName })} />
                     </TD>
                   </TR>
                 ))}

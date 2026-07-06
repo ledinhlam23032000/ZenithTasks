@@ -8,7 +8,7 @@ import { askAssistant } from "./actions";
 
 type Turn = { q: string; a: string };
 
-export function AssistantChat({ aiOn }: { aiOn: boolean }) {
+export function AssistantChat({ aiOn, greetName }: { aiOn: boolean; greetName: string }) {
   const [q, setQ] = useState("");
   const [turns, setTurns] = useState<Turn[]>([]);
   const [err, setErr] = useState<string | null>(null);
@@ -67,7 +67,7 @@ export function AssistantChat({ aiOn }: { aiOn: boolean }) {
             <span className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 to-violet-500 text-white shadow-lg shadow-brand-500/20">
               <Sparkles className="h-7 w-7" />
             </span>
-            <h2 className="mt-4 text-lg font-semibold text-slate-800">Chào anh Lam 👋</h2>
+            <h2 className="mt-4 text-lg font-semibold text-slate-800">Chào {greetName} 👋</h2>
             <p className="mt-1 text-sm text-slate-500">
               Hỏi tôi bất cứ điều gì về số liệu phòng khám — doanh thu, công nợ, dịch vụ bán chạy, khách rời bỏ, tồn kho…
             </p>

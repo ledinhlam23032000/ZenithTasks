@@ -7,6 +7,7 @@ import { prisma } from "@/lib/db";
 import { requireUser, verifyPassword, hashPassword, createSession } from "@/lib/auth";
 import { generateSecret, totpVerify, otpauthURL } from "@/lib/totp";
 import { audit } from "@/lib/audit";
+import { sniffImageExt, safeStoredName } from "@/lib/upload";
 
 export type PasswordState = { ok?: boolean; error?: string };
 export type ProfileState = { ok?: boolean; error?: string; nonce?: number };
@@ -32,25 +33,27 @@ export async function updateMyProfile(_prev: ProfileState, formData: FormData): 
   return { ok: true, nonce: Date.now() };
 }
 
-const AVATAR_EXT = ["jpg", "jpeg", "png", "webp", "heic", "heif", "gif"];
-
 /** Nhân viên tự đổi ảnh đại diện. */
 export async function updateMyAvatar(_prev: ProfileState, formData: FormData): Promise<ProfileState> {
   const user = await requireUser();
   const file = formData.get("avatar");
   if (!(file instanceof File) || file.size === 0) return { error: "Vui lòng chọn ảnh." };
   if (file.size > 8 * 1024 * 1024) return { error: "Ảnh đại diện tối đa 8MB." };
-  // Nhận mọi định dạng ảnh (điện thoại có thể gửi HEIC; trình duyệt iOS tự đổi sang JPG).
-  if (file.type && !file.type.startsWith("image/")) return { error: "Tệp tải lên phải là ảnh." };
 
-  const rawExt = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
-  const ext = AVATAR_EXT.includes(rawExt) ? rawExt : "jpg";
-  const fname = `avatar-${user.id}-${Date.now()}.${ext}`;
-  const dir = path.join(process.cwd(), "public", "uploads", "avatars");
+  const buf = Buffer.from(await file.arrayBuffer());
+  // Dò định dạng THẬT qua magic bytes — KHÔNG tin file.type/đuôi tên tệp (dễ giả mạo).
+  const ext = sniffImageExt(buf);
+  if (!ext) return { error: "Tệp không phải ảnh hợp lệ (JPG/PNG/WEBP/HEIC/GIF)." };
+
+  // Lưu PHẲNG vào public/uploads (giống ảnh hồ sơ/giấy tờ) để phục vụ qua route
+  // /media/[file] CÓ XÁC THỰC — trước đây lưu ở public/uploads/avatars/ là đường dẫn
+  // tĩnh Next.js phục vụ công khai, không qua đăng nhập.
+  const fname = safeStoredName(`avatar-${user.id}`, ext);
+  const dir = path.join(process.cwd(), "public", "uploads");
   await fs.mkdir(dir, { recursive: true });
-  await fs.writeFile(path.join(dir, fname), Buffer.from(await file.arrayBuffer()));
+  await fs.writeFile(path.join(dir, fname), buf);
 
-  await prisma.user.update({ where: { id: user.id }, data: { avatarUrl: `/uploads/avatars/${fname}` } });
+  await prisma.user.update({ where: { id: user.id }, data: { avatarUrl: `/uploads/${fname}` } });
   return { ok: true, nonce: Date.now() };
 }
 

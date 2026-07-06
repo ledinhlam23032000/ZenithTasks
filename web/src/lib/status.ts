@@ -35,6 +35,16 @@ export const CASE_STATUS: Record<CaseStatus, { label: string; tone: Tone }> = {
   CANCELLED: { label: "Đã hủy", tone: "red" },
 };
 
+// Nhãn trạng thái ca DÀNH RIÊNG cho cổng khách (`khach/[token]`) — vài viết tắt nội bộ
+// như "Đang làm DV" không phù hợp hiện cho khách xem, giữ tone màu như CASE_STATUS.
+export const CASE_STATUS_PORTAL: Record<CaseStatus, string> = {
+  OPEN: CASE_STATUS.OPEN.label,
+  CONSULTED: CASE_STATUS.CONSULTED.label,
+  SERVICED: "Đang thực hiện",
+  COMPLETED: CASE_STATUS.COMPLETED.label,
+  CANCELLED: CASE_STATUS.CANCELLED.label,
+};
+
 export const CONSULT_RESULT: Record<ConsultResult, { label: string; tone: Tone }> = {
   PENDING: { label: "Chưa chốt", tone: "slate" },
   AGREED: { label: "Chốt dịch vụ", tone: "green" },

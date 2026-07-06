@@ -34,6 +34,18 @@ export async function proxy(request: NextRequest) {
     }
   }
 
+  // public/uploads/* (ảnh hồ sơ/giấy tờ/avatar) — Next.js tự phục vụ mọi file trong
+  // public/ theo đường dẫn khớp, kể cả tệp ghi lúc chạy, HOÀN TOÀN BỎ QUA route
+  // /media/[file] (nơi có xác thực). Route đó vẫn là cách HIỂN THỊ đúng (qua
+  // photoSrc()), nhưng đường dẫn tĩnh gốc vẫn tồn tại song song và lộ công khai nếu
+  // không chặn riêng ở đây — chặn TRƯỚC khi Next phục vụ static (thứ tự proxy → static
+  // theo tài liệu Next 16). Cổng khách công khai dùng /media/?t=<vé>, KHÔNG dùng
+  // đường dẫn này, nên chặn ở đây không ảnh hưởng cổng khách.
+  if (pathname.startsWith("/uploads/")) {
+    if (!hasValidSession) return new NextResponse("Unauthorized", { status: 401 });
+    return NextResponse.next();
+  }
+
   if (!hasValidSession && !isPublic) {
     const url = new URL("/login", request.url);
     if (pathname !== "/") url.searchParams.set("next", pathname);
@@ -50,6 +62,11 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Bỏ qua tài nguyên tĩnh và API
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|img|uploads|.*\\..*).*)"],
+  matcher: [
+    // Bỏ qua tài nguyên tĩnh và API — CHỪA "uploads" (được xử lý riêng ở entry dưới,
+    // vì pattern ".*\\..*" ở đây cũng khớp mọi đường dẫn có dấu chấm nên tự loại
+    // "/uploads/<f>.jpg" luôn nếu không tách riêng).
+    "/((?!api|_next/static|_next/image|favicon.ico|img|uploads|.*\\..*).*)",
+    "/uploads/:path*",
+  ],
 };

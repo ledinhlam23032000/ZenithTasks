@@ -291,6 +291,9 @@ model Appointment {
   customerId      String?
   customer        Customer?         @relation(fields: [customerId], references: [id])
   guestName       String? // Tên khách khi đặt lịch mà chưa lập hồ sơ
+  // SĐT đầy đủ (mã hoá, tuỳ chọn) — CHỈ đặt lịch công khai điền (dat-lich/actions.ts) mới
+  // có; tạo lịch nội bộ chỉ thu 5 số cuối (như trước) nên trường này null với lịch đó.
+  phoneEnc        String?
   phoneLast5      String?
   type            AppointmentType   @default(NEW)
   status          AppointmentStatus @default(BOOKED)

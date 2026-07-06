@@ -4,7 +4,7 @@ import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { normalizePhone, phoneLast5 } from "@/lib/phone";
+import { normalizePhone, phoneLast5, encryptPhone } from "@/lib/phone";
 import { bump } from "@/lib/rate-limit";
 
 export type BookingState = { ok?: boolean; error?: string };
@@ -44,14 +44,17 @@ export async function createPublicAppointment(_prev: BookingState, formData: For
   await prisma.appointment.create({
     data: {
       guestName: d.guestName,
+      // SĐT đầy đủ MÃ HOÁ (như Customer) — trước đây nhét thẳng chữ thường vào "note",
+      // trái quy ước bảo mật SĐT toàn hệ thống. Lễ tân xem qua nút "Xem số" (có quyền
+      // phone.full + ghi nhật ký REVEAL_PHONE), không còn lộ ra ghi chú thô.
+      phoneEnc: encryptPhone(norm),
       phoneLast5: phoneLast5(norm),
       scheduledAt: when,
       type: "NEW",
       source: "OTHER",
       sourceDetail: "Đặt lịch online",
       serviceInterest: d.serviceInterest || null,
-      // SĐT đầy đủ lưu ở ghi chú để lễ tân gọi lại (đây là yêu cầu đặt lịch, chưa phải hồ sơ khách).
-      note: `SĐT khách: ${norm}${d.note ? ` · ${d.note}` : ""}`,
+      note: d.note || null,
     },
   });
 

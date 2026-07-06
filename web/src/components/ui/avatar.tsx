@@ -1,4 +1,5 @@
 import { cn } from "@/lib/cn";
+import { photoSrc } from "@/lib/media";
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -25,10 +26,12 @@ function hashName(name: string): number {
 
 export function Avatar({ name, src, className }: { name: string; src?: string | null; className?: string }) {
   if (src) {
+    // photoSrc() đổi URL cũ "/uploads/<f>" (avatar cũ, trước khi có route /media có xác
+    // thực) → "/media/<f>"; giữ nguyên URL khác (vd blob: khi đang xem trước ảnh mới chọn).
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
-        src={src}
+        src={photoSrc(src)}
         alt={name}
         className={cn("inline-block shrink-0 rounded-full object-cover", "h-9 w-9", className)}
       />
