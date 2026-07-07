@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import { CalendarCheck, LoaderCircle, CheckCircle2, Clock3 } from "lucide-react";
 import { Input, Label, Select, Textarea } from "@/components/ui/field";
 import { buttonVariants } from "@/components/ui/button";
+import { BOOKING_HOUR_MIN, BOOKING_HOUR_MAX } from "@/lib/booking-hours";
 import { createPublicAppointment, type BookingState } from "./actions";
 
 export function BookingForm({
@@ -69,7 +70,22 @@ export function BookingForm({
             <Label htmlFor="b-time">Giờ mong muốn *</Label>
             <div className="relative">
               <Clock3 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <Input id="b-time" type="time" value={time} step={1800} onChange={(e) => setTime(e.target.value)} className="pl-9" required />
+              <Input
+                id="b-time"
+                type="time"
+                value={time}
+                step={1800}
+                min={BOOKING_HOUR_MIN}
+                max={BOOKING_HOUR_MAX}
+                onChange={(e) => setTime(e.target.value)}
+                onInvalid={(e) => {
+                  if (e.currentTarget.validity.rangeUnderflow || e.currentTarget.validity.rangeOverflow) {
+                    e.currentTarget.setCustomValidity(`Vui lòng chọn giờ trong khung ${BOOKING_HOUR_MIN}–${BOOKING_HOUR_MAX}.`);
+                  }
+                }}
+                className="pl-9"
+                required
+              />
             </div>
           </div>
         </div>
@@ -87,7 +103,9 @@ export function BookingForm({
               </button>
             ))}
           </div>
-          <p className="mt-2 text-xs text-slate-400">Đây là thời gian mong muốn. Trung tâm sẽ liên hệ xác nhận lại.</p>
+          <p className="mt-2 text-xs text-slate-400">
+            Đây là thời gian mong muốn (khung giờ làm việc {BOOKING_HOUR_MIN}–{BOOKING_HOUR_MAX}). Trung tâm sẽ liên hệ xác nhận lại.
+          </p>
         </div>
       </div>
       <div>

@@ -259,9 +259,8 @@ export async function updateAppointmentStatus(formData: FormData): Promise<void>
       arrivedAt: status === "ARRIVED" ? new Date() : undefined,
     },
   });
-  revalidatePath("/lich-hen");
-  revalidatePath("/dashboard");
-  revalidatePath("/dau-ca");
+  // KHÔNG gọi revalidatePath: gọi trực tiếp từ client qua useTransition + router.refresh()
+  // (xem AppointmentStatusControl), không phải qua <form action> thuần — mục 8.1 BAN-GIAO.md.
 }
 
 /** Xóa lịch hẹn (quản trị / quản lý). Lịch thường thì nên đổi trạng thái "Hủy". */

@@ -12,7 +12,9 @@ import { StatCard } from "@/components/ui/stat-card";
 import { Badge } from "@/components/ui/badge";
 import { Table, THead, TH, TR, TD } from "@/components/ui/table";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Pagination } from "@/components/ui/pagination";
 import { catalogTabs } from "@/lib/nav-tabs";
+import { PAGE_SIZE, parsePage, totalPagesOf } from "@/lib/pagination";
 import { StockInBatchButton } from "./stock-in-batch";
 
 export const dynamic = "force-dynamic";
@@ -24,22 +26,28 @@ const MOVE = {
   ADJUST: { label: "Điều chỉnh", tone: "amber" as const },
 };
 
-export default async function KhoPage() {
+export default async function KhoPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
   const user = await requireCap("mod:kho");
   const canStockIn = user.role === "ADMIN" || user.role === "MANAGER";
-  const [materials, movements, outMoves] = await Promise.all([
+  const sp = await searchParams;
+  const page = parsePage(sp.page);
+  const [materials, movements, movementsTotal, outMoves] = await Promise.all([
     prisma.material.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
     prisma.stockMovement.findMany({
       orderBy: { createdAt: "desc" },
-      take: 60,
+      take: PAGE_SIZE,
+      skip: (page - 1) * PAGE_SIZE,
       include: { material: { select: { name: true, unit: true } }, createdBy: { select: { fullName: true } } },
     }),
+    prisma.stockMovement.count(),
     // Giá vốn vật tư đã xuất dùng trong 30 ngày (COGS vật tư) — chỉ tính dòng có đơn giá.
     prisma.stockMovement.findMany({
       where: { type: "OUT", unitCost: { not: null }, createdAt: { gte: subDays(new Date(), 30) } },
       select: { quantity: true, unitCost: true },
     }),
   ]);
+  const movementsTotalPages = totalPagesOf(movementsTotal);
+  const makeMovementsHref = (p: number) => (p > 1 ? `/kho?page=${p}` : "/kho");
 
   const now = new Date();
   const soon = new Date(now.getTime() + 30 * 86400000); // 30 ngày tới
@@ -220,6 +228,7 @@ export default async function KhoPage() {
               </Table>
             )}
           </CardContent>
+          <Pagination page={page} totalPages={movementsTotalPages} makeHref={makeMovementsHref} />
         </Card>
       </div>
     </div>

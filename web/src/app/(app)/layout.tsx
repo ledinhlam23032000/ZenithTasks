@@ -5,6 +5,7 @@ import { ROLE_LABELS } from "@/lib/rbac";
 import { navForUser } from "@/lib/permissions";
 import { securityWarnings } from "@/lib/security-status";
 import { AppShell } from "@/components/layout/app-shell";
+import { ToastProvider } from "@/components/ui/toast";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
@@ -17,39 +18,41 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const weakPassword = session?.weakPw === true;
 
   return (
-    <AppShell
-      user={{ fullName: user.fullName, roleLabel: ROLE_LABELS[user.role], username: user.username, avatarUrl: user.avatarUrl }}
-      nav={nav}
-    >
-      {(warnings.length > 0 || weakPassword) && (
-        <div className="mb-4 space-y-2">
-          {weakPassword && (
-            <div className="flex items-start gap-3 rounded-xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm">
-              <KeyRound className="mt-0.5 h-5 w-5 shrink-0 text-rose-600" />
-              <div>
-                <p className="font-semibold text-rose-700">Tài khoản của bạn vẫn dùng mật khẩu mặc định</p>
-                <p className="text-rose-600/90">
-                  Vì lý do an toàn, hãy đổi mật khẩu ngay tại{" "}
-                  <Link href="/tai-khoan" className="underline">
-                    Tài khoản
-                  </Link>
-                  .
-                </p>
+    <ToastProvider>
+      <AppShell
+        user={{ fullName: user.fullName, roleLabel: ROLE_LABELS[user.role], username: user.username, avatarUrl: user.avatarUrl }}
+        nav={nav}
+      >
+        {(warnings.length > 0 || weakPassword) && (
+          <div className="mb-4 space-y-2">
+            {weakPassword && (
+              <div className="flex items-start gap-3 rounded-xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm">
+                <KeyRound className="mt-0.5 h-5 w-5 shrink-0 text-rose-600" />
+                <div>
+                  <p className="font-semibold text-rose-700">Tài khoản của bạn vẫn dùng mật khẩu mặc định</p>
+                  <p className="text-rose-600/90">
+                    Vì lý do an toàn, hãy đổi mật khẩu ngay tại{" "}
+                    <Link href="/tai-khoan" className="underline">
+                      Tài khoản
+                    </Link>
+                    .
+                  </p>
+                </div>
               </div>
-            </div>
-          )}
-          {warnings.map((w) => (
-            <div key={w.key} className="flex items-start gap-3 rounded-xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm">
-              <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-rose-600" />
-              <div>
-                <p className="font-semibold text-rose-700">{w.title}</p>
-                <p className="text-rose-600/90">{w.detail}</p>
+            )}
+            {warnings.map((w) => (
+              <div key={w.key} className="flex items-start gap-3 rounded-xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm">
+                <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-rose-600" />
+                <div>
+                  <p className="font-semibold text-rose-700">{w.title}</p>
+                  <p className="text-rose-600/90">{w.detail}</p>
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
-      )}
-      {children}
-    </AppShell>
+            ))}
+          </div>
+        )}
+        {children}
+      </AppShell>
+    </ToastProvider>
   );
 }

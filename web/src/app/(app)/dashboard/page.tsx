@@ -189,7 +189,7 @@ export default async function DashboardPage() {
                 const last5 = a.customer?.phoneLast5 ?? a.phoneLast5;
                 const st = APPT_STATUS[a.status];
                 return (
-                  <li key={a.id} className="flex items-center gap-3 rounded-xl border border-slate-100 px-3 py-2">
+                  <li key={a.id} className="min-w-0 flex items-center gap-3 rounded-xl border border-slate-100 px-3 py-2">
                     <span className="w-12 shrink-0 text-sm font-semibold text-slate-700">{fmtTime(a.scheduledAt)}</span>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium text-slate-800">{name}</p>
@@ -375,8 +375,11 @@ const WORK_TONES: Record<string, string> = {
 function WorkSummary({ sections, total }: { sections: WorkSection[]; total: number }) {
   const active = sections.filter((section) => section.count > 0).slice(0, 4);
 
+  // -mx/px phải khớp ĐÚNG padding ngang của <main> (app-shell.tsx: px-3 sm:px-6 lg:px-8) để
+  // bleed hết viền mà không tràn quá — trước đây base dùng -mx-4/px-4 (giả định 16px) trong
+  // khi main chỉ có px-3 (12px) → tràn ngang 8px trên di động.
   return (
-    <section className="-mx-4 border-y border-slate-200 bg-white px-4 py-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8" aria-label="Công việc cần xử lý">
+    <section className="-mx-3 border-y border-slate-200 bg-white px-3 py-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8" aria-label="Công việc cần xử lý">
       <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
         <div className="flex min-w-56 items-center gap-3">
           <span className={`inline-flex h-10 w-10 items-center justify-center rounded-lg ${total > 0 ? "bg-brand-50 text-brand-600" : "bg-emerald-50 text-emerald-600"}`}>

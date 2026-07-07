@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { UserPlus, LoaderCircle, Pencil, ShieldCheck } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input, Label, Select, Textarea, FieldHint } from "@/components/ui/field";
 import { useFormAction } from "@/lib/use-form-action";
+import { useToast } from "@/components/ui/toast";
 import { SOURCE_LABEL } from "@/lib/status";
 import { LEAD_STATUSES, LEAD_STATUS_LABEL } from "@/lib/leads";
 import { createLead, updateLead, setLeadStatus } from "./actions";
@@ -123,19 +125,36 @@ function LeadForm({ mode, lead, onDone }: { mode: "create" | "edit"; lead?: Lead
 
 /** Đổi nhanh trạng thái ngay trên danh sách (tự gửi khi chọn). */
 export function LeadStatusSelect({ id, status }: { id: string; status: string }) {
+  const [pending, startTransition] = useTransition();
+  const router = useRouter();
+  const toast = useToast();
+
+  function onChange(next: string) {
+    const fd = new FormData();
+    fd.append("id", id);
+    fd.append("status", next);
+    startTransition(async () => {
+      try {
+        await setLeadStatus(fd);
+        toast("Đã lưu");
+        router.refresh();
+      } catch {
+        toast("Lỗi mạng, thử lại", "error");
+      }
+    });
+  }
+
   return (
-    <form action={setLeadStatus} className="inline-block">
-      <input type="hidden" name="id" value={id} />
-      <select
-        name="status"
-        defaultValue={status}
-        onChange={(e) => e.currentTarget.form?.requestSubmit()}
-        className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs focus:border-brand-400 focus:outline-none"
-      >
-        {LEAD_STATUSES.map((s) => (
-          <option key={s} value={s}>{LEAD_STATUS_LABEL[s]}</option>
-        ))}
-      </select>
-    </form>
+    <select
+      name="status"
+      defaultValue={status}
+      disabled={pending}
+      onChange={(e) => onChange(e.target.value)}
+      className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs focus:border-brand-400 focus:outline-none disabled:opacity-60"
+    >
+      {LEAD_STATUSES.map((s) => (
+        <option key={s} value={s}>{LEAD_STATUS_LABEL[s]}</option>
+      ))}
+    </select>
   );
 }

@@ -122,7 +122,7 @@ export default async function CashPage({ searchParams }: { searchParams: Promise
 
       <Card>
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
-          <div className="flex items-center gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5">
             <Link href={`/thu-chi?month=${prevMonth}${typeFilter ? `&type=${typeFilter}` : ""}`} className={buttonVariants({ variant: "secondary", size: "icon" })} aria-label="Tháng trước">
               <ChevronLeft className="h-4 w-4" />
             </Link>

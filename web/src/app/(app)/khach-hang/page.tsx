@@ -12,8 +12,10 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { Table, THead, TH, TR, TD } from "@/components/ui/table";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Pagination } from "@/components/ui/pagination";
 import { buttonVariants } from "@/components/ui/button";
 import { NewCustomerButton } from "../tiep-nhan/new-customer";
+import { PAGE_SIZE, parsePage, totalPagesOf } from "@/lib/pagination";
 import type { Prisma, CaseStatus } from "@/generated/prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -21,11 +23,12 @@ export const metadata = { title: "Hồ sơ khách hàng" };
 
 const DONE_STATUSES: CaseStatus[] = ["SERVICED", "COMPLETED"];
 
-export default async function CustomersPage({ searchParams }: { searchParams: Promise<{ q?: string; loc?: string }> }) {
+export default async function CustomersPage({ searchParams }: { searchParams: Promise<{ q?: string; loc?: string; page?: string }> }) {
   const user = await requireCap("mod:khach-hang");
   const sp = await searchParams;
   const q = (sp.q ?? "").trim();
   const loc = sp.loc === "done" || sp.loc === "undone" ? sp.loc : "all";
+  const page = parsePage(sp.page);
 
   const filters: Prisma.CustomerWhereInput[] = [];
   if (q) filters.push(isValidLast5(q) ? { phoneLast5: q } : { fullName: { contains: q, mode: "insensitive" } });
@@ -37,7 +40,8 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
     prisma.customer.findMany({
       where,
       orderBy: { createdAt: "desc" },
-      take: 60,
+      take: PAGE_SIZE,
+      skip: (page - 1) * PAGE_SIZE,
       select: {
         id: true,
         code: true,
@@ -54,6 +58,7 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
   ]);
 
   const canCreate = ["ADMIN", "RECEPTION"].includes(user.role);
+  const totalPages = totalPagesOf(total);
 
   const tabs = [
     { key: "all", label: "Tất cả" },
@@ -61,6 +66,14 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
     { key: "done", label: "Đã làm dịch vụ" },
   ];
   const qs = (k: string) => `/khach-hang?loc=${k}${q ? `&q=${encodeURIComponent(q)}` : ""}`;
+  const makeHref = (p: number) => {
+    const params = new URLSearchParams();
+    if (loc !== "all") params.set("loc", loc);
+    if (q) params.set("q", q);
+    if (p > 1) params.set("page", String(p));
+    const s = params.toString();
+    return `/khach-hang${s ? `?${s}` : ""}`;
+  };
   const customerRows = customers.map((customer) => {
     const statuses = customer.cases.map((item) => item.status);
     const done = statuses.some((status) => DONE_STATUSES.includes(status));
@@ -197,6 +210,7 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
             </>
           )}
         </CardContent>
+        <Pagination page={page} totalPages={totalPages} makeHref={makeHref} />
       </Card>
     </div>
   );

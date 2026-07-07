@@ -165,7 +165,7 @@ export default async function AppointmentsPage({
               <ChevronRight className="h-4 w-4" />
             </Link>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <div className="inline-flex rounded-lg bg-slate-100 p-0.5 text-xs font-medium">
               <Link
                 href={`/lich-hen?date=${dateKey}`}
@@ -180,7 +180,7 @@ export default async function AppointmentsPage({
                 Tháng
               </Link>
             </div>
-            <form className="flex items-center gap-2" action="/lich-hen">
+            <form className="flex flex-wrap items-center gap-2" action="/lich-hen">
               <input
                 type="date"
                 name="date"

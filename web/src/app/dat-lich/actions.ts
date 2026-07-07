@@ -6,6 +6,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { normalizePhone, phoneLast5, encryptPhone } from "@/lib/phone";
 import { bump } from "@/lib/rate-limit";
+import { BOOKING_HOUR_MIN, BOOKING_HOUR_MAX, BOOKING_MIN_MINUTES, BOOKING_MAX_MINUTES } from "@/lib/booking-hours";
 
 export type BookingState = { ok?: boolean; error?: string };
 
@@ -40,6 +41,10 @@ export async function createPublicAppointment(_prev: BookingState, formData: For
   const when = new Date(d.scheduledAt);
   if (Number.isNaN(when.getTime())) return { error: "Ngày giờ không hợp lệ." };
   if (when.getTime() < Date.now() - 60_000) return { error: "Vui lòng chọn thời gian trong tương lai." };
+  const minutesOfDay = when.getHours() * 60 + when.getMinutes();
+  if (minutesOfDay < BOOKING_MIN_MINUTES || minutesOfDay > BOOKING_MAX_MINUTES) {
+    return { error: `Trung tâm chỉ nhận lịch hẹn trong khung giờ ${BOOKING_HOUR_MIN}–${BOOKING_HOUR_MAX}. Vui lòng chọn giờ khác.` };
+  }
 
   await prisma.appointment.create({
     data: {

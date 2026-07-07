@@ -13,39 +13,53 @@ import { StatCard } from "@/components/ui/stat-card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Pagination } from "@/components/ui/pagination";
 import { buttonVariants } from "@/components/ui/button";
 import { DeleteButton } from "@/components/ui/delete-button";
 import { EditCareButton } from "./care-actions";
 import { deleteCareMessage } from "./actions";
+import { PAGE_SIZE, parsePage, totalPagesOf } from "@/lib/pagination";
 import type { Prisma, CareChannel } from "@/generated/prisma/client";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Chăm sóc khách hàng" };
 
-export default async function CarePage({ searchParams }: { searchParams: Promise<{ q?: string; kenh?: string }> }) {
+export default async function CarePage({ searchParams }: { searchParams: Promise<{ q?: string; kenh?: string; page?: string }> }) {
   const user = await requireCap("mod:cham-soc");
   const canManage = !isShareholder(user.role);
   const sp = await searchParams;
   const q = (sp.q ?? "").trim();
   const kenh = (sp.kenh ?? "").trim();
+  const page = parsePage(sp.page);
 
   const where: Prisma.CareMessageWhereInput = {};
   if (q) where.customer = isValidLast5(q) ? { phoneLast5: q } : { fullName: { contains: q, mode: "insensitive" } };
   if (kenh && kenh in CARE_CHANNEL) where.channel = kenh as CareChannel;
 
-  const [messages, todayCount, weekCount] = await Promise.all([
+  const [messages, total, todayCount, weekCount] = await Promise.all([
     prisma.careMessage.findMany({
       where,
       orderBy: { createdAt: "desc" },
-      take: 80,
+      take: PAGE_SIZE,
+      skip: (page - 1) * PAGE_SIZE,
       include: {
         customer: { select: { id: true, fullName: true, code: true, phoneLast5: true } },
         createdBy: { select: { fullName: true } },
       },
     }),
+    prisma.careMessage.count({ where }),
     prisma.careMessage.count({ where: { createdAt: todayRange() } }),
     prisma.careMessage.count({ where: { createdAt: { gte: new Date(Date.now() - 7 * 86400000) } } }),
   ]);
+  const totalPages = totalPagesOf(total);
+  const makeHref = (p: number) => {
+    const params = new URLSearchParams();
+    if (q) params.set("q", q);
+    if (kenh) params.set("kenh", kenh);
+    if (p > 1) params.set("page", String(p));
+    const s = params.toString();
+    return `/cham-soc${s ? `?${s}` : ""}`;
+  };
 
   return (
     <div className="space-y-6">
@@ -58,7 +72,7 @@ export default async function CarePage({ searchParams }: { searchParams: Promise
       <div className="grid gap-4 sm:grid-cols-3">
         <StatCard label="Tin chăm sóc hôm nay" value={todayCount} icon={<MessageCircleHeart className="h-5 w-5" />} tone="pink" />
         <StatCard label="Trong 7 ngày" value={weekCount} icon={<MessageCircleHeart className="h-5 w-5" />} tone="purple" />
-        <StatCard label="Tổng hiển thị" value={messages.length} icon={<Inbox className="h-5 w-5" />} tone="slate" />
+        <StatCard label="Tổng phù hợp bộ lọc" value={total} icon={<Inbox className="h-5 w-5" />} tone="slate" />
       </div>
 
       <Card>
@@ -137,6 +151,7 @@ export default async function CarePage({ searchParams }: { searchParams: Promise
             </ul>
           )}
         </CardContent>
+        <Pagination page={page} totalPages={totalPages} makeHref={makeHref} />
       </Card>
     </div>
   );

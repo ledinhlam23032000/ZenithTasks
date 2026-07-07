@@ -110,7 +110,8 @@ export async function setLeadStatus(formData: FormData): Promise<void> {
   if (!id || !["NEW", "CONTACTED", "CONVERTED", "LOST"].includes(status)) return;
   await prisma.lead.update({ where: { id }, data: { status: status as "NEW" | "CONTACTED" | "CONVERTED" | "LOST" } }).catch(() => {});
   await audit(user.id, "SET_LEAD_STATUS", { entity: "Lead", entityId: id, meta: { status } });
-  revalidatePath("/khach-tham-khao");
+  // KHÔNG gọi revalidatePath: gọi trực tiếp từ client qua useTransition + router.refresh()
+  // (xem LeadStatusSelect), không phải qua <form action> thuần — mục 8.1 BAN-GIAO.md.
 }
 
 /** Xoá khách tham khảo (dùng với ConfirmButton). */

@@ -12,8 +12,10 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { Table, THead, TH, TR, TD } from "@/components/ui/table";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Pagination } from "@/components/ui/pagination";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
+import { PAGE_SIZE, parsePage, totalPagesOf } from "@/lib/pagination";
 import type { Prisma, CaseStatus } from "@/generated/prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -30,12 +32,13 @@ const STATUS_TABS: { key: string; label: string }[] = [
 export default async function CasesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; status?: string }>;
+  searchParams: Promise<{ q?: string; status?: string; page?: string }>;
 }) {
   const user = await requireCap("mod:ho-so");
   const sp = await searchParams;
   const q = (sp.q ?? "").trim();
   const status = (sp.status ?? "").trim();
+  const page = parsePage(sp.page);
 
   // Phân quyền: tư vấn/bác sĩ chỉ thấy hồ sơ của mình (Yêu cầu số 7)
   const scope: Prisma.CaseRecordWhereInput =
@@ -49,17 +52,30 @@ export default async function CasesPage({
       : { fullName: { contains: q, mode: "insensitive" } };
   }
 
-  const cases = await prisma.caseRecord.findMany({
-    where: filters,
-    orderBy: { createdAt: "desc" },
-    take: 60,
-    include: {
-      customer: { select: { id: true, fullName: true, code: true, phoneLast5: true } },
-      consultant: { select: { fullName: true } },
-      doctor: { select: { fullName: true } },
-      _count: { select: { services: true } },
-    },
-  });
+  const [cases, total] = await Promise.all([
+    prisma.caseRecord.findMany({
+      where: filters,
+      orderBy: { createdAt: "desc" },
+      take: PAGE_SIZE,
+      skip: (page - 1) * PAGE_SIZE,
+      include: {
+        customer: { select: { id: true, fullName: true, code: true, phoneLast5: true } },
+        consultant: { select: { fullName: true } },
+        doctor: { select: { fullName: true } },
+        _count: { select: { services: true } },
+      },
+    }),
+    prisma.caseRecord.count({ where: filters }),
+  ]);
+  const totalPages = totalPagesOf(total);
+  const makeHref = (p: number) => {
+    const params = new URLSearchParams();
+    if (q) params.set("q", q);
+    if (status) params.set("status", status);
+    if (p > 1) params.set("page", String(p));
+    const s = params.toString();
+    return `/ho-so${s ? `?${s}` : ""}`;
+  };
 
   return (
     <div className="space-y-6">
@@ -162,6 +178,7 @@ export default async function CasesPage({
             </Table>
           )}
         </CardContent>
+        <Pagination page={page} totalPages={totalPages} makeHref={makeHref} />
       </Card>
     </div>
   );
