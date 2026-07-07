@@ -5,7 +5,7 @@ import { userCan } from "@/lib/permissions";
 import { prisma } from "@/lib/db";
 import { isValidLast5, maskPhone } from "@/lib/phone";
 import { fmtDate } from "@/lib/format";
-import { GENDER_LABEL, SOURCE_LABEL } from "@/lib/status";
+import { GENDER_LABEL, SOURCE_LABEL, DONE_CASE_STATUSES } from "@/lib/status";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -16,12 +16,12 @@ import { Pagination } from "@/components/ui/pagination";
 import { buttonVariants } from "@/components/ui/button";
 import { NewCustomerButton } from "../tiep-nhan/new-customer";
 import { PAGE_SIZE, parsePage, totalPagesOf } from "@/lib/pagination";
-import type { Prisma, CaseStatus } from "@/generated/prisma/client";
+import type { Prisma } from "@/generated/prisma/client";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Hồ sơ khách hàng" };
 
-const DONE_STATUSES: CaseStatus[] = ["SERVICED", "COMPLETED"];
+const DONE_STATUSES = DONE_CASE_STATUSES;
 
 export default async function CustomersPage({ searchParams }: { searchParams: Promise<{ q?: string; loc?: string; page?: string }> }) {
   const user = await requireCap("mod:khach-hang");

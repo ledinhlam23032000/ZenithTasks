@@ -3,6 +3,30 @@
 > Tài liệu bàn giao để các phiên Claude Code sau tiếp tục hiệu quả. Đọc file này + mã nguồn là nắm được bối cảnh.
 > **Kế hoạch nâng cấp dài hạn (A→E) + theo dõi tiến độ: xem `ROADMAP.md` ở gốc repo.**
 
+## Sửa lỗi tái khám + gộp "khách chưa làm" vào Khách tham khảo (chủ phản ánh) — "Đợt 27"
+> Chủ phản ánh 2 việc sau khi dùng bản Đợt 2: (1) hẹn tái khám bấm vào được nhưng không tích được
+> xác nhận khách đã đến; (2) muốn khách hàng chưa làm dịch vụ hiện chung màn hình với Khách tham
+> khảo cho dễ quản lý. Tự kiểm thử THẬT: TSC pass, 171/171 test, Playwright thật xác nhận "Đã đến"
+> ở cả 3 nơi hiển thị tái khám + đối chiếu dữ liệu 2 khách hàng "chưa làm" khớp giữa 2 trang.
+- **Lỗi tái khám không xác nhận được "đã đến"**: model `FollowUp` có sẵn `status`/`doneAt` và
+  `lib/workqueue.ts` ĐÃ LỌC theo 2 trường này ("Tái khám đến hạn" chỉ hiện ca chưa xong) — nhưng
+  KHÔNG CÓ NƠI NÀO trong toàn bộ code từng ghi giá trị mới cho 2 trường đó (chỉ `addFollowUp` set
+  mặc định lúc tạo). Cả 3 nơi hiển thị tái khám (thẻ "Tái khám" trong hồ sơ điều trị, thẻ "Lịch hẹn
+  & tái khám" trong hồ sơ khách hàng, mục "Tái khám đến hạn" ở `/viec-hom-nay`) đều chỉ hiện chữ,
+  không có nút nào — nên việc nhắc tái khám tồn đọng MÃI MÃI dù khách đã đến. Thêm action
+  `markFollowUpArrived` (`ho-so/actions.ts`, set `status: "ARRIVED"` + `doneAt: now()`) + component
+  dùng chung `components/ui/follow-up-arrive-button.tsx` (1 chạm, `useTransition` + toast +
+  `router.refresh()` — đúng quy ước Đợt 2.4), gắn vào cả 3 nơi trên; nơi đã xác nhận thì đổi thành
+  Badge trạng thái (tái dùng `APPT_STATUS` vì `FollowUp.status` dùng chung enum `AppointmentStatus`).
+- **Gộp "khách chưa làm dịch vụ" vào Khách tham khảo**: hỏi lại chủ trước khi làm vì có 2 cách hiểu
+  (gộp màn hình hay chuyển hẳn dữ liệu) — chủ chọn **gộp màn hình, giữ nguyên dữ liệu** (an toàn,
+  không đổi cấu trúc). Thêm khối "Khách hàng chưa làm dịch vụ" ở cuối trang `/khach-tham-khao`,
+  liệt kê Customer thật có `cases: { none: { status: { in: DONE_CASE_STATUSES } } }` — CÙNG định
+  nghĩa với tab lọc "Chưa làm dịch vụ" ở `/khach-hang` (đã kiểm chứng: cả 2 trang cho ra đúng cùng
+  2 khách hàng). Tách hằng số `DONE_CASE_STATUSES` ra `lib/status.ts` dùng chung 2 nơi thay vì định
+  nghĩa lặp lại, tránh sau này sửa 1 chỗ mà quên chỗ kia. Có phân trang riêng (`?cpage=`, dùng lại
+  `lib/pagination.ts` của Đợt 2.1) vì danh sách này sẽ dài dần theo thời gian.
+
 ## Đợt sửa trải nghiệm & ổn định (kiểm định QA — Đợt 2/6) — "Đợt 26"
 > "Đợt 2" trong kế hoạch đại tu 6 đợt (sau "Đợt 1" = "Đợt 25" ở dưới). Tự kiểm thử bằng dữ liệu/kịch
 > bản THẬT: TSC pass, 171/171 test, Playwright thật cho toast + đặt lịch (kể cả bỏ qua validation

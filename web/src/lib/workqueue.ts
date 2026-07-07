@@ -30,6 +30,8 @@ export type WorkItem = {
   badge?: string;
   // Nếu có: cho phép "Thu nợ" ngay trên dòng (chỉ dùng cho nhóm công nợ).
   collect?: { caseId: string; caseCode: string; customerName: string; debt: number };
+  // Nếu có: cho phép "Xác nhận đã đến" ngay trên dòng (chỉ dùng cho nhóm tái khám).
+  arrive?: { id: string; caseId: string };
 };
 export type WorkSection = { key: string; label: string; hint: string; tone: Tone; icon: string; count: number; items: WorkItem[] };
 
@@ -152,6 +154,7 @@ export async function getWorkqueue(): Promise<{ sections: WorkSection[]; total: 
         title: f.customer.fullName,
         subtitle: `${fmtTime(f.scheduledAt)}${f.note ? ` · ${f.note}` : ""} ${maskTail(f.customer.phoneLast5)}`.trim(),
         href: `/khach-hang/${f.customer.id}`,
+        arrive: { id: f.id, caseId: f.caseId },
       })),
     },
     {

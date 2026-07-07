@@ -20,6 +20,7 @@ import {
 import { differenceInYears, format } from "date-fns";
 import { requireCap } from "@/lib/auth";
 import { userCan } from "@/lib/permissions";
+import { isShareholder } from "@/lib/rbac";
 import { tierFor, pointsFor, nextTier } from "@/lib/loyalty";
 import { prisma } from "@/lib/db";
 import { maskPhone } from "@/lib/phone";
@@ -41,6 +42,7 @@ import { StatCard } from "@/components/ui/stat-card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { buttonVariants } from "@/components/ui/button";
 import { DeleteButton } from "@/components/ui/delete-button";
+import { FollowUpArriveButton } from "@/components/ui/follow-up-arrive-button";
 import { receiveCustomer } from "../../tiep-nhan/actions";
 import { deleteCustomer } from "../actions";
 import { deleteCareMessage } from "../../cham-soc/actions";
@@ -80,6 +82,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
   if (!customer) notFound();
 
   const canSeePhone = userCan(user, "phone.full");
+  const canConfirmFollowUp = !isShareholder(user.role);
 
   const totalValue = customer.cases.reduce((s, c) => s + toNum(c.totalAmount), 0);
   const totalDebt = customer.cases.reduce((s, c) => s + toNum(c.debtAmount), 0);
@@ -347,14 +350,24 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
                 <p className="text-sm text-slate-400">Chưa có lịch hẹn.</p>
               ) : (
                 <ul className="space-y-2 text-sm">
-                  {customer.followUps.map((f) => (
-                    <li key={f.id} className="flex items-center justify-between gap-2">
-                      <span className="inline-flex items-center gap-2 text-slate-600">
-                        <Stethoscope className="h-4 w-4 text-violet-500" /> Tái khám
-                      </span>
-                      <span className="text-slate-500">{fmtDateTime(f.scheduledAt)}</span>
-                    </li>
-                  ))}
+                  {customer.followUps.map((f) => {
+                    const arrived = f.status !== "BOOKED" && f.status !== "CONFIRMED";
+                    return (
+                      <li key={f.id} className="flex items-center justify-between gap-2">
+                        <span className="inline-flex items-center gap-2 text-slate-600">
+                          <Stethoscope className="h-4 w-4 text-violet-500" /> Tái khám
+                        </span>
+                        <span className="flex items-center gap-2">
+                          {arrived ? (
+                            <Badge tone={APPT_STATUS[f.status].tone}>{APPT_STATUS[f.status].label}</Badge>
+                          ) : (
+                            canConfirmFollowUp && <FollowUpArriveButton id={f.id} caseId={f.caseId} />
+                          )}
+                          <span className="text-slate-500">{fmtDateTime(f.scheduledAt)}</span>
+                        </span>
+                      </li>
+                    );
+                  })}
                   {customer.appointments.map((a) => (
                     <li key={a.id} className="flex items-center justify-between gap-2">
                       <span className="inline-flex items-center gap-2 text-slate-600">

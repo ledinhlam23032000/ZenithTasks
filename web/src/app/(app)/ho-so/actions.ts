@@ -704,6 +704,15 @@ export async function deletePayment(formData: FormData): Promise<void> {
   await audit(user.id, "DELETE_PAYMENT", { entity: "Payment", entityId: id, meta: { amount: toNum(pay?.amount), caseId } });
 }
 
+// ---- Xác nhận khách đã đến tái khám (vai trò như đón tiếp lịch hẹn thường) ----
+export async function markFollowUpArrived(formData: FormData): Promise<void> {
+  const user = await requireUser(["ADMIN", "MANAGER", "TELESALE", "RECEPTION", "CONSULTANT", "DOCTOR", "CARE"]);
+  const id = String(formData.get("id") ?? "");
+  const caseId = String(formData.get("caseId") ?? "");
+  if (!id || (await isLockedFor(caseId, user.role))) return;
+  await prisma.followUp.update({ where: { id }, data: { status: "ARRIVED", doneAt: new Date() } }).catch(() => {});
+}
+
 // ---- Xóa lịch tái khám ----
 export async function deleteFollowUp(formData: FormData): Promise<void> {
   const user = await requireCap("case.clinical");

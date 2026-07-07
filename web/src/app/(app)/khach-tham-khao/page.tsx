@@ -1,10 +1,10 @@
 import Link from "next/link";
-import { UserSearch, Sparkles, TrendingUp, Trash2, ArrowRightCircle, Phone, FolderOpen } from "lucide-react";
+import { UserSearch, Sparkles, TrendingUp, Trash2, ArrowRightCircle, Phone, FolderOpen, Users } from "lucide-react";
 import { requireCap } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { maskPhone } from "@/lib/phone";
 import { fmtDate } from "@/lib/format";
-import { SOURCE_LABEL, CASE_STATUS, CONSULT_RESULT } from "@/lib/status";
+import { SOURCE_LABEL, CASE_STATUS, CONSULT_RESULT, DONE_CASE_STATUSES } from "@/lib/status";
 import { tplWinback } from "@/lib/message-templates";
 import { LEAD_STATUSES, LEAD_STATUS_LABEL, LEAD_STATUS_TONE, summarizeLeads, type LeadStatusKey } from "@/lib/leads";
 import { PageHeader } from "@/components/ui/page-header";
@@ -15,6 +15,8 @@ import { Table, THead, TH, TR, TD } from "@/components/ui/table";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ConfirmButton } from "@/components/ui/confirm-button";
 import { ContactButtons } from "@/components/ui/contact-buttons";
+import { Pagination } from "@/components/ui/pagination";
+import { PAGE_SIZE, parsePage, totalPagesOf } from "@/lib/pagination";
 import { revealPhone } from "../khach-hang/actions";
 import { AddLeadButton, EditLeadButton, LeadStatusSelect } from "./lead-widgets";
 import { deleteLead, convertLeadToCustomer } from "./actions";
@@ -27,10 +29,15 @@ export const metadata = { title: "Khách tham khảo" };
 
 const TAKE = 300;
 
-export default async function LeadsPage({ searchParams }: { searchParams: Promise<{ status?: string; err?: string }> }) {
+export default async function LeadsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ status?: string; err?: string; cpage?: string }>;
+}) {
   await requireCap("mod:khach-tham-khao");
   const sp = await searchParams;
   const statusFilter = LEAD_STATUSES.includes(sp.status as LeadStatusKey) ? (sp.status as LeadStatusKey) : "all";
+  const cpage = parsePage(sp.cpage);
 
   const leads = await prisma.lead.findMany({
     orderBy: [{ createdAt: "desc" }],
@@ -57,6 +64,29 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
       _count: { select: { services: true } },
     },
   });
+
+  // Khách hàng (đã tiếp nhận) nhưng CHƯA TỪNG làm dịch vụ nào — gộp hiển thị cùng trang với
+  // Khách tham khảo để quản lý 1 chỗ (định nghĩa "chưa làm" khớp đúng tab lọc ở /khach-hang).
+  const undoneWhere = { cases: { none: { status: { in: DONE_CASE_STATUSES } } } };
+  const [undoneCustomers, undoneTotal] = await Promise.all([
+    prisma.customer.findMany({
+      where: undoneWhere,
+      orderBy: { createdAt: "desc" },
+      take: PAGE_SIZE,
+      skip: (cpage - 1) * PAGE_SIZE,
+      select: {
+        id: true,
+        fullName: true,
+        phoneLast5: true,
+        source: true,
+        createdAt: true,
+        _count: { select: { cases: true } },
+      },
+    }),
+    prisma.customer.count({ where: undoneWhere }),
+  ]);
+  const undoneTotalPages = totalPagesOf(undoneTotal);
+  const makeUndoneHref = (p: number) => (p > 1 ? `/khach-tham-khao?cpage=${p}` : "/khach-tham-khao");
 
   const qs = (s: string) => (s === "all" ? "/khach-tham-khao" : `/khach-tham-khao?status=${s}`);
 
@@ -240,6 +270,57 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
             </Table>
           )}
         </CardContent>
+      </Card>
+
+      {/* Khách hàng đã tiếp nhận nhưng chưa từng làm dịch vụ nào — gộp chung trang này để tiện quản lý. */}
+      <Card>
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3">
+          <h2 className="inline-flex items-center gap-2 text-sm font-semibold text-slate-800">
+            <Users className="h-4 w-4 text-sky-500" /> Khách hàng chưa làm dịch vụ ({undoneTotal})
+          </h2>
+          <p className="text-xs text-slate-400">Đã tiếp nhận nhưng chưa từng làm dịch vụ nào — gọi/nhắn mời đến làm.</p>
+        </div>
+        <CardContent className="pt-0">
+          {undoneCustomers.length === 0 ? (
+            <EmptyState icon={<Users className="h-6 w-6" />} title="Không có khách nào" description="Mọi khách hàng đều đã làm ít nhất 1 dịch vụ." />
+          ) : (
+            <Table>
+              <THead>
+                <TR>
+                  <TH>Khách</TH>
+                  <TH>Nguồn</TH>
+                  <TH className="text-center">Lượt khám</TH>
+                  <TH>Ngày tạo</TH>
+                  <TH>Liên hệ</TH>
+                </TR>
+              </THead>
+              <tbody>
+                {undoneCustomers.map((c) => (
+                  <TR key={c.id}>
+                    <TD>
+                      <Link href={`/khach-hang/${c.id}`} className="font-medium text-slate-800 hover:text-brand-600">
+                        {c.fullName}
+                      </Link>
+                    </TD>
+                    <TD>
+                      <Badge tone="slate">{SOURCE_LABEL[c.source]}</Badge>
+                    </TD>
+                    <TD className="text-center text-slate-600">{c._count.cases}</TD>
+                    <TD className="text-slate-500">{fmtDate(c.createdAt)}</TD>
+                    <TD>
+                      <ContactButtons
+                        reveal={revealPhone.bind(null, c.id)}
+                        last5={c.phoneLast5}
+                        smsBody={tplWinback({ fullName: c.fullName })}
+                      />
+                    </TD>
+                  </TR>
+                ))}
+              </tbody>
+            </Table>
+          )}
+        </CardContent>
+        <Pagination page={cpage} totalPages={undoneTotalPages} makeHref={makeUndoneHref} />
       </Card>
     </div>
   );

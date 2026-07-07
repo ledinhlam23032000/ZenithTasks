@@ -26,7 +26,7 @@ import { maskPhone } from "@/lib/phone";
 import { toNum, formatVND } from "@/lib/money";
 import { fmtDate, fmtDateTime, toDatetimeLocal } from "@/lib/format";
 import { addDays } from "date-fns";
-import { CASE_STATUS, CONSULT_RESULT, PAYMENT_LABEL, GENDER_LABEL } from "@/lib/status";
+import { CASE_STATUS, CONSULT_RESULT, PAYMENT_LABEL, GENDER_LABEL, APPT_STATUS } from "@/lib/status";
 import { getActiveServices, getActiveMaterials, getConsultants, getDoctors } from "@/lib/lookups";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -35,6 +35,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Table, THead, TH, TR, TD } from "@/components/ui/table";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ConfirmButton } from "@/components/ui/confirm-button";
+import { FollowUpArriveButton } from "@/components/ui/follow-up-arrive-button";
 import { buttonVariants } from "@/components/ui/button";
 import { PhotoGallery } from "@/components/ui/photo-gallery";
 import { PhotoCompareButton } from "@/components/ui/photo-compare";
@@ -640,24 +641,34 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
                 <p className="text-sm text-slate-400">Chưa có lịch tái khám.</p>
               ) : (
                 <ul className="space-y-2.5">
-                  {record.followUps.map((f) => (
-                    <li key={f.id} className="flex items-start justify-between gap-2 rounded-lg border border-slate-100 p-2.5">
-                      <div>
-                        <p className="text-sm font-medium text-slate-700">{fmtDateTime(f.scheduledAt)}</p>
-                        {f.note && <p className="text-xs text-slate-500">{f.note}</p>}
-                      </div>
-                      {canClinical && (
-                        <ConfirmButton
-                          action={deleteFollowUp}
-                          fields={{ id: f.id, caseId: record.id }}
-                          confirmText="Xóa lịch tái khám này?"
-                          className="mt-0.5 text-slate-300 hover:text-rose-500"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </ConfirmButton>
-                      )}
-                    </li>
-                  ))}
+                  {record.followUps.map((f) => {
+                    const arrived = f.status !== "BOOKED" && f.status !== "CONFIRMED";
+                    return (
+                      <li key={f.id} className="flex items-start justify-between gap-2 rounded-lg border border-slate-100 p-2.5">
+                        <div>
+                          <p className="text-sm font-medium text-slate-700">{fmtDateTime(f.scheduledAt)}</p>
+                          {f.note && <p className="text-xs text-slate-500">{f.note}</p>}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {arrived ? (
+                            <Badge tone={APPT_STATUS[f.status].tone}>{APPT_STATUS[f.status].label}</Badge>
+                          ) : (
+                            canClinical && <FollowUpArriveButton id={f.id} caseId={record.id} />
+                          )}
+                          {canClinical && (
+                            <ConfirmButton
+                              action={deleteFollowUp}
+                              fields={{ id: f.id, caseId: record.id }}
+                              confirmText="Xóa lịch tái khám này?"
+                              className="mt-0.5 text-slate-300 hover:text-rose-500"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </ConfirmButton>
+                          )}
+                        </div>
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
             </CardContent>

@@ -19,6 +19,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { DebtCollectButton } from "../cong-no/debt-collect-button";
+import { FollowUpArriveButton } from "@/components/ui/follow-up-arrive-button";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Việc cần làm hôm nay" };
@@ -92,6 +93,9 @@ export default async function WorkqueuePage() {
                         // Nhóm công nợ + có quyền thu tiền: cho "Thu nợ" ngay tại đây (giảm nợ hồ sơ,
                         // dòng tự biến mất sau khi tất toán). Tránh phải mở hồ sơ mới thu được.
                         const showCollect = canCollect && !!it.collect;
+                        // Nhóm tái khám: cho "Xác nhận đã đến" ngay tại đây (mọi vai trò xem được
+                        // trang này đều được phép — xem role list của markFollowUpArrived).
+                        const showArrive = !!it.arrive;
                         const info = (
                           <span className="flex items-center justify-between gap-3 py-2.5">
                             <span className="min-w-0">
@@ -100,7 +104,7 @@ export default async function WorkqueuePage() {
                             </span>
                             <span className="flex shrink-0 items-center gap-1.5">
                               {it.badge && <Badge tone={s.tone}>{it.badge}</Badge>}
-                              {it.href && !showCollect && <ChevronRight className="h-4 w-4 text-slate-300" />}
+                              {it.href && !showCollect && !showArrive && <ChevronRight className="h-4 w-4 text-slate-300" />}
                             </span>
                           </span>
                         );
@@ -116,6 +120,16 @@ export default async function WorkqueuePage() {
                                 customerName={it.collect.customerName}
                                 debt={it.collect.debt}
                               />
+                            </li>
+                          );
+                        }
+                        if (showArrive && it.arrive) {
+                          return (
+                            <li key={it.id} className="flex items-center gap-2">
+                              <Link href={it.href ?? `/ho-so/${it.arrive.caseId}`} className="min-w-0 flex-1 block rounded-lg px-1 transition hover:bg-slate-50">
+                                {info}
+                              </Link>
+                              <FollowUpArriveButton id={it.arrive.id} caseId={it.arrive.caseId} />
                             </li>
                           );
                         }

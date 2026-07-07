@@ -35,6 +35,11 @@ export const CASE_STATUS: Record<CaseStatus, { label: string; tone: Tone }> = {
   CANCELLED: { label: "Đã hủy", tone: "red" },
 };
 
+// Khách "đã làm dịch vụ" = có ít nhất 1 hồ sơ ở 1 trong 2 trạng thái này. Dùng để phân loại
+// khách hàng "Chưa làm dịch vụ" ở `/khach-hang` VÀ gộp hiển thị cùng nhóm ở `/khach-tham-khao`
+// — 2 nơi PHẢI cùng định nghĩa "chưa làm" giống hệt nhau nên đặt chung 1 chỗ.
+export const DONE_CASE_STATUSES: CaseStatus[] = ["SERVICED", "COMPLETED"];
+
 // Nhãn trạng thái ca DÀNH RIÊNG cho cổng khách (`khach/[token]`) — vài viết tắt nội bộ
 // như "Đang làm DV" không phù hợp hiện cho khách xem, giữ tone màu như CASE_STATUS.
 export const CASE_STATUS_PORTAL: Record<CaseStatus, string> = {
