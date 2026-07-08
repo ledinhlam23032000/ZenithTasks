@@ -52,10 +52,10 @@ phần "Đánh giá" trong lịch sử hội thoại + `web/DU-AN.md`.
 
 | Mã | Hạng mục | Trạng thái | Ghi chú |
 |----|----------|-----------|---------|
-| D1 | **AI trợ lý vận hành** | ✅ Phần lớn xong | ✅ Lớp AI TRUNG LẬP NHÀ CUNG CẤP (Đợt 14) + ✅ AI soạn tin chăm sóc + ✅ **Trợ lý hỏi-đáp số liệu `/tro-ly`** (Đợt 17: hỏi doanh thu/công nợ/dịch vụ/khách rời bỏ/tồn kho; AI chỉ trả lời dựa trên ảnh chụp số liệu, không truy cập DB). ⏳ Còn (tuỳ chọn): tóm tắt từng hồ sơ + gợi ý upsell tự động. 🔑 Cần `AI_API_KEY`. |
+| D1 | **AI trợ lý vận hành** | ✅ Phần lớn xong | ✅ Lớp AI TRUNG LẬP NHÀ CUNG CẤP (Đợt 14) + ✅ AI soạn tin chăm sóc + ✅ **Trợ lý hỏi-đáp số liệu `/tro-ly`** (Đợt 17: hỏi doanh thu/công nợ/dịch vụ/khách rời bỏ/tồn kho; AI chỉ trả lời dựa trên ảnh chụp số liệu, không truy cập DB) + ✅ **AI tự soạn kế hoạch `/ke-hoach`** (Đợt 29: AI soạn bản nháp kế hoạch có cấu trúc — nhiệm vụ chính/phụ/ghi chú — người dùng xem/sửa rồi mới lưu, không tự lưu; chỉ ADMIN/MANAGER/SHAREHOLDER). ⏳ Còn (tuỳ chọn): tóm tắt từng hồ sơ + gợi ý upsell tự động. 🔑 Cần `AI_API_KEY`. |
 | D2 | **So sánh ảnh trước/sau (slider)** | ✅ Xong | Kéo so sánh (clip-path), chọn ảnh trái/phải bất kỳ. Chưa làm: đóng dấu ngày/logo, xuất ảnh ghép. |
 | D3 | **Cổng khách hàng nâng cao** | ✅ Xong | ✅ Khách tự xác nhận/đổi lịch (Đợt 12). ✅ Đánh giá NPS từ cổng khách + thẻ NPS ở Phân tích; ✅ link cổng khách có hạn 90 ngày + thu hồi (Đợt 18). |
-| D4 | **Tìm kiếm toàn cục (Ctrl/Cmd+K)** | ✅ Xong | Command palette tìm khách/hồ sơ/vật tư + điều hướng menu. |
+| D4 | **Tìm kiếm toàn cục (Ctrl/Cmd+K)** | ✅ Xong | Command palette tìm khách/hồ sơ/vật tư/**kế hoạch** (Đợt 29) + điều hướng menu. |
 | D5 | **Màn "đầu ca lễ tân"** | ✅ Xong | Gộp khách chưa đến + đang chờ + việc tồn đọng (link `/viec-hom-nay`). |
 
 ## NHÓM E — CHẤT LƯỢNG MÃ NGUỒN

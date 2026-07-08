@@ -84,6 +84,26 @@ export async function globalSearch(query: string): Promise<SearchResult[]> {
     );
   }
 
+  if (moduleCan(user, "/ke-hoach")) {
+    tasks.push(
+      prisma.plan
+        .findMany({
+          where: { title: { contains: q, mode: "insensitive" } },
+          select: { id: true, title: true, note: true },
+          take: TAKE,
+        })
+        .then((rows) =>
+          rows.map((p) => ({
+            id: p.id,
+            title: p.title,
+            subtitle: p.note ?? undefined,
+            href: `/ke-hoach/${p.id}`,
+            group: "Kế hoạch",
+          })),
+        ),
+    );
+  }
+
   const results = await Promise.all(tasks);
   return results.flat();
 }

@@ -112,6 +112,12 @@ enum CareDirection {
   IN // Khách phản hồi
 }
 
+enum PlanTaskStatus {
+  TODO // Chưa làm
+  IN_PROGRESS // Đang làm
+  DONE // Hoàn thành
+}
+
 // ============================ NHÂN SỰ ============================
 
 model User {
@@ -171,6 +177,7 @@ model User {
   debtPlans            DebtPlan[]        @relation("DebtPlanCreatedBy")
   leadsCreated         Lead[]            @relation("LeadCreatedBy")
   documentsUploaded    CaseDocument[]    @relation("DocUploadedBy")
+  plansCreated         Plan[]            @relation("PlanCreatedBy")
 }
 
 // ============================ CHẤM CÔNG & LƯƠNG ============================
@@ -657,6 +664,45 @@ model CaseDocument {
   createdAt    DateTime   @default(now())
 
   @@index([caseId])
+}
+
+// Lập kế hoạch nội bộ dạng "task app" (Trợ Lý) — CHỈ ADMIN/MANAGER/SHAREHOLDER dùng được
+// (xem lib/permissions.ts, mod:ke-hoach). Không có khái niệm giao việc cho nhân sự khác —
+// nội bộ 3 vai trò quản trị/quản lý/cổ đông.
+model Plan {
+  id          String   @id @default(cuid())
+  title       String
+  note        String? // mô tả/ghi chú tổng quan của cả kế hoạch
+  aiGenerated Boolean  @default(false) // true nếu tạo qua "Lập kế hoạch bằng AI" — hiện badge
+  createdById String?
+  createdBy   User?    @relation("PlanCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tasks PlanTask[]
+
+  @@index([createdAt])
+}
+
+// Nhiệm vụ chính VÀ nhiệm vụ phụ dùng CHUNG 1 model, tự tham chiếu qua parentId:
+// parentId null = nhiệm vụ chính; khác null = nhiệm vụ phụ. Schema KHÔNG tự giới hạn độ sâu —
+// tầng server action chủ động chặn tạo nhiệm vụ phụ dưới 1 nhiệm vụ phụ khác (chỉ hỗ trợ 2 cấp).
+model PlanTask {
+  id        String         @id @default(cuid())
+  planId    String
+  plan      Plan           @relation(fields: [planId], references: [id], onDelete: Cascade)
+  parentId  String?
+  parent    PlanTask?      @relation("PlanSubtasks", fields: [parentId], references: [id], onDelete: Cascade)
+  subtasks  PlanTask[]     @relation("PlanSubtasks")
+  title     String
+  note      String? // ghi chú chi tiết (nhiệm vụ chính hay phụ đều dùng field này)
+  status    PlanTaskStatus @default(TODO)
+  order     Int            @default(0) // thứ tự thủ công TRONG CÙNG 1 cấp (cùng planId + cùng parentId)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  @@index([planId])
+  @@index([parentId])
 }
 
 // Cấu hình đơn giản dạng khoá–giá trị, dùng chung toàn hệ thống (mọi máy thấy như nhau).

@@ -1,4 +1,5 @@
 import type { Role } from "@/generated/prisma/client";
+import { PLAN_ROLES } from "./plans";
 
 // ============================================================================
 // HỆ THỐNG PHÂN QUYỀN — mặc định theo vai trò + tuỳ chỉnh thêm/bớt theo từng người.
@@ -13,7 +14,7 @@ import type { Role } from "@/generated/prisma/client";
 
 const ALL: Role[] = ["ADMIN", "MANAGER", "TELESALE", "RECEPTION", "CONSULTANT", "DOCTOR", "NURSE", "CARE"];
 
-export type NavGroup = "Hôm nay" | "Khách hàng" | "Phân tích" | "Trợ lý AI" | "Vận hành" | "Quản trị";
+export type NavGroup = "Hôm nay" | "Khách hàng" | "Phân tích" | "Trợ Lý" | "Vận hành" | "Quản trị";
 export type ModuleDef = { key: string; href: string; label: string; icon: string; group: NavGroup; roles: Role[]; hidden?: boolean };
 
 // Các mục (menu) — đây cũng là nguồn duy nhất cho thanh điều hướng.
@@ -40,7 +41,10 @@ export const MODULES: ModuleDef[] = [
   // Phân tích kinh doanh vẫn gộp tab với Báo cáo.
   { key: "phan-tich", href: "/phan-tich", label: "Phân tích kinh doanh", icon: "PieChart", group: "Phân tích", roles: ["ADMIN", "MANAGER", "SHAREHOLDER"], hidden: true },
   // Để thành nhóm riêng và hiện trực tiếp: cổ đông lớn tuổi không phải tìm trong tab Báo cáo.
-  { key: "tro-ly", href: "/tro-ly", label: "Trợ lý AI", icon: "Sparkles", group: "Trợ lý AI", roles: ["ADMIN", "SHAREHOLDER"] },
+  { key: "tro-ly", href: "/tro-ly", label: "Trợ lý AI", icon: "Sparkles", group: "Trợ Lý", roles: ["ADMIN", "SHAREHOLDER"] },
+  // Lập kế hoạch (nhiệm vụ chính/phụ + ghi chú, AI có thể soạn nháp) — CHỈ ADMIN/MANAGER/SHAREHOLDER
+  // (Cổ đông toàn quyền — ngoại lệ riêng cho mục này, khác quy ước "chỉ xem" mọi nơi khác).
+  { key: "ke-hoach", href: "/ke-hoach", label: "Kế hoạch", icon: "ListTree", group: "Trợ Lý", roles: [...PLAN_ROLES] },
   { key: "hieu-suat", href: "/hieu-suat", label: "Hiệu suất nhân sự", icon: "Activity", group: "Phân tích", roles: ["ADMIN", "MANAGER", "SHAREHOLDER"] },
   // Gộp chung tab với "Hiệu suất nhân sự".
   { key: "cong-tac-vien", href: "/cong-tac-vien", label: "Cộng tác viên", icon: "Handshake", group: "Phân tích", roles: ["ADMIN", "MANAGER", "SHAREHOLDER"], hidden: true },
@@ -91,6 +95,9 @@ export function parsePerms(raw: unknown): PermOverride {
 export function userCan(user: UserLike, key: string): boolean {
   // Ranh giới cứng: dù bị cấp grant nhầm, chỉ Admin/Cổ đông được dùng Trợ lý AI / xem Chi phí đầu tư.
   if ((key === "mod:tro-ly" || key === "mod:chi-phi-dau-tu") && user.role !== "ADMIN" && user.role !== "SHAREHOLDER") return false;
+  // Ranh giới cứng RIÊNG cho Kế hoạch: khác dòng trên vì CÓ THÊM MANAGER (theo yêu cầu chủ) —
+  // ADMIN + MANAGER + SHAREHOLDER đều toàn quyền; mọi vai trò khác bị chặn cứng dù có grant nhầm.
+  if (key === "mod:ke-hoach" && !PLAN_ROLES.includes(user.role)) return false;
   const p = parsePerms(user.permissions);
   if (p.deny.includes(key)) return false;
   if (p.grant.includes(key)) return true;

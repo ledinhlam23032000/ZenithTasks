@@ -38,7 +38,8 @@ web/
     (app)/                      # Khu vực đăng nhập (có app-shell, sidebar)
       dashboard, viec-hom-nay, dau-ca, cong-no, lich-hen, tiep-nhan, khach-hang, ho-so/[id], cham-soc,
       bao-cao, phan-tich, hieu-suat, cong-tac-vien, lich-lam-viec, luong, thu-chi, chi-phi-dau-tu,
-      nhan-su/[id], nhat-ky, he-thong, danh-muc, mau-phieu, kho, cham-cong, tai-khoan
+      nhan-su/[id], nhat-ky, he-thong, danh-muc, mau-phieu, kho, cham-cong, tai-khoan,
+      khach-tham-khao, tro-ly, ke-hoach/[id]         # nhóm sidebar "Trợ Lý": tro-ly (hỏi-đáp) + ke-hoach (lập kế hoạch)
       <mỗi mục>/actions.ts       # Server actions của mục đó
       <mỗi mục>/*-forms.tsx      # Form client (modal)
       <mỗi mục>/export/route.ts  # Xuất Excel/Word/CSV (không phải mục nào cũng có — xem mục 8.9)
@@ -115,6 +116,8 @@ Chỉ 3 trang KHÔNG dynamic: `/` (redirect), `/login`, `/khong-co-quyen`. **H�
 - **upload.ts** — tệp giấy tờ tải lên THUẦN (có test): `isAllowedDocMime`/`docExt`/`safeStoredName`/`prettyFileSize` (PDF/ảnh/Word/Excel, chống path traversal). Dùng ở `uploadCaseDocument` (ho-so/actions). Model `CaseDocument` (giấy tờ hành chính/phiếu đồng ý ĐÃ KÝ tải lên thay vì gõ tay) hiện ở thẻ "Giấy tờ hành chính" của hồ sơ; xem qua `/media/<tệp>` (route đã thêm content-type PDF/Word/Excel, vẫn gate đăng nhập/vé).
 - **nps.ts** — đánh giá NPS THUẦN (có test, D3 gđ2): `clampScore` (0..10), `npsCategory`, `npsSummary` (NPS = %promoter − %detractor + điểm TB + đếm nhóm). Dùng ở cổng khách (`portalSubmitNps`) + thẻ NPS trên `/phan-tich` (qua `getBusinessAnalytics`). Model `NpsResponse`. Link cổng khách có `Customer.portalTokenExpiresAt` (90 ngày, `genPortalLink`/`revokePortalLink`).
 - **assistant.ts** — trợ lý AI hỏi-đáp THUẦN (có test, D1): `formatAssistantContext` (ảnh chụp số liệu → văn bản gọn), `ASSISTANT_SYSTEM`, `SUGGESTED_QUESTIONS`. **assistant-data.ts**: `getAssistantContext()` gom số liệu KINH DOANH (KHÔNG gồm SĐT/y khoa) — tái dùng `getBusinessAnalytics`. Dùng ở `/tro-ly` (module `tro-ly`, icon `Sparkles`, ADMIN/MANAGER/SHAREHOLDER); action `askAssistant` đưa bối cảnh cho `ai.ts` — AI KHÔNG truy cập thẳng DB (chống bịa số/rò rỉ). 🔑 cần `AI_API_KEY`.
+- **plans.ts** — lập kế hoạch THUẦN (có test): `PLAN_ROLES` (ADMIN/MANAGER/SHAREHOLDER — dùng lại ở module, ranh giới cứng VÀ `requireUser` trong actions, tránh sửa 1 chỗ quên chỗ kia), nhãn/tone trạng thái nhiệm vụ (`PLAN_TASK_STATUS_LABEL/_TONE`) và trạng thái tổng kế hoạch (`PLAN_STATUS_LABEL/_TONE`), `planProgress(items)` (tổng/số hoàn thành/%/trạng thái — dùng cho cả thẻ danh sách lẫn trang chi tiết), `sortByOrder`, `toggleTaskStatus`. Dùng ở `/ke-hoach` (module `ke-hoach`, icon `ListTree`, nhóm sidebar "Trợ Lý" cùng `tro-ly`).
+- **plan-ai.ts** — AI soạn BẢN NHÁP kế hoạch có cấu trúc (JSON) từ mô tả mục tiêu — xem mục 8.10 (khuôn mẫu sinh dữ liệu có cấu trúc từ AI). `PLAN_DRAFT_MAX_TASKS=12`/`PLAN_DRAFT_MAX_SUBTASKS=8`, `planDraftSchema` (zod, dùng chung để validate CẢ output AI LẪN bản nháp người dùng đã sửa trước khi lưu), `parsePlanDraft` (có test: trích JSON có/không rào chắn, JSON hỏng, sai schema, mảng vượt giới hạn tự cắt).
 - **message-templates.ts** — mẫu tin nhắn THUẦN (có test, B2 bậc 1): `tplDebtReminder/tplFollowUpReminder/tplApptConfirm/tplBirthday/tplWinback` — chỉ tạo text, không tự gửi. Dùng ở `ContactButtons`.
 - **analytics.ts** — phân tích kinh doanh THUẦN (có test, Nhóm C): `rfmScore`/`rfmSegment`/`isChurnRisk` (phân khúc khách theo RFM, ngưỡng `DEFAULT_RFM` tinh chỉnh được), `funnelRates` (tỉ lệ phễu chuyển đổi), `marketingRoi` (ROI marketing — C3). Dùng ở `/phan-tich`.
 - **analytics-data.ts** — `getBusinessAnalytics(days)` (Nhóm C): truy vấn + lắp ráp RFM/phân khúc/radar khách rời bỏ/phễu hồ sơ + lịch hẹn/LTV theo nguồn. Dùng `analytics.ts` (thuần) để chấm điểm.
@@ -127,7 +130,7 @@ Chỉ 3 trang KHÔNG dynamic: `/` (redirect), `/login`, `/khong-co-quyen`. **H�
 - **scripts/backup.mjs** (ngoài lib) — sao lưu tự động (A5): `pg_dump -Fc` + ảnh + status JSON; `npm run backup`.
 
 ## 5. Mô hình dữ liệu (Prisma)
-**Enums**: `Role` (ADMIN, MANAGER, TELESALE, RECEPTION, CONSULTANT, DOCTOR, NURSE, CARE, SHAREHOLDER), `Gender`, `CustomerSource`, `AppointmentType`, `AppointmentStatus`, `CaseStatus` (OPEN, CONSULTED, SERVICED, COMPLETED, CANCELLED), `ConsultResult` (PENDING, AGREED, CONSIDERING, DECLINED), `PaymentMethod` (CASH, CARD, TRANSFER, EWALLET), `PhotoType` (BEFORE, AFTER, FOLLOW_UP, **CLINICAL**), `CareChannel`, `CareDirection`, `StockType`, `CashType` (INCOME, EXPENSE).
+**Enums**: `Role` (ADMIN, MANAGER, TELESALE, RECEPTION, CONSULTANT, DOCTOR, NURSE, CARE, SHAREHOLDER), `Gender`, `CustomerSource`, `AppointmentType`, `AppointmentStatus`, `CaseStatus` (OPEN, CONSULTED, SERVICED, COMPLETED, CANCELLED), `ConsultResult` (PENDING, AGREED, CONSIDERING, DECLINED), `PaymentMethod` (CASH, CARD, TRANSFER, EWALLET), `PhotoType` (BEFORE, AFTER, FOLLOW_UP, **CLINICAL**), `CareChannel`, `CareDirection`, `StockType`, `CashType` (INCOME, EXPENSE), `PlanTaskStatus` (TODO, IN_PROGRESS, DONE).
 
 **Models chính**:
 - **User** — nhân sự + thông tin HR đầy đủ (dob, gender, nationalId, hometown, address, bank*, emergency*, position, department, hireDate, qualification, notes), `baseSalary`, `avatarUrl`, `role`, `permissions` (JSON `{grant,deny}`), `totpSecret/totpEnabled`. **KHÔNG còn `commissionRate`** (đã bỏ — hoa hồng nhập tay).
@@ -142,6 +145,7 @@ Chỉ 3 trang KHÔNG dynamic: `/` (redirect), `/login`, `/khong-co-quyen`. **H�
 - **Attendance** (chấm công theo ngày), **Shift** (ca làm), **PayrollEntry** (theo tháng: `baseSalary`, `commission` nhập tay, `bonus`, `adjustment`…).
 - **CareMessage** (nhật ký chăm sóc: `channel`, `direction`), **FollowUp** (hẹn tái khám: `status`/`doneAt` được CẬP NHẬT THẬT qua nút "Đã đến" — `markFollowUpArrived` ở `ho-so/actions.ts` — hiện ở thẻ Tái khám của hồ sơ, thẻ khách hàng, và mục "Tái khám đến hạn" của `/viec-hom-nay`; trước đây 2 trường này chỉ có giá trị mặc định lúc tạo, không nơi nào cập nhật được dù `workqueue.ts` đã lọc theo chúng), **AuditLog**, **CashTransaction** (sổ thu chi), **Collaborator** (hồ sơ CTV: `name @unique`, `phone`, `bank*`, `note`, `active`).
 - **AppSetting** (cấu hình khoá–giá trị dùng chung: `key @id` + `value` + `updatedAt`). Hiện dùng cho ngưỡng cảnh báo công nợ (`debt.threshold`). Xem `lib/settings.ts`.
+- **Plan** + **PlanTask** (Trợ Lý — lập kế hoạch: `title`/`note`/`aiGenerated`/`createdById`) — nhiệm vụ tự tham chiếu **CHỈ 2 CẤP** qua `PlanTask.parentId` → `parent`/`subtasks` (quan hệ `PlanSubtasks`), ép giới hạn 2 cấp ở TẦNG SERVER ACTION (`createSubtask` — không dựa vào schema). `planId` denormalize lên MỌI dòng (kể cả nhiệm vụ phụ) để lấy trọn cây bằng 1 câu truy vấn phẳng rồi dựng cây ở JS. `order` (Int) đổi thủ công bằng nút lên/xuống giữa 2 phần tử liền kề CÙNG cấp (không dùng thư viện kéo-thả — xem `reorderTask`). Xem `lib/plans.ts` + `/ke-hoach`.
 
 ## 6. Phân quyền (RBAC) — `src/lib/permissions.ts`
 - 2 loại quyền: **mục** `mod:<key>` (gate cả menu lẫn trang) và **năng lực** mịn.
@@ -151,7 +155,7 @@ Chỉ 3 trang KHÔNG dynamic: `/` (redirect), `/login`, `/khong-co-quyen`. **H�
 - **Giao diện cấp quyền**: Nhân sự → "Phân quyền" (`nhan-su/permission-editor.tsx`) — kéo thả Bật/Tắt, lưu qua `savePermissions`.
 - **SHAREHOLDER (Cổ đông)**: CHỈ XEM. Có ở các mục xem kinh doanh (dashboard, lịch hẹn, hồ sơ khách, hồ sơ điều trị, chăm sóc, báo cáo, hiệu suất, CTV, thu chi, danh mục, kho); KHÔNG có ở nhân sự/lương/chấm công/lịch làm việc/tiếp nhận/nhật ký. KHÔNG có năng lực nào (SĐT luôn che). UI ẩn nút thao tác qua `isShareholder()`. Mọi action mutation dùng `requireUser([...])` KHÔNG gồm SHAREHOLDER → an toàn theo thiết kế.
 - **Lưu ý quyền Thu chi**: chỉ cần cấp 1 quyền `mod:thu-chi` là nhân sự vào ĐƯỢC + ghi ĐƯỢC (action chặn riêng cổ đông). Không có quyền `cash.write` riêng.
-- **Ranh giới cứng bất chấp `grant`** (trong `userCan()`, KHÔNG chỉ dựa vào bảng DEFAULTS): `mod:tro-ly` và `mod:chi-phi-dau-tu` CHỈ ADMIN + SHAREHOLDER, dù admin lỡ cấp `grant` cho vai trò khác qua giao diện Phân quyền thì vẫn bị chặn — 2 mục này nhạy cảm hơn mức phân quyền linh hoạt thông thường cho phép.
+- **Ranh giới cứng bất chấp `grant`** (trong `userCan()`, KHÔNG chỉ dựa vào bảng DEFAULTS): `mod:tro-ly` và `mod:chi-phi-dau-tu` CHỈ ADMIN + SHAREHOLDER; `mod:ke-hoach` (Lập kế hoạch) CHỈ ADMIN + MANAGER + SHAREHOLDER (`PLAN_ROLES` ở `lib/plans.ts`) — TẬP VAI TRÒ KHÁC 2 mục kia (có thêm MANAGER) nên đây là 1 điều kiện `userCan()` RIÊNG, không gộp chung dòng. Dù admin lỡ cấp `grant` cho vai trò khác qua giao diện Phân quyền vẫn bị chặn ở cả 3 mục — nhạy cảm hơn mức phân quyền linh hoạt thông thường cho phép. **Ngoại lệ riêng của `ke-hoach`**: SHAREHOLDER được TOÀN QUYỀN tạo/sửa/xóa (khác quy ước "cổ đông chỉ xem" áp dụng ở mọi nơi khác — quyết định có chủ đích của chủ dự án, vì đây là công cụ làm việc nội bộ giữa 3 vai trò quản trị, không phải số liệu kinh doanh cần tách bạch xem/làm). Không dùng `nav-tabs.ts` để gộp `tro-ly`+`ke-hoach` thành 1 trang có tab dù cùng nhóm sidebar — tập vai trò hiển thị khác nhau, gộp tab sẽ sai logic hiển thị cho MANAGER (thấy tab nhưng vào tab kia lại bị chặn).
 
 ## 7. Logic nghiệp vụ cốt lõi
 ### Giá / voucher / công nợ (hồ sơ điều trị)
@@ -231,6 +235,15 @@ VN (`TZ` trong docker-compose). Ngày chấm công dùng `vnDateOnly()`.
 - Xuất theo **NHIỀU phạm vi** (vd tháng này / cả năm / toàn bộ — cần cho kiểm toán, không chỉ xuất được từng tháng một): dùng `components/ui/scoped-export-menu.tsx` (`<ScopedExportMenu scopes={[{label, excelHref, wordHref, csvHref?}, ...]}>`), route nhận thêm `?scope=month|year|all`. Xem `/thu-chi/export`.
 - Danh sách dài (hồ sơ, công nợ, kho, nhật ký…): route export xuất **TOÀN BỘ bản ghi khớp bộ lọc** (không giới hạn theo trang phân trang của UI) — mục đích xuất file là lấy đủ dữ liệu, khác với xem trên màn hình.
 - Các mục đã có xuất file: Báo cáo, Cộng tác viên, Hiệu suất nhân sự, Lương, Sổ thu chi, Sổ công nợ, Hồ sơ điều trị, Kho vật tư, Chấm công (chỉ quản lý), Nhật ký hệ thống, Chi phí đầu tư.
+
+### 8.10. Sinh dữ liệu có cấu trúc từ AI (JSON) — khuôn mẫu
+Áp dụng khi cần AI trả về DỮ LIỆU CÓ CẤU TRÚC (không phải văn xuôi tự do) rồi LƯU vào DB — ví dụ đầu tiên: `lib/plan-ai.ts` (AI soạn bản nháp kế hoạch cho `/ke-hoach`). Quy trình chuẩn, tái dùng cho tính năng AI-JSON sau này:
+1. **KHÔNG sửa `lib/ai.ts`** — hàm này trung lập nhà cung cấp (OpenAI-compatible + Anthropic), không nên gắn JSON-mode/tool-calling riêng cho 1 hãng. Chỉ cần ép bằng PROMPT.
+2. Prompt hệ thống ép AI **CHỈ trả về đúng 1 khối ```json ... ``` `**, mô tả cấu trúc JSON chính xác (tên trường, kiểu, ràng buộc số lượng) — không viết thêm lời dẫn.
+3. Parse phòng thủ theo đúng thứ tự, KHÔNG BAO GIỜ throw ra ngoài: trích khối JSON (có rào chắn ```` ```json ```` → rào chắn thường → giữa `{` đầu và `}` cuối) → `JSON.parse` (try/catch) → validate bằng **zod** (dùng CHUNG 1 schema cho CẢ việc parse output AI LẪN validate lại dữ liệu người dùng đã sửa lúc lưu — tránh 2 nơi định nghĩa cấu trúc lệch nhau).
+4. Nếu model soạn dư số lượng so với giới hạn đã yêu cầu (hay gặp) → **tự cắt bớt mảng rồi validate lại 1 lần** thay vì báo lỗi ngay.
+5. Nếu vẫn sai cấu trúc → gọi lại AI **đúng 1 lần** với prompt nhấn mạnh hơn (biến `retry`), rồi mới báo lỗi tiếng Việt thân thiện nếu vẫn thất bại.
+6. **Action "soạn nháp" KHÔNG được lưu DB** — chỉ trả `{ok, draft}` hoặc `{error}` cho client hiển thị. Client BẮT BUỘC cho xem/sửa bản nháp (dùng lại component hiển thị ở chế độ "chỉ đổi state cục bộ") trước khi có action "lưu thật" riêng — action lưu thật validate LẠI bằng đúng schema đó (phòng client gửi sai) rồi mới ghi DB, đánh dấu cờ `aiGenerated: true` để phân biệt với dữ liệu người dùng tự nhập tay.
 
 ## 9. Bảo mật (RÀNG BUỘC — phải giữ)
 - **SĐT khách**: luôn mã hoá **AES-256-GCM**. Số đầy đủ chỉ lộ cho **ADMIN + MANAGER** qua server action `revealPhone(customerId)` (ghi audit `REVEAL_PHONE`) — chỉ giải mã KHI BẤM, KHÔNG giải mã lúc render. Nhân sự khác chỉ thấy 5 số cuối (`maskPhone`).

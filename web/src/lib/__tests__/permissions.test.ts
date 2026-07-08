@@ -19,7 +19,20 @@ describe("userCan", () => {
   });
   it("Trợ lý AI hiện thành mục điều hướng riêng cho Cổ đông", () => {
     const item = navForUser({ role: "SHAREHOLDER" }).find((nav) => nav.href === "/tro-ly");
-    expect(item).toMatchObject({ label: "Trợ lý AI", group: "Trợ lý AI" });
+    expect(item).toMatchObject({ label: "Trợ lý AI", group: "Trợ Lý" });
+  });
+  it("Kế hoạch dành cho Admin, Quản lý và Cổ đông (khác Trợ lý AI — có thêm Quản lý)", () => {
+    expect(userCan({ role: "ADMIN" }, "mod:ke-hoach")).toBe(true);
+    expect(userCan({ role: "MANAGER" }, "mod:ke-hoach")).toBe(true);
+    expect(userCan({ role: "SHAREHOLDER" }, "mod:ke-hoach")).toBe(true);
+  });
+  it("Kế hoạch chặn cứng vai trò khác, grant không vượt được ranh giới", () => {
+    expect(userCan({ role: "CONSULTANT", permissions: { grant: ["mod:ke-hoach"], deny: [] } }, "mod:ke-hoach")).toBe(false);
+    expect(userCan({ role: "RECEPTION", permissions: { grant: ["mod:ke-hoach"], deny: [] } }, "mod:ke-hoach")).toBe(false);
+  });
+  it("Kế hoạch hiện thành mục điều hướng chung nhóm Trợ Lý với Trợ lý AI", () => {
+    const item = navForUser({ role: "MANAGER" }).find((nav) => nav.href === "/ke-hoach");
+    expect(item).toMatchObject({ label: "Kế hoạch", group: "Trợ Lý" });
   });
 });
 
