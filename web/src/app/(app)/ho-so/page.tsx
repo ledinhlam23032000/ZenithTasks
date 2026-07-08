@@ -13,6 +13,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Table, THead, TH, TR, TD } from "@/components/ui/table";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Pagination } from "@/components/ui/pagination";
+import { ExportMenu } from "@/components/ui/export-menu";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
 import { PAGE_SIZE, parsePage, totalPagesOf } from "@/lib/pagination";
@@ -89,6 +90,13 @@ export default async function CasesPage({
               : "Toàn bộ hồ sơ điều trị của phòng khám."
         }
         icon={<FolderHeart className="h-5 w-5" />}
+        actions={
+          <ExportMenu
+            excelHref={`/ho-so/export?format=xlsx${q ? `&q=${encodeURIComponent(q)}` : ""}${status ? `&status=${status}` : ""}`}
+            wordHref={`/ho-so/export?format=doc${q ? `&q=${encodeURIComponent(q)}` : ""}${status ? `&status=${status}` : ""}`}
+            csvHref={`/ho-so/export?format=csv${q ? `&q=${encodeURIComponent(q)}` : ""}${status ? `&status=${status}` : ""}`}
+          />
+        }
       />
 
       <Card>

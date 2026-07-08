@@ -18,6 +18,7 @@ import { Table, THead, TH, TR, TD } from "@/components/ui/table";
 import { Avatar } from "@/components/ui/avatar";
 import { EmptyState } from "@/components/ui/empty-state";
 import { DeleteButton } from "@/components/ui/delete-button";
+import { ExportMenu } from "@/components/ui/export-menu";
 import { CheckInWidget } from "./check-in-widget";
 import { deleteAttendance } from "./actions";
 import {
@@ -134,6 +135,13 @@ export default async function ChamCongPage({
                 Xem
               </button>
             </form>
+            {managerial && (
+              <ExportMenu
+                excelHref={`/cham-cong/export?format=xlsx&m=${monthValue}`}
+                wordHref={`/cham-cong/export?format=doc&m=${monthValue}`}
+                csvHref={`/cham-cong/export?format=csv&m=${monthValue}`}
+              />
+            )}
             {managerial && <AddAttendanceButton staff={staffList} />}
           </div>
         }

@@ -7,7 +7,7 @@ import { prisma } from "@/lib/db";
 import { toNum, formatVND } from "@/lib/money";
 import { fmtDate } from "@/lib/format";
 import { PAYMENT_LABEL } from "@/lib/status";
-import { CASH_TYPE, categoryLabel } from "@/lib/finance";
+import { CASH_TYPE, categoryLabel, INVESTMENT_CATEGORY_CODE } from "@/lib/finance";
 import { isShareholder } from "@/lib/rbac";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,7 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, THead, TH, TR, TD } from "@/components/ui/table";
 import { EmptyState } from "@/components/ui/empty-state";
 import { buttonVariants } from "@/components/ui/button";
-import { ExportMenu } from "@/components/ui/export-menu";
+import { ScopedExportMenu } from "@/components/ui/scoped-export-menu";
 import { DeleteButton } from "@/components/ui/delete-button";
 import { NewCashButton, EditCashButton } from "./cash-forms";
 import { deleteCashTransaction } from "./actions";
@@ -28,6 +28,10 @@ export const metadata = { title: "Thu chi" };
 export default async function CashPage({ searchParams }: { searchParams: Promise<{ month?: string; type?: string }> }) {
   const user = await requireCap("mod:thu-chi");
   const canManage = !isShareholder(user.role);
+  // Chi phí đầu tư (mua sắm lớn, cải tạo…) CHỈ Admin/Cổ đông xem được — xem riêng ở
+  // /chi-phi-dau-tu. Với người khác (kể cả Quản lý), ẩn hẳn khỏi Sổ thu chi thường
+  // (cả danh sách lẫn số liệu tổng) để không lộ qua tổng chi/hạng mục chi nhiều nhất.
+  const canSeeInvestment = user.role === "ADMIN" || isShareholder(user.role);
   const sp = await searchParams;
 
   const monthRef = sp.month ? new Date(`${sp.month}-01T00:00:00`) : new Date();
@@ -36,10 +40,12 @@ export default async function CashPage({ searchParams }: { searchParams: Promise
   const to = endOfMonth(month);
   const monthKey = format(month, "yyyy-MM");
   const typeFilter = sp.type === "INCOME" || sp.type === "EXPENSE" ? (sp.type as CashType) : null;
+  const hideInvestment: Prisma.CashTransactionWhereInput = canSeeInvestment ? {} : { category: { not: INVESTMENT_CATEGORY_CODE } };
 
   const where: Prisma.CashTransactionWhereInput = {
     occurredAt: { gte: from, lte: to },
     ...(typeFilter ? { type: typeFilter } : {}),
+    ...hideInvestment,
   };
 
   const [txs, monthAll] = await Promise.all([
@@ -49,7 +55,7 @@ export default async function CashPage({ searchParams }: { searchParams: Promise
       include: { createdBy: { select: { fullName: true } } },
     }),
     prisma.cashTransaction.findMany({
-      where: { occurredAt: { gte: from, lte: to } },
+      where: { occurredAt: { gte: from, lte: to }, ...hideInvestment },
       select: { type: true, amount: true, category: true },
     }),
   ]);
@@ -86,9 +92,27 @@ export default async function CashPage({ searchParams }: { searchParams: Promise
         icon={<Coins className="h-5 w-5" />}
         actions={
           <div className="flex items-center gap-2">
-            <ExportMenu
-              excelHref={`/thu-chi/export?format=xlsx&month=${monthKey}${typeFilter ? `&type=${typeFilter}` : ""}`}
-              wordHref={`/thu-chi/export?format=doc&month=${monthKey}${typeFilter ? `&type=${typeFilter}` : ""}`}
+            <ScopedExportMenu
+              scopes={[
+                {
+                  label: `Tháng ${format(month, "MM/yyyy")}`,
+                  excelHref: `/thu-chi/export?format=xlsx&scope=month&month=${monthKey}${typeFilter ? `&type=${typeFilter}` : ""}`,
+                  wordHref: `/thu-chi/export?format=doc&scope=month&month=${monthKey}${typeFilter ? `&type=${typeFilter}` : ""}`,
+                  csvHref: `/thu-chi/export?format=csv&scope=month&month=${monthKey}${typeFilter ? `&type=${typeFilter}` : ""}`,
+                },
+                {
+                  label: `Cả năm ${format(month, "yyyy")}`,
+                  excelHref: `/thu-chi/export?format=xlsx&scope=year&month=${monthKey}${typeFilter ? `&type=${typeFilter}` : ""}`,
+                  wordHref: `/thu-chi/export?format=doc&scope=year&month=${monthKey}${typeFilter ? `&type=${typeFilter}` : ""}`,
+                  csvHref: `/thu-chi/export?format=csv&scope=year&month=${monthKey}${typeFilter ? `&type=${typeFilter}` : ""}`,
+                },
+                {
+                  label: "Toàn bộ (phục vụ kiểm toán)",
+                  excelHref: `/thu-chi/export?format=xlsx&scope=all${typeFilter ? `&type=${typeFilter}` : ""}`,
+                  wordHref: `/thu-chi/export?format=doc&scope=all${typeFilter ? `&type=${typeFilter}` : ""}`,
+                  csvHref: `/thu-chi/export?format=csv&scope=all${typeFilter ? `&type=${typeFilter}` : ""}`,
+                },
+              ]}
             />
             {canManage && <NewCashButton defaultDate={today} />}
           </div>

@@ -35,6 +35,8 @@ export const MODULES: ModuleDef[] = [
   { key: "ho-so", href: "/ho-so", label: "Hồ sơ điều trị", icon: "FolderHeart", group: "Khách hàng", roles: ["ADMIN", "MANAGER", "CONSULTANT", "DOCTOR", "RECEPTION", "SHAREHOLDER"], hidden: true },
   { key: "cham-soc", href: "/cham-soc", label: "Chăm sóc KH", icon: "MessageCircleHeart", group: "Khách hàng", roles: ["ADMIN", "MANAGER", "CARE", "SHAREHOLDER"] },
   { key: "bao-cao", href: "/bao-cao", label: "Báo cáo", icon: "TrendingUp", group: "Phân tích", roles: ["ADMIN", "MANAGER", "SHAREHOLDER"] },
+  // CHỈ ADMIN + SHAREHOLDER (theo yêu cầu chủ) — KHÔNG có MANAGER, khác các mục còn lại trong nhóm này.
+  { key: "chi-phi-dau-tu", href: "/chi-phi-dau-tu", label: "Chi phí đầu tư", icon: "Building2", group: "Phân tích", roles: ["ADMIN", "SHAREHOLDER"] },
   // Phân tích kinh doanh vẫn gộp tab với Báo cáo.
   { key: "phan-tich", href: "/phan-tich", label: "Phân tích kinh doanh", icon: "PieChart", group: "Phân tích", roles: ["ADMIN", "MANAGER", "SHAREHOLDER"], hidden: true },
   // Để thành nhóm riêng và hiện trực tiếp: cổ đông lớn tuổi không phải tìm trong tab Báo cáo.
@@ -87,8 +89,8 @@ export function parsePerms(raw: unknown): PermOverride {
 
 /** Người dùng có quyền này không (đã tính cả grant/deny tuỳ chỉnh)? */
 export function userCan(user: UserLike, key: string): boolean {
-  // Ranh giới cứng: dù bị cấp grant nhầm, chỉ Admin/Cổ đông được dùng Trợ lý AI.
-  if (key === "mod:tro-ly" && user.role !== "ADMIN" && user.role !== "SHAREHOLDER") return false;
+  // Ranh giới cứng: dù bị cấp grant nhầm, chỉ Admin/Cổ đông được dùng Trợ lý AI / xem Chi phí đầu tư.
+  if ((key === "mod:tro-ly" || key === "mod:chi-phi-dau-tu") && user.role !== "ADMIN" && user.role !== "SHAREHOLDER") return false;
   const p = parsePerms(user.permissions);
   if (p.deny.includes(key)) return false;
   if (p.grant.includes(key)) return true;

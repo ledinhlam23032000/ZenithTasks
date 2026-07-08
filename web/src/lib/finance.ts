@@ -12,6 +12,10 @@ export const EXPENSE_CATEGORIES: CashCat[] = [
   { code: "MATERIAL", label: "Vật tư y tế" },
   { code: "MEDICINE", label: "Thuốc & mỹ phẩm" },
   { code: "EQUIPMENT", label: "Máy móc & thiết bị" },
+  // Chi phí ĐẦU TƯ (mua sắm tài sản lớn, cải tạo mặt bằng…) — khác chi phí vận hành ngày
+  // thường. Xem riêng ở `/chi-phi-dau-tu` (CHỈ ADMIN + SHAREHOLDER) — mã INVESTMENT bị
+  // LỌC KHỎI trang Sổ thu chi thường với người không phải Admin/Cổ đông, xem `INVESTMENT_CATEGORY_CODE`.
+  { code: "INVESTMENT", label: "Chi phí đầu tư" },
   { code: "SALARY", label: "Lương nhân viên" },
   { code: "COMMISSION", label: "Hoa hồng cộng tác viên" },
   { code: "MARKETING", label: "Marketing & quảng cáo" },
@@ -43,6 +47,9 @@ export const INCOME_CATEGORIES: CashCat[] = [
  * (Giữ "SERVICE" cho dữ liệu cũ từng ghi "Doanh thu dịch vụ" trong sổ.)
  */
 export const REVENUE_TRANSFER_CODES = ["ADVANCE_REVENUE", "SERVICE"];
+
+/** Mã hạng mục Chi phí đầu tư — ẩn khỏi Sổ thu chi thường với người không phải ADMIN/SHAREHOLDER. */
+export const INVESTMENT_CATEGORY_CODE = "INVESTMENT";
 
 export function categoriesFor(type: "INCOME" | "EXPENSE"): CashCat[] {
   return type === "INCOME" ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;

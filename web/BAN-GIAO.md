@@ -37,10 +37,11 @@ web/
   src/app/
     (app)/                      # Khu vực đăng nhập (có app-shell, sidebar)
       dashboard, viec-hom-nay, dau-ca, cong-no, lich-hen, tiep-nhan, khach-hang, ho-so/[id], cham-soc,
-      bao-cao, phan-tich, hieu-suat, cong-tac-vien, lich-lam-viec, luong, thu-chi,
+      bao-cao, phan-tich, hieu-suat, cong-tac-vien, lich-lam-viec, luong, thu-chi, chi-phi-dau-tu,
       nhan-su/[id], nhat-ky, he-thong, danh-muc, mau-phieu, kho, cham-cong, tai-khoan
       <mỗi mục>/actions.ts       # Server actions của mục đó
       <mỗi mục>/*-forms.tsx      # Form client (modal)
+      <mỗi mục>/export/route.ts  # Xuất Excel/Word/CSV (không phải mục nào cũng có — xem mục 8.9)
     login/, dat-lich/           # Công khai
     khach/[token]/              # Cổng khách hàng (công khai, theo token)
     media/[file]/route.ts       # Phục vụ ảnh từ public/uploads (KHÔNG auth — để cổng khách xem được)
@@ -83,7 +84,7 @@ Chỉ 3 trang KHÔNG dynamic: `/` (redirect), `/login`, `/khong-co-quyen`. **H�
 - **format.ts** — `fmtDate/fmtDateTime/fmtRelative/toDatetimeLocal`.
 - **dates.ts** — `vnDateOnly()` (mốc ngày theo giờ VN cho cột @db.Date).
 - **status.ts** — nhãn + tone cho các enum (CASE_STATUS, CONSULT_RESULT, APPT_STATUS/TYPE, SOURCE_LABEL, PAYMENT_LABEL, CARE_CHANNEL, GENDER_LABEL).
-- **finance.ts** — danh mục thu/chi sổ thu chi; `CATEGORY_LABEL`, `categoriesFor(type)`; `REVENUE_TRANSFER_CODES = ["ADVANCE_REVENUE","SERVICE"]` (loại khỏi "thu khác" trong P&L để tránh tính trùng).
+- **finance.ts** — danh mục thu/chi sổ thu chi; `CATEGORY_LABEL`, `categoriesFor(type)`; `REVENUE_TRANSFER_CODES = ["ADVANCE_REVENUE","SERVICE"]` (loại khỏi "thu khác" trong P&L để tránh tính trùng). `INVESTMENT_CATEGORY_CODE = "INVESTMENT"` — hạng mục Chi phí đầu tư, xem mục 9 (bảo mật) về cách ẩn khỏi Sổ thu chi thường.
 - **collections.ts** — `collectionsByStaff/collectionsTotal` THUẦN (có test): gom tiền THỰC THU (Payment) trong 1 kỳ về từng nhân sự (tư vấn viên + bác sĩ, cùng 1 khoản ghi cho cả 2), tách "ca tháng này" (`fromNew`) / "thu nợ ca cũ" (`fromDebt`, hồ sơ tạo trước kỳ). Dùng ở `payroll.ts` + `performance.ts` — đây là CĂN CỨ để quản lý nhập hoa hồng (khách trả nợ tháng nào tính thực thu tháng đó, không phải tháng chốt ca).
 - **payroll.ts** — `getPayroll(monthDate, standardDays=26)` → bảng lương, có thêm `collectedConsult/collectedDoctor` (thực thu từng người, dùng `collections.ts`) + `debtOutstanding` (nợ khách mình phụ trách còn lại) + `collectedAll` (thực thu toàn trung tâm trong tháng).
 - **reports.ts** — `getReports(monthDate?)`, `getMonthlyPnl(monthDate?)` (nhận tháng bất kỳ, mặc định tháng hiện tại — "tháng trước" luôn lùi 1 tháng từ mốc xem), `getSalesSeries()` (mốc tuần/tháng/năm, luôn tương đối "hiện tại" — không theo tháng chọn).
@@ -150,6 +151,7 @@ Chỉ 3 trang KHÔNG dynamic: `/` (redirect), `/login`, `/khong-co-quyen`. **H�
 - **Giao diện cấp quyền**: Nhân sự → "Phân quyền" (`nhan-su/permission-editor.tsx`) — kéo thả Bật/Tắt, lưu qua `savePermissions`.
 - **SHAREHOLDER (Cổ đông)**: CHỈ XEM. Có ở các mục xem kinh doanh (dashboard, lịch hẹn, hồ sơ khách, hồ sơ điều trị, chăm sóc, báo cáo, hiệu suất, CTV, thu chi, danh mục, kho); KHÔNG có ở nhân sự/lương/chấm công/lịch làm việc/tiếp nhận/nhật ký. KHÔNG có năng lực nào (SĐT luôn che). UI ẩn nút thao tác qua `isShareholder()`. Mọi action mutation dùng `requireUser([...])` KHÔNG gồm SHAREHOLDER → an toàn theo thiết kế.
 - **Lưu ý quyền Thu chi**: chỉ cần cấp 1 quyền `mod:thu-chi` là nhân sự vào ĐƯỢC + ghi ĐƯỢC (action chặn riêng cổ đông). Không có quyền `cash.write` riêng.
+- **Ranh giới cứng bất chấp `grant`** (trong `userCan()`, KHÔNG chỉ dựa vào bảng DEFAULTS): `mod:tro-ly` và `mod:chi-phi-dau-tu` CHỈ ADMIN + SHAREHOLDER, dù admin lỡ cấp `grant` cho vai trò khác qua giao diện Phân quyền thì vẫn bị chặn — 2 mục này nhạy cảm hơn mức phân quyền linh hoạt thông thường cho phép.
 
 ## 7. Logic nghiệp vụ cốt lõi
 ### Giá / voucher / công nợ (hồ sơ điều trị)
@@ -222,6 +224,14 @@ VN (`TZ` trong docker-compose). Ngày chấm công dùng `vnDateOnly()`.
 ### 8.8. Migration
 Đổi schema → **viết tay** file trong `prisma/migrations/<timestamp>_<tên>/migration.sql` + commit. Entrypoint chạy `prisma migrate deploy` khi khởi động. ⚠️ Trong sandbox: `prisma migrate dev` lỗi "non-interactive", `migrate reset` BỊ CHẶN cho AI. Sau khi đổi schema phải chạy `npx prisma generate` để tsc không lỗi. `ALTER TYPE ... ADD VALUE IF NOT EXISTS` cho việc thêm giá trị enum (idempotent).
 
+### 8.9. Xuất file (Excel/Word/CSV) — phục vụ kiểm toán/kế toán
+- Route `app/(app)/<mục>/export/route.ts` (Server Route Handler, `GET`) dùng `lib/export.ts` (`xlsxResponse`/`wordResponse`/`csvResponse`) — KHÔNG phụ thuộc thư viện ngoài (`lib/xlsx.ts` tự dựng .xlsx thật bằng ZIP+XML thủ công). Route PHẢI tự gọi `requireCap`/`requireUser` — KHÔNG được suy luận quyền từ việc trang gọi nó có sẵn quyền hay không (route đứng độc lập, ai biết URL cũng gọi được nếu không tự chặn).
+- **Nhân bản ĐÚNG bộ lọc + ĐÚNG phạm vi phân quyền của trang** khi viết route export — đây là lỗi dễ mắc nhất: `/ho-so/export` phải lặp lại y hệt điều kiện `consultantId`/`doctorId` mà trang `/ho-so` áp cho vai trò Tư vấn/Bác sĩ (đã kiểm tra thật: xuất qua route cho tư vấn viên A chỉ ra đúng số ca của A, khớp `count()` ở DB). Nếu trang có ẩn/lọc dữ liệu nhạy cảm theo vai trò (vd Chi phí đầu tư ẩn với người không phải Admin/Cổ đông — mục 9), route export phải lọc y hệt, KHÔNG được xuất "toàn bộ không lọc" rồi để trang tự ẩn — vì gọi thẳng URL export sẽ bỏ qua UI.
+- Xuất theo **1 phạm vi** (vd 1 tháng đang xem): dùng `components/ui/export-menu.tsx` (`<ExportMenu excelHref wordHref csvHref?>`, CSV tuỳ chọn nếu route hỗ trợ).
+- Xuất theo **NHIỀU phạm vi** (vd tháng này / cả năm / toàn bộ — cần cho kiểm toán, không chỉ xuất được từng tháng một): dùng `components/ui/scoped-export-menu.tsx` (`<ScopedExportMenu scopes={[{label, excelHref, wordHref, csvHref?}, ...]}>`), route nhận thêm `?scope=month|year|all`. Xem `/thu-chi/export`.
+- Danh sách dài (hồ sơ, công nợ, kho, nhật ký…): route export xuất **TOÀN BỘ bản ghi khớp bộ lọc** (không giới hạn theo trang phân trang của UI) — mục đích xuất file là lấy đủ dữ liệu, khác với xem trên màn hình.
+- Các mục đã có xuất file: Báo cáo, Cộng tác viên, Hiệu suất nhân sự, Lương, Sổ thu chi, Sổ công nợ, Hồ sơ điều trị, Kho vật tư, Chấm công (chỉ quản lý), Nhật ký hệ thống, Chi phí đầu tư.
+
 ## 9. Bảo mật (RÀNG BUỘC — phải giữ)
 - **SĐT khách**: luôn mã hoá **AES-256-GCM**. Số đầy đủ chỉ lộ cho **ADMIN + MANAGER** qua server action `revealPhone(customerId)` (ghi audit `REVEAL_PHONE`) — chỉ giải mã KHI BẤM, KHÔNG giải mã lúc render. Nhân sự khác chỉ thấy 5 số cuối (`maskPhone`).
 - **Ảnh y khoa** (A1): route `/media/[file]` có xác thực (đăng nhập hoặc vé ký `?t=`) — KHÔNG còn công khai. Xem mục 8.6.
@@ -236,6 +246,7 @@ VN (`TZ` trong docker-compose). Ngày chấm công dùng `vnDateOnly()`.
 - **Audit**: `lib/audit.ts` — đã gắn DELETE_PAYMENT, UPDATE_PAYMENT, DELETE_CASE, APPLY_VOUCHER, DELETE_CARE, REVEAL_PHONE, EDIT_CASE_DATE, EDIT_ATTENDANCE… Trang xem ở `/nhat-ky`.
 - **Tải ảnh**: chỉ nhận ảnh bitmap (JPG/PNG/WEBP/HEIC), KHÔNG nhận SVG. Giới hạn 8MB.
 - **Cổng khách — action CÔNG KHAI (D3)**: `khach/[token]/actions.ts` (`portalConfirmAppointment`/`portalRequestReschedule`) chạy KHÔNG đăng nhập → bảo mật dựa HOÀN TOÀN vào kiểm token → khách → lịch hẹn thuộc đúng khách + rate-limit (`bump`). KHÔNG tự đổi giờ (chỉ ghi nhận yêu cầu). Khi thêm action public mới ở cổng khách, BẮT BUỘC theo đúng khuôn này.
+- **Chi phí đầu tư ẩn khỏi Sổ thu chi thường**: giao dịch mã `INVESTMENT` (`lib/finance.ts`) vẫn nằm CHUNG bảng `CashTransaction` với thu/chi vận hành (không tách model riêng), nhưng trang `/thu-chi` + route `/thu-chi/export` đều tự thêm `category: { not: "INVESTMENT" }` vào where-clause (cả danh sách LẪN số liệu tổng "Tổng chi"/"hạng mục chi nhiều nhất") với bất kỳ ai KHÔNG phải ADMIN/SHAREHOLDER — kể cả Quản lý (MANAGER) dù có quyền `mod:thu-chi`. Khi sửa 2 file này, PHẢI giữ điều kiện lọc này ở cả nơi lấy danh sách lẫn nơi tính tổng, không chỉ 1 trong 2 (đã có bài học từ chỗ này: quên lọc 1 trong 2 truy vấn là lộ số liệu qua tổng dù danh sách đã ẩn đúng).
 - **KHÔNG** ghi định danh model (`claude-opus-*`…) vào commit/PR/code/comment — chỉ dùng khi trả lời chat.
 
 ## 10. Chạy & kiểm thử trong sandbox

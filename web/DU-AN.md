@@ -3,6 +3,28 @@
 > Tài liệu bàn giao để các phiên Claude Code sau tiếp tục hiệu quả. Đọc file này + mã nguồn là nắm được bối cảnh.
 > **Kế hoạch nâng cấp dài hạn (A→E) + theo dõi tiến độ: xem `ROADMAP.md` ở gốc repo.**
 
+## Rà soát 100% xuất file phục vụ kiểm toán + tính năng Chi phí đầu tư (chủ yêu cầu) — "Đợt 28"
+> Chủ phản ánh Sổ thu chi chưa xuất được file phục vụ kiểm toán, yêu cầu rà soát toàn bộ hạng mục
+> còn thiếu xuất file, và thêm tính năng Chi phí đầu tư chỉ Cổ đông + Quản trị viên xem được. Tự
+> kiểm thử THẬT: TSC pass, 171/171 test, tải thật cả 13 file xuất (đủ 3 định dạng), tạo tài khoản
+> Cổ đông tạm thời để xác nhận quyền xem/không-quản-lý, dựng khoản đầu tư đánh dấu để đối chiếu
+> Sổ thu chi hiện/ẩn đúng theo vai trò (kể cả qua route export gọi thẳng, không chỉ qua giao diện),
+> đối chiếu số liệu xuất ra khớp COUNT() trong DB cho từng vai trò (kể cả giới hạn tư vấn/bác sĩ
+> chỉ xuất được hồ sơ của mình).
+- **Sổ thu chi thực ra ĐÃ có xuất file** (`/thu-chi/export`) nhưng chỉ xuất được ĐÚNG 1 THÁNG đang xem — với kiểm toán (thường cần cả năm/toàn bộ) phải bấm xuất từng tháng một, không thực tế. Thêm `?scope=month|year|all` vào route + component mới `components/ui/scoped-export-menu.tsx` (`ScopedExportMenu`) cho phép chọn "Tháng này / Cả năm / Toàn bộ" ngay trong 1 nút "Xuất file", mỗi phạm vi có Excel/Word/CSV.
+- **Thêm CSV** vào `components/ui/export-menu.tsx` (tuỳ chọn `csvHref`, không phá callers cũ) — dùng chung cho mọi trang xuất file mới.
+- **Rà soát 100%**: kiểm tra toàn bộ page.tsx dưới `(app)/`, tìm ra 5 hạng mục có dữ liệu quan trọng cho kiểm toán/kế toán nhưng CHƯA có xuất file, thêm route + nút cho từng nơi:
+  - `/cong-no` (Sổ công nợ) — xuất đúng bộ lọc đang xem (nhóm tuổi nợ + tư vấn viên).
+  - `/ho-so` (Hồ sơ điều trị) — xuất TOÀN BỘ hồ sơ khớp bộ lọc (không giới hạn theo trang phân trang); **giữ đúng ranh giới phân quyền của trang** (tư vấn/bác sĩ chỉ xuất được hồ sơ mình phụ trách, đã kiểm chứng số dòng xuất ra khớp `count()` DB theo `consultantId`).
+  - `/kho` (Kho vật tư) — xuất 2 phần: tồn kho hiện tại (giá trị tồn theo giá vốn bình quân) + toàn bộ lịch sử nhập/xuất.
+  - `/cham-cong` (Chấm công) — xuất tổng hợp ngày công + chi tiết theo ngày CẢ trung tâm trong tháng, CHỈ vai trò quản lý (trùng điều kiện `isManagerial` của trang).
+  - `/nhat-ky` (Nhật ký hệ thống) — xuất đúng bộ lọc hành động/người thực hiện/khoảng ngày đang áp dụng, không giới hạn theo trang.
+  - Bài học ghi vào BAN-GIAO.md mục 8.9: route export PHẢI tự lặp lại đúng điều kiện phân quyền/lọc dữ liệu của trang tương ứng — gọi thẳng URL export bỏ qua hoàn toàn UI, nên lọc thiếu ở route là lộ dữ liệu dù trang hiển thị đúng.
+- **Tính năng mới: Chi phí đầu tư** (`/chi-phi-dau-tu`) — mua sắm tài sản lớn/cải tạo mặt bằng, tách khỏi chi phí vận hành ngày thường. Thiết kế:
+  - Vẫn dùng chung bảng `CashTransaction` (thêm mã hạng mục `INVESTMENT` ở `lib/finance.ts`, KHÔNG tách model riêng — tránh phá vỡ luồng ghi sổ thu chi sẵn có), nhưng có trang riêng tổng hợp (tổng từ trước tới nay, tổng năm nay, danh sách + form thêm/sửa riêng `investment-forms.tsx`) + xuất file riêng.
+  - **Ranh giới cứng CHỈ ADMIN + SHAREHOLDER** (đúng yêu cầu chủ — không có MANAGER dù MANAGER vẫn quản lý được Sổ thu chi thường): thêm vào `userCan()` cùng chỗ đã áp dụng cho Trợ lý AI (`mod:tro-ly`), chặn dù bị cấp `grant` nhầm qua giao diện Phân quyền.
+  - **Ẩn khỏi Sổ thu chi thường với người khác** (kể cả Quản lý): `/thu-chi` + `/thu-chi/export` đều lọc `category: { not: "INVESTMENT" }` ở CẢ danh sách LẪN số liệu tổng (Tổng chi, hạng mục chi nhiều nhất) khi người xem không phải Admin/Cổ đông — đã kiểm thử thật: tạo 1 khoản đầu tư đánh dấu bằng Admin, xác nhận Quản lý KHÔNG thấy trong danh sách/tổng/export, Admin vẫn thấy đầy đủ ở cả 2 nơi.
+
 ## Sửa lỗi tái khám + gộp "khách chưa làm" vào Khách tham khảo (chủ phản ánh) — "Đợt 27"
 > Chủ phản ánh 2 việc sau khi dùng bản Đợt 2: (1) hẹn tái khám bấm vào được nhưng không tích được
 > xác nhận khách đã đến; (2) muốn khách hàng chưa làm dịch vụ hiện chung màn hình với Khách tham

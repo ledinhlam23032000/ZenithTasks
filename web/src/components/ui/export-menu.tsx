@@ -1,13 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { Download, Printer, FileSpreadsheet, FileText, ChevronDown } from "lucide-react";
+import { Download, Printer, FileSpreadsheet, FileText, FileDown, ChevronDown } from "lucide-react";
 
 /**
- * Nút "Xuất file" gộp: In/Lưu PDF (trình duyệt), Excel (.xlsx), Word (.doc).
- * excelHref/wordHref trỏ tới route /…/export?format=xlsx|doc.
+ * Nút "Xuất file" gộp: In/Lưu PDF (trình duyệt), Excel (.xlsx), Word (.doc), CSV (tuỳ chọn).
+ * excelHref/wordHref/csvHref trỏ tới route /…/export?format=xlsx|doc|csv.
  */
-export function ExportMenu({ excelHref, wordHref }: { excelHref: string; wordHref: string }) {
+export function ExportMenu({ excelHref, wordHref, csvHref }: { excelHref: string; wordHref: string; csvHref?: string }) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -45,6 +45,15 @@ export function ExportMenu({ excelHref, wordHref }: { excelHref: string; wordHre
             >
               <FileText className="h-4 w-4 text-sky-600" /> Word (.doc)
             </a>
+            {csvHref && (
+              <a
+                href={csvHref}
+                onClick={() => setOpen(false)}
+                className="flex w-full items-center gap-2.5 px-3.5 py-2 text-sm text-slate-700 hover:bg-slate-50"
+              >
+                <FileDown className="h-4 w-4 text-slate-500" /> CSV
+              </a>
+            )}
           </div>
         </>
       )}

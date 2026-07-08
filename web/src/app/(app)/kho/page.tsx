@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, THead, TH, TR, TD } from "@/components/ui/table";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Pagination } from "@/components/ui/pagination";
+import { ExportMenu } from "@/components/ui/export-menu";
 import { catalogTabs } from "@/lib/nav-tabs";
 import { PAGE_SIZE, parsePage, totalPagesOf } from "@/lib/pagination";
 import { StockInBatchButton } from "./stock-in-batch";
@@ -84,7 +85,12 @@ export default async function KhoPage({ searchParams }: { searchParams: Promise<
         title="Kho vật tư"
         description="Theo dõi tồn kho, mức tối thiểu, hạn dùng và lịch sử nhập/xuất."
         icon={<Boxes className="h-5 w-5" />}
-        actions={canStockIn ? <StockInBatchButton materials={materials.map((m) => ({ id: m.id, name: m.name, unit: m.unit }))} /> : undefined}
+        actions={
+          <div className="flex items-center gap-2">
+            <ExportMenu excelHref="/kho/export?format=xlsx" wordHref="/kho/export?format=doc" csvHref="/kho/export?format=csv" />
+            {canStockIn && <StockInBatchButton materials={materials.map((m) => ({ id: m.id, name: m.name, unit: m.unit }))} />}
+          </div>
+        }
       />
 
       <PageTabs tabs={catalogTabs(user)} />

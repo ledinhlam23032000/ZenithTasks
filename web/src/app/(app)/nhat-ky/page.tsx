@@ -11,6 +11,7 @@ import { Badge, type Tone } from "@/components/ui/badge";
 import { Table, THead, TH, TR, TD } from "@/components/ui/table";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Pagination } from "@/components/ui/pagination";
+import { ExportMenu } from "@/components/ui/export-menu";
 import { buttonVariants } from "@/components/ui/button";
 import type { Prisma } from "@/generated/prisma/client";
 
@@ -90,6 +91,7 @@ export default async function AuditLogPage({
     return `/nhat-ky${s ? `?${s}` : ""}`;
   };
   const hasFilter = Boolean(action || actorId || from || to);
+  const exportQs = makeHref(1).replace("/nhat-ky", "").replace(/^\?/, "");
 
   return (
     <div className="space-y-6">
@@ -97,6 +99,13 @@ export default async function AuditLogPage({
         title="Nhật ký hệ thống"
         description={`${total} bản ghi. Theo dõi các thao tác quan trọng: đăng nhập, sửa/xóa tiền, xóa hồ sơ, áp voucher, xem số điện thoại…`}
         icon={<ScrollText className="h-5 w-5" />}
+        actions={
+          <ExportMenu
+            excelHref={`/nhat-ky/export?format=xlsx${exportQs ? `&${exportQs}` : ""}`}
+            wordHref={`/nhat-ky/export?format=doc${exportQs ? `&${exportQs}` : ""}`}
+            csvHref={`/nhat-ky/export?format=csv${exportQs ? `&${exportQs}` : ""}`}
+          />
+        }
       />
       <Card>
         <div className="border-b border-slate-100 px-4 py-3">

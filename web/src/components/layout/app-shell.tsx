@@ -35,6 +35,7 @@ import {
   FileSignature,
   UserSearch,
   Sparkles,
+  Building2,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -69,6 +70,7 @@ const ICONS: Record<string, LucideIcon> = {
   FileSignature,
   UserSearch,
   Sparkles,
+  Building2,
 };
 
 export type NavItemData = { href: string; label: string; icon: string; group: string };

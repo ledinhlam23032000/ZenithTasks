@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, THead, TH, TR, TD } from "@/components/ui/table";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ContactButtons } from "@/components/ui/contact-buttons";
+import { ExportMenu } from "@/components/ui/export-menu";
 import { revealPhone } from "../khach-hang/actions";
 import { getDebtThreshold } from "@/lib/settings";
 import { DebtCollectButton } from "./debt-collect-button";
@@ -89,6 +90,13 @@ export default async function DebtLedgerPage({
         title="Sổ công nợ"
         description="Theo dõi nợ theo tuổi nợ, thu nợ / tất toán ngay tại đây — khách trả nợ tháng nào tính vào thực thu tháng đó."
         icon={<Wallet className="h-5 w-5" />}
+        actions={
+          <ExportMenu
+            excelHref={`/cong-no/export?format=xlsx&bucket=${bucket}${tvFilter ? `&tv=${tvFilter}` : ""}`}
+            wordHref={`/cong-no/export?format=doc&bucket=${bucket}${tvFilter ? `&tv=${tvFilter}` : ""}`}
+            csvHref={`/cong-no/export?format=csv&bucket=${bucket}${tvFilter ? `&tv=${tvFilter}` : ""}`}
+          />
+        }
       />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
