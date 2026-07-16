@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { format } from "date-fns";
-import { Wallet, Coins, HandCoins, Banknote } from "lucide-react";
+import { format, endOfMonth } from "date-fns";
+import { Wallet, Coins, HandCoins, Banknote, AlertTriangle } from "lucide-react";
 import { requireCap } from "@/lib/auth";
-import { getPayroll, STANDARD_DAYS_DEFAULT } from "@/lib/payroll";
+import { getPayroll, getPayrollTrend, STANDARD_DAYS_DEFAULT } from "@/lib/payroll";
+import { missingAttendanceStaff } from "@/lib/payroll-pure";
 import { getStaffPerformance } from "@/lib/performance";
 import { ROLE_LABELS } from "@/lib/rbac";
 import { formatVND } from "@/lib/money";
@@ -12,7 +13,9 @@ import { StatCard } from "@/components/ui/stat-card";
 import { Table, THead, TH, TR, TD } from "@/components/ui/table";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ExportMenu } from "@/components/ui/export-menu";
+import { MultiChart } from "@/components/ui/multi-chart";
 import { PayrollEditButton } from "./payroll-edit";
+import { PayrollBulkEditor } from "./payroll-bulk-edit";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Lương & hoa hồng" };
@@ -26,8 +29,13 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
   const monthDate = Number.isNaN(parsed.getTime()) ? new Date() : parsed;
   const monthValue = format(monthDate, "yyyy-MM");
   const standardDays = Math.max(1, Math.min(31, Number(sp.d) || STANDARD_DAYS_DEFAULT));
-  const [p, perf] = await Promise.all([getPayroll(monthDate, standardDays), getStaffPerformance(monthDate)]);
+  const [p, perf, trend] = await Promise.all([getPayroll(monthDate, standardDays), getStaffPerformance(monthDate), getPayrollTrend(6)]);
   const revMap = new Map(perf.map((x) => [x.id, x.totalRevenue]));
+
+  // Cảnh báo chấm công có thể chưa chốt — chỉ xét tháng ĐÃ QUA (tháng đang chạy dở dang thì
+  // ngày công thấp là bình thường, chưa phải dấu hiệu thiếu sót).
+  const isPastMonth = endOfMonth(monthDate) < new Date();
+  const missing = isPastMonth ? missingAttendanceStaff(p.rows) : [];
 
   return (
     <div className="space-y-6">
@@ -42,6 +50,15 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
               <input type="number" name="d" defaultValue={standardDays} min={1} max={31} title="Ngày công chuẩn/tháng" className="w-16 rounded-lg border border-slate-200 px-2 py-1.5 text-right text-sm focus:border-brand-400 focus:outline-none" />
               <button className="rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700">Xem</button>
             </form>
+            {isAdmin && (
+              <PayrollBulkEditor
+                rows={p.rows.map((r) => ({
+                  id: r.id, name: r.name, commission: r.commission, bonus: r.bonus, adjustment: r.adjustment,
+                  hasEntry: r.hasEntry, prevCommission: r.prevCommission, prevBonus: r.prevBonus, prevAdjustment: r.prevAdjustment,
+                }))}
+                month={monthValue}
+              />
+            )}
             <ExportMenu
               excelHref={`/luong/export?format=xlsx&m=${monthValue}&d=${standardDays}`}
               wordHref={`/luong/export?format=doc&m=${monthValue}&d=${standardDays}`}
@@ -49,6 +66,21 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
           </div>
         }
       />
+
+      {missing.length > 0 && (
+        <div className="flex flex-wrap items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium text-amber-800">
+              {missing.length} nhân sự chưa có ngày công nào trong tháng {format(monthDate, "MM/yyyy")} — kiểm tra lại chấm công trước khi chốt lương.
+            </p>
+            <p className="mt-0.5 text-sm text-amber-700">{missing.map((r) => r.name).join(", ")}</p>
+          </div>
+          <Link href={`/cham-cong?m=${monthValue}`} className="shrink-0 rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-sm font-medium text-amber-700 hover:bg-amber-100">
+            Xem chấm công
+          </Link>
+        </div>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
@@ -97,7 +129,13 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
                     </Link>
                     <span className="block text-xs text-slate-400">{ROLE_LABELS[r.role]}</span>
                   </TD>
-                  <TD className="text-center tabular-nums">{r.daysWorked}/{standardDays}</TD>
+                  <TD className="text-center tabular-nums">
+                    {r.daysWorked === 0 && isPastMonth ? (
+                      <span className="text-amber-600">0/{standardDays}</span>
+                    ) : (
+                      `${r.daysWorked}/${standardDays}`
+                    )}
+                  </TD>
                   <TD className="text-right tabular-nums text-slate-600">{formatVND(revMap.get(r.id) ?? 0)}</TD>
                   <TD className="text-right tabular-nums">
                     <span className="font-medium text-emerald-700">{formatVND(r.collectedConsult.total)}</span>
@@ -119,7 +157,11 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
                   {isAdmin && (
                     <TD className="text-right">
                       <PayrollEditButton
-                        row={{ id: r.id, name: r.name, role: r.role, baseFull: r.baseFull, commission: r.commission, bonus: r.bonus, adjustment: r.adjustment }}
+                        row={{
+                          id: r.id, name: r.name, role: r.role, baseFull: r.baseFull,
+                          commission: r.commission, bonus: r.bonus, adjustment: r.adjustment,
+                          hasEntry: r.hasEntry, prevCommission: r.prevCommission, prevBonus: r.prevBonus, prevAdjustment: r.prevAdjustment,
+                        }}
                         month={monthValue}
                       />
                     </TD>
@@ -130,6 +172,25 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
           </Table>
         </CardContent>
       </Card>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Xu hướng tổng chi lương (6 tháng gần nhất)</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <MultiChart data={trend.map((t) => ({ label: t.label, value: t.totalStaff }))} valueLabel="Tổng chi lương" defaultType="bar" trend />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Xu hướng hoa hồng nhân viên (6 tháng gần nhất)</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <MultiChart data={trend.map((t) => ({ label: t.label, value: t.totalCommission }))} valueLabel="Hoa hồng" defaultType="bar" trend />
+          </CardContent>
+        </Card>
+      </div>
 
       <Card>
         <CardHeader>

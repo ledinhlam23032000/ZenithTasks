@@ -85,8 +85,8 @@ export function InstallAppButton({ className }: { className?: string }) {
 
       {open && (
         <div className="fixed inset-0 z-[70] flex items-end justify-center sm:items-center sm:p-6" role="dialog" aria-modal="true" aria-label="Cài ứng dụng">
-          <button className="absolute inset-0 bg-slate-950/45 backdrop-blur-sm" onClick={() => setOpen(false)} aria-label="Đóng" />
-          <section className="relative w-full max-w-md rounded-t-[1.75rem] bg-white px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-5 shadow-2xl sm:rounded-3xl">
+          <button className="animate-fade-in absolute inset-0 bg-slate-950/45 backdrop-blur-sm" onClick={() => setOpen(false)} aria-label="Đóng" />
+          <section className="animate-slide-up-in relative w-full max-w-md rounded-t-[1.75rem] bg-white px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-5 shadow-2xl sm:rounded-3xl">
             <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-slate-200 sm:hidden" />
             <div className="flex items-start gap-3">
               <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-brand-600 text-white shadow-lg shadow-brand-200">

@@ -43,8 +43,13 @@ export function Modal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto sm:items-start sm:p-6">
-      <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={onClose} aria-hidden />
-      <div className={cn("relative flex max-h-[92dvh] w-full flex-col rounded-t-[1.75rem] bg-white shadow-2xl ring-1 ring-slate-200 sm:my-6 sm:block sm:max-h-none sm:rounded-2xl", sizes[size])}>
+      <div className="animate-fade-in fixed inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={onClose} aria-hidden />
+      <div
+        className={cn(
+          "animate-slide-up-in relative flex max-h-[92dvh] w-full flex-col rounded-t-[1.75rem] bg-white shadow-2xl ring-1 ring-slate-200 sm:my-6 sm:block sm:max-h-none sm:animate-scale-in sm:rounded-2xl",
+          sizes[size],
+        )}
+      >
         <div className="mx-auto mt-2 h-1.5 w-12 shrink-0 rounded-full bg-slate-200 sm:hidden" />
         <div className="flex shrink-0 items-start justify-between gap-4 border-b border-slate-100 px-4 py-4 sm:px-5">
           <div className="min-w-0">

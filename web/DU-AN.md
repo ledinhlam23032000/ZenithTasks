@@ -3,6 +3,21 @@
 > Tài liệu bàn giao để các phiên Claude Code sau tiếp tục hiệu quả. Đọc file này + mã nguồn là nắm được bối cảnh.
 > **Kế hoạch nâng cấp dài hạn (A→E) + theo dõi tiến độ: xem `ROADMAP.md` ở gốc repo.**
 
+## Nâng cấp Lương + rà soát trải nghiệm tổng thể (rườm rà/kém mượt) — "Đợt 31"
+> Chủ phản hồi 2 việc: (1) khó tính lương nhân sự cuối tháng / xem lại lâu dài, và (2) cảm giác
+> ứng dụng "rườm rà, kém mượt mà" so với app khác nhưng không diễn tả được cụ thể. Nghiên cứu kỹ
+> (đọc trực tiếp code, không đoán) trước khi sửa — xác nhận với chủ nên làm cả 2 việc trong 1 đợt,
+> chọn đủ 4 cải tiến cho Lương + đồng ý chuyển trang Hồ sơ điều trị sang dạng tab.
+- **Lương & hoa hồng** (`lib/payroll.ts`, `lib/payroll-pure.ts`, `luong/*`) — nguyên nhân gốc: hoa hồng/thưởng/điều chỉnh phải gõ tay lại TỪ ĐẦU mỗi tháng (không có gì được nhớ/gợi ý), Chấm công và Lương hoàn toàn tách rời (không cảnh báo khi công có thể sai/thiếu), không có cách xem xu hướng nhiều tháng trong app. Sửa cả 4:
+  1. **Mang số tháng trước sang làm mốc**: `PayrollRow` thêm `hasEntry`/`prevCommission`/`prevBonus`/`prevAdjustment` — form sửa từng người tự điền sẵn số tháng liền trước khi tháng này chưa nhập, kèm chú thích để sửa lại.
+  2. **Sửa nhanh cả bảng**: `payroll-bulk-edit.tsx` + action `saveBulkPayroll` (JSON trong FormData, `$transaction`) — sửa hoa hồng/thưởng/điều chỉnh nhiều người 1 lúc, lưu 1 lần.
+  3. **Xu hướng nhiều tháng**: `getPayrollTrend(monthsBack=6)` + 2 biểu đồ (Tổng chi lương, Hoa hồng) ngay dưới bảng — dùng lại `MultiChart` sẵn có.
+  4. **Cảnh báo công chưa chốt**: `missingAttendanceStaff()` (tách file riêng vì `payroll.ts` import `@/lib/db` không unit-test được) — banner vàng liệt kê nhân sự 0 ngày công trong THÁNG ĐÃ QUA, kèm link `/cham-cong`.
+- **Hiệu ứng chuyển động** — trước đây MỌI modal/dropdown/toast/bottom-sheet bật/tắt tức thì (0 hiệu ứng trong toàn bộ code, xác nhận qua rà soát) — nguyên nhân lớn nhất gây cảm giác "kém mượt". Thêm 5 lớp CSS dùng chung trong `globals.css` (`animate-fade-in/scale-in/slide-up-in/menu-in/toast-in`, tự tắt khi `prefers-reduced-motion`), áp dụng cho `modal.tsx`, `dropdown-portal.tsx`, `toast.tsx`, mobile sheet + menu tài khoản trong `app-shell.tsx`, `command-palette.tsx`, lightbox ảnh, hộp cài PWA.
+- **Màn chờ khi chuyển trang** — trước đây MỌI trang dùng chung 1 khung chờ hình "bảng tổng quan" (`(app)/loading.tsx`) dù trang thật là danh sách/chi tiết, gây "giật" lúc tải xong. Thêm `components/ui/skeleton.tsx` (`SkeletonListPage`/`SkeletonDetailPage`) + `loading.tsx` riêng cho ~17 trang danh sách và 4 trang chi tiết (`[id]`, Next.js tự ưu tiên khung của segment gần nhất). Thêm `components/layout/route-progress.tsx` (`<RouteProgress>`) — thanh tiến trình mỏng phía trên báo "đã bấm, đang xử lý" ngay lập tức (bắt sự kiện click link + theo dõi đổi route), vì mọi trang `force-dynamic` không có cache client.
+- **Hồ sơ điều trị chuyển sang tab**: trang mở nhiều nhất mỗi ngày trước đây có 8 khối xếp chồng cuộn dài + thanh neo riêng chỉ để tự điều hướng trong chính nó. `case-section-tabs.tsx` (`<CaseSectionTabs>`) gộp Tư vấn/Dịch vụ/Vật tư/Hình ảnh/Giấy tờ (Giấy tờ = gộp 2 card "Phiếu đồng ý" + "Giấy tờ hành chính" từng tách rời) thành tab xem từng phần một. Cột Tài chính + Tái khám bên phải giữ nguyên luôn hiện sẵn (không đưa vào tab) vì cần xem cùng lúc lúc thao tác dịch vụ/thanh toán.
+- **Kiểm thử THẬT**: TSC sạch, 198/198 test (thêm `payroll.test.ts`). Playwright thật qua đăng nhập tài khoản seed: bảng lương tải đúng + biểu đồ xu hướng hiện đúng; sửa nhanh cả bảng lưu đúng giá trị (đối chiếu lại trong bảng chính + modal sửa từng người sau đó hiện đúng số vừa lưu làm mốc); trang Hồ sơ điều trị xác nhận đủ 5 tab, chuyển tab đúng nội dung, Tài chính/Tái khám luôn hiện, vai trò không có `case.clinical` (lễ tân) không thấy tab "Tư vấn" và mặc định vào thẳng tab "Dịch vụ"; rà soát 22 trang chính không phát sinh lỗi console sau khi thêm hiệu ứng/skeleton; menu tài khoản, Ctrl/Cmd+K, bottom-sheet di động, modal thêm khách hàng đều đóng/mở mượt bình thường.
+
 ## Sửa lỗi nghiêm trọng: nút "Xuất file" hoàn toàn không bấm được — "Đợt 30"
 > Chủ phản ánh nút "Xuất file" (Sổ thu chi và mọi mục khác) 100% không hoạt động dù trước đó báo
 > đã sửa xong (Đợt 28). Kiểm tra kỹ mới phát hiện ĐÂY LÀ LỖI THẬT, không phải do triển khai/docker.

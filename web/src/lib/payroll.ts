@@ -1,4 +1,4 @@
-import { startOfMonth, endOfMonth, format } from "date-fns";
+import { startOfMonth, endOfMonth, subMonths, format } from "date-fns";
 import { prisma } from "@/lib/db";
 import { toNum } from "@/lib/money";
 import { collectionsByStaff, collectionsTotal, type StaffCollection } from "@/lib/collections";
@@ -30,14 +30,19 @@ export type PayrollRow = {
   collectedConsult: StaffCollection; // thực thu trong tháng theo vai trò TƯ VẤN (gồm thu nợ ca cũ)
   collectedDoctor: StaffCollection; // thực thu trong tháng theo vai trò BÁC SĨ
   debtOutstanding: number; // khách của mình (tư vấn/bác sĩ) còn nợ cộng dồn tới hiện tại
+  hasEntry: boolean; // đã lưu PayrollEntry cho tháng này chưa (phân biệt "chưa nhập" ≠ "nhập 0 có chủ đích")
+  prevCommission: number; // hoa hồng/thưởng/điều chỉnh tháng LIỀN TRƯỚC — dùng làm gợi ý mốc khi tháng này chưa nhập
+  prevBonus: number;
+  prevAdjustment: number;
 };
 
 export async function getPayroll(monthDate: Date, standardDays = STANDARD_DAYS_DEFAULT) {
   const gte = startOfMonth(monthDate);
   const lte = endOfMonth(monthDate);
   const monthStr = format(monthDate, "yyyy-MM");
+  const prevMonthStr = format(subMonths(monthDate, 1), "yyyy-MM");
 
-  const [users, monthCases, attendance, entries, monthPayments, debtConsultG, debtDoctorG] = await Promise.all([
+  const [users, monthCases, attendance, entries, prevEntries, monthPayments, debtConsultG, debtDoctorG] = await Promise.all([
     prisma.user.findMany({
       where: { active: true },
       select: { id: true, fullName: true, role: true, code: true, baseSalary: true },
@@ -52,6 +57,7 @@ export async function getPayroll(monthDate: Date, standardDays = STANDARD_DAYS_D
     }),
     prisma.attendance.findMany({ where: { date: { gte, lte } }, select: { userId: true } }),
     prisma.payrollEntry.findMany({ where: { month: monthStr } }),
+    prisma.payrollEntry.findMany({ where: { month: prevMonthStr } }),
     prisma.payment.findMany({
       where: { paidAt: { gte, lte } },
       select: {
@@ -82,6 +88,7 @@ export async function getPayroll(monthDate: Date, standardDays = STANDARD_DAYS_D
   for (const a of attendance) days.set(a.userId, (days.get(a.userId) ?? 0) + 1);
 
   const entryMap = new Map(entries.map((e) => [e.userId, e]));
+  const prevEntryMap = new Map(prevEntries.map((e) => [e.userId, e]));
 
   const rows: PayrollRow[] = users.map((u) => {
     const daysWorked = days.get(u.id) ?? 0;
@@ -90,9 +97,15 @@ export async function getPayroll(monthDate: Date, standardDays = STANDARD_DAYS_D
     const baseActual = Math.round(baseFull * ratio);
 
     const e = entryMap.get(u.id);
+    const hasEntry = !!e;
     const commission = e ? toNum(e.commission) : 0;
     const bonus = e ? toNum(e.bonus) : 0;
     const adjustment = e ? toNum(e.adjustment) : 0;
+
+    const pe = prevEntryMap.get(u.id);
+    const prevCommission = pe ? toNum(pe.commission) : 0;
+    const prevBonus = pe ? toNum(pe.bonus) : 0;
+    const prevAdjustment = pe ? toNum(pe.adjustment) : 0;
 
     const total = baseActual + commission + bonus + adjustment;
     const collectedConsult = collected.consultants.get(u.id) ?? EMPTY_COLLECTION;
@@ -101,6 +114,7 @@ export async function getPayroll(monthDate: Date, standardDays = STANDARD_DAYS_D
     return {
       id: u.id, name: u.fullName, code: u.code, role: u.role, daysWorked, baseFull, baseActual,
       commission, bonus, adjustment, total, collectedConsult, collectedDoctor, debtOutstanding,
+      hasEntry, prevCommission, prevBonus, prevAdjustment,
     };
   });
 
@@ -128,4 +142,18 @@ export async function getPayroll(monthDate: Date, standardDays = STANDARD_DAYS_D
     totalCtv: ctv.reduce((s, r) => s + r.amount, 0),
     collectedAll, // thực thu toàn trung tâm trong tháng (mỗi khoản đếm 1 lần)
   };
+}
+
+export type PayrollTrendPoint = { label: string; totalStaff: number; totalCommission: number };
+
+/** Tổng chi lương + hoa hồng theo N tháng gần nhất (tính tới tháng hiện tại) — dùng vẽ biểu đồ xu hướng. */
+export async function getPayrollTrend(monthsBack = 6): Promise<PayrollTrendPoint[]> {
+  const now = new Date();
+  const months = Array.from({ length: monthsBack }, (_, i) => subMonths(now, monthsBack - 1 - i));
+  const results = await Promise.all(months.map((d) => getPayroll(d)));
+  return months.map((d, i) => ({
+    label: format(d, "MM/yyyy"),
+    totalStaff: results[i].totalStaff,
+    totalCommission: results[i].totalCommission,
+  }));
 }

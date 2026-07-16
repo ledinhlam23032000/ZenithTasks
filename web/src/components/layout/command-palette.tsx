@@ -83,9 +83,9 @@ export function CommandPalette({ nav, open, onOpenChange }: { nav: NavItemData[]
 
   return (
     <div className="fixed inset-0 z-[60] flex items-end justify-center sm:items-start sm:px-4 sm:pt-[12vh]" onClick={() => setOpen(false)}>
-      <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm" aria-hidden />
+      <div className="animate-fade-in fixed inset-0 bg-slate-900/40 backdrop-blur-sm" aria-hidden />
       <div
-        className="relative w-full max-w-lg overflow-hidden rounded-t-[1.75rem] bg-white pb-[env(safe-area-inset-bottom)] shadow-2xl ring-1 ring-slate-200 sm:rounded-2xl sm:pb-0"
+        className="animate-slide-up-in relative w-full max-w-lg overflow-hidden rounded-t-[1.75rem] bg-white pb-[env(safe-area-inset-bottom)] shadow-2xl ring-1 ring-slate-200 sm:animate-scale-in sm:rounded-2xl sm:pb-0"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mx-auto mt-2 h-1.5 w-12 rounded-full bg-slate-200 sm:hidden" />

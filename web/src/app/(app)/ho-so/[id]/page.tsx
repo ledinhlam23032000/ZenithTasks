@@ -40,6 +40,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { PhotoGallery } from "@/components/ui/photo-gallery";
 import { PhotoCompareButton } from "@/components/ui/photo-compare";
 import { MedicalAlert } from "@/components/ui/medical-alert";
+import { CaseSectionTabs, type CaseTab } from "./case-section-tabs";
 import {
   CaseInfoForm,
   AddServiceButton,
@@ -145,6 +146,323 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
     };
   }
 
+  const rawTabs: (CaseTab | false)[] = [
+    canClinical && {
+      key: "tu-van",
+      label: "Tư vấn",
+      icon: <Stethoscope className="h-4 w-4" />,
+      content: (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Stethoscope className="h-4 w-4 text-brand-500" /> Thông tin tư vấn
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <CaseInfoForm
+              caseId={record.id}
+              consultants={consultants}
+              doctors={doctors}
+              initial={{
+                status: record.status,
+                consultResult: record.consultResult,
+                consultantId: record.consultantId,
+                doctorId: record.doctorId,
+                commissionAmount,
+                chiefComplaint: record.chiefComplaint,
+                note: record.note,
+              }}
+            />
+          </CardContent>
+        </Card>
+      ),
+    },
+    {
+      key: "dich-vu",
+      label: "Dịch vụ",
+      icon: <Receipt className="h-4 w-4" />,
+      content: (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Receipt className="h-4 w-4 text-brand-500" /> Dịch vụ &amp; chi phí
+            </CardTitle>
+            {canClinical && <AddServiceButton caseId={record.id} services={services} />}
+          </CardHeader>
+          <CardContent className="pt-0">
+            {record.services.length === 0 ? (
+              <EmptyState title="Chưa có dịch vụ" description="Thêm dịch vụ khách đã chốt làm." />
+            ) : (
+              <Table>
+                <THead>
+                  <TR className="hover:bg-transparent">
+                    <TH>Dịch vụ</TH>
+                    <TH className="text-center">SL</TH>
+                    <TH className="hidden text-right sm:table-cell">Giá gốc</TH>
+                    <TH className="text-right">Ưu đãi</TH>
+                    <TH className="text-right">Giảm</TH>
+                    <TH className="text-right">Thành tiền</TH>
+                    {canClinical && <TH />}
+                  </TR>
+                </THead>
+                <tbody>
+                  {record.services.map((s) => (
+                    <TR key={s.id}>
+                      <TD className="font-medium text-slate-800">{s.name}</TD>
+                      <TD className="text-center">{s.quantity}</TD>
+                      <TD className="hidden text-right text-slate-400 sm:table-cell">
+                        {toNum(s.listPrice) > toNum(s.unitPrice) ? <span className="line-through">{formatVND(s.listPrice)}</span> : formatVND(s.listPrice)}
+                      </TD>
+                      <TD className="text-right">{formatVND(s.unitPrice)}</TD>
+                      <TD className="text-right text-rose-500">{toNum(s.discount) > 0 ? `-${formatVND(s.discount)}` : "—"}</TD>
+                      <TD className="text-right font-semibold text-slate-800">{formatVND(s.finalPrice)}</TD>
+                      {canClinical && (
+                        <TD className="text-right">
+                          <div className="flex items-center justify-end gap-0.5">
+                            {s.serviceId && (bomCountMap.get(s.serviceId) ?? 0) > 0 && (
+                              s.bomApplied ? (
+                                <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-1.5 py-0.5 text-xs font-medium text-emerald-600" title="Đã trừ vật tư theo định mức">
+                                  <Boxes className="h-3.5 w-3.5" /> Đã trừ VT
+                                </span>
+                              ) : (
+                                <ConfirmButton
+                                  action={applyServiceBom}
+                                  fields={{ caseServiceId: s.id, caseId: record.id }}
+                                  confirmText={`Trừ vật tư theo định mức cho dịch vụ "${s.name}" (× ${s.quantity} lần)? Hệ thống sẽ ghi nhận vật tư đã dùng và trừ kho.`}
+                                  confirmLabel="Trừ vật tư"
+                                  danger={false}
+                                  className="inline-flex items-center gap-1 rounded-md bg-brand-50 px-1.5 py-0.5 text-xs font-medium text-brand-600 hover:bg-brand-100"
+                                >
+                                  <Boxes className="h-3.5 w-3.5" /> Trừ VT
+                                </ConfirmButton>
+                              )
+                            )}
+                            <EditCaseServiceButton
+                              caseId={record.id}
+                              service={{ id: s.id, name: s.name, listPrice: toNum(s.listPrice), unitPrice: toNum(s.unitPrice), quantity: s.quantity, discount: toNum(s.discount) }}
+                            />
+                            <form action={removeCaseService}>
+                              <input type="hidden" name="id" value={s.id} />
+                              <input type="hidden" name="caseId" value={record.id} />
+                              <button className="rounded-md p-1.5 text-slate-300 hover:bg-rose-50 hover:text-rose-500" aria-label="Xóa">
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </form>
+                          </div>
+                        </TD>
+                      )}
+                    </TR>
+                  ))}
+                </tbody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+      ),
+    },
+    {
+      key: "vat-tu",
+      label: "Vật tư",
+      icon: <Package className="h-4 w-4" />,
+      content: (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Package className="h-4 w-4 text-brand-500" /> Vật tư sử dụng
+            </CardTitle>
+            {canClinical && <AddMaterialButton caseId={record.id} materials={materials} />}
+          </CardHeader>
+          <CardContent className="pt-0">
+            {record.materials.length === 0 ? (
+              <EmptyState title="Chưa ghi nhận vật tư" description="Bác sĩ ghi nhận vật tư đã dùng cho ca." />
+            ) : (
+              <Table>
+                <THead>
+                  <TR className="hover:bg-transparent">
+                    <TH>Vật tư</TH>
+                    <TH className="text-center">Số lượng</TH>
+                    <TH>Người thực hiện</TH>
+                    {canClinical && <TH />}
+                  </TR>
+                </THead>
+                <tbody>
+                  {record.materials.map((m) => (
+                    <TR key={m.id}>
+                      <TD className="font-medium text-slate-800">
+                        {m.name}
+                        {m.note && <span className="ml-1 text-xs text-slate-400">· {m.note}</span>}
+                      </TD>
+                      <TD className="text-center">{toNum(m.quantity)} {m.unit}</TD>
+                      <TD className="text-slate-500">{m.performedBy?.fullName ?? "—"}</TD>
+                      {canClinical && (
+                        <TD className="text-right">
+                          <div className="flex items-center justify-end gap-0.5">
+                            <EditMaterialUsageButton
+                              caseId={record.id}
+                              usage={{ id: m.id, name: m.name, unit: m.unit, quantity: toNum(m.quantity), note: m.note ?? "" }}
+                            />
+                            <form action={removeMaterial}>
+                              <input type="hidden" name="id" value={m.id} />
+                              <input type="hidden" name="caseId" value={record.id} />
+                              <button className="rounded-md p-1.5 text-slate-300 hover:bg-rose-50 hover:text-rose-500" aria-label="Xóa">
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </form>
+                          </div>
+                        </TD>
+                      )}
+                    </TR>
+                  ))}
+                </tbody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+      ),
+    },
+    {
+      key: "hinh-anh",
+      label: "Hình ảnh",
+      icon: <Images className="h-4 w-4" />,
+      content: (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Images className="h-4 w-4 text-brand-500" /> Ảnh trước - sau - tái khám
+            </CardTitle>
+            <div className="flex items-center gap-2">
+              <PhotoCompareButton photos={record.photos} />
+              {canClinical && <UploadPhotoButton caseId={record.id} customerId={record.customer.id} />}
+            </div>
+          </CardHeader>
+          <CardContent className="pt-0">
+            {record.photos.length === 0 ? (
+              <EmptyState title="Chưa có ảnh" description="Tải ảnh trước/sau, tái khám và ảnh cận lâm sàng (X-quang, CT, siêu âm)." />
+            ) : (
+              <PhotoGallery
+                photos={record.photos}
+                cols={3}
+                caseId={record.id}
+                deleteAction={canClinical ? deletePhoto : undefined}
+              />
+            )}
+          </CardContent>
+        </Card>
+      ),
+    },
+    {
+      key: "giay-to",
+      label: "Giấy tờ",
+      icon: <FileSignature className="h-4 w-4" />,
+      content: (
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileSignature className="h-4 w-4 text-brand-500" /> Phiếu đồng ý
+              </CardTitle>
+              {canClinical && (
+                <AddConsentButton
+                  caseId={record.id}
+                  customerName={record.customer.fullName}
+                  caseCode={record.code}
+                  services={record.services.map((s) => s.name).join(", ")}
+                  templates={consentTemplates}
+                  todayLocal={toDatetimeLocal(new Date()).slice(0, 10)}
+                />
+              )}
+            </CardHeader>
+            <CardContent className="pt-0">
+              {record.consents.length === 0 ? (
+                <EmptyState title="Chưa có phiếu đồng ý" description="Ghi nhận phiếu đồng ý/cam kết khách đã ký (in ra cho khách ký tay)." />
+              ) : (
+                <ul className="space-y-2.5">
+                  {record.consents.map((c) => (
+                    <li key={c.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-100 p-2.5">
+                      <div className="min-w-0">
+                        <p className="font-medium text-slate-800">{c.title}</p>
+                        <p className="text-xs text-slate-500">
+                          Người ký: {c.signerName}{c.relationship ? ` (${c.relationship})` : ""} · {fmtDate(c.signedAt)}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Link
+                          href={`/ho-so/${record.id}/consent/${c.id}`}
+                          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-brand-600 hover:bg-brand-50"
+                        >
+                          <Printer className="h-3.5 w-3.5" /> In phiếu
+                        </Link>
+                        {canClinical && (
+                          <ConfirmButton
+                            action={deleteConsent}
+                            fields={{ id: c.id, caseId: record.id }}
+                            confirmText={`Xóa phiếu đồng ý "${c.title}"?`}
+                            className="text-slate-300 hover:text-rose-500"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </ConfirmButton>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-4 w-4 text-brand-500" /> Giấy tờ hành chính
+              </CardTitle>
+              {canClinical && <UploadDocumentButton caseId={record.id} />}
+            </CardHeader>
+            <CardContent className="pt-0">
+              {record.documents.length === 0 ? (
+                <EmptyState title="Chưa có giấy tờ" description="Tải file đã soạn/đã ký sẵn (PDF, ảnh, Word…) lên rồi bấm Xem — khỏi gõ tay." />
+              ) : (
+                <ul className="space-y-2.5">
+                  {record.documents.map((doc) => (
+                    <li key={doc.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-100 p-2.5">
+                      <div className="min-w-0">
+                        <p className="truncate font-medium text-slate-800">{doc.title}</p>
+                        <p className="truncate text-xs text-slate-500">
+                          {doc.fileName} · {fmtDate(doc.createdAt)}
+                          {doc.uploadedBy?.fullName ? ` · ${doc.uploadedBy.fullName}` : ""}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <a
+                          href={doc.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-brand-600 hover:bg-brand-50"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" /> Xem
+                        </a>
+                        {canClinical && (
+                          <ConfirmButton
+                            action={deleteCaseDocument}
+                            fields={{ id: doc.id, caseId: record.id }}
+                            confirmText={`Xóa giấy tờ "${doc.title}"?`}
+                            className="text-slate-300 hover:text-rose-500"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </ConfirmButton>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      ),
+    },
+  ];
+  const tabs: CaseTab[] = rawTabs.filter((t): t is CaseTab => !!t);
+
   return (
     <div className="space-y-6">
       <Link href={`/khach-hang/${record.customer.id}`} className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700">
@@ -212,7 +530,7 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
       )}
 
       {/* Thẻ khách */}
-      <Card id="tong-quan" className="scroll-mt-32">
+      <Card>
         <CardContent className="flex flex-wrap items-center gap-4 py-4">
           <Avatar name={record.customer.fullName} className="h-12 w-12" />
           <div className="flex-1">
@@ -238,314 +556,14 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
         compact
       />
 
-      <nav className="sticky top-16 z-20 -mx-4 overflow-x-auto border-y border-slate-200 bg-white/95 px-4 py-2 backdrop-blur sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8" aria-label="Điều hướng hồ sơ">
-        <div className="flex min-w-max items-center gap-1">
-          <SectionLink href="#tong-quan" label="Tổng quan" />
-          {canClinical && <SectionLink href="#tu-van" label="Tư vấn" />}
-          <SectionLink href="#dich-vu" label="Dịch vụ" />
-          <SectionLink href="#vat-tu" label="Vật tư" />
-          <SectionLink href="#hinh-anh" label="Hình ảnh" />
-          <SectionLink href="#giay-to" label="Giấy tờ" />
-          <SectionLink href="#tai-chinh" label="Tài chính" />
-          <SectionLink href="#tai-kham" label="Tái khám" />
-        </div>
-      </nav>
-
       <div className="grid gap-6 lg:grid-cols-3">
-        <div className="space-y-6 lg:col-span-2">
-          {/* Thông tin tư vấn */}
-          {canClinical && (
-            <Card id="tu-van" className="scroll-mt-32">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Stethoscope className="h-4 w-4 text-brand-500" /> Thông tin tư vấn
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <CaseInfoForm
-                  caseId={record.id}
-                  consultants={consultants}
-                  doctors={doctors}
-                  initial={{
-                    status: record.status,
-                    consultResult: record.consultResult,
-                    consultantId: record.consultantId,
-                    doctorId: record.doctorId,
-                    commissionAmount,
-                    chiefComplaint: record.chiefComplaint,
-                    note: record.note,
-                  }}
-                />
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Dịch vụ */}
-          <Card id="dich-vu" className="scroll-mt-32">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Receipt className="h-4 w-4 text-brand-500" /> Dịch vụ &amp; chi phí
-              </CardTitle>
-              {canClinical && <AddServiceButton caseId={record.id} services={services} />}
-            </CardHeader>
-            <CardContent className="pt-0">
-              {record.services.length === 0 ? (
-                <EmptyState title="Chưa có dịch vụ" description="Thêm dịch vụ khách đã chốt làm." />
-              ) : (
-                <Table>
-                  <THead>
-                    <TR className="hover:bg-transparent">
-                      <TH>Dịch vụ</TH>
-                      <TH className="text-center">SL</TH>
-                      <TH className="hidden text-right sm:table-cell">Giá gốc</TH>
-                      <TH className="text-right">Ưu đãi</TH>
-                      <TH className="text-right">Giảm</TH>
-                      <TH className="text-right">Thành tiền</TH>
-                      {canClinical && <TH />}
-                    </TR>
-                  </THead>
-                  <tbody>
-                    {record.services.map((s) => (
-                      <TR key={s.id}>
-                        <TD className="font-medium text-slate-800">{s.name}</TD>
-                        <TD className="text-center">{s.quantity}</TD>
-                        <TD className="hidden text-right text-slate-400 sm:table-cell">
-                          {toNum(s.listPrice) > toNum(s.unitPrice) ? <span className="line-through">{formatVND(s.listPrice)}</span> : formatVND(s.listPrice)}
-                        </TD>
-                        <TD className="text-right">{formatVND(s.unitPrice)}</TD>
-                        <TD className="text-right text-rose-500">{toNum(s.discount) > 0 ? `-${formatVND(s.discount)}` : "—"}</TD>
-                        <TD className="text-right font-semibold text-slate-800">{formatVND(s.finalPrice)}</TD>
-                        {canClinical && (
-                          <TD className="text-right">
-                            <div className="flex items-center justify-end gap-0.5">
-                              {s.serviceId && (bomCountMap.get(s.serviceId) ?? 0) > 0 && (
-                                s.bomApplied ? (
-                                  <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-1.5 py-0.5 text-xs font-medium text-emerald-600" title="Đã trừ vật tư theo định mức">
-                                    <Boxes className="h-3.5 w-3.5" /> Đã trừ VT
-                                  </span>
-                                ) : (
-                                  <ConfirmButton
-                                    action={applyServiceBom}
-                                    fields={{ caseServiceId: s.id, caseId: record.id }}
-                                    confirmText={`Trừ vật tư theo định mức cho dịch vụ "${s.name}" (× ${s.quantity} lần)? Hệ thống sẽ ghi nhận vật tư đã dùng và trừ kho.`}
-                                    confirmLabel="Trừ vật tư"
-                                    danger={false}
-                                    className="inline-flex items-center gap-1 rounded-md bg-brand-50 px-1.5 py-0.5 text-xs font-medium text-brand-600 hover:bg-brand-100"
-                                  >
-                                    <Boxes className="h-3.5 w-3.5" /> Trừ VT
-                                  </ConfirmButton>
-                                )
-                              )}
-                              <EditCaseServiceButton
-                                caseId={record.id}
-                                service={{ id: s.id, name: s.name, listPrice: toNum(s.listPrice), unitPrice: toNum(s.unitPrice), quantity: s.quantity, discount: toNum(s.discount) }}
-                              />
-                              <form action={removeCaseService}>
-                                <input type="hidden" name="id" value={s.id} />
-                                <input type="hidden" name="caseId" value={record.id} />
-                                <button className="rounded-md p-1.5 text-slate-300 hover:bg-rose-50 hover:text-rose-500" aria-label="Xóa">
-                                  <Trash2 className="h-4 w-4" />
-                                </button>
-                              </form>
-                            </div>
-                          </TD>
-                        )}
-                      </TR>
-                    ))}
-                  </tbody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Vật tư */}
-          <Card id="vat-tu" className="scroll-mt-32">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Package className="h-4 w-4 text-brand-500" /> Vật tư sử dụng
-              </CardTitle>
-              {canClinical && <AddMaterialButton caseId={record.id} materials={materials} />}
-            </CardHeader>
-            <CardContent className="pt-0">
-              {record.materials.length === 0 ? (
-                <EmptyState title="Chưa ghi nhận vật tư" description="Bác sĩ ghi nhận vật tư đã dùng cho ca." />
-              ) : (
-                <Table>
-                  <THead>
-                    <TR className="hover:bg-transparent">
-                      <TH>Vật tư</TH>
-                      <TH className="text-center">Số lượng</TH>
-                      <TH>Người thực hiện</TH>
-                      {canClinical && <TH />}
-                    </TR>
-                  </THead>
-                  <tbody>
-                    {record.materials.map((m) => (
-                      <TR key={m.id}>
-                        <TD className="font-medium text-slate-800">
-                          {m.name}
-                          {m.note && <span className="ml-1 text-xs text-slate-400">· {m.note}</span>}
-                        </TD>
-                        <TD className="text-center">{toNum(m.quantity)} {m.unit}</TD>
-                        <TD className="text-slate-500">{m.performedBy?.fullName ?? "—"}</TD>
-                        {canClinical && (
-                          <TD className="text-right">
-                            <div className="flex items-center justify-end gap-0.5">
-                              <EditMaterialUsageButton
-                                caseId={record.id}
-                                usage={{ id: m.id, name: m.name, unit: m.unit, quantity: toNum(m.quantity), note: m.note ?? "" }}
-                              />
-                              <form action={removeMaterial}>
-                                <input type="hidden" name="id" value={m.id} />
-                                <input type="hidden" name="caseId" value={record.id} />
-                                <button className="rounded-md p-1.5 text-slate-300 hover:bg-rose-50 hover:text-rose-500" aria-label="Xóa">
-                                  <Trash2 className="h-4 w-4" />
-                                </button>
-                              </form>
-                            </div>
-                          </TD>
-                        )}
-                      </TR>
-                    ))}
-                  </tbody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Ảnh */}
-          <Card id="hinh-anh" className="scroll-mt-32">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Images className="h-4 w-4 text-brand-500" /> Ảnh trước - sau - tái khám
-              </CardTitle>
-              <div className="flex items-center gap-2">
-                <PhotoCompareButton photos={record.photos} />
-                {canClinical && <UploadPhotoButton caseId={record.id} customerId={record.customer.id} />}
-              </div>
-            </CardHeader>
-            <CardContent className="pt-0">
-              {record.photos.length === 0 ? (
-                <EmptyState title="Chưa có ảnh" description="Tải ảnh trước/sau, tái khám và ảnh cận lâm sàng (X-quang, CT, siêu âm)." />
-              ) : (
-                <PhotoGallery
-                  photos={record.photos}
-                  cols={3}
-                  caseId={record.id}
-                  deleteAction={canClinical ? deletePhoto : undefined}
-                />
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Phiếu đồng ý (consent) — B6 gđ2 */}
-          <Card id="giay-to" className="scroll-mt-32">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileSignature className="h-4 w-4 text-brand-500" /> Phiếu đồng ý
-              </CardTitle>
-              {canClinical && (
-                <AddConsentButton
-                  caseId={record.id}
-                  customerName={record.customer.fullName}
-                  caseCode={record.code}
-                  services={record.services.map((s) => s.name).join(", ")}
-                  templates={consentTemplates}
-                  todayLocal={toDatetimeLocal(new Date()).slice(0, 10)}
-                />
-              )}
-            </CardHeader>
-            <CardContent className="pt-0">
-              {record.consents.length === 0 ? (
-                <EmptyState title="Chưa có phiếu đồng ý" description="Ghi nhận phiếu đồng ý/cam kết khách đã ký (in ra cho khách ký tay)." />
-              ) : (
-                <ul className="space-y-2.5">
-                  {record.consents.map((c) => (
-                    <li key={c.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-100 p-2.5">
-                      <div className="min-w-0">
-                        <p className="font-medium text-slate-800">{c.title}</p>
-                        <p className="text-xs text-slate-500">
-                          Người ký: {c.signerName}{c.relationship ? ` (${c.relationship})` : ""} · {fmtDate(c.signedAt)}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Link
-                          href={`/ho-so/${record.id}/consent/${c.id}`}
-                          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-brand-600 hover:bg-brand-50"
-                        >
-                          <Printer className="h-3.5 w-3.5" /> In phiếu
-                        </Link>
-                        {canClinical && (
-                          <ConfirmButton
-                            action={deleteConsent}
-                            fields={{ id: c.id, caseId: record.id }}
-                            confirmText={`Xóa phiếu đồng ý "${c.title}"?`}
-                            className="text-slate-300 hover:text-rose-500"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </ConfirmButton>
-                        )}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Giấy tờ hành chính — tải FILE lên (thay cho gõ tay) */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="h-4 w-4 text-brand-500" /> Giấy tờ hành chính
-              </CardTitle>
-              {canClinical && <UploadDocumentButton caseId={record.id} />}
-            </CardHeader>
-            <CardContent className="pt-0">
-              {record.documents.length === 0 ? (
-                <EmptyState title="Chưa có giấy tờ" description="Tải file đã soạn/đã ký sẵn (PDF, ảnh, Word…) lên rồi bấm Xem — khỏi gõ tay." />
-              ) : (
-                <ul className="space-y-2.5">
-                  {record.documents.map((doc) => (
-                    <li key={doc.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-100 p-2.5">
-                      <div className="min-w-0">
-                        <p className="truncate font-medium text-slate-800">{doc.title}</p>
-                        <p className="truncate text-xs text-slate-500">
-                          {doc.fileName} · {fmtDate(doc.createdAt)}
-                          {doc.uploadedBy?.fullName ? ` · ${doc.uploadedBy.fullName}` : ""}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <a
-                          href={doc.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-brand-600 hover:bg-brand-50"
-                        >
-                          <ExternalLink className="h-3.5 w-3.5" /> Xem
-                        </a>
-                        {canClinical && (
-                          <ConfirmButton
-                            action={deleteCaseDocument}
-                            fields={{ id: doc.id, caseId: record.id }}
-                            confirmText={`Xóa giấy tờ "${doc.title}"?`}
-                            className="text-slate-300 hover:text-rose-500"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </ConfirmButton>
-                        )}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </CardContent>
-          </Card>
+        <div className="lg:col-span-2">
+          <CaseSectionTabs tabs={tabs} defaultTab={canClinical ? "tu-van" : "dich-vu"} />
         </div>
 
-        {/* Cột phải: tài chính + tái khám */}
+        {/* Cột phải: tài chính + tái khám — luôn hiện sẵn (cần xem cùng lúc lúc thao tác dịch vụ/thanh toán) */}
         <div className="space-y-6">
-          <Card id="tai-chinh" className="scroll-mt-32">
+          <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Wallet className="h-4 w-4 text-brand-500" /> Tài chính
@@ -623,7 +641,7 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
             </CardContent>
           </Card>
 
-          <Card id="tai-kham" className="scroll-mt-32">
+          <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <RefreshCw className="h-4 w-4 text-violet-500" /> Tái khám
@@ -685,13 +703,5 @@ function Row({ label, value, valueClass = "text-slate-800" }: { label: string; v
       <span className="text-sm text-slate-500">{label}</span>
       <span className={`text-sm font-semibold ${valueClass}`}>{value}</span>
     </div>
-  );
-}
-
-function SectionLink({ href, label }: { href: string; label: string }) {
-  return (
-    <a href={href} className="rounded-md px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900">
-      {label}
-    </a>
   );
 }

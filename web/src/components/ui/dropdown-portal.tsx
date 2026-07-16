@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
+import { cn } from "@/lib/cn";
 
 /**
  * Nội dung menu thả xuống render qua portal vào <body> — nút kích hoạt thường nằm trong
@@ -67,7 +68,7 @@ export function DropdownPortal({
     <div
       ref={menuRef}
       style={{ position: "fixed", top: pos.top, left: pos.left, right: pos.right }}
-      className={className}
+      className={cn("animate-menu-in", className)}
     >
       {children}
     </div>,

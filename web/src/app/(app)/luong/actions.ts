@@ -1,15 +1,16 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
+import { audit } from "@/lib/audit";
 
 /**
  * Lưu lương cho một nhân sự trong tháng: lương cứng (cố định theo người) +
  * hoa hồng / thưởng nóng / điều chỉnh (nhập tay theo từng tháng).
  */
 export async function savePayroll(formData: FormData): Promise<void> {
-  await requireUser(["ADMIN"]);
+  const user = await requireUser(["ADMIN"]);
   const id = String(formData.get("id") ?? "");
   const month = String(formData.get("month") ?? "");
   if (!id || !/^\d{4}-\d{2}$/.test(month)) return;
@@ -25,5 +26,43 @@ export async function savePayroll(formData: FormData): Promise<void> {
     create: { userId: id, month, commission, bonus, adjustment },
     update: { commission, bonus, adjustment },
   });
-  revalidatePath("/luong");
+  await audit(user.id, "SAVE_PAYROLL", { entity: "PayrollEntry", entityId: id, meta: { month } });
+}
+
+export type BulkPayrollState = { ok?: boolean; error?: string };
+
+const bulkRowSchema = z.object({
+  id: z.string().min(1),
+  commission: z.number().min(0),
+  bonus: z.number().min(0),
+  adjustment: z.number(),
+});
+
+/** Sửa nhanh hoa hồng/thưởng/điều chỉnh cho NHIỀU nhân sự cùng lúc — lưu 1 lần thay vì mở modal từng người. */
+export async function saveBulkPayroll(_prev: BulkPayrollState, formData: FormData): Promise<BulkPayrollState> {
+  const user = await requireUser(["ADMIN"]);
+  const month = String(formData.get("month") ?? "");
+  if (!/^\d{4}-\d{2}$/.test(month)) return { error: "Tháng không hợp lệ." };
+
+  let raw: unknown;
+  try {
+    raw = JSON.parse(String(formData.get("rows") ?? "[]"));
+  } catch {
+    return { error: "Dữ liệu không hợp lệ." };
+  }
+  const parsed = z.array(bulkRowSchema).safeParse(raw);
+  if (!parsed.success) return { error: "Dữ liệu không hợp lệ." };
+  if (parsed.data.length === 0) return { ok: true };
+
+  await prisma.$transaction(
+    parsed.data.map((r) =>
+      prisma.payrollEntry.upsert({
+        where: { userId_month: { userId: r.id, month } },
+        create: { userId: r.id, month, commission: r.commission, bonus: r.bonus, adjustment: r.adjustment },
+        update: { commission: r.commission, bonus: r.bonus, adjustment: r.adjustment },
+      }),
+    ),
+  );
+  await audit(user.id, "BULK_SAVE_PAYROLL", { entity: "PayrollEntry", meta: { month, count: parsed.data.length } });
+  return { ok: true };
 }

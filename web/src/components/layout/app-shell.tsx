@@ -45,6 +45,7 @@ import { InstallAppButton } from "@/components/install-app";
 import { logoutAction } from "@/lib/auth-actions";
 import { ChangePasswordModal } from "./change-password";
 import { CommandPalette } from "./command-palette";
+import { RouteProgress } from "./route-progress";
 
 const ICONS: Record<string, LucideIcon> = {
   LayoutDashboard,
@@ -219,6 +220,7 @@ export function AppShell({
 
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[16rem_1fr]">
+      <RouteProgress />
       {/* Sidebar desktop */}
       <aside className="sticky top-0 hidden h-screen flex-col border-r border-slate-200 bg-white lg:flex">
         {brand}
@@ -233,8 +235,8 @@ export function AppShell({
       {/* Kho ứng dụng mobile: mọi chức năng vẫn nằm trong tầm ngón tay cái. */}
       {mobileOpen && (
         <div className="fixed inset-0 z-50 flex items-end lg:hidden" role="dialog" aria-modal="true" aria-label="Tất cả chức năng">
-          <button className="absolute inset-0 bg-slate-950/45 backdrop-blur-sm" onClick={() => setMobileOpen(false)} aria-label="Đóng menu" />
-          <section className="relative flex max-h-[92dvh] w-full flex-col rounded-t-[1.75rem] bg-slate-50 shadow-2xl">
+          <button className="animate-fade-in absolute inset-0 bg-slate-950/45 backdrop-blur-sm" onClick={() => setMobileOpen(false)} aria-label="Đóng menu" />
+          <section className="animate-slide-up-in relative flex max-h-[92dvh] w-full flex-col rounded-t-[1.75rem] bg-slate-50 shadow-2xl">
             <div className="shrink-0 rounded-t-[1.75rem] border-b border-slate-200 bg-white px-4 pb-3 pt-2">
               <div className="mx-auto mb-2 h-1.5 w-12 rounded-full bg-slate-200" />
               <div className="flex items-center gap-3">

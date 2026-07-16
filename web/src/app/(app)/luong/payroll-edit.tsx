@@ -9,12 +9,30 @@ import { Input, Label } from "@/components/ui/field";
 import { MoneyInput } from "@/components/ui/money-input";
 import { savePayroll } from "./actions";
 
-type Row = { id: string; name: string; role: string; baseFull: number; commission: number; bonus: number; adjustment: number };
+type Row = {
+  id: string;
+  name: string;
+  role: string;
+  baseFull: number;
+  commission: number;
+  bonus: number;
+  adjustment: number;
+  hasEntry: boolean;
+  prevCommission: number;
+  prevBonus: number;
+  prevAdjustment: number;
+};
 
 export function PayrollEditButton({ row, month }: { row: Row; month: string }) {
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
   const router = useRouter();
+
+  // Chưa có PayrollEntry tháng này → mang số tháng trước sang làm mốc để sửa, thay vì gõ từ 0.
+  const carried = !row.hasEntry && (row.prevCommission > 0 || row.prevBonus > 0 || row.prevAdjustment !== 0);
+  const commissionDefault = row.hasEntry ? row.commission : row.prevCommission;
+  const bonusDefault = row.hasEntry ? row.bonus : row.prevBonus;
+  const adjustmentDefault = row.hasEntry ? row.adjustment : row.prevAdjustment;
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -42,18 +60,23 @@ export function PayrollEditButton({ row, month }: { row: Row; month: string }) {
             <Label htmlFor="baseSalary">Lương cứng (VND / tháng)</Label>
             <MoneyInput id="baseSalary" name="baseSalary" defaultValue={row.baseFull} />
           </div>
+          {carried && (
+            <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700 ring-1 ring-amber-600/10">
+              Chưa nhập lương tháng này — đã tự điền số của tháng trước làm mốc, sửa lại nếu cần.
+            </p>
+          )}
           <div>
             <Label htmlFor="commission">Hoa hồng (tự nhập)</Label>
-            <MoneyInput id="commission" name="commission" defaultValue={row.commission} />
+            <MoneyInput id="commission" name="commission" defaultValue={commissionDefault} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label htmlFor="bonus">Thưởng nóng</Label>
-              <MoneyInput id="bonus" name="bonus" defaultValue={row.bonus} />
+              <MoneyInput id="bonus" name="bonus" defaultValue={bonusDefault} />
             </div>
             <div>
               <Label htmlFor="adjustment">Điều chỉnh (+/-)</Label>
-              <Input id="adjustment" name="adjustment" type="number" step={50000} defaultValue={row.adjustment} />
+              <Input id="adjustment" name="adjustment" type="number" step={50000} defaultValue={adjustmentDefault} />
             </div>
           </div>
           <div className="flex justify-end gap-2">
