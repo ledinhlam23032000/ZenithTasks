@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -90,6 +90,7 @@ export function AppShell({
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
   const [pwOpen, setPwOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>(() => {
@@ -121,6 +122,15 @@ export function AppShell({
       document.body.style.overflow = previous;
     };
   }, [mobileOpen]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    function onDoc(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
+    }
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [menuOpen]);
 
   const toggleGroup = (group: string, defaultOpen: boolean) => {
     setCollapsedGroups((prev) => {
@@ -322,7 +332,7 @@ export function AppShell({
           </button>
 
           <div className="ml-auto flex items-center gap-2">
-            <div className="relative">
+            <div ref={menuRef} className="relative">
               <button
                 onClick={() => setMenuOpen((o) => !o)}
                 className="flex min-h-10 items-center gap-2.5 rounded-xl p-1 text-left hover:bg-slate-100 sm:py-1.5 sm:pl-1.5 sm:pr-2.5"
@@ -336,40 +346,37 @@ export function AppShell({
               </button>
 
               {menuOpen && (
-                <>
-                  <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
-                  <div className="absolute right-0 z-20 mt-2 w-56 overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg">
-                    <div className="px-3 py-2">
-                      <p className="text-sm font-medium text-slate-800">{user.fullName}</p>
-                      <p className="text-xs text-slate-400">@{user.username} · {user.roleLabel}</p>
-                    </div>
-                    <div className="my-1 h-px bg-slate-100" />
-                    <Link
-                      href="/tai-khoan"
-                      onClick={() => setMenuOpen(false)}
-                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-100"
-                    >
-                      <UserCog className="h-4 w-4" /> Thông tin cá nhân
-                    </Link>
-                    <button
-                      onClick={() => {
-                        setMenuOpen(false);
-                        setPwOpen(true);
-                      }}
-                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-100"
-                    >
-                      <KeyRound className="h-4 w-4" /> Đổi mật khẩu
-                    </button>
-                    <form action={logoutAction}>
-                      <button
-                        type="submit"
-                        className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-rose-600 hover:bg-rose-50"
-                      >
-                        <LogOut className="h-4 w-4" /> Đăng xuất
-                      </button>
-                    </form>
+                <div className="absolute right-0 z-20 mt-2 w-56 overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg">
+                  <div className="px-3 py-2">
+                    <p className="text-sm font-medium text-slate-800">{user.fullName}</p>
+                    <p className="text-xs text-slate-400">@{user.username} · {user.roleLabel}</p>
                   </div>
-                </>
+                  <div className="my-1 h-px bg-slate-100" />
+                  <Link
+                    href="/tai-khoan"
+                    onClick={() => setMenuOpen(false)}
+                    className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-100"
+                  >
+                    <UserCog className="h-4 w-4" /> Thông tin cá nhân
+                  </Link>
+                  <button
+                    onClick={() => {
+                      setMenuOpen(false);
+                      setPwOpen(true);
+                    }}
+                    className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-100"
+                  >
+                    <KeyRound className="h-4 w-4" /> Đổi mật khẩu
+                  </button>
+                  <form action={logoutAction}>
+                    <button
+                      type="submit"
+                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-rose-600 hover:bg-rose-50"
+                    >
+                      <LogOut className="h-4 w-4" /> Đăng xuất
+                    </button>
+                  </form>
+                </div>
               )}
             </div>
           </div>
