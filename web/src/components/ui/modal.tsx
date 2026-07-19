@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { cn } from "@/lib/cn";
 
@@ -39,9 +40,12 @@ export function Modal({
     };
   }, [open, onClose]);
 
-  if (!open) return null;
+  if (!open || typeof document === "undefined") return null;
 
-  return (
+  // Portal ra <body>: nếu chỉ render tại chỗ, modal có thể bị các ancestor `position:sticky`
+  // (vd thanh tab trong trang hồ sơ điều trị) đè lên bất kể z-index cao hơn — cùng nguyên nhân
+  // đã gặp ở dropdown (xem `dropdown-portal.tsx` + cạm bẫy #16, mục 13 BAN-GIAO.md).
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto sm:items-start sm:p-6">
       <div className="animate-fade-in fixed inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={onClose} aria-hidden />
       <div
@@ -66,6 +70,7 @@ export function Modal({
         </div>
         <div className="min-h-0 overflow-y-auto px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-4 sm:overflow-visible sm:px-5 sm:pb-4">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

@@ -3,6 +3,15 @@
 > Tài liệu bàn giao để các phiên Claude Code sau tiếp tục hiệu quả. Đọc file này + mã nguồn là nắm được bối cảnh.
 > **Kế hoạch nâng cấp dài hạn (A→E) + theo dõi tiến độ: xem `ROADMAP.md` ở gốc repo.**
 
+## Sửa lỗi: modal "Thêm dịch vụ" bị thanh tab đè lên ở Hồ sơ điều trị — "Đợt 32"
+> Chủ gửi ảnh chụp cho thấy nút "Thêm dịch vụ vào hồ sơ" (mở từ tab "Dịch vụ" ở Hồ sơ điều trị)
+> bị thanh tab (Tư vấn/Dịch vụ/Vật tư/Hình ảnh/Giấy tờ) đè ngang qua giữa modal, che mất nút
+> "Hủy"/"Thêm dịch vụ". Đây là hệ quả của Đợt 31 (chuyển trang Hồ sơ sang tab dùng `position:sticky`).
+- **Nguyên nhân**: CÙNG BẢN CHẤT với lỗi nút "Xuất file" ở Đợt 30 — `Modal` (`components/ui/modal.tsx`) render TẠI CHỖ trong cây component (không portal), nên khi mở từ bên trong 1 khối có anh em là `position:sticky` (thanh tab `CaseSectionTabs`), thứ tự chồng lớp không tuân theo z-index đơn giản (modal `z-50` > thanh tab `z-20` nhưng thanh tab vẫn đè lên) — đã kiểm chứng bằng Playwright thật (chụp màn hình + hit-test), không chỉ đọc code.
+- **Cách sửa**: `Modal` giờ LUÔN render qua `createPortal(document.body)`, giống `DropdownPortal` đã làm ở Đợt 30 — áp dụng CHUNG cho mọi modal trong app (không cần sửa từng nơi gọi `<Modal>`), nên tự động ngăn lỗi này tái diễn ở bất kỳ trang nào có `position:sticky`/`fixed` khác trên cùng cây component.
+- **Kiểm thử THẬT**: chụp lại đúng thao tác trong ảnh chủ gửi (mở tab Dịch vụ → bấm Thêm dịch vụ) — xác nhận modal hiện sạch, nút bấm được bình thường. Test thêm 5 modal khác (Kế hoạch mới, sửa nhân sự, thêm khách hàng, thu tiền hồ sơ) không bị ảnh hưởng bởi thay đổi. TSC sạch, 198/198 test.
+- **Rà soát riêng về phản ánh "khoản thu chưa vào doanh thu nhân sự"**: dựng lại đúng kịch bản chủ mô tả (thêm khoản thu nợ cũ cho 1 hồ sơ có tư vấn viên) — xác nhận số liệu "Thực thu" ở `/luong` cập nhật ĐÚNG NGAY LẬP TỨC, có tách rõ "nợ cũ". Logic tính đúng; nếu vẫn thấy thiếu, nguyên nhân nhiều khả năng là hồ sơ đó CHƯA gán Tư vấn viên/Bác sĩ (khoản thu chỉ được cộng vào đúng người được gán trên hồ sơ) — cần chủ xác nhận lại hồ sơ cụ thể + trang đang xem để tra tiếp nếu vẫn còn thiếu.
+
 ## Nâng cấp Lương + rà soát trải nghiệm tổng thể (rườm rà/kém mượt) — "Đợt 31"
 > Chủ phản hồi 2 việc: (1) khó tính lương nhân sự cuối tháng / xem lại lâu dài, và (2) cảm giác
 > ứng dụng "rườm rà, kém mượt mà" so với app khác nhưng không diễn tả được cụ thể. Nghiên cứu kỹ
