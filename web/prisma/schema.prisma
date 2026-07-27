@@ -159,6 +159,7 @@ model User {
   attendances          Attendance[]
   payrollEntries       PayrollEntry[]
   cashTransactions     CashTransaction[]
+  periodsClosed        AccountingPeriod[]
 }
 
 // ============================ CHẤM CÔNG & LƯƠNG ============================
@@ -187,6 +188,15 @@ model PayrollEntry {
   nurseCases Int      @default(0) // (không còn dùng — giữ để tương thích dữ liệu cũ)
   note       String?
   updatedAt  DateTime @updatedAt
+
+  // ----- Kế toán: theo dõi đã CHI lương hay chưa -----
+  // Khi bấm "Ghi sổ chi lương" ở trang Kế toán, hệ thống tạo 1 giao dịch CHI
+  // (hạng mục SALARY) trong sổ thu chi rồi gắn vào đây. Xóa giao dịch đó ở sổ
+  // thu chi sẽ tự bỏ đánh dấu (onDelete: SetNull) → không bao giờ lệch sổ.
+  paidAmount Decimal          @default(0) @db.Decimal(14, 0)
+  paidAt     DateTime?
+  cashTxId   String?          @unique
+  cashTx     CashTransaction? @relation(fields: [cashTxId], references: [id], onDelete: SetNull)
 
   @@unique([userId, month])
 }
@@ -499,8 +509,50 @@ model CashTransaction {
   createdBy   User?         @relation(fields: [createdById], references: [id])
   createdAt   DateTime      @default(now())
 
+  // Giao dịch này có phải do trang Kế toán sinh ra khi chi lương / hoa hồng không.
+  payrollEntry     PayrollEntry?
+  commissionPayout CommissionPayout?
+
   @@index([occurredAt])
   @@index([type])
+}
+
+// ============================ KẾ TOÁN ============================
+
+// Kỳ kế toán đã CHỐT SỔ. Có bản ghi cho tháng "YYYY-MM" = tháng đó đã khóa:
+// không thêm/sửa/xóa giao dịch thu chi, không sửa lương, không ghi sổ chi lương
+// của tháng đó nữa (Quản trị viên có thể mở lại). Các con số được CHỤP LẠI tại
+// thời điểm chốt để báo cáo cũ không đổi theo dữ liệu phát sinh sau này.
+model AccountingPeriod {
+  id               String   @id @default(cuid())
+  month            String   @unique // "YYYY-MM"
+  serviceRevenue   Decimal  @default(0) @db.Decimal(14, 0) // Doanh thu dịch vụ (thực thu)
+  otherIncome      Decimal  @default(0) @db.Decimal(14, 0) // Thu khác (sổ thu chi)
+  operatingExpense Decimal  @default(0) @db.Decimal(14, 0) // Chi vận hành (KHÔNG gồm lương/hoa hồng)
+  salaryExpense    Decimal  @default(0) @db.Decimal(14, 0) // Chi lương nhân viên (bảng lương)
+  ctvCommission    Decimal  @default(0) @db.Decimal(14, 0) // Hoa hồng cộng tác viên
+  profit           Decimal  @default(0) @db.Decimal(14, 0) // Lãi/Lỗ
+  note             String?
+  closedAt         DateTime @default(now())
+  closedById       String?
+  closedBy         User?    @relation(fields: [closedById], references: [id])
+
+  @@index([month])
+}
+
+// Chi hoa hồng cộng tác viên theo tháng (mỗi CTV 1 lần/tháng). Số tiền phải trả
+// được cộng từ CaseRecord.commissionAmount của khách do CTV đó giới thiệu.
+model CommissionPayout {
+  id       String           @id @default(cuid())
+  name     String // Tên CTV — khớp Customer.sourceDetail
+  month    String // "YYYY-MM"
+  amount   Decimal          @db.Decimal(14, 0)
+  paidAt   DateTime         @default(now())
+  cashTxId String?          @unique
+  cashTx   CashTransaction? @relation(fields: [cashTxId], references: [id], onDelete: SetNull)
+
+  @@unique([name, month])
+  @@index([month])
 }
 
 // Hồ sơ Cộng tác viên (đối tác giới thiệu khách). Khớp với khách qua TÊN

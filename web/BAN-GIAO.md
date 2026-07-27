@@ -37,7 +37,7 @@ web/
   src/app/
     (app)/                      # Khu vực đăng nhập (có app-shell, sidebar)
       dashboard, lich-hen, tiep-nhan, khach-hang, ho-so/[id], cham-soc,
-      bao-cao, hieu-suat, cong-tac-vien, lich-lam-viec, luong, thu-chi,
+      bao-cao, hieu-suat, cong-tac-vien, lich-lam-viec, luong, thu-chi, ke-toan,
       nhan-su/[id], nhat-ky, danh-muc, kho, cham-cong, tai-khoan
       <mỗi mục>/actions.ts       # Server actions của mục đó
       <mỗi mục>/*-forms.tsx      # Form client (modal)
@@ -70,7 +70,8 @@ Chỉ 3 trang KHÔNG dynamic: `/` (redirect), `/login`, `/khong-co-quyen`. **H�
 - **dates.ts** — `vnDateOnly()` (mốc ngày theo giờ VN cho cột @db.Date).
 - **status.ts** — nhãn + tone cho các enum (CASE_STATUS, CONSULT_RESULT, APPT_STATUS/TYPE, SOURCE_LABEL, PAYMENT_LABEL, CARE_CHANNEL, GENDER_LABEL).
 - **finance.ts** — danh mục thu/chi sổ thu chi; `CATEGORY_LABEL`, `categoriesFor(type)`; `REVENUE_TRANSFER_CODES = ["ADVANCE_REVENUE","SERVICE"]` (loại khỏi "thu khác" trong P&L để tránh tính trùng).
-- **payroll.ts** — `getPayroll(monthDate, standardDays=26)` → bảng lương.
+- **payroll.ts** — `getPayroll(monthDate, standardDays=26)` → bảng lương (mỗi dòng kèm `paid/paidAt/cashTxId` = đã ghi sổ chi lương chưa).
+- **accounting.ts** — **KẾ TOÁN, xem mục 7.x**: `getMonthlyAccounting(monthDate, standardDays)` (gộp doanh thu + thu chi + lương thành kết quả kinh doanh), `splitCashflow()` / `computePnl()` (hàm thuần, có test), `isMonthClosed(month)` (chặn ghi vào tháng đã chốt sổ).
 - **reports.ts** — `getReports()`, `getMonthlyPnl()`, `getSalesSeries()` (mốc tuần/tháng/năm).
 - **dashboard.ts** — `getAdminDashboard()`, `getStaffSnapshot()`.
 - **performance.ts** — `getStaffPerformance/getStaffDetail` (hiệu suất nhân sự); `getCollaborators/getCollaboratorDetail/getCollaboratorSeries` (cộng tác viên); `rangeBounds(range)`.
@@ -95,10 +96,12 @@ Chỉ 3 trang KHÔNG dynamic: `/` (redirect), `/login`, `/khong-co-quyen`. **H�
 - **Service** (`listPrice` niêm yết + `defaultPrice` ưu đãi), **Material** (`stock`, `minStock`, `lotNo`, `expiryDate`), **StockMovement**.
 - **Attendance** (chấm công theo ngày), **Shift** (ca làm), **PayrollEntry** (theo tháng: `baseSalary`, `commission` nhập tay, `bonus`, `adjustment`…).
 - **CareMessage** (nhật ký chăm sóc: `channel`, `direction`), **FollowUp** (hẹn tái khám), **AuditLog**, **CashTransaction** (sổ thu chi), **Collaborator** (hồ sơ CTV: `name @unique`, `phone`, `bank*`, `note`, `active`).
+- **Kế toán**: **AccountingPeriod** (tháng đã chốt sổ: `month @unique` + ảnh chụp `serviceRevenue/otherIncome/operatingExpense/salaryExpense/ctvCommission/profit`, `closedBy`), **CommissionPayout** (chi hoa hồng CTV: unique `[name, month]`, `cashTxId`). `PayrollEntry` thêm `paidAmount/paidAt/cashTxId` (`cashTxId` unique, FK `onDelete: SetNull`).
 
 ## 6. Phân quyền (RBAC) — `src/lib/permissions.ts`
 - 2 loại quyền: **mục** `mod:<key>` (gate cả menu lẫn trang) và **năng lực** mịn.
-- **Năng lực**: `case.clinical` (thao tác hồ sơ), `payment.add` (thu tiền), `payment.manage` (sửa/xóa khoản thu), `phone.full` (xem SĐT đầy đủ — mặc định ADMIN+MANAGER).
+- **Năng lực**: `case.clinical` (thao tác hồ sơ), `payment.add` (thu tiền), `payment.manage` (sửa/xóa khoản thu), `phone.full` (xem SĐT đầy đủ — mặc định ADMIN+MANAGER), `accounting.pay` (ghi sổ chi lương/hoa hồng — ADMIN), `accounting.close` (chốt sổ / mở lại sổ — ADMIN).
+- **Mục `ke-toan`** (Kế toán): ADMIN + MANAGER. **KHÔNG cấp cho SHAREHOLDER** (trang có chi tiết lương từng nhân sự).
 - Quyền hiệu lực = (mặc định theo vai trò ∪ `grant`) − `deny`, lưu ở `User.permissions`. Hàm: `userCan(user,key)`, `navForUser(user)`, `requireCap("key")` (ở `auth.ts`), `diffFromDesired(role, desired)` (tính grant/deny).
 - **Trang** chốt bằng `requireCap("mod:<key>")` (KHÔNG dùng `requireUser([roles])` cho trang nữa). Năng lực trong hồ sơ dùng `requireCap("case.clinical"|"payment.add"|"payment.manage")`.
 - **Giao diện cấp quyền**: Nhân sự → "Phân quyền" (`nhan-su/permission-editor.tsx`) — kéo thả Bật/Tắt, lưu qua `savePermissions`.
@@ -117,9 +120,36 @@ Chỉ 3 trang KHÔNG dynamic: `/` (redirect), `/login`, `/khong-co-quyen`. **H�
 ### Lương & hoa hồng (`payroll.ts`)
 - Lương cứng theo **ngày công** (`baseSalary × ngày công ÷ ngày chuẩn`, mặc định 26). Hoa hồng + thưởng + điều chỉnh **nhập tay** trong `PayrollEntry`. **ĐÃ BỎ toàn bộ logic % theo bậc** (tư vấn/bác sĩ/điều dưỡng).
 
-### Sổ thu chi & Lãi/Lỗ (`finance.ts`, `reports.ts`)
+### Sổ thu chi & Lãi/Lỗ (`finance.ts`, `accounting.ts`, `reports.ts`)
 - **Sổ thu chi** (`/thu-chi`): dòng tiền vận hành nhập tay. Thẻ: Tổng thu / Tổng chi / **Số dư sổ** (KHÔNG hiện doanh thu/lãi lỗ — để kế toán/lễ tân không thấy).
-- **Lãi/Lỗ** chuyển sang **Báo cáo** (`getMonthlyPnl` = doanh thu dịch vụ + thu khác − tổng chi). Hạng mục thu có "Ứng từ doanh thu để chi trả" (`ADVANCE_REVENUE`).
+- **Lãi/Lỗ** hiện ở **Báo cáo** và **Kế toán**; cả hai gọi chung `getMonthlyAccounting()` nên KHÔNG BAO GIỜ lệch nhau (`getMonthlyPnl` trong reports.ts chỉ là vỏ bọc). Hạng mục thu có "Ứng từ doanh thu để chi trả" (`ADVANCE_REVENUE`).
+
+### KẾ TOÁN (`/ke-toan`, `lib/accounting.ts`) — gộp 3 nguồn số liệu
+Trước đây tiền nằm rời ở 3 chỗ (thực thu ở hồ sơ · chi vận hành ở Sổ thu chi · lương ở bảng Lương) và
+không nối với nhau → cuối tháng phải cộng tay. Trang Kế toán gộp lại thành 1 bảng kết quả kinh doanh.
+
+**QUY TẮC CHỐNG TÍNH TRÙNG (bắt buộc dùng chung ở mọi trang):**
+1. `Doanh thu dịch vụ` = Σ `Payment.amount` (tiền khách ĐÃ trả), KHÔNG lấy `totalAmount` (tránh tính cả phần còn nợ).
+2. Thu mã trong `REVENUE_TRANSFER_CODES` chỉ là luân chuyển tiền → KHÔNG cộng vào "Thu khác".
+3. **Lương & hoa hồng CTV luôn lấy từ BẢNG LƯƠNG.** Khi bấm "Chi lương", hệ thống sinh phiếu chi hạng mục
+   `SALARY` / `COMMISSION` trong Sổ thu chi để theo dõi dòng tiền — 2 hạng mục này bị **LOẠI khỏi "Chi vận hành"**
+   nên không bị cộng 2 lần. → `Lãi/Lỗ = doanh thu + thu khác − chi vận hành − lương − hoa hồng CTV`.
+
+**Ghi sổ chi lương** (`ke-toan/actions.ts`, quyền `accounting.pay`, mặc định ADMIN): `payStaffSalary` /
+`payAllSalaries` tạo phiếu chi (mỗi nhân sự 1 phiếu, `vendor` = họ tên) trong `$transaction` rồi gắn
+`PayrollEntry.cashTxId` + `paidAmount/paidAt`. `undoStaffSalary` xóa phiếu chi và bỏ đánh dấu. Tương tự cho CTV
+(`payCtvCommission` / `undoCtvCommission` + model `CommissionPayout`, unique `[name, month]`).
+⚠️ Xóa phiếu chi lương trực tiếp ở `/thu-chi` cũng tự bỏ đánh dấu (`deleteCashTransaction` dọn `PayrollEntry`
+/`CommissionPayout`; DB còn `onDelete: SetNull` làm lưới an toàn) → bảng lương không bao giờ lệch sổ quỹ.
+
+**Chốt sổ tháng** (`closePeriod`, quyền `accounting.close`, ADMIN): tạo `AccountingPeriod` (unique theo `month`)
+**chụp lại** các con số. Khi tháng đã chốt: `thu-chi/actions.ts` (thêm/sửa/xóa — chặn cả tháng CŨ lẫn tháng MỚI
+khi đổi ngày) và `luong/actions.ts` (`savePayroll`) đều từ chối; nút chi lương ẩn. `reopenPeriod` mở lại (ghi audit
+`REOPEN_PERIOD`). Audit: `PAY_SALARY`, `PAY_SALARY_ALL`, `UNDO_PAY_SALARY`, `PAY_COMMISSION`,
+`UNDO_PAY_COMMISSION`, `CLOSE_PERIOD`, `REOPEN_PERIOD`.
+
+**Cảnh báo lệch sổ**: nếu Sổ thu chi có phiếu `SALARY`/`COMMISSION` nhập tay không gắn bảng lương, trang hiện
+banner vàng nêu rõ số lệch (Lãi/Lỗ vẫn đúng vì luôn tính theo bảng lương).
 
 ### Đếm số liệu (đồng bộ Tổng quan ↔ Báo cáo)
 - Mọi đếm theo **`createdAt` trong tháng**. Tỉ lệ chốt = AGREED / tổng ca tháng. "Dịch vụ nổi bật" xếp theo **số lượt** rồi doanh thu.
@@ -215,7 +245,7 @@ npx next dev -p 3939                              # dev server (Turbopack; biên
 1. **"Không mở được hồ sơ điều trị" (P2002)**: mã sinh bằng `count()+1` trùng sau khi xóa → đổi sang `nextSeq` (max+1) + retry. (Mục 8.5)
 2. **Ảnh không hiện ở production**: `next start` không phục vụ file ghi lúc chạy trong `public/` → route `/media/[file]`. (Mục 8.6)
 3. **Lưu "xoay mãi dù đã lưu"**: `revalidatePath` trong action gộp render lại cả trang vào phản hồi → `useFormAction`. (Mục 8.1)
-4. **vitest không resolve `@/`**: test dùng import tương đối; tách logic thuần (vd `seq.ts`) khỏi code import db.
+4. ~~**vitest không resolve `@/`**~~ → ĐÃ SỬA: `vitest.config.ts` có `resolve.alias` cho `@` → test import được `@/...` như mã nguồn (xem `accounting.test.ts`). Vẫn nên tách hàm thuần (như `splitCashflow`/`computePnl`) để test nhanh, không cần CSDL.
 5. **`migrate reset`/`migrate dev` không chạy được trong sandbox** → viết migration tay + `migrate deploy`.
 6. **Forge JWT phải chạy từ `web/`** để resolve `jose`.
 7. **`cd` không giữ giữa các lần gọi Bash; `sleep` foreground bị chặn** → dùng vòng `until`/`run_in_background`.

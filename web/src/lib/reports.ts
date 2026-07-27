@@ -3,27 +3,16 @@ import { vi } from "date-fns/locale";
 import { prisma } from "@/lib/db";
 import { toNum } from "@/lib/money";
 import { monthRange, lastMonthRange, growthPct } from "@/lib/dates";
-import { REVENUE_TRANSFER_CODES } from "@/lib/finance";
+import { getMonthlyAccounting } from "@/lib/accounting";
 
-/** Lãi/Lỗ tháng hiện tại: doanh thu dịch vụ (từ hồ sơ) + thu khác − tổng chi (sổ thu chi). */
+/**
+ * Lãi/Lỗ tháng hiện tại. Dùng CHUNG một phép tính với trang Kế toán
+ * (`lib/accounting.ts`) để hai trang không bao giờ ra số khác nhau:
+ * doanh thu thực thu + thu khác − chi vận hành − lương − hoa hồng cộng tác viên.
+ */
 export async function getMonthlyPnl() {
-  const m = monthRange();
-  const [payAgg, cash] = await Promise.all([
-    prisma.payment.aggregate({ where: { paidAt: m }, _sum: { amount: true } }),
-    prisma.cashTransaction.findMany({ where: { occurredAt: m }, select: { type: true, amount: true, category: true } }),
-  ]);
-  const serviceRevenue = toNum(payAgg._sum.amount);
-  let otherIncome = 0;
-  let totalExpense = 0;
-  for (const t of cash) {
-    const a = toNum(t.amount);
-    if (t.type === "INCOME") {
-      if (!REVENUE_TRANSFER_CODES.includes(t.category)) otherIncome += a; // bỏ "ứng từ doanh thu" để khỏi tính trùng
-    } else {
-      totalExpense += a;
-    }
-  }
-  return { serviceRevenue, otherIncome, totalExpense, profit: serviceRevenue + otherIncome - totalExpense };
+  const a = await getMonthlyAccounting(new Date());
+  return a.pnl;
 }
 
 export type SalesPoint = { label: string; value: number };

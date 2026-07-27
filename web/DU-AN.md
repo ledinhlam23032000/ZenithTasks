@@ -186,7 +186,35 @@ Chưa có Sửa (cần bổ sung):
 - **Đăng ký/sửa CTV không cập nhật**: `EditCollaboratorButton`/`NewCollaboratorButton` gọi `router.refresh()` sau khi lưu; action `revalidatePath("/cong-tac-vien","layout")` (bao trang chi tiết). KHÓA ô Tên khi sửa/đăng-ký-theo-tên (tránh đổi tên làm lệch khớp với `sourceDetail`).
 - **Biểu đồ tăng trưởng CTV**: `getCollaboratorSeries(name?)` (tuần này / các tuần trong tháng / 12 tháng / 5 năm). Component dùng chung `components/ui/range-chart.tsx` (chọn mốc + chọn kiểu cột/đường/vùng/tròn + % tăng giảm). Trang CTV: thêm "Tăng trưởng doanh số CTV" (tất cả CTV) + giữ "So sánh top 10". Trang chi tiết CTV: đổi sang RangeChart theo tuần/tháng/năm.
 
-## Lưu mãi/"xoay mãi" + Xem ảnh + Ảnh cận lâm sàng + Lưu trữ ở máy phòng khám (đợt mới nhất)
+## MODULE KẾ TOÁN (`/ke-toan`) — thống kê thu chi & tính lương cuối tháng (đợt mới nhất)
+**Vấn đề**: app đã có Sổ thu chi và bảng Lương nhưng **không nối với nhau**. Lương tính ra ở `/luong` rồi
+phải **gõ tay lại** vào Sổ thu chi thì dòng tiền mới đúng; không biết đã trả lương cho ai; Lãi/Lỗ ở Báo cáo
+**không hề trừ lương** nên sai; không có bước "chốt sổ" nên số liệu tháng cũ vẫn tự đổi khi ai đó sửa hồ sơ.
+
+**Đã làm**:
+- **`lib/accounting.ts`** — `getMonthlyAccounting(monthDate, standardDays)` gộp 3 nguồn: thực thu (Payment) +
+  Sổ thu chi + bảng Lương. 2 hàm thuần `splitCashflow()` / `computePnl()` có **8 test** (`accounting.test.ts`).
+  **Quy tắc chống tính trùng**: lương & hoa hồng CTV luôn lấy từ bảng lương; phiếu chi hạng mục
+  `SALARY`/`COMMISSION` trong sổ bị loại khỏi "chi vận hành" → không cộng 2 lần.
+- **Trang `/ke-toan`**: bảng **Kết quả kinh doanh** (doanh thu · thu khác · chi vận hành · chi lương · hoa hồng
+  CTV · **Lãi/Lỗ** + tỷ suất) · **đối chiếu thực thu theo hình thức** (khớp tiền mặt/quẹt thẻ/chuyển khoản với
+  sao kê) · chi theo hạng mục · **bảng lương kèm trạng thái Đã chi/Chưa chi** · hoa hồng CTV · công nợ cần thu.
+- **Ghi sổ chi lương 1 chạm**: nút "Chi" từng người hoặc **"Chi lương cả tháng"** → tự tạo phiếu chi trong Sổ
+  thu chi (mỗi nhân sự 1 phiếu, ghi rõ họ tên, chọn ngày + hình thức) và đánh dấu đã trả. Có **Hoàn tác**
+  (xóa luôn phiếu chi). Tương tự cho **hoa hồng cộng tác viên** (model `CommissionPayout`).
+  Xóa phiếu chi ở `/thu-chi` cũng tự bỏ đánh dấu → không bao giờ lệch sổ.
+- **Chốt sổ tháng** (`AccountingPeriod`): chụp lại số liệu + **khóa tháng** (không thêm/sửa/xóa thu chi, không
+  sửa lương; đổi ngày giao dịch ra/vào tháng đã chốt cũng bị chặn). ADMIN **mở lại sổ** được, có ghi nhật ký.
+- **Đồng bộ Báo cáo**: `getMonthlyPnl()` nay gọi chung `getMonthlyAccounting()` → Lãi/Lỗ ở Báo cáo và Kế toán
+  **luôn khớp** và đã trừ lương (trước đây chưa trừ).
+- **Phân quyền**: mục `mod:ke-toan` (ADMIN + MANAGER, **không** cho Cổ đông vì lộ lương từng người) + năng lực
+  `accounting.pay`, `accounting.close` (ADMIN). Icon `Calculator` trong `app-shell.tsx`.
+- **Xuất file**: `/ke-toan/export?format=xlsx|doc|csv` — Excel **6 sheet** (Kết quả · Thực thu · Chi theo hạng
+  mục · Bảng lương · Hoa hồng CTV · Công nợ).
+- **Cảnh báo lệch sổ**: nếu có phiếu lương/hoa hồng nhập tay không gắn bảng lương → banner vàng nêu số lệch.
+- Migration `20260727120000_accounting`. `vitest.config.ts` thêm alias `@` (gỡ hạn chế test cũ).
+
+## Lưu mãi/"xoay mãi" + Xem ảnh + Ảnh cận lâm sàng + Lưu trữ ở máy phòng khám (đợt trước)
 ### 1) Lưu xong nhưng "xoay mãi" (gặp ở TẤT CẢ form)
 - **Nguyên nhân**: form dùng `useActionState`; server action gọi `revalidatePath(...)` nên Next **gộp việc render lại cả trang vào phản hồi** của action → spinner phải đợi tải lại toàn trang (rất lâu khi mạng tới máy chủ phòng khám chậm), dù dữ liệu ĐÃ lưu xong (nên bấm Hủy vẫn thấy đã lưu).
 - **Cách sửa**: hook mới `lib/use-form-action.ts` (`useFormAction`) — API y hệt `useActionState` (`[state, action, pending]`):
