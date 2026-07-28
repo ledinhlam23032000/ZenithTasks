@@ -21,7 +21,7 @@ import { prisma } from "@/lib/db";
 import { toNum } from "@/lib/money";
 import { getPayroll, STANDARD_DAYS_DEFAULT } from "@/lib/payroll";
 import { REVENUE_TRANSFER_CODES, INVESTMENT_CATEGORY_CODE } from "@/lib/finance";
-import { splitCashflow, computePnl, SALARY_CATEGORY, COMMISSION_CATEGORY } from "@/lib/pnl";
+import { splitCashflow, computePnl } from "@/lib/pnl";
 
 // Toán thuần (splitCashflow / computePnl) nằm ở `lib/pnl.ts` — NGUỒN DUY NHẤT cho
 // Lãi/Lỗ, dùng chung với trang Báo cáo. Re-export để nơi khác import từ đâu cũng được.

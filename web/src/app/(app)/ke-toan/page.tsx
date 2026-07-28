@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { format, addMonths, endOfMonth, isSameMonth } from "date-fns";
+import { format, addMonths, endOfMonth, startOfMonth, isSameMonth } from "date-fns";
 import { vi } from "date-fns/locale";
 import {
   Calculator,
@@ -11,13 +11,16 @@ import {
   Wallet,
   HandCoins,
   Lock,
-  AlertTriangle,
   Users,
+  CheckCircle2,
+  ClipboardList,
 } from "lucide-react";
 import { requireCap } from "@/lib/auth";
 import { userCan } from "@/lib/permissions";
 import { getMonthlyAccounting } from "@/lib/accounting";
 import { STANDARD_DAYS_DEFAULT } from "@/lib/payroll";
+import { missingAttendanceStaff } from "@/lib/payroll-pure";
+import { buildAccountingTasks, isReadyToClose, type AccountingState } from "@/lib/accounting-tasks";
 import { ROLE_LABELS, isShareholder } from "@/lib/rbac";
 import { formatVND } from "@/lib/money";
 import { fmtDate } from "@/lib/format";
@@ -76,6 +79,24 @@ export default async function AccountingPage({
   // Cảnh báo lệch: phiếu chi lương/hoa hồng nhập tay ở Sổ thu chi mà không gắn với bảng lương.
   const salaryGap = a.cash.salaryPosted - a.salary.paid;
   const ctvGap = a.cash.commissionPosted - a.commission.paid;
+
+  // Nhắc việc kế toán — tự suy ra từ số liệu đã tải ở trên (không thêm truy vấn).
+  const accState: AccountingState = {
+    monthKey,
+    isPastMonth: monthDate < startOfMonth(now),
+    closed: a.closed,
+    hasData: a.pnl.totalIncome > 0 || a.pnl.totalExpense > 0,
+    salaryPayable: a.salary.payable,
+    salaryRemaining: unpaidTotal,
+    unpaidStaffCount: unpaidStaff.length,
+    ctvRemaining: a.ctv.filter((c) => !c.isPaid).reduce((s, c) => s + c.amount, 0),
+    unpaidCtvCount: a.ctv.filter((c) => !c.isPaid).length,
+    salaryGap,
+    ctvGap,
+    missingAttendanceCount: missingAttendanceStaff(a.payroll.rows).length,
+  };
+  const accTasks = buildAccountingTasks(accState);
+  const readyToClose = isReadyToClose(accState);
 
   const pnlRows: { label: string; value: number; hint?: string; kind?: "in" | "out" | "total" }[] = [
     { label: "Doanh thu dịch vụ (khách đã trả)", value: a.pnl.serviceRevenue, hint: "Tổng các khoản thu trên hồ sơ điều trị", kind: "in" },
@@ -141,6 +162,42 @@ export default async function AccountingPage({
 
       {a.closed && a.period?.note && (
         <p className="rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800">Ghi chú chốt sổ: {a.period.note}</p>
+      )}
+
+      {/* Nhắc việc kế toán — app tự soát xem còn gì phải làm để chốt sổ tháng này */}
+      {accTasks.length > 0 && (
+        <Card className={readyToClose ? "border-emerald-200 bg-emerald-50/40" : "border-amber-200 bg-amber-50/40"}>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              {readyToClose ? (
+                <>
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600" /> Sẵn sàng chốt sổ tháng {format(monthDate, "MM/yyyy")}
+                </>
+              ) : (
+                <>
+                  <ClipboardList className="h-4 w-4 text-amber-600" /> Việc kế toán còn lại · {format(monthDate, "MM/yyyy")}
+                </>
+              )}
+            </CardTitle>
+            <span className="text-xs text-slate-500">Hệ thống tự soát từ chấm công, bảng lương và sổ thu chi — không cần nhớ thủ công.</span>
+          </CardHeader>
+          <CardContent className="space-y-2 pt-0">
+            {accTasks.map((t) => (
+              <div key={t.key} className="flex items-start gap-3 rounded-xl border border-slate-200/70 bg-white px-3 py-2.5">
+                <Badge tone={t.tone}>{t.blocking ? "Cần làm" : "Lưu ý"}</Badge>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-slate-800">{t.label}</p>
+                  <p className="mt-0.5 text-xs text-slate-500">{t.detail}</p>
+                </div>
+              </div>
+            ))}
+            {canClose && readyToClose && (
+              <div className="pt-1">
+                <ClosePeriodButton month={monthKey} standardDays={standardDays} profit={a.pnl.profit} />
+              </div>
+            )}
+          </CardContent>
+        </Card>
       )}
 
       {/* Thẻ số liệu chính */}
@@ -283,32 +340,6 @@ export default async function AccountingPage({
           </CardContent>
         </Card>
       </div>
-
-      {/* Cảnh báo lệch sổ */}
-      {(salaryGap !== 0 || ctvGap !== 0) && (
-        <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-          <div>
-            <p className="font-medium">Sổ thu chi có phiếu lương/hoa hồng nhập tay chưa khớp bảng lương</p>
-            {salaryGap !== 0 && (
-              <p className="mt-0.5 text-xs">
-                Lương: sổ thu chi ghi {formatVND(a.cash.salaryPosted)} · bảng lương đánh dấu đã chi {formatVND(a.salary.paid)} (lệch{" "}
-                {formatVND(Math.abs(salaryGap))}).
-              </p>
-            )}
-            {ctvGap !== 0 && (
-              <p className="mt-0.5 text-xs">
-                Hoa hồng CTV: sổ thu chi ghi {formatVND(a.cash.commissionPosted)} · đã đánh dấu chi {formatVND(a.commission.paid)} (lệch{" "}
-                {formatVND(Math.abs(ctvGap))}).
-              </p>
-            )}
-            <p className="mt-1 text-xs">
-              Lãi/Lỗ luôn tính theo <strong>bảng lương</strong> nên không bị cộng trùng. Nên xóa phiếu nhập tay ở Sổ thu
-              chi rồi bấm “Chi lương” tại đây để số liệu khớp nhau.
-            </p>
-          </div>
-        </div>
-      )}
 
       {/* Bảng lương + trạng thái chi */}
       <Card>

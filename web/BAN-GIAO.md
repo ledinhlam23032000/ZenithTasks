@@ -214,8 +214,23 @@ khi đổi ngày) và `luong/actions.ts` (`savePayroll`) đều từ chối; nú
 `REOPEN_PERIOD`). Audit: `PAY_SALARY`, `PAY_SALARY_ALL`, `UNDO_PAY_SALARY`, `PAY_COMMISSION`,
 `UNDO_PAY_COMMISSION`, `CLOSE_PERIOD`, `REOPEN_PERIOD`.
 
-**Cảnh báo lệch sổ**: nếu Sổ thu chi có phiếu `SALARY`/`COMMISSION` nhập tay không gắn bảng lương, trang hiện
-banner vàng nêu rõ số lệch (Lãi/Lỗ vẫn đúng vì luôn tính theo bảng lương).
+**Nhắc việc kế toán (tự động)** — `lib/accounting-tasks.ts`, hàm **THUẦN** `buildAccountingTasks(state)` +
+`isReadyToClose(state)` (có test). Cùng triết lý `workqueue.ts`: suy ra việc TỪ DỮ LIỆU SẴN CÓ, **không đổi
+schema, không cần cron**. Trang `/ke-toan` đã gọi `getMonthlyAccounting()` rồi nên chỉ đưa số liệu vào — KHÔNG
+phát sinh truy vấn mới. Việc được soát: thiếu chấm công · còn người chưa chi lương · CTV chưa chi hoa hồng ·
+sổ thu chi lệch bảng lương · tháng đã qua chưa chốt sổ.
+- `blocking: true` = phải xử lý trước khi chốt (chưa chi lương/hoa hồng). `blocking: false` = chỉ nhắc.
+  ⚠️ **Thiếu chấm công KHÔNG chặn** — nhân sự nghỉ cả tháng vẫn hợp lệ 0 ngày công, chặn thì không bao giờ
+  chốt được sổ. Lệch sổ cũng không chặn (Lãi/Lỗ vẫn đúng vì luôn tính theo bảng lương).
+- Hết việc chặn + tháng đã qua + có phát sinh → bảng đổi sang xanh "Sẵn sàng chốt sổ" kèm **nút Chốt sổ ngay
+  trong bảng**. Tháng đang chạy KHÔNG bị thúc chốt.
+- ⚠️ KHÔNG trộn việc kế toán vào `workqueue.ts` (Việc cần làm hôm nay): trang đó mở cho lễ tân/telesale/bác sĩ,
+  không được lộ chuyện lương.
+
+**Chi phí đầu tư trong Kế toán**: hạng mục `INVESTMENT` chỉ ADMIN + Cổ đông xem. `getMonthlyAccounting(monthDate,
+standardDays, canSeeInvestment)` — tham số thứ 3 lọc hẳn khỏi truy vấn (giống `/thu-chi`) nên Quản lý không thấy
+qua tổng chi lẫn bảng chi theo hạng mục. `getMonthlyPnl(monthDate, canSeeInvestment)` nhận cùng cờ để Lãi/Lỗ ở
+Báo cáo và Kế toán mà MỘT người thấy luôn khớp nhau.
 
 ### Đếm số liệu (đồng bộ Tổng quan ↔ Báo cáo)
 - Mọi đếm theo **`createdAt` trong tháng**. Tỉ lệ chốt = AGREED / tổng ca tháng. "Dịch vụ nổi bật" xếp theo **số lượt** rồi doanh thu. **Báo cáo xem được tháng bất kỳ** (`?m=yyyy-MM`, giống Lương/Hiệu suất) — "Phân bổ nguồn khách" lọc đúng theo tháng đang xem (trước đây đếm nhầm toàn thời gian).

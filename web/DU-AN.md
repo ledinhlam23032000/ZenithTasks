@@ -668,7 +668,31 @@ Chưa có Sửa (cần bổ sung):
 - **Đăng ký/sửa CTV không cập nhật**: `EditCollaboratorButton`/`NewCollaboratorButton` gọi `router.refresh()` sau khi lưu; action `revalidatePath("/cong-tac-vien","layout")` (bao trang chi tiết). KHÓA ô Tên khi sửa/đăng-ký-theo-tên (tránh đổi tên làm lệch khớp với `sourceDetail`).
 - **Biểu đồ tăng trưởng CTV**: `getCollaboratorSeries(name?)` (tuần này / các tuần trong tháng / 12 tháng / 5 năm). Component dùng chung `components/ui/range-chart.tsx` (chọn mốc + chọn kiểu cột/đường/vùng/tròn + % tăng giảm). Trang CTV: thêm "Tăng trưởng doanh số CTV" (tất cả CTV) + giữ "So sánh top 10". Trang chi tiết CTV: đổi sang RangeChart theo tuần/tháng/năm.
 
-## MODULE KẾ TOÁN (`/ke-toan`) — thống kê thu chi & tính lương cuối tháng (đợt mới nhất)
+## KẾ TOÁN: gộp vào nhánh vận hành + TỰ ĐỘNG NHẮC VIỆC (đợt mới nhất)
+Đưa module Kế toán sang nhánh đang chạy thực tế và hoà với các thay đổi đã có ở đây.
+
+**Hợp nhất phép tính Lãi/Lỗ về một nguồn duy nhất**
+- `lib/pnl.ts` nay giữ TOÀN BỘ toán thuần: `splitCashflow()` + `computePnl()` **có trừ lương và hoa hồng CTV**.
+  Trước đây hàm này chỉ cộng tổng chi từ sổ thu chi → **Lãi/Lỗ chưa hề trừ lương**, số lãi bị thổi phồng.
+- `lib/accounting.ts` dùng lại `pnl.ts` (không tự định nghĩa nữa); `getMonthlyPnl(monthDate)` thành vỏ bọc của
+  `getMonthlyAccounting` → Báo cáo và Kế toán không bao giờ lệch. Gộp test vào `pnl.test.ts`.
+
+**Sửa 2 lỗi phát hiện khi gộp**
+- **Rò rỉ Chi phí đầu tư**: hạng mục `INVESTMENT` vốn chỉ ADMIN/Cổ đông xem, nhưng trang Kế toán (ADMIN+MANAGER)
+  lại hiện qua tổng chi + bảng chi theo hạng mục. Thêm cờ `canSeeInvestment` lọc từ truy vấn cho cả `/ke-toan`,
+  route xuất file và Lãi/Lỗ ở Báo cáo.
+- **`saveBulkPayroll` lách khoá chốt sổ**: hàm sửa nhanh cả bảng lương có sau nên chưa bị chặn — đã thêm
+  `isMonthClosed`.
+
+**TỰ ĐỘNG NHẮC VIỆC KẾ TOÁN** (`lib/accounting-tasks.ts` — hàm thuần, 12 test)
+- App tự soát và liệt kê việc còn tồn để chốt sổ tháng: thiếu chấm công · còn ai chưa chi lương (kèm số tiền) ·
+  CTV chưa chi hoa hồng · sổ thu chi lệch bảng lương · tháng đã qua chưa chốt sổ.
+- Không cần cron, không đổi schema: tính từ số liệu trang Kế toán đã tải sẵn → **0 truy vấn phát sinh**.
+- Xong hết việc chặn → bảng đổi xanh **"Sẵn sàng chốt sổ"** kèm nút Chốt sổ ngay tại chỗ. Tháng đang chạy không
+  bị thúc. Thiếu chấm công chỉ NHẮC chứ không chặn (nghỉ cả tháng vẫn hợp lệ 0 ngày công).
+- KHÔNG trộn vào `workqueue.ts` vì trang "Việc cần làm" mở cho cả lễ tân/bác sĩ — không được lộ lương.
+
+## MODULE KẾ TOÁN (`/ke-toan`) — thống kê thu chi & tính lương cuối tháng (đợt trước)
 **Vấn đề**: app đã có Sổ thu chi và bảng Lương nhưng **không nối với nhau**. Lương tính ra ở `/luong` rồi
 phải **gõ tay lại** vào Sổ thu chi thì dòng tiền mới đúng; không biết đã trả lương cho ai; Lãi/Lỗ ở Báo cáo
 **không hề trừ lương** nên sai; không có bước "chốt sổ" nên số liệu tháng cũ vẫn tự đổi khi ai đó sửa hồ sơ.
