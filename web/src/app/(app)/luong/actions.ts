@@ -4,6 +4,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { audit } from "@/lib/audit";
+import { isMonthClosed } from "@/lib/accounting";
 
 /**
  * Lưu lương cho một nhân sự trong tháng: lương cứng (cố định theo người) +
@@ -14,6 +15,8 @@ export async function savePayroll(formData: FormData): Promise<void> {
   const id = String(formData.get("id") ?? "");
   const month = String(formData.get("month") ?? "");
   if (!id || !/^\d{4}-\d{2}$/.test(month)) return;
+  // Tháng đã chốt sổ thì không cho sửa lương nữa (mở lại ở trang Kế toán).
+  if (await isMonthClosed(month)) return;
 
   const base = Math.max(0, Math.round(Number(formData.get("baseSalary") ?? 0) || 0));
   const commission = Math.max(0, Math.round(Number(formData.get("commission") ?? 0) || 0));
@@ -43,6 +46,10 @@ export async function saveBulkPayroll(_prev: BulkPayrollState, formData: FormDat
   const user = await requireUser(["ADMIN"]);
   const month = String(formData.get("month") ?? "");
   if (!/^\d{4}-\d{2}$/.test(month)) return { error: "Tháng không hợp lệ." };
+  // Tháng đã chốt sổ thì khóa luôn cả đường "sửa nhanh cả bảng" (không chỉ modal từng người).
+  if (await isMonthClosed(month)) {
+    return { error: `Tháng ${month} đã chốt sổ nên không sửa lương được. Vào trang Kế toán để mở lại sổ nếu cần.` };
+  }
 
   let raw: unknown;
   try {

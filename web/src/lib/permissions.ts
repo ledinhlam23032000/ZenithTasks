@@ -51,6 +51,9 @@ export const MODULES: ModuleDef[] = [
   { key: "lich-lam-viec", href: "/lich-lam-viec", label: "Lịch làm việc", icon: "CalendarDays", group: "Vận hành", roles: ALL, hidden: true }, // gộp tab với "Chấm công"
   { key: "luong", href: "/luong", label: "Lương & hoa hồng", icon: "Wallet", group: "Vận hành", roles: ["ADMIN", "MANAGER"] },
   { key: "thu-chi", href: "/thu-chi", label: "Thu chi", icon: "Coins", group: "Vận hành", roles: ["ADMIN", "MANAGER", "SHAREHOLDER"] },
+  // Kế toán gộp doanh thu + thu chi + lương thành một bảng kết quả kinh doanh.
+  // KHÔNG mở cho Cổ đông vì có chi tiết lương từng nhân sự.
+  { key: "ke-toan", href: "/ke-toan", label: "Kế toán", icon: "Calculator", group: "Vận hành", roles: ["ADMIN", "MANAGER"] },
   { key: "danh-muc", href: "/danh-muc", label: "Danh mục dịch vụ", icon: "ListChecks", group: "Vận hành", roles: ["ADMIN", "MANAGER", "SHAREHOLDER"] },
   // Gộp chung tab với "Danh mục dịch vụ".
   { key: "kho", href: "/kho", label: "Kho vật tư", icon: "Boxes", group: "Vận hành", roles: ["ADMIN", "MANAGER", "SHAREHOLDER"], hidden: true },
@@ -67,6 +70,8 @@ export const CAPABILITIES: CapDef[] = [
   { key: "case.clinical", label: "Thao tác hồ sơ (thêm/sửa dịch vụ, vật tư, ảnh, tư vấn)", group: "Hồ sơ điều trị", roles: ["ADMIN", "MANAGER", "CONSULTANT", "DOCTOR"] },
   { key: "payment.add", label: "Thu tiền cho hồ sơ", group: "Tài chính", roles: ["ADMIN", "MANAGER", "CONSULTANT", "DOCTOR", "RECEPTION"] },
   { key: "payment.manage", label: "Sửa / xóa khoản thu", group: "Tài chính", roles: ["ADMIN", "MANAGER"] },
+  { key: "accounting.pay", label: "Ghi sổ chi lương & hoa hồng cộng tác viên", group: "Kế toán", roles: ["ADMIN"] },
+  { key: "accounting.close", label: "Chốt sổ / mở lại sổ tháng", group: "Kế toán", roles: ["ADMIN"] },
   { key: "phone.full", label: "Xem số điện thoại đầy đủ của khách", group: "Bảo mật", roles: ["ADMIN", "MANAGER"] },
 ];
 

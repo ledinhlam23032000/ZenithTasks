@@ -2,14 +2,21 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { format } from "date-fns";
 import { prisma } from "@/lib/db";
 import { requireCap } from "@/lib/auth";
 import { isShareholder } from "@/lib/rbac";
 import { CATEGORY_LABEL } from "@/lib/finance";
+import { isMonthClosed } from "@/lib/accounting";
 
 export type CashState = { ok?: boolean; error?: string };
 
 const NO_WRITE = "Bạn chỉ có quyền xem sổ thu chi.";
+
+/** Thông báo khi tháng đã được kế toán chốt sổ (mở lại ở trang Kế toán). */
+function closedMsg(d: Date) {
+  return `Tháng ${format(d, "MM/yyyy")} đã chốt sổ nên không sửa được. Vào trang Kế toán để mở lại sổ nếu cần.`;
+}
 
 const schema = z.object({
   type: z.enum(["INCOME", "EXPENSE"]),
@@ -41,6 +48,7 @@ export async function createCashTransaction(_prev: CashState, formData: FormData
   const d = parsed.data;
   const when = new Date(d.occurredAt);
   if (Number.isNaN(when.getTime())) return { error: "Ngày không hợp lệ." };
+  if (await isMonthClosed(format(when, "yyyy-MM"))) return { error: closedMsg(when) };
 
   await prisma.cashTransaction.create({
     data: {
@@ -68,6 +76,12 @@ export async function updateCashTransaction(_prev: CashState, formData: FormData
   const when = new Date(d.occurredAt);
   if (Number.isNaN(when.getTime())) return { error: "Ngày không hợp lệ." };
 
+  const current = await prisma.cashTransaction.findUnique({ where: { id }, select: { occurredAt: true } });
+  if (!current) return { error: "Không tìm thấy giao dịch." };
+  // Chặn cả tháng CŨ lẫn tháng MỚI: không được rút giao dịch ra khỏi / đẩy vào một tháng đã chốt.
+  if (await isMonthClosed(format(current.occurredAt, "yyyy-MM"))) return { error: closedMsg(current.occurredAt) };
+  if (await isMonthClosed(format(when, "yyyy-MM"))) return { error: closedMsg(when) };
+
   await prisma.cashTransaction.update({
     where: { id },
     data: {
@@ -88,7 +102,21 @@ export async function deleteCashTransaction(formData: FormData): Promise<void> {
   if (isShareholder(user.role)) return;
   const id = String(formData.get("id") ?? "");
   if (!id) return;
+
+  const tx = await prisma.cashTransaction.findUnique({ where: { id }, select: { occurredAt: true } });
+  if (!tx) return;
+  if (await isMonthClosed(format(tx.occurredAt, "yyyy-MM"))) return;
+
+  // Nếu đây là phiếu chi lương / hoa hồng do trang Kế toán sinh ra thì bỏ luôn
+  // đánh dấu "đã chi" để bảng lương không lệch với sổ quỹ.
+  await prisma.payrollEntry.updateMany({
+    where: { cashTxId: id },
+    data: { paidAmount: 0, paidAt: null, cashTxId: null },
+  });
+  await prisma.commissionPayout.deleteMany({ where: { cashTxId: id } });
+
   await prisma.cashTransaction.delete({ where: { id } }).catch(() => {});
   revalidatePath("/thu-chi");
   revalidatePath("/dashboard");
+  revalidatePath("/ke-toan");
 }

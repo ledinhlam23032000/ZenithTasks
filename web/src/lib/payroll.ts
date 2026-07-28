@@ -34,6 +34,10 @@ export type PayrollRow = {
   prevCommission: number; // hoa hồng/thưởng/điều chỉnh tháng LIỀN TRƯỚC — dùng làm gợi ý mốc khi tháng này chưa nhập
   prevBonus: number;
   prevAdjustment: number;
+  // ----- Kế toán: đã chi lương chưa (xem lib/accounting.ts) -----
+  paid: number; // số tiền đã ghi sổ chi
+  paidAt: Date | null;
+  cashTxId: string | null;
 };
 
 export async function getPayroll(monthDate: Date, standardDays = STANDARD_DAYS_DEFAULT) {
@@ -115,6 +119,9 @@ export async function getPayroll(monthDate: Date, standardDays = STANDARD_DAYS_D
       id: u.id, name: u.fullName, code: u.code, role: u.role, daysWorked, baseFull, baseActual,
       commission, bonus, adjustment, total, collectedConsult, collectedDoctor, debtOutstanding,
       hasEntry, prevCommission, prevBonus, prevAdjustment,
+      paid: e ? toNum(e.paidAmount) : 0,
+      paidAt: e?.paidAt ?? null,
+      cashTxId: e?.cashTxId ?? null,
     };
   });
 
@@ -141,6 +148,7 @@ export async function getPayroll(monthDate: Date, standardDays = STANDARD_DAYS_D
     totalStaff: rows.reduce((s, r) => s + r.total, 0),
     totalCtv: ctv.reduce((s, r) => s + r.amount, 0),
     collectedAll, // thực thu toàn trung tâm trong tháng (mỗi khoản đếm 1 lần)
+    totalPaid: rows.reduce((s, r) => s + r.paid, 0), // tổng lương ĐÃ ghi sổ chi (kế toán)
   };
 }
 

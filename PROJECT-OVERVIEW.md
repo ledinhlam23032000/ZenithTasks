@@ -133,6 +133,7 @@ npx vitest run               # unit tests (lib/__tests__)
 | `dashboard.ts` / `reports.ts` / `performance.ts` | Aggregations for Tổng quan / Báo cáo / Hiệu suất + CTV |
 | `payroll.ts` | Salary by attendance days + manual commission/bonus |
 | `finance.ts` | Cashbook income/expense categories |
+| `accounting.ts` | Monthly P&L joining revenue + cashbook + payroll; month close guard (no double counting) |
 | `loyalty.ts` | Membership tiers + points from lifetime spend |
 | `audit.ts` | Fire-and-forget audit log writer |
 | `ai.ts` | Claude API call for drafting care messages (optional, needs key) |
@@ -149,6 +150,8 @@ npx vitest run               # unit tests (lib/__tests__)
   `CaseService` (listPrice giá niêm yết + unitPrice giá ưu đãi + discount + finalPrice), `Payment`, `MaterialUsage`.
 - **Catalog/Inventory**: `Service` (listPrice + defaultPrice), `Material`, `StockMovement`.
 - **Ops**: `CashTransaction` (cashbook), `AuditLog`.
+- **Accounting**: `AccountingPeriod` (closed month + snapshot of the month's figures), `CommissionPayout`
+  (collaborator commission paid, unique per name+month). `PayrollEntry` carries `paidAmount/paidAt/cashTxId`.
 
 Money math (`lib/.../ho-so/actions.ts recalc()`): `totalAmount = Σ finalPrice − voucher (net)`;
 `debt = net − paid`. Commission is **entered manually** (no % auto-calc).
@@ -165,7 +168,10 @@ Money math (`lib/.../ho-so/actions.ts recalc()`): `totalAmount = Σ finalPrice �
 - **bao-cao** — analytics: revenue, close rate, P&L, top services, consultant/doctor performance, sources; multi-type charts; export.
 - **hieu-suat** + **cong-tac-vien** — staff performance & collaborator performance (drill into individual cases; charts; export).
 - **luong** — payroll (base by attendance + manual commission/bonus) with performance column.
-- **thu-chi** — operational cashbook (income/expense). Revenue & P&L live in Báo cáo (not here).
+- **thu-chi** — operational cashbook (income/expense). Revenue & P&L live in Báo cáo / Kế toán (not here).
+- **ke-toan** — accounting: one monthly P&L statement joining service revenue + cashbook + payroll;
+  cash reconciliation by payment method; one-click salary & collaborator-commission payout (posts to the
+  cashbook and marks the payroll row paid); receivables; month close/reopen (locks the month); Excel/Word export.
 - **cham-cong** — attendance (admin can edit past days), **lich-lam-viec** — shift schedule.
 - **danh-muc** — service & material catalog (two-tier pricing + search), **kho** — inventory with low-stock/expiry alerts.
 - **nhan-su** — staff management (HR profiles, role change, permission editor, reset password, 2FA disable).

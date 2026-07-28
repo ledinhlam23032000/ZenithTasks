@@ -37,6 +37,7 @@ import {
   Sparkles,
   Building2,
   ListTree,
+  Calculator,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -74,6 +75,7 @@ const ICONS: Record<string, LucideIcon> = {
   Sparkles,
   Building2,
   ListTree,
+  Calculator,
 };
 
 export type NavItemData = { href: string; label: string; icon: string; group: string };

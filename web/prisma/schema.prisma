@@ -121,14 +121,14 @@ enum PlanTaskStatus {
 // ============================ NHÂN SỰ ============================
 
 model User {
-  id           String   @id @default(cuid())
-  code         String?  @unique // Mã nhân viên
-  fullName     String
-  username     String   @unique
-  passwordHash String
-  role         Role
-  phone        String? // SĐT nội bộ của nhân viên (không phải khách)
-  avatarUrl    String? // Ảnh đại diện (nhân viên tự cập nhật)
+  id             String    @id @default(cuid())
+  code           String?   @unique // Mã nhân viên
+  fullName       String
+  username       String    @unique
+  passwordHash   String
+  role           Role
+  phone          String? // SĐT nội bộ của nhân viên (không phải khách)
+  avatarUrl      String? // Ảnh đại diện (nhân viên tự cập nhật)
   // ----- Hồ sơ nhân sự (HR) — quản trị xem/sửa -----
   dob            DateTime? // Ngày sinh
   gender         Gender?
@@ -146,22 +146,22 @@ model User {
   qualification  String? // Bằng cấp / chứng chỉ
   notes          String? // Ghi chú nội bộ
   // Quyền tuỳ chỉnh ngoài mặc định theo vai trò: { grant: string[], deny: string[] }
-  permissions  Json?
+  permissions    Json?
   // Xác thực 2 lớp (TOTP). Mặc định tắt — không ảnh hưởng đăng nhập hiện tại.
-  totpSecret   String?
-  totpEnabled  Boolean  @default(false)
-  baseSalary     Decimal @default(0) @db.Decimal(14, 0) // Lương cơ bản theo tháng
-  active       Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  totpSecret     String?
+  totpEnabled    Boolean   @default(false)
+  baseSalary     Decimal   @default(0) @db.Decimal(14, 0) // Lương cơ bản theo tháng
+  active         Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
-  customersCreated     Customer[]      @relation("CustomerCreatedBy")
-  appointmentsCreated  Appointment[]   @relation("ApptCreatedBy")
-  appointmentsAssigned Appointment[]   @relation("ApptConsultant")
-  casesCreated         CaseRecord[]    @relation("CaseCreatedBy")
-  casesConsulted       CaseRecord[]    @relation("CaseConsultant")
-  casesAsDoctor        CaseRecord[]    @relation("CaseDoctor")
-  caseServices         CaseService[]   @relation("CaseServiceDoctor")
+  customersCreated     Customer[]         @relation("CustomerCreatedBy")
+  appointmentsCreated  Appointment[]      @relation("ApptCreatedBy")
+  appointmentsAssigned Appointment[]      @relation("ApptConsultant")
+  casesCreated         CaseRecord[]       @relation("CaseCreatedBy")
+  casesConsulted       CaseRecord[]       @relation("CaseConsultant")
+  casesAsDoctor        CaseRecord[]       @relation("CaseDoctor")
+  caseServices         CaseService[]      @relation("CaseServiceDoctor")
   payments             Payment[]
   materialUsages       MaterialUsage[]
   photos               Photo[]
@@ -174,10 +174,11 @@ model User {
   payrollEntries       PayrollEntry[]
   cashTransactions     CashTransaction[]
   consentsRecorded     CaseConsent[]
-  debtPlans            DebtPlan[]        @relation("DebtPlanCreatedBy")
-  leadsCreated         Lead[]            @relation("LeadCreatedBy")
-  documentsUploaded    CaseDocument[]    @relation("DocUploadedBy")
-  plansCreated         Plan[]            @relation("PlanCreatedBy")
+  debtPlans            DebtPlan[]         @relation("DebtPlanCreatedBy")
+  leadsCreated         Lead[]             @relation("LeadCreatedBy")
+  documentsUploaded    CaseDocument[]     @relation("DocUploadedBy")
+  plansCreated         Plan[]             @relation("PlanCreatedBy")
+  periodsClosed        AccountingPeriod[]
 }
 
 // ============================ CHẤM CÔNG & LƯƠNG ============================
@@ -207,39 +208,48 @@ model PayrollEntry {
   note       String?
   updatedAt  DateTime @updatedAt
 
+  // ----- Kế toán: theo dõi đã CHI lương hay chưa -----
+  // Khi bấm "Ghi sổ chi lương" ở trang Kế toán, hệ thống tạo 1 giao dịch CHI
+  // (hạng mục SALARY) trong sổ thu chi rồi gắn vào đây. Xóa giao dịch đó ở sổ
+  // thu chi sẽ tự bỏ đánh dấu (onDelete: SetNull) → không bao giờ lệch sổ.
+  paidAmount Decimal          @default(0) @db.Decimal(14, 0)
+  paidAt     DateTime?
+  cashTxId   String?          @unique
+  cashTx     CashTransaction? @relation(fields: [cashTxId], references: [id], onDelete: SetNull)
+
   @@unique([userId, month])
 }
 
 // ============================ KHÁCH HÀNG ============================
 
 model Customer {
-  id           String         @id @default(cuid())
-  code         String         @unique // Mã khách hàng, ví dụ KH000123
-  fullName     String
-  gender       Gender?
-  dob          DateTime?
+  id                   String         @id @default(cuid())
+  code                 String         @unique // Mã khách hàng, ví dụ KH000123
+  fullName             String
+  gender               Gender?
+  dob                  DateTime?
   // Số điện thoại được mã hoá AES-256-GCM, KHÔNG bao giờ trả về cho nhân viên.
-  phoneEnc     String
+  phoneEnc             String
   // 5 số cuối để tra cứu & hiển thị (theo yêu cầu số 7).
-  phoneLast5   String
+  phoneLast5           String
   // Băm SĐT đã chuẩn hoá để chống trùng hồ sơ.
-  phoneHash    String
+  phoneHash            String
   // Token cổng khách hàng (link riêng để khách tự xem lịch sử/ảnh). Null = chưa bật.
-  portalToken  String?        @unique
+  portalToken          String?        @unique
   // Hạn dùng của link cổng khách (D3 gđ2). Null = không hết hạn (link cũ trước khi có tính năng).
   portalTokenExpiresAt DateTime?
-  source       CustomerSource @default(OTHER)
-  sourceDetail String? // Tên CTV / chiến dịch / nguồn cụ thể
-  address      String?
-  note         String?
+  source               CustomerSource @default(OTHER)
+  sourceDetail         String? // Tên CTV / chiến dịch / nguồn cụ thể
+  address              String?
+  note                 String?
   // ----- An toàn y khoa (B6 giai đoạn 1) — bác sĩ xem trước khi làm dịch vụ -----
-  allergies         String? // Dị ứng (thuốc/mỹ phẩm/thức ăn…)
-  medicalHistory    String? // Tiền sử bệnh + thuốc đang dùng
-  contraindications String? // Chống chỉ định / lưu ý đặc biệt
-  createdById  String?
-  createdBy    User?          @relation("CustomerCreatedBy", fields: [createdById], references: [id])
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
+  allergies            String? // Dị ứng (thuốc/mỹ phẩm/thức ăn…)
+  medicalHistory       String? // Tiền sử bệnh + thuốc đang dùng
+  contraindications    String? // Chống chỉ định / lưu ý đặc biệt
+  createdById          String?
+  createdBy            User?          @relation("CustomerCreatedBy", fields: [createdById], references: [id])
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
 
   appointments Appointment[]
   cases        CaseRecord[]
@@ -326,32 +336,32 @@ model Appointment {
 // ============================ DANH MỤC ============================
 
 model Service {
-  id           String        @id @default(cuid())
+  id           String            @id @default(cuid())
   name         String
   category     String?
-  listPrice    Decimal       @default(0) @db.Decimal(14, 0) // Giá niêm yết (giá gốc)
-  defaultPrice Decimal       @default(0) @db.Decimal(14, 0) // Giá ưu đãi (thực thu mặc định)
-  active       Boolean       @default(true)
-  createdAt    DateTime      @default(now())
+  listPrice    Decimal           @default(0) @db.Decimal(14, 0) // Giá niêm yết (giá gốc)
+  defaultPrice Decimal           @default(0) @db.Decimal(14, 0) // Giá ưu đãi (thực thu mặc định)
+  active       Boolean           @default(true)
+  createdAt    DateTime          @default(now())
   caseServices CaseService[]
   // Định mức vật tư tiêu hao mặc định cho dịch vụ này (BOM) — B5 giai đoạn 2.
   materials    ServiceMaterial[]
 }
 
 model Material {
-  id         String          @id @default(cuid())
-  name       String
-  unit       String          @default("cái")
-  sku        String?
-  minStock   Decimal         @default(0) @db.Decimal(12, 2) // Mức tồn tối thiểu (cảnh báo khi tồn ≤ mức này)
-  lotNo      String? // Số lô của đợt nhập hiện tại
-  expiryDate DateTime? // Hạn dùng của đợt hiện tại
-  active     Boolean         @default(true)
-  stock      Decimal         @default(0) @db.Decimal(12, 2) // Tồn kho hiện tại
-  avgCost    Decimal         @default(0) @db.Decimal(12, 2) // Giá vốn bình quân gia quyền (VND/đơn vị)
-  createdAt  DateTime        @default(now())
-  usages    MaterialUsage[]
-  movements StockMovement[]
+  id               String            @id @default(cuid())
+  name             String
+  unit             String            @default("cái")
+  sku              String?
+  minStock         Decimal           @default(0) @db.Decimal(12, 2) // Mức tồn tối thiểu (cảnh báo khi tồn ≤ mức này)
+  lotNo            String? // Số lô của đợt nhập hiện tại
+  expiryDate       DateTime? // Hạn dùng của đợt hiện tại
+  active           Boolean           @default(true)
+  stock            Decimal           @default(0) @db.Decimal(12, 2) // Tồn kho hiện tại
+  avgCost          Decimal           @default(0) @db.Decimal(12, 2) // Giá vốn bình quân gia quyền (VND/đơn vị)
+  createdAt        DateTime          @default(now())
+  usages           MaterialUsage[]
+  movements        StockMovement[]
   // Dịch vụ nào dùng vật tư này theo định mức (BOM) — B5 giai đoạn 2.
   serviceMaterials ServiceMaterial[]
 }
@@ -398,37 +408,37 @@ model StockMovement {
 // ============================ HỒ SƠ ĐIỀU TRỊ ============================
 
 model CaseRecord {
-  id             String        @id @default(cuid())
-  code           String        @unique // Mã hồ sơ, ví dụ HS000123
-  customerId     String
-  customer       Customer      @relation(fields: [customerId], references: [id])
-  consultantId   String?
-  consultant     User?         @relation("CaseConsultant", fields: [consultantId], references: [id])
-  doctorId       String?
-  doctor         User?         @relation("CaseDoctor", fields: [doctorId], references: [id])
-  status         CaseStatus    @default(OPEN)
-  consultResult  ConsultResult @default(PENDING) // Phục vụ tính tỉ lệ chốt tư vấn
-  chiefComplaint String? // Nhu cầu / lý do của khách
-  note           String?
+  id               String        @id @default(cuid())
+  code             String        @unique // Mã hồ sơ, ví dụ HS000123
+  customerId       String
+  customer         Customer      @relation(fields: [customerId], references: [id])
+  consultantId     String?
+  consultant       User?         @relation("CaseConsultant", fields: [consultantId], references: [id])
+  doctorId         String?
+  doctor           User?         @relation("CaseDoctor", fields: [doctorId], references: [id])
+  status           CaseStatus    @default(OPEN)
+  consultResult    ConsultResult @default(PENDING) // Phục vụ tính tỉ lệ chốt tư vấn
+  chiefComplaint   String? // Nhu cầu / lý do của khách
+  note             String?
   // Số tiền (VND, không phần lẻ). totalAmount = tổng finalPrice các dịch vụ.
-  totalAmount    Decimal       @default(0) @db.Decimal(14, 0)
-  discountAmount Decimal       @default(0) @db.Decimal(14, 0)
-  paidAmount     Decimal       @default(0) @db.Decimal(14, 0)
-  debtAmount     Decimal       @default(0) @db.Decimal(14, 0) // = total - paid
+  totalAmount      Decimal       @default(0) @db.Decimal(14, 0)
+  discountAmount   Decimal       @default(0) @db.Decimal(14, 0)
+  paidAmount       Decimal       @default(0) @db.Decimal(14, 0)
+  debtAmount       Decimal       @default(0) @db.Decimal(14, 0) // = total - paid
   // Voucher giảm thêm trên tổng hồ sơ (giảm cả công nợ lẫn doanh thu tính hoa hồng).
-  voucherCode    String?
-  voucherAmount  Decimal       @default(0) @db.Decimal(14, 0)
-  createdById    String?
-  createdBy      User?         @relation("CaseCreatedBy", fields: [createdById], references: [id])
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-  completedAt    DateTime?
+  voucherCode      String?
+  voucherAmount    Decimal       @default(0) @db.Decimal(14, 0)
+  createdById      String?
+  createdBy        User?         @relation("CaseCreatedBy", fields: [createdById], references: [id])
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  completedAt      DateTime?
   // Khóa hồ sơ: sau khi khóa, nhân viên không sửa được (chỉ quản trị mở lại).
-  locked           Boolean   @default(false)
+  locked           Boolean       @default(false)
   lockedAt         DateTime?
   lockedById       String?
   // Hoa hồng cộng tác viên giới thiệu khách (số tiền nhập tay).
-  commissionAmount Decimal   @default(0) @db.Decimal(14, 0)
+  commissionAmount Decimal       @default(0) @db.Decimal(14, 0)
 
   services    CaseService[]
   payments    Payment[]
@@ -447,24 +457,24 @@ model CaseRecord {
 }
 
 model CaseService {
-  id          String      @id @default(cuid())
+  id          String     @id @default(cuid())
   caseId      String
-  case        CaseRecord  @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  case        CaseRecord @relation(fields: [caseId], references: [id], onDelete: Cascade)
   serviceId   String?
-  service     Service?    @relation(fields: [serviceId], references: [id])
+  service     Service?   @relation(fields: [serviceId], references: [id])
   name        String // Tên dịch vụ tại thời điểm chốt (snapshot)
-  listPrice   Decimal     @default(0) @db.Decimal(14, 0) // Giá gốc (niêm yết) tại thời điểm chốt
-  unitPrice   Decimal     @default(0) @db.Decimal(14, 0) // Giá ưu đãi thực thu (đơn giá)
-  quantity    Int         @default(1)
-  discount    Decimal     @default(0) @db.Decimal(14, 0)
-  finalPrice  Decimal     @default(0) @db.Decimal(14, 0)
+  listPrice   Decimal    @default(0) @db.Decimal(14, 0) // Giá gốc (niêm yết) tại thời điểm chốt
+  unitPrice   Decimal    @default(0) @db.Decimal(14, 0) // Giá ưu đãi thực thu (đơn giá)
+  quantity    Int        @default(1)
+  discount    Decimal    @default(0) @db.Decimal(14, 0)
+  finalPrice  Decimal    @default(0) @db.Decimal(14, 0)
   doctorId    String?
-  doctor      User?       @relation("CaseServiceDoctor", fields: [doctorId], references: [id])
+  doctor      User?      @relation("CaseServiceDoctor", fields: [doctorId], references: [id])
   performedAt DateTime?
   note        String?
   // Đã trừ vật tư theo định mức (BOM) cho dòng dịch vụ này chưa — tránh trừ kho 2 lần (B5 gđ2).
-  bomApplied  Boolean     @default(false)
-  createdAt   DateTime    @default(now())
+  bomApplied  Boolean    @default(false)
+  createdAt   DateTime   @default(now())
 }
 
 model Payment {
@@ -594,6 +604,10 @@ model CashTransaction {
   createdBy   User?         @relation(fields: [createdById], references: [id])
   createdAt   DateTime      @default(now())
 
+  // Giao dịch này có phải do trang Kế toán sinh ra khi chi lương / hoa hồng không.
+  payrollEntry     PayrollEntry?
+  commissionPayout CommissionPayout?
+
   @@index([occurredAt])
   @@index([type])
 }
@@ -711,6 +725,44 @@ model AppSetting {
   key       String   @id
   value     String
   updatedAt DateTime @updatedAt
+}
+
+// ============================ KẾ TOÁN ============================
+
+// Kỳ kế toán đã CHỐT SỔ. Có bản ghi cho tháng "YYYY-MM" = tháng đó đã khóa:
+// không thêm/sửa/xóa giao dịch thu chi, không sửa lương, không ghi sổ chi lương
+// của tháng đó nữa (Quản trị viên có thể mở lại). Các con số được CHỤP LẠI tại
+// thời điểm chốt để báo cáo cũ không đổi theo dữ liệu phát sinh sau này.
+model AccountingPeriod {
+  id               String   @id @default(cuid())
+  month            String   @unique // "YYYY-MM"
+  serviceRevenue   Decimal  @default(0) @db.Decimal(14, 0) // Doanh thu dịch vụ (thực thu)
+  otherIncome      Decimal  @default(0) @db.Decimal(14, 0) // Thu khác (sổ thu chi)
+  operatingExpense Decimal  @default(0) @db.Decimal(14, 0) // Chi vận hành (KHÔNG gồm lương/hoa hồng)
+  salaryExpense    Decimal  @default(0) @db.Decimal(14, 0) // Chi lương nhân viên (bảng lương)
+  ctvCommission    Decimal  @default(0) @db.Decimal(14, 0) // Hoa hồng cộng tác viên
+  profit           Decimal  @default(0) @db.Decimal(14, 0) // Lãi/Lỗ
+  note             String?
+  closedAt         DateTime @default(now())
+  closedById       String?
+  closedBy         User?    @relation(fields: [closedById], references: [id])
+
+  @@index([month])
+}
+
+// Chi hoa hồng cộng tác viên theo tháng (mỗi CTV 1 lần/tháng). Số tiền phải trả
+// được cộng từ CaseRecord.commissionAmount của khách do CTV đó giới thiệu.
+model CommissionPayout {
+  id       String           @id @default(cuid())
+  name     String // Tên CTV — khớp Customer.sourceDetail
+  month    String // "YYYY-MM"
+  amount   Decimal          @db.Decimal(14, 0)
+  paidAt   DateTime         @default(now())
+  cashTxId String?          @unique
+  cashTx   CashTransaction? @relation(fields: [cashTxId], references: [id], onDelete: SetNull)
+
+  @@unique([name, month])
+  @@index([month])
 }
 
 // Hồ sơ Cộng tác viên (đối tác giới thiệu khách). Khớp với khách qua TÊN

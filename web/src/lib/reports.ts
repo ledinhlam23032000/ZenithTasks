@@ -3,22 +3,17 @@ import { vi } from "date-fns/locale";
 import { prisma } from "@/lib/db";
 import { toNum } from "@/lib/money";
 import { monthRange, lastMonthRange, growthPct } from "@/lib/dates";
-import { REVENUE_TRANSFER_CODES } from "@/lib/finance";
-import { computePnl } from "@/lib/pnl";
+import { getMonthlyAccounting } from "@/lib/accounting";
 
-/** Lãi/Lỗ của 1 tháng bất kỳ: doanh thu dịch vụ (từ hồ sơ) + thu khác − tổng chi (sổ thu chi). */
-export async function getMonthlyPnl(monthDate = new Date()) {
-  const m = monthRange(monthDate);
-  const [payAgg, cash] = await Promise.all([
-    prisma.payment.aggregate({ where: { paidAt: m }, _sum: { amount: true } }),
-    prisma.cashTransaction.findMany({ where: { occurredAt: m }, select: { type: true, amount: true, category: true } }),
-  ]);
-  // Toán Lãi/Lỗ tách ở `lib/pnl.ts` (thuần, có test).
-  return computePnl(
-    toNum(payAgg._sum.amount),
-    cash.map((t) => ({ type: t.type, category: t.category, amount: toNum(t.amount) })),
-    REVENUE_TRANSFER_CODES,
-  );
+/**
+ * Lãi/Lỗ của 1 tháng bất kỳ. Dùng CHUNG một phép tính với trang Kế toán
+ * (`getMonthlyAccounting` → toán thuần ở `lib/pnl.ts`) để hai trang không bao giờ
+ * ra số khác nhau: doanh thu thực thu + thu khác − chi vận hành − lương − hoa hồng CTV.
+ * (Trước đây hàm này KHÔNG trừ lương nên Lãi/Lỗ bị thổi phồng.)
+ */
+export async function getMonthlyPnl(monthDate = new Date(), canSeeInvestment = true) {
+  const a = await getMonthlyAccounting(monthDate, undefined, canSeeInvestment);
+  return a.pnl;
 }
 
 export type SalesPoint = { label: string; value: number };

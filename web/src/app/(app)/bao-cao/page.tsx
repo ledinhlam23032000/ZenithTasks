@@ -7,6 +7,7 @@ import { getStaffPerformance } from "@/lib/performance";
 import { formatVND, formatVNDShort } from "@/lib/money";
 import { maskPhone } from "@/lib/phone";
 import { SOURCE_LABEL } from "@/lib/status";
+import { isShareholder } from "@/lib/rbac";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageTabs } from "@/components/ui/page-tabs";
 import { StatCard } from "@/components/ui/stat-card";
@@ -33,7 +34,9 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
   const [r, sales, pnl, perf] = await Promise.all([
     getReports(monthDate),
     getSalesSeries(),
-    getMonthlyPnl(monthDate),
+    // Cùng quy tắc ẩn "Chi phí đầu tư" như Sổ thu chi & Kế toán → Lãi/Lỗ mà một
+    // người thấy ở Báo cáo và ở Kế toán luôn khớp nhau.
+    getMonthlyPnl(monthDate, user.role === "ADMIN" || isShareholder(user.role)),
     getStaffPerformance(monthDate),
   ]);
   const consultants = perf.filter((p) => p.consultCases > 0).map((p) => ({ id: p.id, name: p.name, consults: p.consultCases, rate: p.consultRate, revenue: p.consultRevenue }));
@@ -89,15 +92,27 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
       <Card>
         <CardHeader>
           <CardTitle>Lãi / Lỗ tháng {monthLabel}</CardTitle>
-          <span className="text-sm text-slate-400">Doanh thu dịch vụ + thu khác − tổng chi</span>
+          <span className="text-sm text-slate-400">Doanh thu dịch vụ + thu khác − chi vận hành − lương − hoa hồng CTV</span>
         </CardHeader>
         <CardContent className="pt-0">
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <StatCard label="Doanh thu dịch vụ" value={formatVND(pnl.serviceRevenue)} sub="Tiền thực thu từ hồ sơ" icon={<ArrowUpRight className="h-5 w-5" />} tone="green" />
             <StatCard label="Thu khác" value={formatVND(pnl.otherIncome)} sub="Ghi ở sổ thu chi" icon={<Coins className="h-5 w-5" />} tone="brand" />
-            <StatCard label="Tổng chi" value={formatVND(pnl.totalExpense)} sub="Chi phí vận hành" icon={<ArrowDownRight className="h-5 w-5" />} tone="pink" />
-            <StatCard label="Lãi / Lỗ" value={formatVND(pnl.profit)} sub="Doanh thu + thu khác − chi" icon={<Scale className="h-5 w-5" />} tone={pnl.profit >= 0 ? "brand" : "red"} />
+            <StatCard
+              label="Tổng chi"
+              value={formatVND(pnl.totalExpense)}
+              sub={`Vận hành ${formatVNDShort(pnl.operatingExpense)} · lương ${formatVNDShort(pnl.salaryExpense)} · HH ${formatVNDShort(pnl.ctvCommission)}`}
+              icon={<ArrowDownRight className="h-5 w-5" />}
+              tone="pink"
+            />
+            <StatCard label="Lãi / Lỗ" value={formatVND(pnl.profit)} sub={`Tỷ suất ${pnl.margin}% trên tổng thu`} icon={<Scale className="h-5 w-5" />} tone={pnl.profit >= 0 ? "brand" : "red"} />
           </div>
+          <p className="mt-3 text-xs text-slate-400">
+            Chi tiết từng khoản, chi lương và chốt sổ tháng ở{" "}
+            <Link href="/ke-toan" className="text-brand-600 hover:underline">
+              trang Kế toán →
+            </Link>
+          </p>
         </CardContent>
       </Card>
 
