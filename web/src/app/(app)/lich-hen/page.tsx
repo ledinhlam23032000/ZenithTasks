@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { addDays, addMonths, startOfMonth, endOfMonth, format, isToday, isTomorrow } from "date-fns";
 import { vi } from "date-fns/locale";
-import { CalendarClock, ChevronLeft, ChevronRight, Sun, CalendarDays } from "lucide-react";
+import { CalendarClock, ChevronLeft, ChevronRight, Sun, CalendarDays, Stethoscope, Trash2 } from "lucide-react";
 import { requireCap } from "@/lib/auth";
 import { AutoRefresh } from "@/components/ui/auto-refresh";
 import { prisma } from "@/lib/db";
@@ -11,6 +11,7 @@ import { maskPhone } from "@/lib/phone";
 import { fmtTime, fmtDayLabel, toDatetimeLocal } from "@/lib/format";
 import { APPT_TYPE, APPT_STATUS, SOURCE_LABEL } from "@/lib/status";
 import { isShareholder } from "@/lib/rbac";
+import { userCan } from "@/lib/permissions";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -19,10 +20,14 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Avatar } from "@/components/ui/avatar";
 import { buttonVariants } from "@/components/ui/button";
 import { DeleteButton } from "@/components/ui/delete-button";
+import { ConfirmButton } from "@/components/ui/confirm-button";
 import { ContactButtons } from "@/components/ui/contact-buttons";
+import { FollowUpArriveButton } from "@/components/ui/follow-up-arrive-button";
 import { NewAppointmentButton, EditAppointmentButton } from "./new-appointment";
 import { AppointmentStatusControl } from "./appointment-status";
 import { deleteAppointment, revealAppointmentPhone } from "./actions";
+import { revealPhone } from "@/app/(app)/khach-hang/actions";
+import { deleteFollowUp } from "@/app/(app)/ho-so/actions";
 import { MonthCalendar } from "./month-calendar";
 
 export const dynamic = "force-dynamic";
@@ -44,34 +49,64 @@ export default async function AppointmentsPage({
   const dateKey = format(day, "yyyy-MM-dd");
   const view = sp.view === "month" ? "month" : "day";
 
-  const [appts, todayCount, tomorrowCount, services, consultants] = await Promise.all([
-    prisma.appointment.findMany({
-      where: { scheduledAt: dayRange(day) },
-      orderBy: { scheduledAt: "asc" },
-      include: {
-        customer: { select: { id: true, fullName: true, code: true, phoneLast5: true } },
-        createdBy: { select: { fullName: true } },
-        consultant: { select: { fullName: true } },
-      },
-    }),
-    prisma.appointment.count({ where: { scheduledAt: todayRange() } }),
-    prisma.appointment.count({ where: { scheduledAt: tomorrowRange() } }),
-    getActiveServices(),
-    getConsultants(),
-  ]);
+  const [appts, todayCount, tomorrowCount, services, consultants, followUps, todayFollowUpCount, tomorrowFollowUpCount] =
+    await Promise.all([
+      prisma.appointment.findMany({
+        where: { scheduledAt: dayRange(day) },
+        orderBy: { scheduledAt: "asc" },
+        include: {
+          customer: { select: { id: true, fullName: true, code: true, phoneLast5: true } },
+          createdBy: { select: { fullName: true } },
+          consultant: { select: { fullName: true } },
+        },
+      }),
+      prisma.appointment.count({ where: { scheduledAt: todayRange() } }),
+      prisma.appointment.count({ where: { scheduledAt: tomorrowRange() } }),
+      getActiveServices(),
+      getConsultants(),
+      // Lịch tái khám (đặt từ hồ sơ điều trị) — trước đây trang này chỉ đọc bảng Appointment
+      // nên tái khám đặt cho khách cũ KHÔNG BAO GIỜ hiện ở đây, dù vẫn lưu đúng trong DB
+      // (thấy được ở thẻ Tái khám của hồ sơ/khách hàng và "Việc cần làm hôm nay").
+      prisma.followUp.findMany({
+        where: { scheduledAt: dayRange(day) },
+        orderBy: { scheduledAt: "asc" },
+        include: { customer: { select: { id: true, fullName: true, phoneLast5: true } } },
+      }),
+      prisma.followUp.count({ where: { scheduledAt: todayRange() } }),
+      prisma.followUp.count({ where: { scheduledAt: tomorrowRange() } }),
+    ]);
 
-  const monthAppts =
+  const [monthAppts, monthFollowUps] =
     view === "month"
-      ? await prisma.appointment.findMany({
-          where: { scheduledAt: { gte: startOfMonth(day), lte: endOfMonth(day) } },
-          select: { scheduledAt: true },
-        })
-      : [];
+      ? await Promise.all([
+          prisma.appointment.findMany({
+            where: { scheduledAt: { gte: startOfMonth(day), lte: endOfMonth(day) } },
+            select: { scheduledAt: true },
+          }),
+          prisma.followUp.findMany({
+            where: { scheduledAt: { gte: startOfMonth(day), lte: endOfMonth(day) } },
+            select: { scheduledAt: true },
+          }),
+        ])
+      : [[], []];
   const countByDay: Record<string, number> = {};
-  for (const a of monthAppts) {
+  for (const a of [...monthAppts, ...monthFollowUps]) {
     const k = format(a.scheduledAt, "yyyy-MM-dd");
     countByDay[k] = (countByDay[k] ?? 0) + 1;
   }
+
+  // Gộp 2 nguồn (lịch hẹn thường + tái khám) thành 1 danh sách theo đúng giờ trong ngày.
+  type DayRow = { kind: "appointment"; a: (typeof appts)[number] } | { kind: "followup"; f: (typeof followUps)[number] };
+  const rows: DayRow[] = [
+    ...appts.map((a): DayRow => ({ kind: "appointment", a })),
+    ...followUps.map((f): DayRow => ({ kind: "followup", f })),
+  ].sort((x, y) => {
+    const at = x.kind === "appointment" ? x.a.scheduledAt : x.f.scheduledAt;
+    const bt = y.kind === "appointment" ? y.a.scheduledAt : y.f.scheduledAt;
+    return at.getTime() - bt.getTime();
+  });
+  const ARRIVED_STATUSES = ["ARRIVED", "IN_CONSULT", "IN_SERVICE", "DONE"];
+  const isRowArrived = (r: DayRow) => ARRIVED_STATUSES.includes(r.kind === "appointment" ? r.a.status : r.f.status);
 
   const prevKey = format(view === "month" ? addMonths(day, -1) : addDays(day, -1), "yyyy-MM-dd");
   const nextKey = format(view === "month" ? addMonths(day, 1) : addDays(day, 1), "yyyy-MM-dd");
@@ -85,9 +120,11 @@ export default async function AppointmentsPage({
           ? "Ngày mai"
           : fmtDayLabel(day);
 
-  const arrived = appts.filter((a) => ["ARRIVED", "IN_CONSULT", "IN_SERVICE", "DONE"].includes(a.status)).length;
+  const arrived = rows.filter(isRowArrived).length;
   const canDelete = ["ADMIN", "MANAGER"].includes(user.role);
   const canManage = !isShareholder(user.role);
+  const canManageFollowUp = userCan(user, "case.clinical");
+  const showActionCol = canDelete || canManageFollowUp;
 
   return (
     <div className="space-y-6">
@@ -117,7 +154,7 @@ export default async function AppointmentsPage({
               </span>
               <div>
                 <p className="text-sm text-slate-500">Hôm nay</p>
-                <p className="text-lg font-semibold text-slate-900">{todayCount} lịch hẹn</p>
+                <p className="text-lg font-semibold text-slate-900">{todayCount + todayFollowUpCount} lịch hẹn</p>
               </div>
             </CardContent>
           </Card>
@@ -130,7 +167,7 @@ export default async function AppointmentsPage({
               </span>
               <div>
                 <p className="text-sm text-slate-500">Ngày mai</p>
-                <p className="text-lg font-semibold text-slate-900">{tomorrowCount} khách sẽ đến</p>
+                <p className="text-lg font-semibold text-slate-900">{tomorrowCount + tomorrowFollowUpCount} khách sẽ đến</p>
               </div>
             </CardContent>
           </Card>
@@ -143,7 +180,7 @@ export default async function AppointmentsPage({
             <div>
               <p className="text-sm text-slate-500">{dayTitle} · đã đến</p>
               <p className="text-lg font-semibold text-slate-900">
-                {arrived}/{appts.length} khách
+                {arrived}/{rows.length} khách
               </p>
             </div>
           </CardContent>
@@ -196,7 +233,7 @@ export default async function AppointmentsPage({
         <CardContent className="pt-0">
           {view === "month" ? (
             <MonthCalendar monthDate={day} countByDay={countByDay} />
-          ) : appts.length === 0 ? (
+          ) : rows.length === 0 ? (
             <EmptyState
               icon={<CalendarClock className="h-6 w-6" />}
               title={`Không có lịch hẹn ${dayTitle.toLowerCase()}`}
@@ -205,7 +242,54 @@ export default async function AppointmentsPage({
           ) : (
             <>
             <div className="divide-y divide-slate-100 sm:hidden">
-              {appts.map((appointment) => {
+              {rows.map((row) => {
+                if (row.kind === "followup") {
+                  const f = row.f;
+                  const arrivedFU = ARRIVED_STATUSES.includes(f.status);
+                  return (
+                    <article key={`fu-${f.id}`} className="py-4">
+                      <div className="flex items-start gap-3">
+                        <div className="w-12 shrink-0 rounded-lg bg-slate-100 px-1 py-2 text-center text-sm font-bold text-slate-800">
+                          {fmtTime(f.scheduledAt)}
+                        </div>
+                        <Avatar name={f.customer.fullName} className="h-10 w-10" />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <Link href={`/khach-hang/${f.customer.id}`} className="block truncate font-semibold text-slate-900">
+                                {f.customer.fullName}
+                              </Link>
+                              <ContactButtons reveal={revealPhone.bind(null, f.customer.id)} last5={f.customer.phoneLast5} />
+                            </div>
+                            <Badge tone={APPT_TYPE.FOLLOW_UP.tone}>{APPT_TYPE.FOLLOW_UP.label}</Badge>
+                          </div>
+                          <p className="mt-2 inline-flex items-center gap-1 text-sm text-slate-700">
+                            <Stethoscope className="h-3.5 w-3.5 text-violet-500" /> {f.note || "Tái khám từ hồ sơ điều trị"}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="mt-3 flex items-center justify-between gap-2 pl-[3.75rem]">
+                        {arrivedFU ? (
+                          <Badge tone={APPT_STATUS[f.status].tone}>{APPT_STATUS[f.status].label}</Badge>
+                        ) : (
+                          canManage && <FollowUpArriveButton id={f.id} caseId={f.caseId} />
+                        )}
+                        {canManageFollowUp && (
+                          <ConfirmButton
+                            action={deleteFollowUp}
+                            fields={{ id: f.id, caseId: f.caseId }}
+                            confirmText={`Xóa lịch tái khám của ${f.customer.fullName}?`}
+                            className="rounded-md p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-500"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </ConfirmButton>
+                        )}
+                      </div>
+                    </article>
+                  );
+                }
+
+                const appointment = row.a;
                 const name = appointment.customer?.fullName ?? appointment.guestName ?? "Khách";
                 const last5 = appointment.customer?.phoneLast5 ?? appointment.phoneLast5;
                 return (
@@ -290,11 +374,64 @@ export default async function AppointmentsPage({
                   <TH>Nguồn</TH>
                   <TH>Phụ trách</TH>
                   <TH>Trạng thái</TH>
-                  {canDelete && <TH />}
+                  {showActionCol && <TH />}
                 </TR>
               </THead>
               <tbody>
-                {appts.map((a) => {
+                {rows.map((row) => {
+                  if (row.kind === "followup") {
+                    const f = row.f;
+                    const arrivedFU = ARRIVED_STATUSES.includes(f.status);
+                    return (
+                      <TR key={`fu-${f.id}`}>
+                        <TD className="font-semibold text-slate-800 whitespace-nowrap">{fmtTime(f.scheduledAt)}</TD>
+                        <TD>
+                          <div className="flex items-center gap-2.5">
+                            <Avatar name={f.customer.fullName} className="h-8 w-8" />
+                            <div className="min-w-0">
+                              <Link href={`/khach-hang/${f.customer.id}`} className="font-medium text-slate-800 hover:text-brand-600">
+                                {f.customer.fullName}
+                              </Link>
+                              <ContactButtons reveal={revealPhone.bind(null, f.customer.id)} last5={f.customer.phoneLast5} />
+                            </div>
+                          </div>
+                        </TD>
+                        <TD>
+                          <Badge tone={APPT_TYPE.FOLLOW_UP.tone}>{APPT_TYPE.FOLLOW_UP.label}</Badge>
+                        </TD>
+                        <TD className="text-slate-600">
+                          <span className="inline-flex items-center gap-1">
+                            <Stethoscope className="h-3.5 w-3.5 text-violet-500" /> {f.note || "Tái khám từ hồ sơ điều trị"}
+                          </span>
+                        </TD>
+                        <TD className="text-slate-400">—</TD>
+                        <TD className="text-slate-400">—</TD>
+                        <TD>
+                          {arrivedFU ? (
+                            <Badge tone={APPT_STATUS[f.status].tone}>{APPT_STATUS[f.status].label}</Badge>
+                          ) : (
+                            canManage && <FollowUpArriveButton id={f.id} caseId={f.caseId} />
+                          )}
+                        </TD>
+                        {showActionCol && (
+                          <TD className="text-right">
+                            {canManageFollowUp && (
+                              <ConfirmButton
+                                action={deleteFollowUp}
+                                fields={{ id: f.id, caseId: f.caseId }}
+                                confirmText={`Xóa lịch tái khám của ${f.customer.fullName}?`}
+                                className="ml-auto rounded-md p-1.5 text-slate-300 hover:bg-rose-50 hover:text-rose-500"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </ConfirmButton>
+                            )}
+                          </TD>
+                        )}
+                      </TR>
+                    );
+                  }
+
+                  const a = row.a;
                   const name = a.customer?.fullName ?? a.guestName ?? "Khách";
                   const last5 = a.customer?.phoneLast5 ?? a.phoneLast5;
                   return (
@@ -337,33 +474,35 @@ export default async function AppointmentsPage({
                           <Badge tone={APPT_STATUS[a.status].tone}>{APPT_STATUS[a.status].label}</Badge>
                         )}
                       </TD>
-                      {canDelete && (
+                      {showActionCol && (
                         <TD className="text-right">
-                          <div className="flex items-center justify-end gap-0.5">
-                            <EditAppointmentButton
-                              appointment={{
-                                id: a.id,
-                                guestName: a.guestName ?? a.customer?.fullName ?? "",
-                                phoneLast5: a.phoneLast5 ?? a.customer?.phoneLast5 ?? "",
-                                scheduledAt: toDatetimeLocal(a.scheduledAt),
-                                type: a.type,
-                                serviceInterest: a.serviceInterest ?? "",
-                                source: a.source,
-                                sourceDetail: a.sourceDetail ?? "",
-                                consultantId: a.consultantId ?? "",
-                                note: a.note ?? "",
-                              }}
-                              services={services.map((s) => ({ id: s.id, name: s.name }))}
-                              consultants={consultants}
-                            />
-                            <DeleteButton
-                              action={deleteAppointment}
-                              id={a.id}
-                              label=""
-                              confirmText={`Xóa lịch hẹn của ${name}? (Lịch thường nên đổi trạng thái "Hủy" thay vì xóa.)`}
-                              className="rounded-md p-1.5 text-slate-300 hover:bg-rose-50 hover:text-rose-500"
-                            />
-                          </div>
+                          {canDelete && (
+                            <div className="flex items-center justify-end gap-0.5">
+                              <EditAppointmentButton
+                                appointment={{
+                                  id: a.id,
+                                  guestName: a.guestName ?? a.customer?.fullName ?? "",
+                                  phoneLast5: a.phoneLast5 ?? a.customer?.phoneLast5 ?? "",
+                                  scheduledAt: toDatetimeLocal(a.scheduledAt),
+                                  type: a.type,
+                                  serviceInterest: a.serviceInterest ?? "",
+                                  source: a.source,
+                                  sourceDetail: a.sourceDetail ?? "",
+                                  consultantId: a.consultantId ?? "",
+                                  note: a.note ?? "",
+                                }}
+                                services={services.map((s) => ({ id: s.id, name: s.name }))}
+                                consultants={consultants}
+                              />
+                              <DeleteButton
+                                action={deleteAppointment}
+                                id={a.id}
+                                label=""
+                                confirmText={`Xóa lịch hẹn của ${name}? (Lịch thường nên đổi trạng thái "Hủy" thay vì xóa.)`}
+                                className="rounded-md p-1.5 text-slate-300 hover:bg-rose-50 hover:text-rose-500"
+                              />
+                            </div>
+                          )}
                         </TD>
                       )}
                     </TR>
