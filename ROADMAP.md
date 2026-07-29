@@ -32,7 +32,7 @@ phần "Đánh giá" trong lịch sử hội thoại + `web/DU-AN.md`.
 | Mã | Hạng mục | Trạng thái | Ghi chú |
 |----|----------|-----------|---------|
 | B1 | **Trung tâm nhắc & thông báo tự động** | ✅ Phần lõi xong | Trang **"Việc cần làm hôm nay"** (`/viec-hom-nay`) tổng hợp tự động: tái khám đến hạn, hẹn chưa đến, công nợ quá hạn, sinh nhật khách, khách nguội, kho cảnh báo (`lib/workqueue.ts`, không đổi schema). ⏳ Còn: Web Push lên điện thoại + việc có người phụ trách/đánh dấu xong (cần schema + cron + VAPID). |
-| B2 | **Kênh giao tiếp** (Zalo/SMS/Email) | ✅ Bậc 1 | ✅ Nút Gọi/SMS/Zalo deep-link kèm mẫu tin (Đợt 5) + hiện SỐ đầy đủ & nút "Chép số" để gọi tay trên máy tính (sửa lẻ sau Đợt 16). 🔑 Bậc 2–3 (gửi thật, tự động) cần tài khoản SMS/Email/Zalo OA — Email cũng cần thêm field email cho Customer. |
+| B2 | **Kênh giao tiếp** (Zalo/SMS/Email) | ✅ Bậc 1 + Bậc 2/3 (Zalo OA/Facebook) | ✅ Bậc 1: Nút Gọi/SMS/Zalo deep-link kèm mẫu tin (Đợt 5) + hiện SỐ đầy đủ & nút "Chép số" để gọi tay trên máy tính (sửa lẻ sau Đợt 16). ✅ Bậc 2–3: hộp thư hợp nhất Zalo OA + Facebook Messenger 2 chiều thật — nhận/gửi/AI soạn nháp trả lời (`/cham-soc/hop-thu`), trang kết nối token (`/cham-soc/ket-noi`, ADMIN) — xem BAN-GIAO.md mục "Kênh giao tiếp (Omnichannel)". 🔑 Cần chủ lập Zalo OA (oa.zalo.me) + Facebook App/Page thật rồi tự kết nối trong app — xem TODO ở BAN-GIAO.md mục 14. SMS/Email tự động thật (Brandname/SMTP) vẫn CHƯA làm — Email cũng cần thêm field email cho Customer. |
 | B3 | **Sổ công nợ chủ động** | ✅ Xong | ✅ Trang `/cong-no`: lọc theo tuổi nợ + cảnh báo vượt ngưỡng + nút liên hệ (Đợt 5). ✅ Kế hoạch trả góp / hẹn nợ (Đợt 15: model `DebtPlan` — ngày X hằng tháng trả Y đồng, hiện kỳ tới + cảnh báo trả chậm). |
 | B4 | **Lịch hẹn nâng cao** | ✅ Một phần | ✅ Chống trùng lịch cùng người phụ trách (cảnh báo + cho ghi đè "Vẫn đặt") — Đợt 9. ✅ Link khách tự xác nhận/đổi lịch (D3, Đợt 12). ⏳ Còn: tài nguyên phòng/giường. |
 | B5 | **Kho theo chuẩn y tế** | ✅ Xong | ✅ Giá vốn bình quân + giá trị tồn kho + COGS (Đợt 4). ✅ Cảnh báo FEFO/hạn dùng (B1). ✅ Định mức vật tư theo dịch vụ (BOM) + nút tự trừ kho (Đợt 6). ✅ Phiếu nhập kho nhiều dòng (Đợt 10). |
@@ -226,6 +226,24 @@ phần "Đánh giá" trong lịch sử hội thoại + `web/DU-AN.md`.
 - 🔑 Bậc 2–3 (tự động gửi SMS/Zalo OA thật, không cần nhân viên bấm tay) cần chủ cấp tài khoản
   SMS Brandname / Zalo OA / API key. Kênh Email cũng cần thêm field email vào `Customer` (hiện
   chưa có) — để khi rảnh chủ quyết có cần không trước khi đổi schema.
+
+### B2 bậc 2/3 — Hộp thư hợp nhất Zalo OA + Facebook Messenger (2 chiều thật)
+- Model mới `ChannelAccount`/`Conversation`/`Message` (mã hoá token bằng `lib/secret-crypto.ts`,
+  tách khỏi `CareMessage` cũ vì cần external ID + hội thoại có thể CHƯA gắn khách).
+- `lib/channels/zalo.ts` + `lib/channels/facebook.ts`: OAuth/token refresh, gửi tin, kiểm chữ ký
+  webhook (`X-ZEvent-Signature` / `X-Hub-Signature-256`). Webhook công khai tại
+  `/api/webhooks/{zalo,facebook}` (ngoài `proxy.ts`, tự kiểm chữ ký thay đăng nhập).
+- Trang `/cham-soc/hop-thu` (danh sách + chi tiết hội thoại, gộp tab với `/cham-soc` cũ) + AI soạn
+  nháp trả lời theo ngữ cảnh hội thoại. Trang `/cham-soc/ket-noi` (ADMIN) để kết nối/ngắt/kiểm tra
+  kết nối + hướng dẫn từng bước lấy App ID/Secret/token ngay trong app.
+- KHÔNG dùng thư viện "tự động Zalo cá nhân" trên GitHub (bẻ khoá trái phép, vi phạm điều khoản,
+  dễ bị khoá số) — chỉ hỗ trợ Zalo Official Account đăng ký chính thức.
+- 🔑 Cần chủ: (1) lập Zalo OA tại oa.zalo.me + app tại developers.zalo.me (App ID/Secret + Secret
+  Key webhook riêng của OA); (2) Facebook App liên kết Fanpage (App Secret + Page Access Token,
+  nên lấy qua Meta Business Suite để không hết hạn). Xem hướng dẫn đầy đủ ngay trên trang
+  `/cham-soc/ket-noi` sau khi đăng nhập ADMIN.
+- ⏳ Chưa làm: AI tự động trả lời (hiện chỉ soạn nháp, nhân viên vẫn bấm gửi tay) — GĐ3 cũ trong
+  BAN-GIAO.md; tổng đài/gọi điện qua PBX thật (cần chọn nhà cung cấp, hiện vẫn `tel:` tay + ghi chú).
 
 ### B3 — Sổ công nợ chủ động (`/cong-no`)
 - **`lib/debt-aging.ts`** (THUẦN, có test): `debtAgeDays`, `debtAgingBucket` (4 mốc: 0-15/15-30/
@@ -449,6 +467,9 @@ phần "Đánh giá" trong lịch sử hội thoại + `web/DU-AN.md`.
 ## VIỆC CỦA CHỦ (🔑 — làm khi rảnh, không gấp)
 - Đặt `PHONE_ENC_KEY` riêng + `npm run rotate:phone` (tắt banner đỏ A2).
 - Đổi mật khẩu `admin/123456`.
-- Khi muốn bật: cấp `ANTHROPIC_API_KEY` (AI), tài khoản SMS/Email/Zalo OA (gửi tin thật),
-  nơi đẩy backup offsite (A5).
+- Khi muốn bật: cấp `ANTHROPIC_API_KEY` (AI), tài khoản SMS/Email (gửi tin thật), nơi đẩy backup offsite (A5).
+- **Muốn bật Hộp thư Zalo OA + Facebook (B2 bậc 2/3, mới xong phần code)**: lập Zalo Official Account
+  tại oa.zalo.me (KHÔNG phải Zalo cá nhân đang dùng) + app tại developers.zalo.me; tạo Facebook App
+  liên kết Fanpage (Meta Business Suite). Hướng dẫn từng bước lấy đúng giá trị nằm ngay trong app tại
+  `/cham-soc/ket-noi` (đăng nhập ADMIN) — không cần biết kỹ thuật, làm theo là được.
 - Mỗi lần có bản mới: chạy `windows/Sua-Loi.bat` trên máy chủ phòng khám.

@@ -17,7 +17,8 @@ Core business needs it covers:
 2. Reception: look up customer by **last 5 phone digits**, open/append a treatment record (Tiếp nhận).
 3. Customer + treatment records merged into one (Hồ sơ khách hàng): services, discounts, voucher, payments, debt.
 4. Materials usage, before/after photos, follow-ups.
-5. Customer care log (Chăm sóc KH) + optional AI message drafting (Claude API).
+5. Customer care log (Chăm sóc KH) + optional AI message drafting (Claude API) + unified inbox for
+   Zalo OA and Facebook Messenger (`/cham-soc/hop-thu`, admin connects channels at `/cham-soc/ket-noi`).
 6. Reports & analytics, staff performance, collaborators (Báo cáo, Hiệu suất nhân sự, Cộng tác viên).
 7. Strict access control; **customer phone numbers are AES-256 encrypted** and only ADMIN/MANAGER can reveal the full number.
 

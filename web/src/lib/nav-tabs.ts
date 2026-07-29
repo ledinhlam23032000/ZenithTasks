@@ -38,3 +38,11 @@ export function attendanceTabs(user: UserLike): PageTab[] {
     { modKey: "lich-lam-viec", href: "/lich-lam-viec", label: "Lịch làm việc" },
   ]);
 }
+
+/** Chăm sóc KH / Hộp thư (Zalo OA + Facebook) — gộp chung 1 mục menu ("Chăm sóc KH"). */
+export function careTabs(user: UserLike): PageTab[] {
+  return filterTabs(user, [
+    { modKey: "cham-soc", href: "/cham-soc", label: "Nhật ký chăm sóc" },
+    { modKey: "cham-soc-hop-thu", href: "/cham-soc/hop-thu", label: "Hộp thư" },
+  ]);
+}
