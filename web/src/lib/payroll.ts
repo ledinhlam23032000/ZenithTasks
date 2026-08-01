@@ -1,6 +1,7 @@
 import { startOfMonth, endOfMonth, format } from "date-fns";
 import { prisma } from "@/lib/db";
 import { toNum } from "@/lib/money";
+import { computeBaseActual } from "@/lib/payroll-calc";
 import type { Role } from "@/generated/prisma/client";
 
 export const STANDARD_DAYS_DEFAULT = 26;
@@ -57,8 +58,7 @@ export async function getPayroll(monthDate: Date, standardDays = STANDARD_DAYS_D
   const rows: PayrollRow[] = users.map((u) => {
     const daysWorked = days.get(u.id) ?? 0;
     const baseFull = toNum(u.baseSalary) > 0 ? toNum(u.baseSalary) : roleBaseDefault(u.role);
-    const ratio = standardDays > 0 ? Math.min(daysWorked / standardDays, 1) : 0;
-    const baseActual = Math.round(baseFull * ratio);
+    const baseActual = computeBaseActual(baseFull, daysWorked, standardDays);
 
     const e = entryMap.get(u.id);
     const commission = e ? toNum(e.commission) : 0;
