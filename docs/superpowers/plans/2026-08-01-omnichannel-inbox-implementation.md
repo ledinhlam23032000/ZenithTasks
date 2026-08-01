@@ -175,7 +175,7 @@ git push origin master
 - `ingestChannelEvent(store, event, receipt): Promise<{ duplicate; conversationId? }>`.
 - Route sequence: raw body → signature → parse → normalize → transactional ingest → 200.
 
-- [ ] **Step 1: Write failing ingestion tests**
+- [x] **Step 1: Write failing ingestion tests**
 
 ```typescript
 it("stores a repeated provider message once", async () => {
@@ -190,19 +190,19 @@ it("stores a repeated provider message once", async () => {
 
 Also assert pre-`connectedAt` event ignored, inbound after `CLOSED` creates a new cycle, unread increments only inbound, and `contact.withdrawn` removes provider identity/profile fields while retaining only the minimum audit receipt.
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run focused ingestion test. Expected: FAIL because service does not exist.
 
-- [ ] **Step 3: Implement transaction and routes**
+- [x] **Step 3: Implement transaction and routes**
 
 Create receipt first inside `$transaction`; unique conflict returns duplicate. Upsert contact/thread, find/create active conversation, insert message, update preview/unread, mark receipt `PROCESSED`. Meta GET returns `hub.challenge` only for matching `META_WEBHOOK_VERIFY_TOKEN` using timing-safe compare. Bad signature returns 401, bad JSON 400, unknown signed event 200.
 
-- [ ] **Step 4: Verify GREEN**
+- [x] **Step 4: Verify GREEN**
 
 Run focused/all tests and direct `Request` fixtures against handlers. Expected: duplicate request returns 200 while row counts remain one.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 git add -- web/src/lib/channels/ingest.ts web/src/lib/channels/__tests__/ingest.test.ts web/src/app/api/channels

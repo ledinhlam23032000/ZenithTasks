@@ -244,3 +244,11 @@ Chưa có Sửa (cần bổ sung):
 - Zalo normalizer xử lý `user_send_text/image/file/sticker`; adapter gửi qua consultation-message API, tách endpoint upload ảnh và tệp, rồi dùng `attachment_id`/file token tương ứng.
 - Lỗi provider chỉ trả thông báo công khai đã làm sạch: 401/token lỗi yêu cầu kết nối lại; 429/server lỗi có thể thử lại. Nội dung response chứa token không đi vào `publicMessage`.
 - TDD provider RED khi module chưa tồn tại, sau triển khai GREEN **10/10**. Toàn bộ Vitest **45/45**, ESLint riêng sáu tệp Task 4 đạt, `tsc --noEmit` đạt và Next.js production build đạt.
+
+### Task 5 hộp thư đa kênh — webhook chống trùng và cutoff tin mới (2026-08-01)
+- Đã thêm route `/api/channels/meta/webhook` (GET challenge + POST) và `/api/channels/zalo/webhook` (POST). Handler đọc raw body, xác minh chữ ký trước khi normalize/ghi dữ liệu; chữ ký sai trả 401, JSON sai trả 400, event hợp lệ nhưng chưa hỗ trợ trả 200 để nhà cung cấp không retry vô hạn.
+- Mỗi event tạo `WebhookReceipt` bằng unique key trong cùng transaction; request lặp trả thành công nhưng không tạo thêm tin/hội thoại. Contact, thread, conversation, message, preview, unread và trạng thái receipt được cập nhật nguyên tử.
+- `connectedAt` là cutoff: event cũ hơn thời điểm ADMIN kết nối được ghi receipt tối thiểu rồi bỏ qua, vì phạm vi đã chốt chỉ nhận tin mới. Conversation cũ `CLOSED` sẽ mở chu kỳ mới khi có tin tiếp theo; delivered/read không tăng unread.
+- Khi nhận `contact.withdrawn`, contact và toàn bộ thread/message liên quan bị xóa cascade; receipt không giữ nội dung hay provider user ID dạng rõ, chỉ giữ mã sự kiện/hash tối thiểu để kiểm toán.
+- Đã bổ sung `scripts/verify-channel-ingest.ts` có khóa an toàn chỉ chạy trên CSDL test. Kiểm chứng PostgreSQL 16 tách biệt đạt: `PRISMA_INGEST_OK messages=1 conversations=1 receipts=1` sau khi gửi cùng event hai lần.
+- TDD service/route RED khi module chưa tồn tại, sau triển khai GREEN **6/6**. Toàn bộ Vitest **51/51**, ESLint riêng Task 5 đạt, `tsc --noEmit` đạt và production build nhận diện cả hai API route. `vitest.config.ts` được đồng bộ alias `@/*` với TypeScript/Next để route tests chạy đúng từ cấu hình repository.
