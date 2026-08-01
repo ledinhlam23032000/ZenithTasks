@@ -375,7 +375,7 @@ git push origin master
 - `createOAuthAttemptValues(): { state; stateHash; verifier; verifierEnc; challenge }`.
 - `verifyMetaSignature(raw, header, appSecret): boolean`; `verifyZaloSignature(rawText, timestamp, header, appId, oaSecret): boolean`.
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 ```typescript
 it("round-trips without plaintext", () => {
@@ -394,19 +394,19 @@ it("rejects a one-byte Meta mutation", () => {
 
 Add Zalo fixture using literal `sha256(appId + rawText + timestamp + oaSecret)` and changed-timestamp rejection.
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run both focused test files. Expected: FAIL because modules do not exist.
 
-- [ ] **Step 3: Implement minimal crypto**
+- [x] **Step 3: Implement minimal crypto**
 
 Use AES-256-GCM with 12-byte IV and `v1.<iv>.<tag>.<ciphertext>` base64url envelope. Decode `CHANNEL_TOKEN_ENC_KEY` to exactly 32 bytes. Hash state/verifier with SHA-256; compare equal-length signature buffers using `timingSafeEqual`.
 
-- [ ] **Step 4: Verify GREEN**
+- [x] **Step 4: Verify GREEN**
 
 Run focused tests and all tests. Expected: wrong key, tampered ciphertext, missing/malformed signature and timestamp mutation all fail closed.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 git add -- web/src/lib/channels

@@ -231,3 +231,9 @@ Chưa có Sửa (cần bổ sung):
 - TDD quyền: trước triển khai có 2 test đỏ đúng kỳ vọng; sau triển khai test quyền **6/6** đạt. Kiểm tra tổng thể: Prisma validate/generate đạt, Vitest **27/27**, `tsc --noEmit` đạt và Next.js production build đạt.
 - Đã replay đủ 18 migration cũ trên PostgreSQL 16 tạm, seed dữ liệu, rồi áp migration thứ 19. Kết quả bảo toàn: `CareMessage` **20 trước / 20 sau**; bảng `ChannelAccount` và partial unique index `Conversation_one_active_per_thread` đều tồn tại. CSDL/container vận hành không bị sửa hoặc restart.
 - Hai truy vấn kiểm chứng tái sử dụng nằm tại `../scripts/sql/count-care-messages.sql` và `../scripts/sql/verify-omnichannel-schema.sql`; `SHADOW_DATABASE_URL` được hỗ trợ trong Prisma CLI để sinh/kiểm tra migration tách biệt.
+
+### Task 3 hộp thư đa kênh — bảo vệ token OAuth và chữ ký webhook (2026-08-01)
+- Token/PKCE verifier được mã hóa AES-256-GCM bằng khóa `CHANNEL_TOKEN_ENC_KEY` 32 byte nằm ngoài Git; envelope có phiên bản `v1`, IV ngẫu nhiên 12 byte và authentication tag. Sai khóa, sửa ciphertext, envelope lỗi hoặc khóa sai độ dài đều bị từ chối.
+- Mỗi lần kết nối sinh state và PKCE verifier độc lập; chỉ state hash và verifier đã mã hóa dùng cho lưu trữ. PKCE challenge dùng SHA-256/base64url.
+- Webhook Meta được xác minh HMAC-SHA256 trên đúng raw bytes từ `X-Hub-Signature-256`; webhook Zalo được xác minh SHA-256 theo app ID + raw body + timestamp + OA secret từ `X-ZEvent-Signature`. So sánh digest dùng `timingSafeEqual` và header sai định dạng đóng an toàn.
+- TDD: hai suite mới RED vì module chưa tồn tại, sau triển khai GREEN **8/8**. Toàn bộ Vitest **35/35**, ESLint riêng bốn tệp mới đạt, `tsc --noEmit` đạt và Next.js production build đạt.
