@@ -30,13 +30,14 @@ export type StaffPerfRow = {
   totalRevenue: number; // doanh số phụ trách (tư vấn + mổ, có thể trùng nếu kiêm)
   collectedConsult: StaffCollection; // thực thu trong tháng theo vai trò tư vấn (gồm thu nợ ca cũ)
   collectedDoctor: StaffCollection; // thực thu trong tháng theo vai trò bác sĩ
+  debtOutstanding: number; // khách của mình (tư vấn/bác sĩ) còn nợ cộng dồn tới hiện tại — đồng bộ với lib/payroll.ts
 };
 
 export async function getStaffPerformance(monthDate: Date) {
   const gte = startOfMonth(monthDate);
   const lte = endOfMonth(monthDate);
 
-  const [users, consultG, consultAgreedG, doctorG, attendanceG, careG, monthPayments] = await Promise.all([
+  const [users, consultG, consultAgreedG, doctorG, attendanceG, careG, monthPayments, debtConsultG, debtDoctorG] = await Promise.all([
     prisma.user.findMany({ where: { active: true }, select: { id: true, fullName: true, role: true, avatarUrl: true }, orderBy: [{ role: "asc" }, { fullName: "asc" }] }),
     prisma.caseRecord.groupBy({ by: ["consultantId"], where: { createdAt: { gte, lte }, consultantId: { not: null } }, _count: { _all: true }, _sum: { totalAmount: true } }),
     prisma.caseRecord.groupBy({ by: ["consultantId"], where: { createdAt: { gte, lte }, consultResult: "AGREED", consultantId: { not: null } }, _count: { _all: true } }),
@@ -47,6 +48,8 @@ export async function getStaffPerformance(monthDate: Date) {
       where: { paidAt: { gte, lte } },
       select: { amount: true, paidAt: true, case: { select: { createdAt: true, consultantId: true, doctorId: true } } },
     }),
+    prisma.caseRecord.groupBy({ by: ["consultantId"], where: { debtAmount: { gt: 0 }, consultantId: { not: null } }, _sum: { debtAmount: true } }),
+    prisma.caseRecord.groupBy({ by: ["doctorId"], where: { debtAmount: { gt: 0 }, doctorId: { not: null } }, _sum: { debtAmount: true } }),
   ]);
 
   const cCount = new Map(consultG.map((g) => [g.consultantId, g._count._all]));
@@ -56,6 +59,8 @@ export async function getStaffPerformance(monthDate: Date) {
   const dRev = new Map(doctorG.map((g) => [g.doctorId, toNum(g._sum.totalAmount)]));
   const days = new Map(attendanceG.map((g) => [g.userId, g._count._all]));
   const care = new Map(careG.map((g) => [g.createdById, g._count._all]));
+  const debtByConsult = new Map(debtConsultG.map((g) => [g.consultantId as string, toNum(g._sum.debtAmount)]));
+  const debtByDoctor = new Map(debtDoctorG.map((g) => [g.doctorId as string, toNum(g._sum.debtAmount)]));
   const collected = collectionsByStaff(
     monthPayments.map((p) => ({
       amount: toNum(p.amount),
@@ -88,6 +93,7 @@ export async function getStaffPerformance(monthDate: Date) {
       totalRevenue: consultRevenue + doctorRevenue,
       collectedConsult: collected.consultants.get(u.id) ?? EMPTY_COLLECTION,
       collectedDoctor: collected.doctors.get(u.id) ?? EMPTY_COLLECTION,
+      debtOutstanding: (debtByConsult.get(u.id) ?? 0) + (debtByDoctor.get(u.id) ?? 0),
     };
   });
 

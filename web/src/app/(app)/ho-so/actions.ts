@@ -67,6 +67,12 @@ function refresh(caseId: string, customerId?: string) {
   revalidatePath("/dashboard");
   revalidatePath("/bao-cao");
   revalidatePath("/khach-hang");
+  // Công nợ hồ sơ (debtAmount) đổi theo mọi thao tác tiền của hồ sơ — các trang
+  // này cũng hiển thị công nợ khách nên phải nằm chung danh sách làm mới.
+  revalidatePath("/cong-no");
+  revalidatePath("/luong");
+  revalidatePath("/ke-toan");
+  revalidatePath("/hieu-suat");
   if (customerId) revalidatePath(`/khach-hang/${customerId}`);
 }
 

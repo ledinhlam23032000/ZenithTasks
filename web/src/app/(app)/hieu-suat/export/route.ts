@@ -17,11 +17,11 @@ export async function GET(req: Request) {
   const fileBase = `hieu-suat-${format(monthDate, "yyyy-MM")}`;
   const rows = await getStaffPerformance(monthDate);
 
-  const columns = ["Nhân viên", "Vai trò", "Ngày công", "Ca tư vấn", "Chốt (%)", "DS tư vấn", "Thực thu TV", "Thu nợ cũ (TV)", "Ca mổ", "DS mổ", "Thực thu BS", "Thu nợ cũ (BS)", "Tin CSKH"];
+  const columns = ["Nhân viên", "Vai trò", "Ngày công", "Ca tư vấn", "Chốt (%)", "DS tư vấn", "Thực thu TV", "Thu nợ cũ (TV)", "Ca mổ", "DS mổ", "Thực thu BS", "Thu nợ cũ (BS)", "Nợ KH còn lại", "Tin CSKH"];
   const data: Cell[][] = rows.map((r) => [
     r.name, ROLE_LABELS[r.role], r.daysWorked, r.consultCases, r.consultRate, r.consultRevenue,
     r.collectedConsult.total, r.collectedConsult.fromDebt, r.doctorCases, r.doctorRevenue,
-    r.collectedDoctor.total, r.collectedDoctor.fromDebt, r.careCount,
+    r.collectedDoctor.total, r.collectedDoctor.fromDebt, r.debtOutstanding, r.careCount,
   ]);
 
   if (fmt === "doc") {

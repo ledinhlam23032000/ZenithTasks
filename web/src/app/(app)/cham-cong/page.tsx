@@ -50,8 +50,12 @@ export default async function ChamCongPage({
 }) {
   const user = await requireCap("mod:cham-cong");
   const sp = await searchParams;
-  const parsed = sp.m ? new Date(`${sp.m}-01T00:00:00`) : new Date();
-  const monthDate = Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+  // Mặc định lấy "tháng hiện tại" theo giờ VN qua vnDateOnly() — KHÔNG dùng
+  // new Date() trực tiếp: hàm này tự chốt đúng ngày VN theo giờ tuyệt đối
+  // (UTC+7) bất kể máy chủ có đang đặt đúng TZ Asia/Ho_Chi_Minh hay không,
+  // tránh trang hiện nhầm sang tháng kế tiếp khi múi giờ máy chủ bị lệch.
+  const parsed = sp.m ? new Date(`${sp.m}-01T00:00:00`) : vnDateOnly();
+  const monthDate = Number.isNaN(parsed.getTime()) ? vnDateOnly() : parsed;
   const monthValue = format(monthDate, "yyyy-MM");
   const gte = startOfMonth(monthDate);
   const lte = endOfMonth(monthDate);

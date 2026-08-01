@@ -63,6 +63,7 @@ export default async function StaffPerfPage({ searchParams }: { searchParams: Pr
                   <TH className="text-center">Ca mổ</TH>
                   <TH className="text-right">DS mổ</TH>
                   <TH className="text-right">Thực thu BS</TH>
+                  <TH className="text-right">Nợ KH còn lại</TH>
                   <TH className="text-center">Tin CSKH</TH>
                   <TH />
                 </TR>
@@ -103,6 +104,7 @@ export default async function StaffPerfPage({ searchParams }: { searchParams: Pr
                         <span className="block text-[11px] text-slate-400">nợ cũ {formatVND(r.collectedDoctor.fromDebt)}</span>
                       )}
                     </TD>
+                    <TD className="text-right tabular-nums text-rose-600">{r.debtOutstanding > 0 ? formatVND(r.debtOutstanding) : "—"}</TD>
                     <TD className="text-center tabular-nums text-slate-700">{r.careCount}</TD>
                     <TD className="text-right">
                       <Link href={`/hieu-suat/${r.id}?m=${monthValue}`} className="inline-flex items-center gap-0.5 text-xs font-medium text-brand-600 hover:underline">

@@ -4,6 +4,7 @@ import { requireCap } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { isManagerial, ROLE_LABELS } from "@/lib/rbac";
 import { fmtTime } from "@/lib/format";
+import { vnDateOnly } from "@/lib/dates";
 import { xlsxResponse, wordResponse, csvResponse, type Cell } from "@/lib/export";
 
 export const dynamic = "force-dynamic";
@@ -17,8 +18,9 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const fmt = url.searchParams.get("format") ?? "xlsx";
   const mParam = url.searchParams.get("m");
-  const parsed = mParam ? new Date(`${mParam}-01T00:00:00`) : new Date();
-  const monthDate = Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+  // vnDateOnly() chốt đúng "tháng hiện tại" theo giờ VN dù TZ máy chủ có lệch hay không.
+  const parsed = mParam ? new Date(`${mParam}-01T00:00:00`) : vnDateOnly();
+  const monthDate = Number.isNaN(parsed.getTime()) ? vnDateOnly() : parsed;
   const gte = startOfMonth(monthDate);
   const lte = endOfMonth(monthDate);
   const monthLabel = format(monthDate, "MM/yyyy");
