@@ -317,7 +317,7 @@ git push origin master
 - Produces enums/models `ChannelAccount`, `ChannelContact`, `ChannelThread`, `Conversation`, `InboxMessage`, `ConversationEvent`, `ConversationPresence`, `WebhookReceipt`, `OAuthAttempt`, `InboxAttachment`.
 - Produces keys `inbox.view`, `inbox.viewAll`, `inbox.reply`, `inbox.assign`, `inbox.linkCustomer`, `inbox.manageChannels`.
 
-- [ ] **Step 1: Write failing permission tests**
+- [x] **Step 1: Write failing permission tests**
 
 ```typescript
 it("hard-deny SHAREHOLDER dù được grant", () => {
@@ -333,13 +333,13 @@ it("cấp inbox đúng vai trò", () => {
 });
 ```
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run: `npm test -- src/lib/__tests__/permissions.test.ts`
 
 Expected: FAIL because inbox keys and hard deny do not exist.
 
-- [ ] **Step 3: Implement permissions and additive schema**
+- [x] **Step 3: Implement permissions and additive schema**
 
 Add six capabilities; `userCan` checks `role === "SHAREHOLDER" && key.startsWith("inbox.")` before grant evaluation. `ChannelAccount` is unique on provider/external ID and stores encrypted tokens, nullable `responseTargetMinutes`, and health timestamps. `InboxMessage` includes account/conversation/provider ID/client nonce/direction/type/status/content/attachment/error/provider timestamp. `WebhookReceipt` is unique on provider/account/event key. Relations to `User`/`Customer` use `SET NULL`; `CareMessage` remains byte-for-byte unchanged.
 
@@ -350,11 +350,11 @@ CREATE UNIQUE INDEX "Conversation_one_active_per_thread"
 ON "Conversation"("threadId") WHERE "status" <> 'CLOSED';
 ```
 
-- [ ] **Step 4: Verify GREEN**
+- [x] **Step 4: Verify GREEN**
 
 Run: `npx prisma format`, `npx prisma validate`, `npx prisma generate`, focused permissions test, all tests. Inspect migration: no `DROP TABLE`, `DROP COLUMN`, `TRUNCATE`, or `DELETE`.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 git add -- web/prisma web/src/lib/permissions.ts web/src/lib/__tests__/permissions.test.ts

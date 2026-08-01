@@ -12,6 +12,23 @@ describe("userCan", () => {
   it("deny gỡ cả quyền mặc định", () => {
     expect(userCan({ role: "ADMIN", permissions: { grant: [], deny: ["mod:luong"] } }, "mod:luong")).toBe(false);
   });
+
+  it("hard-deny SHAREHOLDER khỏi nội dung inbox dù được grant", () => {
+    const shareholder = {
+      role: "SHAREHOLDER" as const,
+      permissions: { grant: ["inbox.view", "inbox.reply"], deny: [] },
+    };
+
+    expect(userCan(shareholder, "inbox.view")).toBe(false);
+    expect(userCan(shareholder, "inbox.reply")).toBe(false);
+  });
+
+  it("cấp capability inbox đúng vai trò mặc định", () => {
+    expect(userCan({ role: "CARE" }, "inbox.view")).toBe(true);
+    expect(userCan({ role: "CARE" }, "inbox.reply")).toBe(true);
+    expect(userCan({ role: "CARE" }, "inbox.manageChannels")).toBe(false);
+    expect(userCan({ role: "ADMIN" }, "inbox.manageChannels")).toBe(true);
+  });
 });
 
 describe("diffFromDesired", () => {

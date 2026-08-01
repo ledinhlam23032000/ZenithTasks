@@ -224,3 +224,10 @@ Chưa có Sửa (cần bổ sung):
 - Đã đổi toàn bộ updater Windows và hướng dẫn/cài đặt VPS từ nhánh cũ sang `master` theo chỉ đạo chủ dự án.
 - Baseline trên source commit `892c397`: Prisma client generate đạt; Vitest **25/25**; `tsc --noEmit` đạt; Next.js production build đạt. ESLint toàn repo còn **10 lỗi + 6 cảnh báo có sẵn từ trước** ở các trang cũ; không coi đó là lỗi do Task 1 và không âm thầm sửa ngoài phạm vi.
 - Cách kiểm thử ổn định: đưa source export vào container tạm, xóa `.next` cũ, generate Prisma rồi chạy test/type/build; không restart container hoặc đụng dữ liệu vận hành.
+
+### Task 2 hộp thư đa kênh — nền dữ liệu và ranh giới quyền (2026-08-01)
+- Đã bổ sung mô hình dữ liệu tách biệt cho tài khoản kênh, liên hệ, thread, hội thoại, tin nhắn, sự kiện, presence, webhook receipt, OAuth attempt và tệp đính kèm. Migration chỉ thêm mới; `CareMessage` cũ vẫn là nhật ký chăm sóc thủ công và không bị chuyển đổi/xóa.
+- Đã thêm sáu capability `inbox.*`; ADMIN quản lý kết nối, MANAGER/CARE xử lý hội thoại theo quyền. `SHAREHOLDER` bị chặn cứng khỏi nội dung inbox ở tầng `userCan`, kể cả khi có grant tùy chỉnh.
+- TDD quyền: trước triển khai có 2 test đỏ đúng kỳ vọng; sau triển khai test quyền **6/6** đạt. Kiểm tra tổng thể: Prisma validate/generate đạt, Vitest **27/27**, `tsc --noEmit` đạt và Next.js production build đạt.
+- Đã replay đủ 18 migration cũ trên PostgreSQL 16 tạm, seed dữ liệu, rồi áp migration thứ 19. Kết quả bảo toàn: `CareMessage` **20 trước / 20 sau**; bảng `ChannelAccount` và partial unique index `Conversation_one_active_per_thread` đều tồn tại. CSDL/container vận hành không bị sửa hoặc restart.
+- Hai truy vấn kiểm chứng tái sử dụng nằm tại `../scripts/sql/count-care-messages.sql` và `../scripts/sql/verify-omnichannel-schema.sql`; `SHADOW_DATABASE_URL` được hỗ trợ trong Prisma CLI để sinh/kiểm tra migration tách biệt.

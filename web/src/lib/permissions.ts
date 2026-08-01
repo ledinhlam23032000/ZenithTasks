@@ -48,6 +48,12 @@ export const CAPABILITIES: CapDef[] = [
   { key: "payment.add", label: "Thu tiền cho hồ sơ", group: "Tài chính", roles: ["ADMIN", "MANAGER", "CONSULTANT", "DOCTOR", "RECEPTION"] },
   { key: "payment.manage", label: "Sửa / xóa khoản thu", group: "Tài chính", roles: ["ADMIN", "MANAGER"] },
   { key: "phone.full", label: "Xem số điện thoại đầy đủ của khách", group: "Bảo mật", roles: ["ADMIN", "MANAGER"] },
+  { key: "inbox.view", label: "Xem hội thoại được phân công", group: "Hộp thư chăm sóc", roles: ["ADMIN", "MANAGER", "CARE"] },
+  { key: "inbox.viewAll", label: "Xem toàn bộ hội thoại", group: "Hộp thư chăm sóc", roles: ["ADMIN", "MANAGER"] },
+  { key: "inbox.reply", label: "Trả lời khách qua kênh kết nối", group: "Hộp thư chăm sóc", roles: ["ADMIN", "MANAGER", "CARE"] },
+  { key: "inbox.assign", label: "Phân công hội thoại", group: "Hộp thư chăm sóc", roles: ["ADMIN", "MANAGER", "CARE"] },
+  { key: "inbox.linkCustomer", label: "Liên kết hội thoại với khách hàng", group: "Hộp thư chăm sóc", roles: ["ADMIN", "MANAGER", "CARE"] },
+  { key: "inbox.manageChannels", label: "Kết nối và quản lý kênh", group: "Hộp thư chăm sóc", roles: ["ADMIN"] },
 ];
 
 // key -> roles mặc định
@@ -73,6 +79,9 @@ export function parsePerms(raw: unknown): PermOverride {
 
 /** Người dùng có quyền này không (đã tính cả grant/deny tuỳ chỉnh)? */
 export function userCan(user: UserLike, key: string): boolean {
+  // Hội thoại có thể chứa thông tin sức khỏe nhạy cảm. Cổ đông không được mở
+  // quyền inbox bằng grant tùy chỉnh; đây là ranh giới bắt buộc ở tầng server.
+  if (user.role === "SHAREHOLDER" && key.startsWith("inbox.")) return false;
   const p = parsePerms(user.permissions);
   if (p.deny.includes(key)) return false;
   if (p.grant.includes(key)) return true;
