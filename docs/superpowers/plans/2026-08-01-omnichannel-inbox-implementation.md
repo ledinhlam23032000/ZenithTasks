@@ -114,7 +114,7 @@ git push origin master
 - `ChannelProviderAdapter`: authorization URL, code exchange, refresh, normalize, send text, upload/send attachment, account/contact profile, health check.
 - `sendText` returns provider message ID/timestamp or throws `ChannelProviderError` containing clean public message and retry/reauth flags.
 
-- [ ] **Step 1: Write failing normalizer tests**
+- [x] **Step 1: Write failing normalizer tests**
 
 ```typescript
 expect(normalizeMetaWebhook(metaFixture)).toEqual([{
@@ -131,11 +131,11 @@ expect(normalizeMetaWebhook(metaFixture)).toEqual([{
 
 Zalo fixture maps `user_send_text` fields `oa_id`, `sender.id`, `message.msg_id`, `message.text`, `timestamp`. Add image/file/sticker literals and assert unknown valid events return `[]`.
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run both provider tests. Expected: FAIL because providers do not exist.
 
-- [ ] **Step 3: Implement adapters**
+- [x] **Step 3: Implement adapters**
 
 Meta POSTs `https://graph.facebook.com/${META_GRAPH_VERSION}/${pageId}/messages` with Page bearer token:
 
@@ -151,11 +151,11 @@ Zalo POSTs `https://openapi.zalo.me/v3.0/oa/message/cs` with `access_token` head
 
 Inject `fetch`; map 401/token errors to reauth, 429 to retryable and never put raw token-bearing bodies into public errors. Meta uploads multipart to `/${pageId}/message_attachments` and sends its `attachment_id`; Zalo uploads to `/v2.0/oa/upload/image` or `/v2.0/oa/upload/file` and sends the returned attachment ID through the consultation-message endpoint. Tests cover JPEG/PDF request shapes with literal responses.
 
-- [ ] **Step 4: Verify GREEN**
+- [x] **Step 4: Verify GREEN**
 
 Run focused and all tests. Expected: text/image/file/sticker normalization and error mapping pass against complete provider response fixtures.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 git add -- web/src/lib/channels

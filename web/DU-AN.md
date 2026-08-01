@@ -237,3 +237,10 @@ Chưa có Sửa (cần bổ sung):
 - Mỗi lần kết nối sinh state và PKCE verifier độc lập; chỉ state hash và verifier đã mã hóa dùng cho lưu trữ. PKCE challenge dùng SHA-256/base64url.
 - Webhook Meta được xác minh HMAC-SHA256 trên đúng raw bytes từ `X-Hub-Signature-256`; webhook Zalo được xác minh SHA-256 theo app ID + raw body + timestamp + OA secret từ `X-ZEvent-Signature`. So sánh digest dùng `timingSafeEqual` và header sai định dạng đóng an toàn.
 - TDD: hai suite mới RED vì module chưa tồn tại, sau triển khai GREEN **8/8**. Toàn bộ Vitest **35/35**, ESLint riêng bốn tệp mới đạt, `tsc --noEmit` đạt và Next.js production build đạt.
+
+### Task 4 hộp thư đa kênh — adapter Meta và Zalo OA (2026-08-01)
+- Đã tạo hợp đồng provider dùng chung cho OAuth, refresh token, normalize webhook, gửi text, upload/gửi ảnh hoặc tệp, lấy profile và health check. Lớp nghiệp vụ sau này chỉ dùng event chuẩn `message.received/delivered/read` và `contact.withdrawn`.
+- Meta normalizer xử lý text/ảnh/file/sticker, bỏ echo và event không hỗ trợ; adapter gửi `messaging_type=RESPONSE` bằng Page bearer token, upload reusable attachment rồi gửi bằng `attachment_id`.
+- Zalo normalizer xử lý `user_send_text/image/file/sticker`; adapter gửi qua consultation-message API, tách endpoint upload ảnh và tệp, rồi dùng `attachment_id`/file token tương ứng.
+- Lỗi provider chỉ trả thông báo công khai đã làm sạch: 401/token lỗi yêu cầu kết nối lại; 429/server lỗi có thể thử lại. Nội dung response chứa token không đi vào `publicMessage`.
+- TDD provider RED khi module chưa tồn tại, sau triển khai GREEN **10/10**. Toàn bộ Vitest **45/45**, ESLint riêng sáu tệp Task 4 đạt, `tsc --noEmit` đạt và Next.js production build đạt.
