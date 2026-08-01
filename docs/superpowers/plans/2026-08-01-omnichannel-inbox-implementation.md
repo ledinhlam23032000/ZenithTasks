@@ -428,7 +428,7 @@ git push origin master
 - Actions: claim, assign, open/snooze/close, internal note, customer link, text/attachment send/retry and presence heartbeat.
 - Actions return `{ ok?: true; error?: string; nonce?: number }` and call exact `requireCap` keys.
 
-- [ ] **Step 1: Write failing state-machine tests**
+- [x] **Step 1: Write failing state-machine tests**
 
 ```typescript
 it("first reply atomically claims an unassigned conversation", async () => {
@@ -441,19 +441,19 @@ it("first reply atomically claims an unassigned conversation", async () => {
 
 Add competing claim, duplicate nonce, provider failure retained as `FAILED`, snooze wake-up, customer-link audit, 15-second presence expiry, first-response timestamp and `viewAll` filtering.
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run focused inbox test. Expected: FAIL because service does not exist.
 
-- [ ] **Step 3: Implement service/actions**
+- [x] **Step 3: Implement service/actions**
 
 Create `PENDING` before provider call. Claim with conditional `updateMany` on null assignee/current version; zero rows reloads and returns collision. Success stores provider ID/status and sets `firstResponseAt` once; failure stores clean code/message and keeps row. Internal note creates only `ConversationEvent(INTERNAL_NOTE)`. Presence upserts by conversation/user and ignores heartbeat older than 15 seconds. Customer timeline reads linked `InboxMessage` together with legacy `CareMessage` without copying rows. Actor ID always comes from authenticated session, never FormData.
 
-- [ ] **Step 4: Verify GREEN**
+- [x] **Step 4: Verify GREEN**
 
 Run focused/all tests. Expected: permission, idempotency, collision, error retention and audit pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 git add -- web/src/lib/channels/inbox.ts web/src/lib/channels/__tests__/inbox.test.ts web/src/app/'(app)'/cham-soc/inbox-actions.ts web/src/app/'(app)'/cham-soc/inbox-queries.ts web/src/app/'(app)'/khach-hang/'[id]'/page.tsx

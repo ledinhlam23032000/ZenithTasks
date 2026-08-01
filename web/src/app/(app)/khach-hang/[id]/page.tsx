@@ -50,6 +50,7 @@ import { AdminPhone } from "./admin-phone";
 import { PortalLink } from "./portal-link";
 import { CareComposer } from "../../cham-soc/care-composer";
 import { PhotoGallery } from "@/components/ui/photo-gallery";
+import { getCustomerCareTimeline } from "../../cham-soc/inbox-queries";
 
 export const dynamic = "force-dynamic";
 
@@ -93,6 +94,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
   const canReceive = ["ADMIN", "RECEPTION", "CONSULTANT", "DOCTOR", "MANAGER"].includes(user.role);
   const canCare = ["ADMIN", "MANAGER", "CARE"].includes(user.role);
   const canEdit = ["ADMIN", "MANAGER", "RECEPTION", "TELESALE"].includes(user.role);
+  const inboxTimeline = canCare ? (await getCustomerCareTimeline(customer.id)).filter((item) => item.source === "INBOX").slice(0, 30) : [];
 
   return (
     <div className="space-y-6">
@@ -322,6 +324,16 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
                   })}
                 </ul>
               )}
+              {inboxTimeline.length > 0 && <div className="border-t border-slate-100 pt-4">
+                <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Tin nhắn Zalo/Facebook đã liên kết</p>
+                <ul className="space-y-3">
+                  {inboxTimeline.map((message) => <li key={`inbox-${message.id}`} className="border-l-2 border-brand-100 pl-3">
+                    <div className="flex items-center gap-2"><Badge tone="brand">Hộp thư</Badge><span className="text-xs text-slate-400">{message.direction === "IN" ? "Khách gửi" : "ZenithTasks gửi"}</span></div>
+                    <p className="mt-1 text-sm text-slate-700">{message.content}</p>
+                    <p className="mt-0.5 text-xs text-slate-400">{fmtRelative(message.at)}</p>
+                  </li>)}
+                </ul>
+              </div>}
             </CardContent>
           </Card>
 

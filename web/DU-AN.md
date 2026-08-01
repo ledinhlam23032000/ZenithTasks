@@ -266,3 +266,10 @@ Chưa có Sửa (cần bổ sung):
 - Bảo trì kiểm tra riêng từng kênh; một provider lỗi chỉ đánh dấu đúng kênh đó `DEGRADED`, không làm dừng các kênh khác. Payload webhook hết hạn được xóa nội dung sau 7 ngày và presence cũ hơn 24 giờ được dọn.
 - Route `POST /api/internal/channels/maintenance` chỉ nhận bearer `CHANNEL_MAINTENANCE_SECRET` bằng so sánh timing-safe, rate-limit IP thử sai và chỉ trả bốn bộ đếm, không trả token/secret/lỗi thô.
 - TDD RED khi hai module chưa tồn tại, sau triển khai GREEN **4/4**, gồm concurrent refresh-once, one-time refresh token, purge/isolated degradation và 401/401/200 cho route. Toàn bộ Vitest **59/59**, lint Task 7 đạt, `tsc --noEmit` đạt và production build nhận diện route bảo trì.
+
+### Task 8 hộp thư đa kênh — phân công, trả lời và vòng đời hội thoại (2026-08-01)
+- Đã triển khai claim nguyên tử theo `assigneeId=null + version`; người trả lời đầu tiên tự nhận hội thoại, còn thao tác cạnh tranh nhận collision rõ ràng. ADMIN/MANAGER có thể phân công; Open/Snoozed/Closed, đánh thức snooze, ghi chú nội bộ, liên kết khách và presence 15 giây đều có action riêng.
+- Tin gửi được tạo `PENDING` trước khi gọi provider; `clientNonce` chống bấm hai lần. Thành công lưu provider ID/SENT và chỉ ghi `firstResponseAt` lần đầu; thất bại giữ hàng `FAILED` cùng mã/thông báo đã làm sạch để retry không mất dấu.
+- Mọi action lấy actor từ session qua đúng capability `inbox.view/reply/assign/linkCustomer`, không nhận actor từ FormData. CARE không có `viewAll` chỉ đọc hội thoại chưa phân công hoặc của mình.
+- Timeline hồ sơ khách đọc hợp nhất `CareMessage` thủ công với `InboxMessage` đã liên kết, không sao chép/đếm trùng dữ liệu cũ.
+- TDD RED khi service chưa tồn tại, sau triển khai GREEN **5/5**. Toàn bộ Vitest **64/64**, lint phần Task 8 không có lỗi, `tsc --noEmit` và production build đạt; còn một cảnh báo import `PageHeader` có sẵn từ trước trong trang khách hàng.
