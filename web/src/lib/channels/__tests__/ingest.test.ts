@@ -1,7 +1,7 @@
 import { createHash, createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { handleMetaWebhook, verifyMetaWebhook } from "../../../app/api/channels/meta/webhook/route";
-import { handleZaloWebhook } from "../../../app/api/channels/zalo/webhook/route";
+import { handleMetaWebhook, verifyMetaWebhook } from "../meta-webhook";
+import { handleZaloWebhook } from "../zalo-webhook";
 import {
   MemoryChannelIngestionStore,
   eventReceipt,

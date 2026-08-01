@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { MemoryMaintenanceStore, runMaintenanceWithStore } from "../maintenance";
-import { handleMaintenanceRequest } from "../../../app/api/internal/channels/maintenance/route";
+import { handleMaintenanceRequest } from "../maintenance-handler";
 
 describe("channel maintenance", () => {
   it("purges seven-day payloads and isolates a degraded provider", async () => {
