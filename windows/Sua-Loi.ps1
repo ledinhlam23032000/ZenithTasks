@@ -4,7 +4,7 @@
 #  KHONG mat du lieu (du lieu nam trong volume Docker rieng).
 # ============================================================================
 $Repo   = "https://github.com/ledinhlam23032000/ZenithTasks.git"
-$Branch = "claude/lucid-cori-fg136w"
+$Branch = "master"
 $Dir    = Join-Path $HOME "ZenithTasks"
 
 function EndHere($code) { Write-Host ""; Read-Host "Nhan Enter de dong cua so"; exit $code }

@@ -4,12 +4,12 @@
 #  Tự: cài Docker + Git, tạo swap (nếu RAM thấp), tải mã nguồn, bật app + HTTPS.
 #
 #  Cách chạy (đăng nhập VPS với quyền root, rồi dán):
-#     curl -fsSL https://raw.githubusercontent.com/ledinhlam23032000/ZenithTasks/claude/lucid-cori-fg136w/deploy/cai-dat-vps.sh | bash
+#     curl -fsSL https://raw.githubusercontent.com/ledinhlam23032000/ZenithTasks/master/deploy/cai-dat-vps.sh | bash
 # ============================================================================
 set -e
 
 REPO="https://github.com/ledinhlam23032000/ZenithTasks.git"
-BRANCH="claude/lucid-cori-fg136w"
+BRANCH="master"
 DIR="/opt/zenith"
 
 echo "==> [1/5] Cài gói cần thiết (git, curl)..."

@@ -218,3 +218,9 @@ Chưa có Sửa (cần bổ sung):
 - Kế hoạch TDD 11 task được lưu tại `../docs/superpowers/plans/2026-08-01-omnichannel-inbox-implementation.md`; thứ tự thực hiện bắt đầu bằng chuẩn hóa baseline/build ngoài OneDrive, sau đó schema/RBAC, crypto, provider, webhook, OAuth, token, nghiệp vụ inbox, attachment, UI và bàn giao vận hành.
 - Mỗi task có RED/GREEN verification, commit và push `origin/master`; các App ID/secret thật chỉ nhập trực tiếp trên máy vận hành ở checkpoint kích hoạt, không đưa vào chat hoặc Git.
 - Baseline trên checkout hiện chưa thể xác nhận bằng `npm ci`/Docker build vì thao tác dependency từ thư mục OneDrive bị treo quá timeout; kế hoạch bắt buộc giải quyết build context tạm và xác minh baseline trước khi tạo migration.
+
+### Task 1 hộp thư đa kênh — baseline và nhánh phát hành (2026-08-01)
+- Đã thêm `scripts/New-Test-BuildContext.ps1` để xuất đúng tệp Git đã track ra thư mục tạm ngoài OneDrive; behavior test xác nhận không mang theo `.git` hoặc `node_modules`.
+- Đã đổi toàn bộ updater Windows và hướng dẫn/cài đặt VPS từ nhánh cũ sang `master` theo chỉ đạo chủ dự án.
+- Baseline trên source commit `892c397`: Prisma client generate đạt; Vitest **25/25**; `tsc --noEmit` đạt; Next.js production build đạt. ESLint toàn repo còn **10 lỗi + 6 cảnh báo có sẵn từ trước** ở các trang cũ; không coi đó là lỗi do Task 1 và không âm thầm sửa ngoài phạm vi.
+- Cách kiểm thử ổn định: đưa source export vào container tạm, xóa `.next` cũ, generate Prisma rồi chạy test/type/build; không restart container hoặc đụng dữ liệu vận hành.

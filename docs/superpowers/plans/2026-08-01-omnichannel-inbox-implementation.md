@@ -50,7 +50,7 @@ Thực thi theo số task, không theo vị trí hiển thị: **1 → 2 → 3 �
 **Interfaces:**
 - Produces `New-Test-BuildContext.ps1 -Destination <absolute-path>` exporting only tracked files outside OneDrive.
 
-- [ ] **Step 1: Write failing behavior test**
+- [x] **Step 1: Write failing behavior test**
 
 ```powershell
 $out = Join-Path $env:TEMP ("zenith-export-" + [guid]::NewGuid())
@@ -59,13 +59,13 @@ if (-not (Test-Path (Join-Path $out "web/package-lock.json"))) { throw "missing 
 if (Test-Path (Join-Path $out "web/node_modules")) { throw "node_modules leaked" }
 ```
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run: `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/New-Test-BuildContext.Tests.ps1`
 
 Expected: FAIL because export script does not exist.
 
-- [ ] **Step 3: Implement export and master references**
+- [x] **Step 3: Implement export and master references**
 
 ```powershell
 param([Parameter(Mandatory=$true)][string]$Destination)
@@ -80,7 +80,7 @@ Remove-Item -LiteralPath $zip -Force
 
 Replace every updater branch/raw GitHub URL in the listed files with `master`.
 
-- [ ] **Step 4: Verify GREEN and current baseline**
+- [x] **Step 4: Verify GREEN and current baseline**
 
 Run the PowerShell test, export to a fresh path, then:
 
@@ -91,7 +91,7 @@ docker run --rm --entrypoint npm zenithtasks-baseline:<short-sha> test
 
 Expected: script pass, build exit 0, all current tests pass. If build cannot finish, stop before schema work and report the environment blocker.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 git add -- scripts windows/Sua-Loi.ps1 windows/Zenith-Setup.ps1 deploy/cai-dat-vps.sh deploy/HUONG-DAN-VPS.md

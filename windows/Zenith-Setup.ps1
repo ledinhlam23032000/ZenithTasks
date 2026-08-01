@@ -1,6 +1,6 @@
 $ErrorActionPreference='Continue'
 $Repo='https://github.com/ledinhlam23032000/ZenithTasks.git'
-$Branch='claude/lucid-cori-fg136w'
+$Branch='master'
 $Dir=Join-Path $HOME 'ZenithTasks'
 function Has($n){[bool](Get-Command $n -ErrorAction SilentlyContinue)}
 Write-Host ''

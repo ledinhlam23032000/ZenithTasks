@@ -30,7 +30,7 @@ Vào ZoneDNS → mở tên miền → **TẠO RECORD**, tạo 2 bản ghi:
 Đăng nhập VPS (qua cửa sổ "Console/SSH" của nhà cung cấp, hoặc phần mềm như PuTTY) với quyền **root**, rồi dán đúng 1 dòng:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/ledinhlam23032000/ZenithTasks/claude/lucid-cori-fg136w/deploy/cai-dat-vps.sh | bash
+curl -fsSL https://raw.githubusercontent.com/ledinhlam23032000/ZenithTasks/master/deploy/cai-dat-vps.sh | bash
 ```
 
 Lệnh này tự cài Docker, tải mã nguồn, dựng app + HTTPS. Lần đầu mất ~5–10 phút.
@@ -40,7 +40,7 @@ Lệnh này tự cài Docker, tải mã nguồn, dựng app + HTTPS. Lần đầ
 > github.com → Settings → Developer settings → Personal access tokens → Fine‑grained):
 > ```bash
 > curl -fsSL https://get.docker.com | sh
-> git clone -b claude/lucid-cori-fg136w https://TOKEN@github.com/ledinhlam23032000/ZenithTasks.git /opt/zenith
+> git clone -b master https://TOKEN@github.com/ledinhlam23032000/ZenithTasks.git /opt/zenith
 > cd /opt/zenith/deploy && docker compose up -d --build
 > ```
 
