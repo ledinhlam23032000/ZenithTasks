@@ -854,3 +854,8 @@ Có nhiều thư viện GitHub tự động hoá Zalo cá nhân (đăng nhập Q
 - `tsc --noEmit` sạch, `eslint` sạch trên toàn bộ file mới/sửa. Thêm test THUẦN: `secret-crypto.test.ts` (roundtrip mã hoá), `conversations.test.ts` (`withinResponseWindow`).
 - Migration viết tay `20260729120000_channel_integrations` áp dụng sạch vào DB sandbox (Postgres cục bộ dựng theo mục 10 BAN-GIAO.md), `prisma migrate status` báo "up to date".
 - CHƯA kiểm thử được với Zalo OA/Facebook App THẬT (chủ chưa có tài khoản) — logic OAuth/webhook dựa trên tài liệu chính thức (Facebook) + tổng hợp cộng đồng khớp nhau nhiều nguồn (Zalo, vì developers.zalo.me chặn crawler). Cần chủ lập tài khoản thật rồi kết nối thử qua `/cham-soc/ket-noi` để xác nhận lần đầu.
+### Kích hoạt Meta thật — trang pháp lý bắt buộc (2026-08-01)
+- Meta App `1355889016681500` đã xác minh webhook HTTPS công khai; Fanpage mục tiêu `1103352009535208` đã đăng ký `messages` và `messaging_postbacks`. Token kiểm tra có đủ `pages_show_list`, `pages_messaging` và `pages_read_engagement`; giá trị token/secret chỉ nằm ngoài Git.
+- Đã thêm ba trang công khai phục vụ phát hành/App Review: `/chinh-sach-quyen-rieng`, `/dieu-khoan-su-dung`, `/xoa-du-lieu`. Nội dung nêu rõ chỉ nhận tin mới sau thời điểm kết nối, mục đích xử lý, dữ liệu Messenger, quyền xóa và kênh liên hệ bệnh viện.
+- TDD trang pháp lý: quan sát RED 3/3 vì route chưa tồn tại, sau triển khai GREEN 3/3. Toàn bộ suite **76/76**, ESLint sạch; production build bằng Webpack nhận diện cả ba route là static.
+- App Meta vẫn ở trạng thái chưa đăng cho tới khi các URL trên được đưa lên domain thật, điền vào `Cài đặt ứng dụng → Thông tin cơ bản`, hoàn tất xét duyệt `pages_messaging` và chuyển app sang live. Không bật live bằng URL giả hoặc khi chưa đủ hồ sơ tuân thủ.
