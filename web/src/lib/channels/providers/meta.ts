@@ -191,7 +191,7 @@ export function createMetaProvider(options: MetaProviderOptions = {}): ChannelPr
       url.searchParams.set("redirect_uri", redirectUri);
       url.searchParams.set("state", state);
       url.searchParams.set("response_type", "code");
-      url.searchParams.set("scope", "pages_show_list,pages_messaging,pages_manage_metadata");
+      url.searchParams.set("scope", "pages_show_list,pages_messaging,pages_manage_metadata,pages_read_engagement");
       return url.toString();
     },
     async exchangeAuthorizationCode({ code, redirectUri }): Promise<ProviderTokenSet> {

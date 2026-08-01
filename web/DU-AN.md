@@ -252,3 +252,11 @@ Chưa có Sửa (cần bổ sung):
 - Khi nhận `contact.withdrawn`, contact và toàn bộ thread/message liên quan bị xóa cascade; receipt không giữ nội dung hay provider user ID dạng rõ, chỉ giữ mã sự kiện/hash tối thiểu để kiểm toán.
 - Đã bổ sung `scripts/verify-channel-ingest.ts` có khóa an toàn chỉ chạy trên CSDL test. Kiểm chứng PostgreSQL 16 tách biệt đạt: `PRISMA_INGEST_OK messages=1 conversations=1 receipts=1` sau khi gửi cùng event hai lần.
 - TDD service/route RED khi module chưa tồn tại, sau triển khai GREEN **6/6**. Toàn bộ Vitest **51/51**, ESLint riêng Task 5 đạt, `tsc --noEmit` đạt và production build nhận diện cả hai API route. `vitest.config.ts` được đồng bộ alias `@/*` với TypeScript/Next để route tests chạy đúng từ cấu hình repository.
+
+### Task 6 hộp thư đa kênh — đăng nhập kết nối OA/Fanpage (2026-08-01)
+- Đã thêm trang ADMIN-only `/cham-soc/cai-dat` với thẻ Zalo OA/Facebook Fanpage, trạng thái, webhook/health cuối, lỗi đã làm sạch, nút kết nối/kết nối lại/ngắt và cấu hình mục tiêu phản hồi theo phút. Query trang chỉ select trường công khai, không đọc/render token.
+- Bốn route connect/callback dùng `requireCap("inbox.manageChannels")`. OAuth attempt lưu state hash + PKCE verifier đã mã hóa, hết hạn sau 10 phút, chỉ đúng ADMIN đã bắt đầu mới tiêu thụ được và update one-use chống callback phát lại.
+- Zalo dùng OAuth v4 + PKCE rồi lấy hồ sơ OA. Meta xin đúng các quyền Page cần thiết, đổi long-lived token, đọc Page đang quản trị, bắt buộc khớp chính xác `META_PAGE_ID`, đăng ký `messages`, `messaging_postbacks`, `message_deliveries`, `message_reads` rồi mới lưu.
+- Access/refresh token được AES-256-GCM trước khi upsert `ChannelAccount`; kết nối/ngắt kết nối ghi audit `CHANNEL_CONNECT`/`CHANNEL_DISCONNECT`. Lỗi không tìm thấy Page chỉ liệt kê ID/tên Page có quyền, không chứa token.
+- TDD OAuth RED khi module chưa tồn tại, sau triển khai GREEN **4/4**. Toàn bộ Vitest **55/55**, lint Task 6 đạt, `tsc --noEmit` đạt và production build nhận diện trang cài đặt cùng đủ sáu route channel (connect/callback/webhook).
+- Chưa kích hoạt tài khoản thật vì App ID/secret/token không được đưa vào Git hoặc chat. Sau khi Task vận hành/env hoàn tất, ADMIN chỉ cần mở trang cài đặt và bấm hai nút đăng nhập; hệ thống bắt đầu nhận tin mới từ `connectedAt`.

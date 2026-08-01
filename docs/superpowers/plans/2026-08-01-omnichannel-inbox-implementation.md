@@ -227,7 +227,7 @@ git push origin master
 - `completeChannelOAuth(provider, callbackUrl, actorId): Promise<ChannelAccount>`.
 - OAuth attempt is one-use, expires after 10 minutes, stores only state hash and encrypted verifier.
 
-- [ ] **Step 1: Write failing replay/expiry tests**
+- [x] **Step 1: Write failing replay/expiry tests**
 
 ```typescript
 it("consumes state once", async () => {
@@ -239,19 +239,19 @@ it("consumes state once", async () => {
 
 Test expiry at 10 minutes and exact Meta Page selection: `META_PAGE_ID` must match an accessible Page; no match stores no Page token and returns names/IDs only.
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run focused connect test. Expected: FAIL because service does not exist.
 
-- [ ] **Step 3: Implement OAuth and settings**
+- [x] **Step 3: Implement OAuth and settings**
 
 All routes call `requireCap("inbox.manageChannels")`. Zalo uses `https://oauth.zaloapp.com/v4/oa/permission` plus PKCE, then `/v4/oa/access_token` with `secret_key`. Meta requests `pages_show_list,pages_messaging,pages_manage_metadata,pages_read_engagement`, resolves exact Page and subscribes `messages,messaging_postbacks,message_deliveries,message_reads`. Encrypt tokens before insert. Cards show status, last webhook/health and clean error; never token fields. ADMIN may leave response target disabled or save a positive minute value into `responseTargetMinutes`.
 
-- [ ] **Step 4: Verify GREEN**
+- [x] **Step 4: Verify GREEN**
 
 Run focused/all tests and render fixture. Expected: replay/expiry rejected, exact account upserted, `CHANNEL_CONNECT`/`CHANNEL_DISCONNECT` audited, token absent from HTML.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 git add -- web/src/lib/channels/connect.ts web/src/lib/channels/__tests__/connect.test.ts web/src/app/api/channels web/src/app/'(app)'/cham-soc/cai-dat
