@@ -57,8 +57,15 @@ export default async function ChamCongPage({
   const parsed = sp.m ? new Date(`${sp.m}-01T00:00:00`) : vnDateOnly();
   const monthDate = Number.isNaN(parsed.getTime()) ? vnDateOnly() : parsed;
   const monthValue = format(monthDate, "yyyy-MM");
-  const gte = startOfMonth(monthDate);
-  const lte = endOfMonth(monthDate);
+  // QUAN TRỌNG: gte/lte so với cột Attendance.date (@db.Date) — startOfMonth/endOfMonth
+  // tính theo giờ LOCAL của máy chủ rồi quy ra tuyệt đối; với giờ VN (UTC+7), "đầu
+  // tháng 8 giờ VN" = 17h ngày 31/7 (UTC). Khi so với cột DATE, Postgres/Prisma cắt
+  // tham số về đúng NGÀY theo giờ UTC của phiên (không phụ thuộc code), biến mốc trên
+  // thành "31/7" — vô tình khớp luôn ngày cuối tháng trước vào tháng sau (đã xác nhận
+  // thực tế: chấm công 31/7 hiện lẫn trong danh sách tháng 8). Bọc lại bằng vnDateOnly()
+  // để chốt đúng mốc UTC-midnight theo lịch VN, tránh hẳn kiểu cắt lệch này.
+  const gte = vnDateOnly(startOfMonth(monthDate));
+  const lte = vnDateOnly(endOfMonth(monthDate));
   const today = vnDateOnly();
   const managerial = isManagerial(user.role);
 

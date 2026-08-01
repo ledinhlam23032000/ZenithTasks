@@ -1,6 +1,7 @@
 import { startOfMonth, endOfMonth, subMonths, format } from "date-fns";
 import { prisma } from "@/lib/db";
 import { toNum } from "@/lib/money";
+import { vnDateOnly } from "@/lib/dates";
 import { collectionsByStaff, collectionsTotal, type StaffCollection } from "@/lib/collections";
 import { computeBaseActual } from "@/lib/payroll-pure";
 import type { Role } from "@/generated/prisma/client";
@@ -44,6 +45,12 @@ export type PayrollRow = {
 export async function getPayroll(monthDate: Date, standardDays = STANDARD_DAYS_DEFAULT) {
   const gte = startOfMonth(monthDate);
   const lte = endOfMonth(monthDate);
+  // Attendance.date là cột @db.Date — PHẢI dùng mốc UTC-midnight riêng (vnDateOnly),
+  // KHÔNG dùng chung gte/lte (giờ LOCAL) ở trên: so trực tiếp sẽ khiến ngày cuối tháng
+  // trước lẫn vào tháng sau (Postgres/Prisma cắt tham số về NGÀY theo giờ UTC của phiên
+  // khi so với cột DATE — xem giải thích đầy đủ ở cham-cong/page.tsx).
+  const attGte = vnDateOnly(gte);
+  const attLte = vnDateOnly(lte);
   const monthStr = format(monthDate, "yyyy-MM");
   const prevMonthStr = format(subMonths(monthDate, 1), "yyyy-MM");
 
@@ -60,7 +67,7 @@ export async function getPayroll(monthDate: Date, standardDays = STANDARD_DAYS_D
         customer: { select: { source: true, sourceDetail: true } },
       },
     }),
-    prisma.attendance.findMany({ where: { date: { gte, lte } }, select: { userId: true } }),
+    prisma.attendance.findMany({ where: { date: { gte: attGte, lte: attLte } }, select: { userId: true } }),
     prisma.payrollEntry.findMany({ where: { month: monthStr } }),
     prisma.payrollEntry.findMany({ where: { month: prevMonthStr } }),
     prisma.payment.findMany({

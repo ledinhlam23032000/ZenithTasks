@@ -2,6 +2,7 @@ import { startOfMonth, endOfMonth, subMonths, subYears, startOfYear, startOfWeek
 import { vi } from "date-fns/locale";
 import { prisma } from "@/lib/db";
 import { toNum } from "@/lib/money";
+import { vnDateOnly } from "@/lib/dates";
 import { collectionsByStaff, type StaffCollection } from "@/lib/collections";
 import type { Role } from "@/generated/prisma/client";
 
@@ -36,13 +37,18 @@ export type StaffPerfRow = {
 export async function getStaffPerformance(monthDate: Date) {
   const gte = startOfMonth(monthDate);
   const lte = endOfMonth(monthDate);
+  // Attendance.date là cột @db.Date — mốc riêng bằng vnDateOnly(), KHÔNG dùng chung
+  // gte/lte (giờ LOCAL) ở trên, tránh ngày cuối tháng trước lẫn vào tháng sau khi so
+  // với cột DATE (xem giải thích đầy đủ ở cham-cong/page.tsx).
+  const attGte = vnDateOnly(gte);
+  const attLte = vnDateOnly(lte);
 
   const [users, consultG, consultAgreedG, doctorG, attendanceG, careG, monthPayments, debtConsultG, debtDoctorG] = await Promise.all([
     prisma.user.findMany({ where: { active: true }, select: { id: true, fullName: true, role: true, avatarUrl: true }, orderBy: [{ role: "asc" }, { fullName: "asc" }] }),
     prisma.caseRecord.groupBy({ by: ["consultantId"], where: { createdAt: { gte, lte }, consultantId: { not: null } }, _count: { _all: true }, _sum: { totalAmount: true } }),
     prisma.caseRecord.groupBy({ by: ["consultantId"], where: { createdAt: { gte, lte }, consultResult: "AGREED", consultantId: { not: null } }, _count: { _all: true } }),
     prisma.caseRecord.groupBy({ by: ["doctorId"], where: { createdAt: { gte, lte }, doctorId: { not: null } }, _count: { _all: true }, _sum: { totalAmount: true } }),
-    prisma.attendance.groupBy({ by: ["userId"], where: { date: { gte, lte } }, _count: { _all: true } }),
+    prisma.attendance.groupBy({ by: ["userId"], where: { date: { gte: attGte, lte: attLte } }, _count: { _all: true } }),
     prisma.careMessage.groupBy({ by: ["createdById"], where: { createdAt: { gte, lte }, createdById: { not: null } }, _count: { _all: true } }),
     prisma.payment.findMany({
       where: { paidAt: { gte, lte } },
@@ -103,13 +109,16 @@ export async function getStaffPerformance(monthDate: Date) {
 export async function getStaffDetail(userId: string, monthDate: Date) {
   const gte = startOfMonth(monthDate);
   const lte = endOfMonth(monthDate);
+  // Attendance.date là cột @db.Date — mốc riêng, xem giải thích ở getStaffPerformance().
+  const attGte = vnDateOnly(gte);
+  const attLte = vnDateOnly(lte);
   const inc = { customer: { select: { id: true, fullName: true, code: true } } };
 
   const [user, consultCases, doctorCases, daysWorked, careCount, collectedPayments] = await Promise.all([
     prisma.user.findUnique({ where: { id: userId }, select: { id: true, fullName: true, role: true, code: true, avatarUrl: true } }),
     prisma.caseRecord.findMany({ where: { consultantId: userId, createdAt: { gte, lte } }, include: inc, orderBy: { createdAt: "desc" } }),
     prisma.caseRecord.findMany({ where: { doctorId: userId, createdAt: { gte, lte } }, include: inc, orderBy: { createdAt: "desc" } }),
-    prisma.attendance.count({ where: { userId, date: { gte, lte } } }),
+    prisma.attendance.count({ where: { userId, date: { gte: attGte, lte: attLte } } }),
     prisma.careMessage.count({ where: { createdById: userId, createdAt: { gte, lte } } }),
     // Từng khoản tiền thật đã về trong tháng từ hồ sơ mình phụ trách (tư vấn hoặc mổ)
     prisma.payment.findMany({

@@ -1,7 +1,5 @@
 import Link from "next/link";
 import {
-  startOfDay,
-  endOfDay,
   addDays,
   addMonths,
   startOfMonth,
@@ -59,15 +57,19 @@ export default async function SchedulePage({
   const month = Number.isNaN(monthRef.getTime()) ? vnDateOnly() : monthRef;
   const monthKey = format(month, "yyyy-MM");
 
+  // Shift.date là cột @db.Date — mọi mốc gte/lte PHẢI bọc vnDateOnly() (UTC-midnight
+  // theo lịch VN) trước khi so, nếu không ngày cuối của khoảng trước sẽ lẫn vào khoảng
+  // sau (Postgres/Prisma cắt tham số về đúng NGÀY theo giờ UTC của phiên khi so với cột
+  // DATE — xem giải thích đầy đủ ở cham-cong/page.tsx).
   let from: Date;
   let to: Date;
   if (view === "thang") {
-    from = startOfWeek(startOfMonth(month), { weekStartsOn: 1 });
-    to = endOfWeek(endOfMonth(month), { weekStartsOn: 1 });
+    from = vnDateOnly(startOfWeek(startOfMonth(month), { weekStartsOn: 1 }));
+    to = vnDateOnly(endOfWeek(endOfMonth(month), { weekStartsOn: 1 }));
   } else {
     const today = vnDateOnly();
-    from = startOfDay(today);
-    to = endOfDay(addDays(today, 6));
+    from = today;
+    to = vnDateOnly(addDays(today, 6));
   }
 
   const [shifts, staff] = await Promise.all([

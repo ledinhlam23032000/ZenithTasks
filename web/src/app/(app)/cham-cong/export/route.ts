@@ -21,8 +21,10 @@ export async function GET(request: Request) {
   // vnDateOnly() chốt đúng "tháng hiện tại" theo giờ VN dù TZ máy chủ có lệch hay không.
   const parsed = mParam ? new Date(`${mParam}-01T00:00:00`) : vnDateOnly();
   const monthDate = Number.isNaN(parsed.getTime()) ? vnDateOnly() : parsed;
-  const gte = startOfMonth(monthDate);
-  const lte = endOfMonth(monthDate);
+  // Bọc vnDateOnly(): so với cột @db.Date phải chốt đúng mốc UTC-midnight theo lịch VN,
+  // nếu không ngày cuối tháng trước sẽ lẫn vào tháng sau — xem giải thích ở cham-cong/page.tsx.
+  const gte = vnDateOnly(startOfMonth(monthDate));
+  const lte = vnDateOnly(endOfMonth(monthDate));
   const monthLabel = format(monthDate, "MM/yyyy");
   const fileBase = `cham-cong-${format(monthDate, "yyyy-MM")}`;
 
