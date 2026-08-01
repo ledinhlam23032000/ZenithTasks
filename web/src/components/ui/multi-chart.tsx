@@ -4,7 +4,6 @@ import { useState } from "react";
 import {
   ResponsiveContainer,
   ComposedChart,
-  BarChart,
   LineChart,
   AreaChart,
   PieChart,

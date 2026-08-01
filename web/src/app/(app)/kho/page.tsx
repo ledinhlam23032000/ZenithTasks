@@ -1,4 +1,4 @@
-import { Boxes, ArrowUpFromLine, PackageX, AlertTriangle, CalendarClock } from "lucide-react";
+import { Boxes, PackageX, AlertTriangle, CalendarClock } from "lucide-react";
 import { requireCap } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { toNum } from "@/lib/money";

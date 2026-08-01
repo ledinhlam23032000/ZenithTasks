@@ -152,7 +152,7 @@ function metaError(status: number, body: JsonRecord): ChannelProviderError {
 
 export function createMetaProvider(options: MetaProviderOptions = {}): ChannelProviderAdapter {
   const fetcher = options.fetch ?? globalThis.fetch;
-  const graphVersion = options.graphVersion ?? process.env.META_GRAPH_VERSION ?? "v23.0";
+  const graphVersion = options.graphVersion ?? process.env.META_GRAPH_VERSION ?? "v24.0";
   const appId = options.appId ?? process.env.META_APP_ID;
   const appSecret = options.appSecret ?? process.env.META_APP_SECRET;
   const graph = `https://graph.facebook.com/${graphVersion}`;

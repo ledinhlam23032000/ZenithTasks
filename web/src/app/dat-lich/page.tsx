@@ -8,7 +8,10 @@ export const metadata = { title: "Đặt lịch hẹn" };
 export default async function PublicBookingPage() {
   const services = await getActiveServices();
   // Mặc định: 9h sáng ngày mai
-  const def = toDatetimeLocal(new Date(new Date(Date.now() + 86400000).setHours(9, 0, 0, 0)));
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  tomorrow.setHours(9, 0, 0, 0);
+  const def = toDatetimeLocal(tomorrow);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-brand-50/60 to-slate-50 px-4 py-10">

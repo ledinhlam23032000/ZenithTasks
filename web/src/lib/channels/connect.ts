@@ -158,7 +158,7 @@ function valueText(value: unknown): string | null {
 }
 
 async function metaPages(userAccessToken: string): Promise<MetaAccessiblePage[]> {
-  const graphVersion = process.env.META_GRAPH_VERSION ?? "v23.0";
+  const graphVersion = process.env.META_GRAPH_VERSION ?? "v24.0";
   const response = await fetch(`https://graph.facebook.com/${graphVersion}/me/accounts?fields=id,name,picture,access_token&limit=100`, {
     headers: { authorization: `Bearer ${userAccessToken}` },
   });
@@ -179,7 +179,7 @@ async function metaPages(userAccessToken: string): Promise<MetaAccessiblePage[]>
 }
 
 async function subscribeMetaPage(pageId: string, pageAccessToken: string): Promise<void> {
-  const graphVersion = process.env.META_GRAPH_VERSION ?? "v23.0";
+  const graphVersion = process.env.META_GRAPH_VERSION ?? "v24.0";
   const response = await fetch(`https://graph.facebook.com/${graphVersion}/${encodeURIComponent(pageId)}/subscribed_apps`, {
     method: "POST",
     headers: { authorization: `Bearer ${pageAccessToken}`, "content-type": "application/json" },

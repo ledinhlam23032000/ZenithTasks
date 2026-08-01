@@ -57,3 +57,9 @@ client/     App máy con (mở trình duyệt vào máy chủ)
 docker-compose.yml   Chạy toàn hệ thống (web + PostgreSQL) — dùng khi vận hành
 .env.example         Mẫu cấu hình khoá/biến môi trường
 ```
+
+## Hộp thư Zalo OA + Facebook Fanpage
+
+Hộp thư đa kênh nằm tại **Chăm sóc KH → Hộp thư mới**. Hệ thống chỉ nhận tin phát sinh sau lúc kết nối, cho phép nhân viên trả lời ngay trong ZenithTasks và vẫn giữ nguyên tab **Nhật ký thủ công**. Cấu hình provider nằm trong `.env`; khóa token và secret bảo trì có thể để trống để Docker tự sinh một lần trong volume `zenith_secrets`.
+
+Quy trình kích hoạt: cấu hình domain HTTPS và biến trong `.env` → `docker compose up -d --build` → chạy `windows/Cai-Bao-Tri-Kenh.bat` → ADMIN mở `/cham-soc/cai-dat` và lần lượt bấm kết nối Zalo OA/Facebook. Hướng dẫn callback, quyền app review, test và rollback đầy đủ ở [`web/DEPLOY.md`](web/DEPLOY.md#hộp-thư-zalo-oa--facebook-fanpage).

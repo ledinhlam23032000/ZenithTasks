@@ -13,12 +13,14 @@ export const metadata = { title: "Hồ sơ của tôi" };
 
 export default async function CustomerPortalPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
+  const followUpCutoff = new Date();
+  followUpCutoff.setDate(followUpCutoff.getDate() - 1);
   const customer = await prisma.customer.findUnique({
     where: { portalToken: token },
     include: {
       cases: { orderBy: { createdAt: "desc" }, include: { services: { select: { name: true } } } },
       photos: { orderBy: { takenAt: "desc" }, take: 12 },
-      followUps: { where: { scheduledAt: { gte: new Date(Date.now() - 86400000) } }, orderBy: { scheduledAt: "asc" }, take: 5 },
+      followUps: { where: { scheduledAt: { gte: followUpCutoff } }, orderBy: { scheduledAt: "asc" }, take: 5 },
     },
   });
   if (!customer) notFound();

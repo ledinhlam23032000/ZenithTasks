@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 import { cn } from "@/lib/cn";
 
 function initials(name: string): string {
@@ -25,7 +26,6 @@ function hashName(name: string): number {
 
 export function Avatar({ name, src, className }: { name: string; src?: string | null; className?: string }) {
   if (src) {
-    // eslint-disable-next-line @next/next/no-img-element
     return (
       <img
         src={src}

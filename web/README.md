@@ -103,3 +103,10 @@ web/
 │   └── cham-soc, bao-cao, lich-lam-viec, nhan-su, danh-muc
 └── src/proxy.ts              # bảo vệ route (thay cho middleware ở Next 16)
 ```
+
+## Hộp thư chăm sóc đa kênh
+
+- Mã nguồn provider/domain: `src/lib/channels/`; OAuth/webhook/attachment: `src/app/api/channels/`; UI: `src/app/(app)/cham-soc/`.
+- Cờ `OMNICHANNEL_ENABLED` mặc định `false`. ADMIN quản lý kênh ở `/cham-soc/cai-dat`; ADMIN/MANAGER/CARE dùng inbox theo capability `inbox.*`; SHAREHOLDER bị hard-deny nội dung hội thoại.
+- Token OAuth dùng `CHANNEL_TOKEN_ENC_KEY`; route bảo trì dùng `CHANNEL_MAINTENANCE_SECRET`; tệp inbox ở volume riêng ngoài `public/`.
+- Docker tự sinh và giữ hai secret kênh khi để trống. Xem cấu hình provider, callback, scheduler và release gate tại [`DEPLOY.md`](DEPLOY.md#hộp-thư-zalo-oa--facebook-fanpage).

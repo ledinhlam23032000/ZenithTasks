@@ -216,12 +216,16 @@ npx next dev -p 3939                              # dev server (Turbopack; biên
 8. Sau đổi schema mà quên `prisma generate` → tsc báo lỗi kiểu.
 
 ## 14. TODO / lộ trình
-- **Hộp thư đa kênh Zalo OA + Facebook Fanpage**: chủ dự án đã có quyền quản trị cả hai và duyệt hướng tích hợp trực tiếp ngày 2026-08-01. Thiết kế tại `docs/superpowers/specs/2026-08-01-omnichannel-inbox-design.md`; chỉ nhận tin mới, trả lời trong app, chưa bật AI tự trả lời/broadcast.
+- **Kích hoạt thật hộp thư Zalo OA + Facebook Fanpage**: mã nguồn đã hoàn tất; còn checkpoint bên ngoài gồm App ID/secret, quyền provider/app review và một vòng nhận–trả lời bằng tài khoản test riêng. Giữ `OMNICHANNEL_ENABLED=false` tới khi checkpoint đạt. Thiết kế tại `docs/superpowers/specs/2026-08-01-omnichannel-inbox-design.md`; chỉ nhận tin mới, trả lời trong app, chưa bật AI tự trả lời/broadcast.
 - **AI tự trả lời (giai đoạn sau)**: chỉ xem xét sau khi inbox thật vận hành ổn định; nội dung y khoa/giá vẫn cần người duyệt.
 - Sửa giờ **Shift** (ca làm việc) — chưa có.
 - (Cân nhắc) cờ "nhân sự bệnh viện điều động: lương cố định, không trừ ngày công".
 - (Cân nhắc) xuất Word/Excel cho từng hoá đơn (hiện chỉ In/PDF).
 - (Cân nhắc) ảnh cận lâm sàng độ phân giải cao hơn (hiện nén chung 1920px).
+
+### Hộp thư đa kênh đã triển khai
+
+Domain nằm ở `src/lib/channels`, route ở `src/app/api/channels`, UI ở `src/app/(app)/cham-soc`; migration `20260801090000_omnichannel_inbox` chỉ thêm bảng và giữ nguyên `CareMessage`. Entry point tự giữ khóa token/secret bảo trì trong volume; Windows Task Scheduler chạy bảo trì 12 giờ. Trạng thái phát hành mặc định vẫn đóng bằng `OMNICHANNEL_ENABLED=false` cho tới khi chủ dự án đi qua external activation checkpoint bằng App ID/secret và tài khoản test thật. Tài liệu vận hành chuẩn là mục “Hộp thư Zalo OA + Facebook Fanpage” trong `DEPLOY.md`.
 
 ## 15. Trỏ tới tài liệu khác
 - **`DU-AN.md`** — changelog chi tiết theo từng đợt (đọc để biết lịch sử + lý do từng quyết định).

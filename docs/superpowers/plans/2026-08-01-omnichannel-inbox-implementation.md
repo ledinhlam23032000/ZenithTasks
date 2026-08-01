@@ -578,23 +578,23 @@ git push origin master
 - Env: `OMNICHANNEL_ENABLED`, `PUBLIC_APP_URL`, `CHANNEL_TOKEN_ENC_KEY`, `CHANNEL_MAINTENANCE_SECRET`, `ZALO_APP_ID`, `ZALO_APP_SECRET`, `ZALO_OA_SECRET`, `META_APP_ID`, `META_APP_SECRET`, `META_PAGE_ID`, `META_WEBHOOK_VERIFY_TOKEN`, `META_GRAPH_VERSION`.
 - Scheduled task POSTs maintenance every 12 hours with bearer secret.
 
-- [ ] **Step 1: Write failing scheduler test**
+- [x] **Step 1: Write failing scheduler test**
 
 Test `-WhatIf` output uses exact maintenance URL, 12-hour interval, reads secret from env/runtime file and never prints its value.
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run scheduler test. Expected: FAIL because scheduler does not exist.
 
-- [ ] **Step 3: Implement runtime secrets and docs**
+- [x] **Step 3: Implement runtime secrets and docs**
 
 Entrypoint generates/persists channel encryption and maintenance secrets once under `/app/.runtime` with mode `600` when env is empty. Compose passes provider secrets only from `.env`. Docs include callbacks, app-review permissions, test accounts, reconnect, backup/restore, flag rollback and secret-handling rules.
 
-- [ ] **Step 4: Complete release gate**
+- [x] **Step 4: Complete release gate**
 
 From fresh exported context run Prisma format/validate/generate, all tests, TypeScript, ESLint, Next build and Docker build. Apply migration to disposable PostgreSQL 16, compare `CareMessage` count before/after, run valid/invalid webhook fixtures, and only then use dedicated Zalo/Meta test users for real OAuth/send-receive. Every command must exit 0; legacy row count cannot change; tokens cannot appear in Git, HTML or logs.
 
-- [ ] **Step 5: Document evidence, commit and push**
+- [x] **Step 5: Document evidence, commit and push**
 
 ```powershell
 git add -- .env.example docker-compose.yml README.md PROJECT-OVERVIEW.md web/.env.example web/docker-entrypoint.sh web/README.md web/DEPLOY.md web/BAN-GIAO.md web/DU-AN.md windows/Cai-Bao-Tri-Kenh.ps1 windows/Cai-Bao-Tri-Kenh.bat windows/Cai-Bao-Tri-Kenh.Tests.ps1

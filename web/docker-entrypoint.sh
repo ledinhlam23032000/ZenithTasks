@@ -8,6 +8,7 @@ set -e
 # ---------------------------------------------------------------------------
 SECRET_DIR="/app/.runtime"
 mkdir -p "$SECRET_DIR"
+chmod 700 "$SECRET_DIR"
 
 # Tệp hộp thư chứa dữ liệu khách hàng, lưu trong volume riêng và không phục vụ từ public/.
 INBOX_ATTACHMENT_ROOT="${INBOX_ATTACHMENT_ROOT:-/app/private/inbox}"
@@ -35,6 +36,28 @@ if [ -z "$PHONE_ENC_KEY" ]; then
   PHONE_ENC_KEY="$(cat "$SECRET_DIR/phone_key")"
   export PHONE_ENC_KEY
 fi
+
+# CHANNEL_TOKEN_ENC_KEY (AES-256-GCM cho token OAuth) — sinh đúng 32 byte và giữ cố định.
+if [ -z "$CHANNEL_TOKEN_ENC_KEY" ]; then
+  if [ ! -f "$SECRET_DIR/channel_token_key" ]; then
+    node -e "process.stdout.write(require('crypto').randomBytes(32).toString('base64'))" > "$SECRET_DIR/channel_token_key"
+    echo "🔐 Đã tạo khóa mã hóa token kênh trong volume an toàn."
+  fi
+  CHANNEL_TOKEN_ENC_KEY="$(cat "$SECRET_DIR/channel_token_key")"
+  export CHANNEL_TOKEN_ENC_KEY
+fi
+
+# Secret gọi tác vụ bảo trì nội bộ — không đưa vào URL, log hay tham số Task Scheduler.
+if [ -z "$CHANNEL_MAINTENANCE_SECRET" ]; then
+  if [ ! -f "$SECRET_DIR/channel_maintenance_secret" ]; then
+    node -e "process.stdout.write(require('crypto').randomBytes(48).toString('base64url'))" > "$SECRET_DIR/channel_maintenance_secret"
+    echo "🔐 Đã tạo secret bảo trì kênh trong volume an toàn."
+  fi
+  CHANNEL_MAINTENANCE_SECRET="$(cat "$SECRET_DIR/channel_maintenance_secret")"
+  export CHANNEL_MAINTENANCE_SECRET
+fi
+
+chmod 600 "$SECRET_DIR"/* 2>/dev/null || true
 
 echo "⏳ Áp dụng migration (chờ cơ sở dữ liệu sẵn sàng)..."
 n=0

@@ -36,18 +36,25 @@ try {
   # 2) Sao chep thu muc anh (truoc/sau, avatar...)
   cmd /c "docker compose -f ""$Compose"" cp app:/app/public/uploads ""$tmp\uploads""" 2>$null
 
-  # 3) Nen thanh 1 file .zip
+  # 3) Sao luu khoa runtime + tep dinh kem inbox. Day la du lieu NHAY CAM:
+  #    ban backup phai nam tren o dia/Google Drive chi chu du an truy cap.
+  cmd /c "docker compose -f ""$Compose"" cp app:/app/.runtime ""$tmpuntime""" 2>$null
+  if ($LASTEXITCODE -ne 0) { throw "Khong sao luu duoc khoa runtime cua ung dung." }
+  cmd /c "docker compose -f ""$Compose"" cp app:/app/private/inbox ""$tmpinbox-attachments""" 2>$null
+  if ($LASTEXITCODE -ne 0) { throw "Khong sao luu duoc tep dinh kem hop thu." }
+
+  # 4) Nen thanh 1 file .zip
   $zip = Join-Path $BackupRoot "zenith-$stamp.zip"
   Compress-Archive -Path "$tmp\*" -DestinationPath $zip -Force
   $sizeMB = [math]::Round((Get-Item $zip).Length / 1MB, 1)
   Log "Da luu: $zip ($sizeMB MB)"
 
-  # 4) Chi giu ban sao luu trong 30 ngay gan nhat
+  # 5) Chi giu ban sao luu trong 30 ngay gan nhat
   Get-ChildItem (Join-Path $BackupRoot 'zenith-*.zip') |
     Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-30) } |
     Remove-Item -Force -ErrorAction SilentlyContinue
 
-  # 5) Sao chep ra NOI LUU NGOAI (Google Drive / USB / o mang) neu da cau hinh
+  # 6) Sao chep ra NOI LUU NGOAI (Google Drive / USB / o mang) neu da cau hinh
   $offFile = Join-Path $env:USERPROFILE 'zenith-sao-luu-offsite.txt'
   if (Test-Path $offFile) {
     $offsite = (Get-Content $offFile -Raw).Trim()
