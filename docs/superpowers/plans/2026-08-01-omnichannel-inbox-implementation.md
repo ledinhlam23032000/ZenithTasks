@@ -524,7 +524,7 @@ git push origin master
 - `buildInboxViewModel` emits serializable props/Vietnamese labels with no secrets.
 - Query state: `tab=inbox|manual`, `queue=unassigned|mine|all`, `conversation=<id>`.
 
-- [ ] **Step 1: Write failing view-model tests**
+- [x] **Step 1: Write failing view-model tests**
 
 ```typescript
 it("shows clean failed status without provider internals", () => {
@@ -537,19 +537,19 @@ it("shows clean failed status without provider internals", () => {
 
 Add unlinked-contact label, provider badge, unread count, overdue badge only when `responseTargetMinutes` is configured, active viewer/typing label, hidden inbox for SHAREHOLDER and visible legacy tab.
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run focused view-model test. Expected: FAIL because view-model does not exist.
 
-- [ ] **Step 3: Implement responsive UI**
+- [x] **Step 3: Implement responsive UI**
 
 Feature flag false renders current manual UI. Flag true plus `inbox.view` renders tabs, three queues, channel filters, three-pane desktop and list → thread → customer mobile flow. Composer sends validated text/image/file, displays provider window/error, retry, note, claim/status/link controls by capability. Poller refreshes every 5 seconds only visible and immediately on `visibilitychange` return; presence heartbeat is non-blocking.
 
-- [ ] **Step 4: Verify GREEN and visuals**
+- [x] **Step 4: Verify GREEN and visuals**
 
 Run focused/all tests, `npx tsc --noEmit`, ESLint, build and Playwright at 390×844/1440×1000. Expected: no overflow, working mobile back, safe zero-channel onboarding, legacy rows retained.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 git add -- web/src/app/'(app)'/cham-soc

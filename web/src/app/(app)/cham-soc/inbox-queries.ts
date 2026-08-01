@@ -9,12 +9,14 @@ export type InboxListItem = {
   assigneeId: string | null;
   assigneeName: string | null;
   contactName: string;
+  customerId: string | null;
   provider: ChannelProvider;
   preview: string;
   lastMessageAt: Date | null;
   unreadCount: number;
   responseTargetMinutes: number | null;
   openedAt: Date;
+  firstResponseAt: Date | null;
 };
 
 export async function listInbox(input: {
@@ -43,7 +45,7 @@ export async function listInbox(input: {
     take: 100,
     include: {
       assignee: { select: { fullName: true } },
-      thread: { include: { channelContact: { select: { displayName: true } }, channelAccount: { select: { provider: true, responseTargetMinutes: true } } } },
+      thread: { include: { channelContact: { select: { displayName: true, customerId: true } }, channelAccount: { select: { provider: true, responseTargetMinutes: true } } } },
     },
   });
   return rows.map((row) => ({
@@ -52,23 +54,26 @@ export async function listInbox(input: {
     assigneeId: row.assigneeId,
     assigneeName: row.assignee?.fullName ?? null,
     contactName: row.thread.channelContact.displayName ?? "Khách chưa xác định",
+    customerId: row.thread.channelContact.customerId,
     provider: row.thread.channelAccount.provider,
     preview: row.thread.lastMessagePreview ?? "Chưa có nội dung",
     lastMessageAt: row.thread.lastMessageAt,
     unreadCount: row.thread.unreadCount,
     responseTargetMinutes: row.thread.channelAccount.responseTargetMinutes,
     openedAt: row.openedAt,
+    firstResponseAt: row.firstResponseAt,
   }));
 }
 
 export async function getInboxConversation(conversationId: string, user: SafeUser) {
+  const presenceCutoff = new Date(Date.now() - 15_000);
   const row = await prisma.conversation.findUnique({
     where: { id: conversationId },
     include: {
       assignee: { select: { id: true, fullName: true } },
       messages: { orderBy: { createdAt: "asc" }, include: { attachments: true, sentBy: { select: { fullName: true } } } },
       events: { orderBy: { createdAt: "asc" }, include: { actor: { select: { fullName: true } } } },
-      presence: { where: { heartbeatAt: { gt: new Date(Date.now() - 15_000) } }, include: { user: { select: { fullName: true, avatarUrl: true } } } },
+      presence: { where: { heartbeatAt: { gt: presenceCutoff } }, include: { user: { select: { fullName: true, avatarUrl: true } } } },
       thread: { include: { channelAccount: { select: { id: true, provider: true, displayName: true, responseTargetMinutes: true } }, channelContact: { include: { customer: { select: { id: true, code: true, fullName: true, phoneLast5: true } } } } } },
     },
   });
