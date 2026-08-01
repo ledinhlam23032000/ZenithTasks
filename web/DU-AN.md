@@ -202,3 +202,13 @@ Chưa có Sửa (cần bổ sung):
 ### 4) Lưu trữ ở máy phòng khám, tải về khi cần xem (đúng ý chủ)
 - Ảnh/tệp lưu ở **chính máy chủ phòng khám** trong volume Docker `zenith_uploads` (`docker-compose.yml` gốc), KHÔNG mất khi cập nhật/`build --no-cache`. Phục vụ **theo yêu cầu** qua route `/media/[file]` — bản web chỉ hiện thu nhỏ, bấm mới tải ảnh đầy đủ từ máy về xem.
 - **An toàn dù xóa ở điện thoại**: ảnh đã nằm ở máy phòng khám; `windows/Sao-Luu.ps1` sao lưu cả DB **lẫn** thư mục `uploads` ra ổ ngoài/Google Drive. (Lưu ý: `web/docker-compose.yml` chỉ là DB cho lập trình — KHÔNG dùng khi vận hành; script Windows luôn chạy compose ở thư mục gốc.)
+
+## Thiết kế Hộp thư CSKH đa kênh Zalo OA + Facebook Fanpage (2026-08-01)
+- Chủ dự án xác nhận đã có Zalo OA, Facebook Fanpage và quyền quản trị; phạm vi đầu tiên chỉ nhận **tin mới** và nhân viên **trả lời trực tiếp trong ZenithTasks**.
+- Đã nghiên cứu cách vận hành của Pancake, respond.io, SleekFlow, Intercom và Zendesk. Hồ sơ bằng chứng và bảng tổng hợp nằm ở `../competitor-profiles/`.
+- Chọn kiến trúc tích hợp trực tiếp API chính thức, không dùng SaaS/n8n làm nguồn vận hành chính. Lý do: giữ dữ liệu khách, RBAC và audit trong một hệ thống; tránh hai CRM chồng chéo và giảm phụ thuộc nhà cung cấp trung gian.
+- Mô hình thiết kế tách `ChannelAccount`, `ChannelContact`, `ChannelThread`, `Conversation`, `InboxMessage`, event/presence và webhook receipt. Contact mạng xã hội được tạo trước; chỉ liên kết `Customer` sau khi nhân viên xác minh, không đoán theo tên.
+- Vận hành dự kiến: hàng chờ Chưa phân công/Của tôi/Tất cả; người trả lời đầu tiên tự nhận; Open/Snoozed/Closed; ghi chú nội bộ; cảnh báo đồng nghiệp đang xem/gõ; trạng thái gửi/đã nhận/đã đọc/thất bại; health badge và reconnect.
+- `CareMessage` cũ được giữ nguyên làm nhật ký thủ công/di sản; tin thật mới không ghi lặp. Timeline khách sẽ hợp nhất hai nguồn khi đọc.
+- Bảo mật thiết kế: token mã hóa bằng khóa riêng ngoài Git, xác thực chữ ký webhook trên raw body, idempotency, attachment inbox qua route có session/quyền, SHAREHOLDER không xem nội dung hội thoại nhạy cảm.
+- Chưa viết code/migration ở commit thiết kế. Bản đặc tả đầy đủ: `../docs/superpowers/specs/2026-08-01-omnichannel-inbox-design.md`.

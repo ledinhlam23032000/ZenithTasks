@@ -200,16 +200,10 @@ npx next dev -p 3939                              # dev server (Turbopack; biên
 - Đăng nhập lần đầu: `admin / 123456` (đổi ngay).
 
 ## 12. Git & quy trình bàn giao
-- **Nhánh phát triển**: `claude/lucid-cori-fg136w`. Develop + commit + push CHỈ lên nhánh này. (PR #3 đã tồn tại — KHÔNG tạo PR mới trừ khi chủ yêu cầu.)
-- **Push**: `git push -u origin claude/lucid-cori-fg136w`, retry 4 lần (2s,4s,8s,16s) nếu lỗi mạng.
-- **Footer commit** (bắt buộc) — dạng:
-  ```
-  Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
-  Claude-Session: <URL session của PHIÊN HIỆN TẠI>
-  ```
-  ⚠️ Dòng `Claude-Session` lấy theo **chỉ dẫn của phiên đang chạy** (mỗi phiên một URL khác), KHÔNG chép URL trong tài liệu này.
-- Commit message tiếng Việt, rõ ràng. KHÔNG ghi định danh model.
-- GitHub thao tác qua tool `mcp__github__*` (không có `gh` CLI). Repo scope: `ledinhlam23032000/zenithtasks`.
+- **Nhánh phát hành hiện hành: `master`** theo chỉ đạo trực tiếp của chủ dự án ngày 2026-08-01. Mọi thay đổi đã kiểm thử phải commit và push lên `origin/master`; không tạo nhánh/PR khác nếu chủ chưa yêu cầu.
+- Mỗi thay đổi chức năng phải cập nhật `DU-AN.md`; thay đổi kiến trúc/quy ước/vận hành phải cập nhật thêm `BAN-GIAO.md` và tài liệu liên quan (`README.md`, `PROJECT-OVERVIEW.md`, `DEPLOY.md`, `.env.example`) để phiên sau tiếp quản được.
+- Commit message tiếng Việt, rõ ràng; không ghi tên/định danh model hoặc URL phiên làm việc trong commit/code/comment.
+- Trước push: xem diff, chạy kiểm thử phù hợp và chỉ stage tệp thuộc phạm vi công việc. Repo scope: `ledinhlam23032000/ZenithTasks`.
 
 ## 13. Cạm bẫy đã gặp (đọc để khỏi lặp lại)
 1. **"Không mở được hồ sơ điều trị" (P2002)**: mã sinh bằng `count()+1` trùng sau khi xóa → đổi sang `nextSeq` (max+1) + retry. (Mục 8.5)
@@ -222,7 +216,8 @@ npx next dev -p 3939                              # dev server (Turbopack; biên
 8. Sau đổi schema mà quên `prisma generate` → tsc báo lỗi kiểu.
 
 ## 14. TODO / lộ trình
-- **Zalo OA (GĐ2)** + **AI tự trả lời (GĐ3)**: cần lập Zalo OA lấy token (khách đang dùng Zalo cá nhân, không có API) — TẠM GÁC.
+- **Hộp thư đa kênh Zalo OA + Facebook Fanpage**: chủ dự án đã có quyền quản trị cả hai và duyệt hướng tích hợp trực tiếp ngày 2026-08-01. Thiết kế tại `docs/superpowers/specs/2026-08-01-omnichannel-inbox-design.md`; chỉ nhận tin mới, trả lời trong app, chưa bật AI tự trả lời/broadcast.
+- **AI tự trả lời (giai đoạn sau)**: chỉ xem xét sau khi inbox thật vận hành ổn định; nội dung y khoa/giá vẫn cần người duyệt.
 - Sửa giờ **Shift** (ca làm việc) — chưa có.
 - (Cân nhắc) cờ "nhân sự bệnh viện điều động: lương cố định, không trừ ngày công".
 - (Cân nhắc) xuất Word/Excel cho từng hoá đơn (hiện chỉ In/PDF).
