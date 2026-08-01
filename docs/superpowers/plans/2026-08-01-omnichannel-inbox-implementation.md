@@ -475,7 +475,7 @@ git push origin master
 - `downloadInboxAttachment(attachmentId): Promise<void>` and `sendInboxAttachment(input): Promise<InboxMessage>`; max 10 MiB; allow JPEG/PNG/WebP/PDF.
 - Protected GET requires `inbox.view` and parent-conversation visibility.
 
-- [ ] **Step 1: Write failing validation tests**
+- [x] **Step 1: Write failing validation tests**
 
 ```typescript
 it("rejects an executable named image.jpg", async () => {
@@ -487,19 +487,19 @@ it("rejects an executable named image.jpg", async () => {
 
 Add over-10-MiB, traversal filename, valid magic bytes and unauthorized read cases.
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run focused attachment test. Expected: FAIL because module does not exist.
 
-- [ ] **Step 3: Implement protected storage**
+- [x] **Step 3: Implement protected storage**
 
 Store generated names under `/app/private/inbox/<account-id>/` in `zenith_inbox_attachments`, never `public/uploads`. Ingest creates `PENDING`; maintenance downloads and sets `READY`/`FAILED`. Outbound upload is validated/stored first, then the provider adapter uploads/sends and updates the same `InboxMessage`; retry reuses message/client nonce. Validate header plus streamed bytes, magic bytes and generated extension.
 
-- [ ] **Step 4: Verify GREEN**
+- [x] **Step 4: Verify GREEN**
 
 Run focused/all tests; request route as anonymous/SHAREHOLDER/CARE. Expected: 401-or-redirect, 403, 200 with `Cache-Control: private, no-store`.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 git add -- web/src/lib/channels web/src/app/api/channels/attachments web/docker-entrypoint.sh docker-compose.yml

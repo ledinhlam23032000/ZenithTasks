@@ -7,6 +7,7 @@ import { userCan } from "@/lib/permissions";
 import { createMetaProvider } from "@/lib/channels/providers/meta";
 import { createZaloProvider } from "@/lib/channels/providers/zalo";
 import { withValidAccessToken } from "@/lib/channels/token-manager";
+import { diskAttachmentStore, validateAndStoreAttachment } from "@/lib/channels/attachments";
 import type { ConversationStatus } from "@/generated/prisma/client";
 
 export type InboxActionResult = { ok?: true; error?: string; nonce?: number };
@@ -158,6 +159,122 @@ export async function retryInboxText(data: FormData): Promise<InboxActionResult>
   const result = await deliverText({ messageId, accountId: message.channelAccountId, provider: message.conversation.thread.channelAccount.provider, externalAccountId: message.conversation.thread.channelAccount.externalAccountId, externalUserId: message.conversation.thread.channelContact.externalUserId, conversationId: message.conversationId, content: message.content });
   refreshInbox();
   return result;
+}
+
+export async function sendInboxAttachmentAction(data: FormData): Promise<InboxActionResult> {
+  const user = await requireCap("inbox.reply");
+  const conversationId = formText(data, "conversationId");
+  const clientNonce = formText(data, "clientNonce");
+  const file = data.get("file");
+  if (!(file instanceof File) || !clientNonce) return { error: "Thiếu tệp hoặc mã gửi." };
+  const existing = await prisma.inboxMessage.findUnique({ where: { clientNonce } });
+  if (existing) return existing.status === "FAILED" ? { error: existing.providerErrorMessage ?? "Tệp đã gửi thất bại." } : { ok: true };
+  const conversation = await visibleConversation(conversationId, user);
+  if (conversation.assigneeId && conversation.assigneeId !== user.id) return { error: "Hội thoại đang thuộc nhân viên khác." };
+  let stored;
+  try {
+    stored = await validateAndStoreAttachment(new Response(file, { headers: { "content-type": file.type, "content-length": String(file.size) } }), { channelAccountId: conversation.thread.channelAccountId, originalName: file.name });
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Tệp không hợp lệ." };
+  }
+  const type = stored.mimeType.startsWith("image/") ? "IMAGE" as const : "FILE" as const;
+  const message = await prisma.$transaction(async (tx) => {
+    if (!conversation.assigneeId) {
+      const claimed = await tx.conversation.updateMany({ where: { id: conversationId, assigneeId: null, version: conversation.version }, data: { assigneeId: user.id, assignedAt: new Date(), assignedById: user.id, version: { increment: 1 } } });
+      if (claimed.count !== 1) throw new Error("Hội thoại vừa được đồng nghiệp nhận xử lý.");
+      await tx.conversationEvent.create({ data: { conversationId, actorId: user.id, type: "ASSIGNED", data: { assigneeId: user.id } } });
+    }
+    return tx.inboxMessage.create({
+      data: {
+        channelAccountId: conversation.thread.channelAccountId,
+        conversationId,
+        clientNonce,
+        direction: "OUT",
+        type,
+        status: "PENDING",
+        content: file.name.slice(0, 240),
+        sentById: user.id,
+        attachments: { create: { channelAccountId: conversation.thread.channelAccountId, originalName: file.name.slice(0, 240), storagePath: stored.storagePath, mimeType: stored.mimeType, sizeBytes: stored.sizeBytes, status: "READY" } },
+      },
+      include: { attachments: true },
+    });
+  });
+  try {
+    const sent = await withValidAccessToken(message.channelAccountId, async (accessToken) => {
+      const adapter = conversation.thread.channelAccount.provider === "ZALO_OA" ? createZaloProvider() : createMetaProvider();
+      const uploaded = await adapter.uploadAttachment({ externalAccountId: conversation.thread.channelAccount.externalAccountId, externalUserId: conversation.thread.channelContact.externalUserId, accessToken, file, fileName: file.name });
+      const result = await adapter.sendAttachment({ externalAccountId: conversation.thread.channelAccount.externalAccountId, externalUserId: conversation.thread.channelContact.externalUserId, accessToken, ...uploaded });
+      return { ...result, uploaded };
+    });
+    await prisma.$transaction([
+      prisma.inboxMessage.update({ where: { id: message.id }, data: { status: "SENT", providerMessageId: sent.providerMessageId, providerTimestamp: sent.timestamp } }),
+      prisma.inboxAttachment.update({ where: { id: message.attachments[0].id }, data: { providerAttachmentId: sent.uploaded.providerAttachmentId } }),
+      prisma.conversation.updateMany({ where: { id: conversationId, firstResponseAt: null }, data: { firstResponseAt: sent.timestamp } }),
+      prisma.channelThread.update({ where: { id: conversation.threadId }, data: { lastMessagePreview: type === "IMAGE" ? "[Hình ảnh]" : "[Tệp đính kèm]", lastMessageAt: sent.timestamp, lastOutboundAt: sent.timestamp } }),
+    ]);
+    refreshInbox();
+    return { ok: true };
+  } catch (error) {
+    const clean = error && typeof error === "object" ? error as { publicMessage?: unknown; code?: unknown } : {};
+    const publicMessage = typeof clean.publicMessage === "string" ? clean.publicMessage : "Không gửi được tệp. Vui lòng thử lại.";
+    await prisma.inboxMessage.update({ where: { id: message.id }, data: { status: "FAILED", providerErrorCode: typeof clean.code === "string" ? clean.code : null, providerErrorMessage: publicMessage } });
+    return { error: publicMessage };
+  }
+}
+
+export async function retryInboxAttachment(data: FormData): Promise<InboxActionResult> {
+  const user = await requireCap("inbox.reply");
+  const messageId = formText(data, "messageId");
+  const message = await prisma.inboxMessage.findUnique({
+    where: { id: messageId },
+    include: {
+      attachments: { where: { status: "READY", storagePath: { not: null }, mimeType: { not: null } }, take: 1 },
+      conversation: { include: { thread: { include: { channelAccount: true, channelContact: true } } } },
+    },
+  });
+  const attachment = message?.attachments[0];
+  if (!message || message.direction !== "OUT" || !attachment?.storagePath || !attachment.mimeType) return { error: "Tệp không thể thử lại." };
+  await visibleConversation(message.conversationId, user);
+  const claimed = await prisma.inboxMessage.updateMany({
+    where: { id: message.id, status: "FAILED" },
+    data: { status: "PENDING", providerErrorCode: null, providerErrorMessage: null },
+  });
+  if (claimed.count !== 1) return { error: "Tệp đang được gửi hoặc đã gửi xong." };
+  await prisma.conversationEvent.create({ data: { conversationId: message.conversationId, actorId: user.id, type: "SEND_RETRIED", data: { messageId } } });
+  try {
+    const bytes = await diskAttachmentStore.read!(attachment.storagePath);
+    const file = new Blob([bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer], { type: attachment.mimeType });
+    const sent = await withValidAccessToken(message.channelAccountId, async (accessToken) => {
+      const adapter = message.conversation.thread.channelAccount.provider === "ZALO_OA" ? createZaloProvider() : createMetaProvider();
+      const uploaded = await adapter.uploadAttachment({
+        externalAccountId: message.conversation.thread.channelAccount.externalAccountId,
+        externalUserId: message.conversation.thread.channelContact.externalUserId,
+        accessToken,
+        file,
+        fileName: attachment.originalName ?? `tep-${attachment.id}`,
+      });
+      const result = await adapter.sendAttachment({
+        externalAccountId: message.conversation.thread.channelAccount.externalAccountId,
+        externalUserId: message.conversation.thread.channelContact.externalUserId,
+        accessToken,
+        ...uploaded,
+      });
+      return { ...result, uploaded };
+    });
+    await prisma.$transaction([
+      prisma.inboxMessage.update({ where: { id: message.id }, data: { status: "SENT", providerMessageId: sent.providerMessageId, providerTimestamp: sent.timestamp } }),
+      prisma.inboxAttachment.update({ where: { id: attachment.id }, data: { providerAttachmentId: sent.uploaded.providerAttachmentId } }),
+      prisma.conversation.updateMany({ where: { id: message.conversationId, firstResponseAt: null }, data: { firstResponseAt: sent.timestamp } }),
+      prisma.channelThread.update({ where: { id: message.conversation.threadId }, data: { lastMessagePreview: message.type === "IMAGE" ? "[Hình ảnh]" : "[Tệp đính kèm]", lastMessageAt: sent.timestamp, lastOutboundAt: sent.timestamp } }),
+    ]);
+    refreshInbox();
+    return { ok: true };
+  } catch (error) {
+    const clean = error && typeof error === "object" ? error as { publicMessage?: unknown; code?: unknown } : {};
+    const publicMessage = typeof clean.publicMessage === "string" ? clean.publicMessage : "Không gửi được tệp. Vui lòng thử lại.";
+    await prisma.inboxMessage.update({ where: { id: message.id }, data: { status: "FAILED", providerErrorCode: typeof clean.code === "string" ? clean.code : null, providerErrorMessage: publicMessage } });
+    return { error: publicMessage };
+  }
 }
 
 export async function heartbeatInboxPresence(data: FormData): Promise<InboxActionResult> {

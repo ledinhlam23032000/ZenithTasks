@@ -3,6 +3,7 @@ import { Prisma } from "@/generated/prisma/client";
 import { createMetaProvider } from "./providers/meta";
 import { createZaloProvider } from "./providers/zalo";
 import { withValidAccessToken } from "./token-manager";
+import { downloadPendingInboxAttachments } from "./attachments";
 import type { ChannelProviderName } from "./types";
 
 type MaintenanceAccount = { id: string; provider: ChannelProviderName; status: "CONNECTED" | "DEGRADED" | "REAUTH_REQUIRED" | "DISCONNECTED" };
@@ -52,6 +53,7 @@ export class MemoryMaintenanceStore implements MaintenanceStore {
 }
 
 export async function runChannelMaintenance(now = new Date()): Promise<MaintenanceResult> {
+  await downloadPendingInboxAttachments();
   const store: MaintenanceStore = {
     listAccounts: () => prisma.channelAccount.findMany({ where: { status: { not: "DISCONNECTED" } }, select: { id: true, provider: true, status: true } }),
     async markHealthy(id) { await prisma.channelAccount.update({ where: { id }, data: { status: "CONNECTED", lastHealthCheckAt: now, lastError: null } }); },

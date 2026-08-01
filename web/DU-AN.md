@@ -273,3 +273,10 @@ Chưa có Sửa (cần bổ sung):
 - Mọi action lấy actor từ session qua đúng capability `inbox.view/reply/assign/linkCustomer`, không nhận actor từ FormData. CARE không có `viewAll` chỉ đọc hội thoại chưa phân công hoặc của mình.
 - Timeline hồ sơ khách đọc hợp nhất `CareMessage` thủ công với `InboxMessage` đã liên kết, không sao chép/đếm trùng dữ liệu cũ.
 - TDD RED khi service chưa tồn tại, sau triển khai GREEN **5/5**. Toàn bộ Vitest **64/64**, lint phần Task 8 không có lỗi, `tsc --noEmit` và production build đạt; còn một cảnh báo import `PageHeader` có sẵn từ trước trong trang khách hàng.
+
+### Task 9 hộp thư đa kênh — tệp đính kèm được bảo vệ (2026-08-01)
+- Tệp nhận/gửi chỉ chấp nhận JPEG, PNG, WebP hoặc PDF tối đa 10 MiB; hệ thống kiểm tra đồng thời MIME khai báo và magic bytes, tự sinh UUID cùng phần mở rộng tin cậy, không sử dụng tên/đường dẫn do người gửi cung cấp.
+- Dữ liệu nằm ngoài `public/` tại volume riêng `zenith_inbox_attachments:/app/private/inbox`, thư mục/tệp dùng quyền 0700/0600. Tệp đến được tạo `PENDING`, tác vụ bảo trì tải về rồi chuyển `READY` hoặc `FAILED`; URL provider được mã hóa và xóa sau khi xử lý.
+- Route `/api/channels/attachments/[id]` bắt buộc phiên đăng nhập, capability `inbox.view` và đúng phạm vi hội thoại; phản hồi có `Cache-Control: private, no-store` cùng `X-Content-Type-Options: nosniff`. SHAREHOLDER vẫn bị chặn cứng ở tầng quyền.
+- Tệp gửi đi được lưu/kiểm tra trước, tạo đúng một `InboxMessage` có nonce, sau đó provider upload và gửi; trạng thái cùng bản ghi được cập nhật `SENT` hoặc `FAILED`, không tạo tin trùng khi thử lại.
+- TDD attachment RED khi module chưa tồn tại, sau triển khai GREEN **4/4**. Toàn bộ Vitest **68/68**, `docker compose config --quiet`, kiểm tra cú pháp entrypoint, `tsc --noEmit` và Next.js production build đều đạt; build nhận diện route tải tệp được bảo vệ.

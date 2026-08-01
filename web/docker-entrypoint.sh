@@ -9,6 +9,12 @@ set -e
 SECRET_DIR="/app/.runtime"
 mkdir -p "$SECRET_DIR"
 
+# Tệp hộp thư chứa dữ liệu khách hàng, lưu trong volume riêng và không phục vụ từ public/.
+INBOX_ATTACHMENT_ROOT="${INBOX_ATTACHMENT_ROOT:-/app/private/inbox}"
+mkdir -p "$INBOX_ATTACHMENT_ROOT"
+chmod 700 "$INBOX_ATTACHMENT_ROOT"
+export INBOX_ATTACHMENT_ROOT
+
 # AUTH_SECRET (khoá ký phiên đăng nhập) — sinh ngẫu nhiên, an toàn khi đổi
 # (chỉ khiến mọi người đăng nhập lại một lần).
 if [ -z "$AUTH_SECRET" ]; then

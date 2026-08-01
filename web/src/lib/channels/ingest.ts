@@ -1,5 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import type { ChannelProviderName, NormalizedChannelEvent } from "./types";
+import type { NormalizedAttachment } from "./types";
+import { encryptChannelSecret } from "./crypto";
 
 export type WebhookReceiptInput = {
   provider: ChannelProviderName;
@@ -47,6 +49,7 @@ export interface ChannelIngestionTransaction {
     type: "TEXT" | "IMAGE" | "FILE" | "STICKER" | "UNSUPPORTED";
     content: string | null;
     providerTimestamp: Date;
+    attachments: NormalizedAttachment[];
   }): Promise<void>;
   updateThreadInbound(threadId: string, preview: string, timestamp: Date): Promise<void>;
   updateOutboundStatus(input: {
@@ -136,6 +139,7 @@ export async function ingestChannelEvent(
       type: event.message.type,
       content: event.message.text,
       providerTimestamp: event.timestamp,
+      attachments: event.message.attachments,
     });
     await tx.updateThreadInbound(thread.id, preview(event), event.timestamp);
     await tx.completeReceipt(receiptId);
@@ -328,7 +332,21 @@ export function createPrismaIngestionStore(client: PrismaIngestionClient): Chann
         return { id: String(value.id), threadId: String(value.threadId), status: value.status as ConversationRecord["status"] };
       },
       async createInboundMessage(input) {
-        await db.inboxMessage.create({ data: { ...input, direction: "IN", status: "RECEIVED" } });
+        const { attachments, ...message } = input;
+        await db.inboxMessage.create({
+          data: {
+            ...message,
+            direction: "IN",
+            status: "RECEIVED",
+            attachments: attachments.length > 0 ? { create: attachments.map((attachment) => ({
+              channelAccountId: input.channelAccountId,
+              providerAttachmentId: attachment.providerAttachmentId,
+              providerUrlEnc: attachment.url ? encryptChannelSecret(attachment.url) : null,
+              originalName: attachment.name,
+              status: "PENDING",
+            })) } : undefined,
+          },
+        });
       },
       async updateThreadInbound(threadId, messagePreview, timestamp) {
         await db.channelThread.update({ where: { id: threadId }, data: { lastMessagePreview: messagePreview, lastMessageAt: timestamp, lastInboundAt: timestamp, unreadCount: { increment: 1 } } });

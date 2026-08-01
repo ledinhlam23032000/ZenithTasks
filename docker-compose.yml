@@ -35,6 +35,7 @@ services:
       # Muốn tự đặt: khai báo trong file .env cạnh docker-compose.yml.
       AUTH_SECRET: "${AUTH_SECRET:-}"
       PHONE_ENC_KEY: "${PHONE_ENC_KEY:-}"
+      INBOX_ATTACHMENT_ROOT: "/app/private/inbox"
       APP_NAME: "${APP_NAME:-Trung tâm Phẫu thuật Tạo hình Thẩm mỹ — BVĐK Hồng Phúc}"
       TZ: "Asia/Ho_Chi_Minh"
       # Khi chạy qua tên miền/Cloudflare Tunnel, điền tên miền vào đây (ngăn cách bằng dấu phẩy)
@@ -49,8 +50,10 @@ services:
     volumes:
       - zenith_uploads:/app/public/uploads
       - zenith_secrets:/app/.runtime
+      - zenith_inbox_attachments:/app/private/inbox
 
 volumes:
   zenith_db:
   zenith_uploads:
   zenith_secrets:
+  zenith_inbox_attachments:
