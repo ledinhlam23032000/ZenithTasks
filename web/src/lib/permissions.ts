@@ -35,6 +35,8 @@ export const MODULES: ModuleDef[] = [
   // "Hồ sơ điều trị" gộp vào "Hồ sơ khách hàng" — ẩn khỏi menu, vẫn là 1 module để phân quyền.
   { key: "ho-so", href: "/ho-so", label: "Hồ sơ điều trị", icon: "FolderHeart", group: "Khách hàng", roles: ["ADMIN", "MANAGER", "CONSULTANT", "DOCTOR", "RECEPTION", "SHAREHOLDER"], hidden: true },
   { key: "cham-soc", href: "/cham-soc", label: "Chăm sóc KH", icon: "MessageCircleHeart", group: "Khách hàng", roles: ["ADMIN", "MANAGER", "CARE", "SHAREHOLDER"] },
+  // Hộp thư hợp nhất Zalo OA + Facebook Messenger — gộp tab với "Chăm sóc KH" (cùng nhóm quyền).
+  { key: "cham-soc-hop-thu", href: "/cham-soc/hop-thu", label: "Hộp thư", icon: "Inbox", group: "Khách hàng", roles: ["ADMIN", "MANAGER", "CARE", "SHAREHOLDER"], hidden: true },
   { key: "bao-cao", href: "/bao-cao", label: "Báo cáo", icon: "TrendingUp", group: "Phân tích", roles: ["ADMIN", "MANAGER", "SHAREHOLDER"] },
   // CHỈ ADMIN + SHAREHOLDER (theo yêu cầu chủ) — KHÔNG có MANAGER, khác các mục còn lại trong nhóm này.
   { key: "chi-phi-dau-tu", href: "/chi-phi-dau-tu", label: "Chi phí đầu tư", icon: "Building2", group: "Phân tích", roles: ["ADMIN", "SHAREHOLDER"] },
@@ -60,6 +62,7 @@ export const MODULES: ModuleDef[] = [
   { key: "nhan-su", href: "/nhan-su", label: "Nhân sự", icon: "Contact", group: "Quản trị", roles: ["ADMIN"] },
   { key: "nhat-ky", href: "/nhat-ky", label: "Nhật ký hệ thống", icon: "ScrollText", group: "Quản trị", roles: ["ADMIN"] },
   { key: "he-thong", href: "/he-thong", label: "Tình trạng hệ thống", icon: "ServerCog", group: "Quản trị", roles: ["ADMIN"] },
+  { key: "ket-noi-kenh", href: "/cham-soc/ket-noi", label: "Kết nối kênh", icon: "Plug", group: "Quản trị", roles: ["ADMIN"] },
   { key: "mau-phieu", href: "/mau-phieu", label: "Mẫu phiếu đồng ý", icon: "FileSignature", group: "Quản trị", roles: ["ADMIN", "MANAGER"] },
 ];
 

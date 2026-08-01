@@ -112,6 +112,18 @@ enum CareDirection {
   IN // Khách phản hồi
 }
 
+// Kênh nhắn tin 2 chiều thật (khác CareChannel — chỉ là nhật ký ghi tay).
+enum ChannelKind {
+  ZALO_OA // Zalo Official Account
+  FACEBOOK // Facebook Messenger (Fanpage)
+}
+
+enum MessageStatus {
+  RECEIVED // Tin đến từ khách (luôn thành công)
+  SENT // Tin gửi đi, đã được nền tảng xác nhận nhận
+  FAILED // Gửi thất bại (hết hạn token, ngoài khung giờ phản hồi, lỗi API…)
+}
+
 enum PlanTaskStatus {
   TODO // Chưa làm
   IN_PROGRESS // Đang làm
@@ -179,6 +191,8 @@ model User {
   documentsUploaded    CaseDocument[]     @relation("DocUploadedBy")
   plansCreated         Plan[]             @relation("PlanCreatedBy")
   periodsClosed        AccountingPeriod[]
+  channelAccounts      ChannelAccount[]
+  channelMessagesSent  Message[]
 }
 
 // ============================ CHẤM CÔNG & LƯƠNG ============================
@@ -251,12 +265,13 @@ model Customer {
   createdAt            DateTime       @default(now())
   updatedAt            DateTime       @updatedAt
 
-  appointments Appointment[]
-  cases        CaseRecord[]
-  photos       Photo[]
-  careMessages CareMessage[]
-  followUps    FollowUp[]
-  npsResponses NpsResponse[]
+  appointments  Appointment[]
+  cases         CaseRecord[]
+  photos        Photo[]
+  careMessages  CareMessage[]
+  followUps     FollowUp[]
+  npsResponses  NpsResponse[]
+  conversations Conversation[]
 
   @@index([phoneLast5])
   @@index([phoneHash])
@@ -551,6 +566,76 @@ model CareMessage {
   createdAt   DateTime      @default(now())
 
   @@index([createdAt])
+}
+
+// ============================ KÊNH GIAO TIẾP (OMNICHANNEL) ============================
+// Hộp thư hợp nhất cho Zalo OA + Facebook Messenger — KHÁC với CareMessage (nhật ký ghi
+// tay, gắn sẵn 1 Customer). Ở đây tin có thể đến TRƯỚC khi biết là khách nào (chưa liên
+// kết hồ sơ) nên Conversation tách khỏi Customer (customerId nullable, liên kết thủ công
+// hoặc — với Zalo — tự động nếu khách đồng ý chia sẻ SĐT qua webhook). Xem `lib/channels/`.
+
+// 1 kết nối kênh (1 Zalo OA hoặc 1 Facebook Page) — token lưu MÃ HOÁ (xem lib/secret-crypto.ts).
+model ChannelAccount {
+  id               String      @id @default(cuid())
+  kind             ChannelKind
+  label            String // Tên hiển thị nội bộ, vd "Zalo OA phòng khám"
+  externalId       String // oa_id (Zalo) hoặc Page ID (Facebook)
+  externalName     String? // Tên OA/Page lấy từ API lúc kết nối (chỉ để hiển thị)
+  accessTokenEnc   String // Mã hoá AES-256-GCM (PHONE_ENC_KEY)
+  refreshTokenEnc  String? // Chỉ Zalo OA có refresh_token
+  tokenExpiresAt   DateTime? // Hạn access_token (Zalo ~1h — tự làm mới trước khi gửi tin)
+  active           Boolean     @default(true)
+  connectedById    String?
+  connectedBy      User?       @relation(fields: [connectedById], references: [id])
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  conversations Conversation[]
+
+  @@unique([kind, externalId])
+}
+
+// 1 luồng hội thoại với 1 người dùng bên ngoài (1 Zalo user hoặc 1 Facebook PSID).
+model Conversation {
+  id                 String         @id @default(cuid())
+  channelAccountId   String
+  channelAccount     ChannelAccount @relation(fields: [channelAccountId], references: [id], onDelete: Cascade)
+  kind               ChannelKind // Denormalize từ channelAccount — lọc/hiển thị nhanh không cần join
+  externalUserId     String // Zalo: sender.id theo OA. Facebook: PSID theo Page.
+  displayName        String? // Tên lấy từ hồ sơ Zalo/Facebook của người nhắn (best-effort)
+  avatarUrl          String? // Ảnh đại diện (URL ngoài — KHÔNG tải về máy chủ)
+  customerId         String?
+  customer           Customer?      @relation(fields: [customerId], references: [id])
+  lastMessageAt      DateTime       @default(now())
+  lastMessagePreview String?
+  lastDirection      CareDirection?
+  unreadCount        Int            @default(0)
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  messages Message[]
+
+  @@unique([channelAccountId, externalUserId])
+  @@index([lastMessageAt])
+  @@index([customerId])
+}
+
+model Message {
+  id             String        @id @default(cuid())
+  conversationId String
+  conversation   Conversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  direction      CareDirection
+  status         MessageStatus @default(RECEIVED)
+  text           String?
+  attachments    Json? // [{ type: "image"|"file", url }] — tham chiếu URL ngoài của nền tảng
+  externalId     String? // msg_id (Zalo) / mid (Facebook) — chống ghi trùng khi webhook gửi lại
+  errorMessage   String? // Lý do gửi thất bại (hiển thị cho nhân viên)
+  sentById       String? // Nhân viên bấm gửi (null = tin đến từ khách hoặc AI hệ thống)
+  sentBy         User?         @relation(fields: [sentById], references: [id])
+  createdAt      DateTime      @default(now())
+
+  @@index([conversationId, createdAt])
+  @@index([externalId])
 }
 
 // ============================ LỊCH LÀM VIỆC ============================

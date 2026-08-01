@@ -50,6 +50,17 @@ services:
       # Tương thích ngược cách cũ (chỉ Claude):
       ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:-}"
       ANTHROPIC_MODEL: "${ANTHROPIC_MODEL:-}"
+      # Kênh giao tiếp: Zalo OA + Facebook Messenger — TUỲ CHỌN, để trống thì trang
+      # /cham-soc/hop-thu vẫn chạy nhưng không nhận/gửi tin thật. Xem khối "Kênh giao
+      # tiếp" trong .env.example — hướng dẫn lấy từng giá trị có ngay trong app tại
+      # /cham-soc/ket-noi (đăng nhập ADMIN).
+      ZALO_APP_ID: "${ZALO_APP_ID:-}"
+      ZALO_APP_SECRET: "${ZALO_APP_SECRET:-}"
+      ZALO_OA_SECRET_KEY: "${ZALO_OA_SECRET_KEY:-}"
+      FB_APP_SECRET: "${FB_APP_SECRET:-}"
+      FB_VERIFY_TOKEN: "${FB_VERIFY_TOKEN:-}"
+      FB_APP_ID: "${FB_APP_ID:-}"
+      FB_GRAPH_API_VERSION: "${FB_GRAPH_API_VERSION:-}"
     ports:
       - "3000:3000"
     volumes:

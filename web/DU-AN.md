@@ -827,3 +827,30 @@ Chủ phản ánh: (1) 2 hồ sơ đã trả nợ nhưng "Việc cần làm hôm
 - Trả **Trợ lý AI** thành nhóm/menu riêng trên desktop và ô riêng trong “Tất cả chức năng” trên mobile; nếu tài khoản có quyền, `/tro-ly` được ưu tiên ngay thanh điều hướng đáy để cổ đông lớn tuổi mở bằng một chạm.
 - Bỏ Trợ lý AI khỏi dải tab Báo cáo để không còn hai cách tổ chức chồng chéo.
 - Khôi phục ranh giới cứng: chỉ ADMIN + SHAREHOLDER truy cập; MANAGER hoặc vai trò khác vẫn bị chặn dù có `grant` nhầm. Bổ sung test cho cả quyền và mục điều hướng của Cổ đông.
+
+## Kênh giao tiếp: Hộp thư hợp nhất Zalo OA + Facebook Messenger — 29/07/2026
+
+Chủ yêu cầu tích hợp Zalo OA, Fanpage (Messenger), tin nhắn/cuộc gọi "mọi thứ" vào chăm sóc khách hàng — mục này trước đó (B2 bậc 2–3) đang TẠM GÁC vì chủ chỉ có Zalo cá nhân (không có API chính thức). Đã xây xong toàn bộ phần cứng cho Zalo OA + Facebook Messenger; chỉ còn thiếu chủ tự lập tài khoản/app thật rồi kết nối trong app (không cần sửa code thêm).
+
+### 1) Vì sao KHÔNG dùng "công cụ tự động Zalo cá nhân" trên mạng
+Có nhiều thư viện GitHub tự động hoá Zalo cá nhân (đăng nhập QR rồi giả lập client) — đây là **bẻ khoá trái phép**, vi phạm điều khoản Zalo, rất dễ khiến số điện thoại của chủ bị khoá vĩnh viễn. Hệ thống CHỈ tích hợp qua API CHÍNH THỨC của **Zalo Official Account** (đăng ký tại oa.zalo.me — khác Zalo cá nhân) — cảnh báo này hiện ngay đầu trang `/cham-soc/ket-noi`.
+
+### 2) Mô hình dữ liệu mới — tách khỏi `CareMessage` cũ
+`CareMessage` (nhật ký ghi tay: ghi chú/SMS/gọi điện, LUÔN gắn sẵn 1 khách) giữ nguyên không đổi. Thêm 3 model MỚI cho hội thoại 2 chiều thật: `ChannelAccount` (1 Zalo OA/1 Facebook Page đã kết nối, token mã hoá AES-256-GCM qua `lib/secret-crypto.ts` mới — cùng khoá `PHONE_ENC_KEY`, khác thuật toán chuẩn hoá phone), `Conversation` (1 luồng chat với 1 người dùng ngoài — `customerId` NULLABLE vì tin nhắn đến TRƯỚC khi biết là khách nào, gắn thủ công qua tìm theo tên/5 số cuối), `Message` (từng tin, chống ghi trùng khi webhook gửi lại qua `externalId`).
+
+### 3) Nhận tin (webhook công khai) + gửi tin
+- `POST /api/webhooks/zalo` + `POST /api/webhooks/facebook` — nằm dưới `api/` nên KHÔNG qua `proxy.ts` (matcher loại trừ "api"), TỰ kiểm chữ ký mỗi request thay vì đăng nhập: Zalo dùng header `X-ZEvent-Signature` (công thức cộng đồng `sha256(app_id+rawBody+timestamp+secretKey)` — tài liệu chính thức developers.zalo.me chặn crawler 403 nên chưa đối chiếu được bản gốc, xem cạm bẫy #18 BAN-GIAO.md); Facebook dùng `X-Hub-Signature-256` chuẩn Messenger Platform (ổn định, không cần đoán). Sai chữ ký → trả `200 {ok:false}` (không cho nền tảng retry vô hạn) nhưng TỪ CHỐI ghi dữ liệu.
+- Gửi tin (`sendChannelReply`) tự làm mới access_token Zalo trước khi hết hạn (`ensureZaloAccessToken`, LƯU LẠI refresh_token mới vì Zalo xoay mỗi lần dùng); Facebook dùng Page Access Token dài hạn không cần refresh. Luôn ghi `Message` dù gửi thành công hay lỗi (status `SENT`/`FAILED` + lý do) — nhân viên thấy ngay tin gửi lỗi trong luồng chat.
+
+### 4) Giao diện — gộp vào "Chăm sóc KH" bằng PageTabs (đúng quy ước có sẵn)
+- `/cham-soc/hop-thu`: danh sách hội thoại (lọc kênh/chưa đọc/tìm theo tên-khách) + trang chi tiết từng hội thoại (bong bóng chat, gắn/bỏ gắn hồ sơ khách ngay tại chỗ, AI soạn nháp trả lời theo ngữ cảnh vài tin gần nhất, cảnh báo mềm khi ngoài khung giờ phản hồi 24h/48h — không chặn cứng vì nền tảng luôn là nguồn đúng cuối). Gộp tab với `/cham-soc` cũ (nay đổi tên "Nhật ký chăm sóc") qua `careTabs()` mới trong `nav-tabs.ts`.
+- `/cham-soc/ket-noi` (module `ket-noi-kenh`, CHỈ ADMIN, nhóm "Quản trị"): kết nối Zalo OA qua OAuth thật (nút → `/api/integrations/zalo/connect` → Zalo → `/api/integrations/zalo/callback`, có state chống CSRF), kết nối Facebook bằng dán tay Page Access Token (tự nhận diện Page qua Graph API, khuyến khích lấy token qua Meta Business Suite để không hết hạn, có nút gia hạn token ngắn hạn). Có nút Kiểm tra kết nối + Ngắt/Kết nối lại (KHÔNG xoá lịch sử hội thoại) + hướng dẫn từng bước lấy App ID/Secret/token ngay trong trang.
+- Trang hội thoại đã gắn khách tái dùng thẳng `ContactButtons` + `revealPhone` có sẵn (không thêm quyền mới) — vừa chat Zalo/Facebook vừa gọi/SMS tay cùng 1 chỗ.
+
+### 5) Biến môi trường — TUỲ CHỌN, phải khai TƯỜNG MINH trong docker-compose
+`ZALO_APP_ID`/`ZALO_APP_SECRET`/`ZALO_OA_SECRET_KEY`/`FB_APP_SECRET`/`FB_VERIFY_TOKEN`/`FB_APP_ID`/`FB_GRAPH_API_VERSION` — thêm vào CẢ `web/.env.example`, `.env.example` gốc, `docker-compose.yml` gốc VÀ `deploy/docker-compose.yml` (docker compose không tự truyền biến môi trường host vào container nếu không liệt kê tường minh trong khối `environment:` — bài học lặp lại từ khối AI trước đó).
+
+### Kiểm thử
+- `tsc --noEmit` sạch, `eslint` sạch trên toàn bộ file mới/sửa. Thêm test THUẦN: `secret-crypto.test.ts` (roundtrip mã hoá), `conversations.test.ts` (`withinResponseWindow`).
+- Migration viết tay `20260729120000_channel_integrations` áp dụng sạch vào DB sandbox (Postgres cục bộ dựng theo mục 10 BAN-GIAO.md), `prisma migrate status` báo "up to date".
+- CHƯA kiểm thử được với Zalo OA/Facebook App THẬT (chủ chưa có tài khoản) — logic OAuth/webhook dựa trên tài liệu chính thức (Facebook) + tổng hợp cộng đồng khớp nhau nhiều nguồn (Zalo, vì developers.zalo.me chặn crawler). Cần chủ lập tài khoản thật rồi kết nối thử qua `/cham-soc/ket-noi` để xác nhận lần đầu.

@@ -8,6 +8,8 @@ import { todayRange } from "@/lib/dates";
 import { fmtDateTime, fmtRelative } from "@/lib/format";
 import { CARE_CHANNEL } from "@/lib/status";
 import { PageHeader } from "@/components/ui/page-header";
+import { PageTabs } from "@/components/ui/page-tabs";
+import { careTabs } from "@/lib/nav-tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { StatCard } from "@/components/ui/stat-card";
 import { Badge } from "@/components/ui/badge";
@@ -68,6 +70,7 @@ export default async function CarePage({ searchParams }: { searchParams: Promise
         description="Toàn bộ tin nhắn & ghi nhận chăm sóc của bộ phận CSKH — hiển thị minh bạch cho quản trị."
         icon={<MessageCircleHeart className="h-5 w-5" />}
       />
+      <PageTabs tabs={careTabs(user)} />
 
       <div className="grid gap-4 sm:grid-cols-3">
         <StatCard label="Tin chăm sóc hôm nay" value={todayCount} icon={<MessageCircleHeart className="h-5 w-5" />} tone="pink" />
