@@ -272,7 +272,7 @@ git push origin master
 - `withValidAccessToken(accountId, operation): Promise<T>`.
 - `runChannelMaintenance(now): Promise<{ checked; refreshed; degraded; payloadsPurged }>`.
 
-- [ ] **Step 1: Write failing rotation tests**
+- [x] **Step 1: Write failing rotation tests**
 
 ```typescript
 it("persists new one-time refresh token atomically", async () => {
@@ -285,19 +285,19 @@ it("persists new one-time refresh token atomically", async () => {
 
 Add concurrent refresh-once, 7-day sanitized-payload purge and isolated provider-degradation tests.
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run both maintenance test files. Expected: FAIL because modules do not exist.
 
-- [ ] **Step 3: Implement lock and internal route**
+- [x] **Step 3: Implement lock and internal route**
 
 Within a transaction run `SELECT pg_advisory_xact_lock(hashtext(${`channel:${accountId}`}))`, reload, refresh if expiring in two hours, persist both new encrypted tokens. Endpoint accepts only timing-safe `Authorization: Bearer <CHANNEL_MAINTENANCE_SECRET>`, rate-limits wrong attempts and returns counts only.
 
-- [ ] **Step 4: Verify GREEN**
+- [x] **Step 4: Verify GREEN**
 
 Run focused/all tests and wrong/missing/correct bearer requests. Expected statuses: 401, 401, 200; response contains no secret.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 git add -- web/src/lib/channels web/src/app/api/internal/channels

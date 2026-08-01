@@ -260,3 +260,9 @@ Chưa có Sửa (cần bổ sung):
 - Access/refresh token được AES-256-GCM trước khi upsert `ChannelAccount`; kết nối/ngắt kết nối ghi audit `CHANNEL_CONNECT`/`CHANNEL_DISCONNECT`. Lỗi không tìm thấy Page chỉ liệt kê ID/tên Page có quyền, không chứa token.
 - TDD OAuth RED khi module chưa tồn tại, sau triển khai GREEN **4/4**. Toàn bộ Vitest **55/55**, lint Task 6 đạt, `tsc --noEmit` đạt và production build nhận diện trang cài đặt cùng đủ sáu route channel (connect/callback/webhook).
 - Chưa kích hoạt tài khoản thật vì App ID/secret/token không được đưa vào Git hoặc chat. Sau khi Task vận hành/env hoàn tất, ADMIN chỉ cần mở trang cài đặt và bấm hai nút đăng nhập; hệ thống bắt đầu nhận tin mới từ `connectedAt`.
+
+### Task 7 hộp thư đa kênh — tự gia hạn và bảo trì kết nối (2026-08-01)
+- `withValidAccessToken` dùng PostgreSQL advisory transaction lock theo `channel:<accountId>`; trong cửa sổ hai giờ trước hạn, chỉ một worker refresh và lưu nguyên tử cả access token lẫn refresh token mới đã mã hóa. Kênh không còn refresh token chuyển `REAUTH_REQUIRED`.
+- Bảo trì kiểm tra riêng từng kênh; một provider lỗi chỉ đánh dấu đúng kênh đó `DEGRADED`, không làm dừng các kênh khác. Payload webhook hết hạn được xóa nội dung sau 7 ngày và presence cũ hơn 24 giờ được dọn.
+- Route `POST /api/internal/channels/maintenance` chỉ nhận bearer `CHANNEL_MAINTENANCE_SECRET` bằng so sánh timing-safe, rate-limit IP thử sai và chỉ trả bốn bộ đếm, không trả token/secret/lỗi thô.
+- TDD RED khi hai module chưa tồn tại, sau triển khai GREEN **4/4**, gồm concurrent refresh-once, one-time refresh token, purge/isolated degradation và 401/401/200 cho route. Toàn bộ Vitest **59/59**, lint Task 7 đạt, `tsc --noEmit` đạt và production build nhận diện route bảo trì.
