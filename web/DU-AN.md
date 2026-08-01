@@ -212,3 +212,9 @@ Chưa có Sửa (cần bổ sung):
 - `CareMessage` cũ được giữ nguyên làm nhật ký thủ công/di sản; tin thật mới không ghi lặp. Timeline khách sẽ hợp nhất hai nguồn khi đọc.
 - Bảo mật thiết kế: token mã hóa bằng khóa riêng ngoài Git, xác thực chữ ký webhook trên raw body, idempotency, attachment inbox qua route có session/quyền, SHAREHOLDER không xem nội dung hội thoại nhạy cảm.
 - Chưa viết code/migration ở commit thiết kế. Bản đặc tả đầy đủ: `../docs/superpowers/specs/2026-08-01-omnichannel-inbox-design.md`.
+
+### Duyệt đặc tả và chuyển sang triển khai (2026-08-01)
+- Chủ dự án đã trả lời **“Duyệt đặc tả, triển khai”**.
+- Kế hoạch TDD 11 task được lưu tại `../docs/superpowers/plans/2026-08-01-omnichannel-inbox-implementation.md`; thứ tự thực hiện bắt đầu bằng chuẩn hóa baseline/build ngoài OneDrive, sau đó schema/RBAC, crypto, provider, webhook, OAuth, token, nghiệp vụ inbox, attachment, UI và bàn giao vận hành.
+- Mỗi task có RED/GREEN verification, commit và push `origin/master`; các App ID/secret thật chỉ nhập trực tiếp trên máy vận hành ở checkpoint kích hoạt, không đưa vào chat hoặc Git.
+- Baseline trên checkout hiện chưa thể xác nhận bằng `npm ci`/Docker build vì thao tác dependency từ thư mục OneDrive bị treo quá timeout; kế hoạch bắt buộc giải quyết build context tạm và xác minh baseline trước khi tạo migration.
