@@ -1,7 +1,7 @@
 # Trung tâm Phẫu thuật Tạo hình Thẩm mỹ — BVĐK Hồng Phúc
 # Chạy toàn bộ hệ thống (web + PostgreSQL) bằng 1 lệnh:
 #   docker compose up --build
-# Sau đó mở http://localhost:3000  (đăng nhập lần đầu: admin / 123456 — ĐỔI NGAY)
+# Sau đó mở http://localhost:3000  (lần đầu hãy cấu hình BOOTSTRAP_ADMIN_* trong .env)
 #
 # 🔐 BẢO MẬT: AUTH_SECRET được tạo NGẪU NHIÊN tự động và lưu trong volume an toàn
 #    (không nằm trong mã nguồn). Muốn tự đặt khoá riêng, tạo file .env cạnh file này
@@ -38,6 +38,12 @@ services:
       # Muốn tự đặt: khai báo trong file .env cạnh docker-compose.yml.
       AUTH_SECRET: "${AUTH_SECRET:-}"
       PHONE_ENC_KEY: "${PHONE_ENC_KEY:-}"
+      UPLOAD_DIR: "${UPLOAD_DIR:-/app/private/uploads}"
+      ALLOW_DEMO_SEED: "${ALLOW_DEMO_SEED:-false}"
+      BOOTSTRAP_ADMIN_USERNAME: "${BOOTSTRAP_ADMIN_USERNAME:-}"
+      BOOTSTRAP_ADMIN_NAME: "${BOOTSTRAP_ADMIN_NAME:-}"
+      BOOTSTRAP_ADMIN_PASSWORD: "${BOOTSTRAP_ADMIN_PASSWORD:-}"
+      TRUSTED_PROXY: "${TRUSTED_PROXY:-false}"
       APP_NAME: "${APP_NAME:-Trung tâm Phẫu thuật Tạo hình Thẩm mỹ — BVĐK Hồng Phúc}"
       TZ: "Asia/Ho_Chi_Minh"
       # Khi chạy qua tên miền/Cloudflare Tunnel, điền tên miền vào đây (ngăn cách bằng dấu phẩy)
@@ -67,7 +73,7 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - zenith_uploads:/app/public/uploads
+      - zenith_uploads:/app/private/uploads
       - zenith_secrets:/app/.runtime
 
 volumes:

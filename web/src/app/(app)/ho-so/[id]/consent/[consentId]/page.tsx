@@ -5,19 +5,20 @@ import { requireCap } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { fmtDate } from "@/lib/format";
 import { PrintButton } from "@/components/ui/print-button";
+import { canAccessCase } from "@/lib/case-access";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Phiếu đồng ý" };
 
 export default async function ConsentPrintPage({ params }: { params: Promise<{ id: string; consentId: string }> }) {
-  await requireCap("mod:ho-so");
+  const user = await requireCap("mod:ho-so");
   const { id, consentId } = await params;
 
   const consent = await prisma.caseConsent.findUnique({
     where: { id: consentId },
-    include: { case: { select: { id: true, code: true, customer: { select: { fullName: true, code: true } } } } },
+    include: { case: { select: { id: true, code: true, consultantId: true, doctorId: true, customer: { select: { fullName: true, code: true } } } } },
   });
-  if (!consent || consent.case.id !== id) notFound();
+  if (!consent || consent.case.id !== id || !canAccessCase(user, consent.case, "read")) notFound();
 
   return (
     <div className="invoice-sheet mx-auto max-w-[820px] space-y-5">

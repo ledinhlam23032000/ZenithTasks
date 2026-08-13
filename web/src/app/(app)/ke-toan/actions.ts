@@ -9,7 +9,7 @@
 import { format, endOfMonth } from "date-fns";
 import { prisma } from "@/lib/db";
 import { requireCap } from "@/lib/auth";
-import { audit } from "@/lib/audit";
+import { auditRequired } from "@/lib/audit";
 import { getPayroll, STANDARD_DAYS_DEFAULT } from "@/lib/payroll";
 import {
   getMonthlyAccounting,
@@ -98,12 +98,11 @@ export async function payStaffSalary(_prev: AccState, formData: FormData): Promi
       },
       update: { paidAmount: row.total, paidAt: new Date(), cashTxId: cashTx.id },
     });
-  });
-
-  await audit(user.id, "PAY_SALARY", {
-    entity: "PayrollEntry",
-    entityId: userId,
-    meta: { month, amount: row.total, name: row.name },
+    await auditRequired(tx, user.id, "PAY_SALARY", {
+      entity: "PayrollEntry",
+      entityId: userId,
+      meta: { month, amount: row.total, name: row.name },
+    });
   });
   return { ok: true };
 }
@@ -153,11 +152,10 @@ export async function payAllSalaries(_prev: AccState, formData: FormData): Promi
         update: { paidAmount: row.total, paidAt: new Date(), cashTxId: cashTx.id },
       });
     }
-  });
-
-  await audit(user.id, "PAY_SALARY_ALL", {
-    entity: "PayrollEntry",
-    meta: { month, count: pending.length, total: pending.reduce((s, r) => s + r.total, 0) },
+    await auditRequired(tx, user.id, "PAY_SALARY_ALL", {
+      entity: "PayrollEntry",
+      meta: { month, count: pending.length, total: pending.reduce((s, r) => s + r.total, 0) },
+    });
   });
   return { ok: true };
 }
@@ -180,9 +178,8 @@ export async function undoStaffSalary(_prev: AccState, formData: FormData): Prom
       data: { paidAmount: 0, paidAt: null, cashTxId: null },
     });
     await tx.cashTransaction.delete({ where: { id: cashTxId } });
+    await auditRequired(tx, user.id, "UNDO_PAY_SALARY", { entity: "PayrollEntry", entityId: userId, meta: { month } });
   });
-
-  await audit(user.id, "UNDO_PAY_SALARY", { entity: "PayrollEntry", entityId: userId, meta: { month } });
   return { ok: true };
 }
 
@@ -222,9 +219,11 @@ export async function payCtvCommission(_prev: AccState, formData: FormData): Pro
     await tx.commissionPayout.create({
       data: { name, month, amount: ctv.amount, cashTxId: cashTx.id },
     });
+    await auditRequired(tx, user.id, "PAY_COMMISSION", {
+      entity: "CommissionPayout",
+      meta: { month, name, amount: ctv.amount },
+    });
   });
-
-  await audit(user.id, "PAY_COMMISSION", { entity: "CommissionPayout", meta: { month, name, amount: ctv.amount } });
   return { ok: true };
 }
 
@@ -242,9 +241,8 @@ export async function undoCtvCommission(_prev: AccState, formData: FormData): Pr
   await prisma.$transaction(async (tx) => {
     await tx.commissionPayout.delete({ where: { id: payout.id } });
     if (payout.cashTxId) await tx.cashTransaction.delete({ where: { id: payout.cashTxId } });
+    await auditRequired(tx, user.id, "UNDO_PAY_COMMISSION", { entity: "CommissionPayout", entityId: payout.id, meta: { month, name } });
   });
-
-  await audit(user.id, "UNDO_PAY_COMMISSION", { entity: "CommissionPayout", meta: { month, name } });
   return { ok: true };
 }
 
@@ -265,24 +263,25 @@ export async function closePeriod(_prev: AccState, formData: FormData): Promise<
   const standardDays = standardDaysOf(formData.get("standardDays"));
   const a = await getMonthlyAccounting(monthDate(month), standardDays);
 
-  await prisma.accountingPeriod.create({
-    data: {
-      month,
-      serviceRevenue: a.pnl.serviceRevenue,
-      otherIncome: a.pnl.otherIncome,
-      operatingExpense: a.pnl.operatingExpense,
-      salaryExpense: a.pnl.salaryExpense,
-      ctvCommission: a.pnl.ctvCommission,
-      profit: a.pnl.profit,
-      note: note || null,
-      closedById: user.id,
-    },
-  });
-
-  await audit(user.id, "CLOSE_PERIOD", {
-    entity: "AccountingPeriod",
-    entityId: month,
-    meta: { month, profit: a.pnl.profit, revenue: a.pnl.serviceRevenue },
+  await prisma.$transaction(async (tx) => {
+    const period = await tx.accountingPeriod.create({
+      data: {
+        month,
+        serviceRevenue: a.pnl.serviceRevenue,
+        otherIncome: a.pnl.otherIncome,
+        operatingExpense: a.pnl.operatingExpense,
+        salaryExpense: a.pnl.salaryExpense,
+        ctvCommission: a.pnl.ctvCommission,
+        profit: a.pnl.profit,
+        note: note || null,
+        closedById: user.id,
+      },
+    });
+    await auditRequired(tx, user.id, "CLOSE_PERIOD", {
+      entity: "AccountingPeriod",
+      entityId: period.id,
+      meta: { month, profit: a.pnl.profit, revenue: a.pnl.serviceRevenue },
+    });
   });
   return { ok: true };
 }
@@ -296,11 +295,13 @@ export async function reopenPeriod(_prev: AccState, formData: FormData): Promise
   const period = await prisma.accountingPeriod.findUnique({ where: { month } });
   if (!period) return { error: "Tháng này chưa chốt sổ." };
 
-  await prisma.accountingPeriod.delete({ where: { id: period.id } });
-  await audit(user.id, "REOPEN_PERIOD", {
-    entity: "AccountingPeriod",
-    entityId: month,
-    meta: { month, closedAt: period.closedAt.toISOString() },
+  await prisma.$transaction(async (tx) => {
+    await tx.accountingPeriod.delete({ where: { id: period.id } });
+    await auditRequired(tx, user.id, "REOPEN_PERIOD", {
+      entity: "AccountingPeriod",
+      entityId: period.id,
+      meta: { month, closedAt: period.closedAt.toISOString() },
+    });
   });
   return { ok: true };
 }

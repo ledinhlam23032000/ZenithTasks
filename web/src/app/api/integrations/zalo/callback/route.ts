@@ -66,7 +66,10 @@ export async function GET(req: Request) {
     connectedLabel = info.name;
     await audit(user.id, "CONNECT_CHANNEL", { entity: "ChannelAccount", entityId: account.id, meta: { kind: "ZALO_OA", label: info.name } });
   } catch (err) {
-    errorMessage = err instanceof Error ? err.message : "Kết nối Zalo OA thất bại.";
+    // Không đưa thông báo thô của provider (có thể chứa request/token detail)
+    // vào URL trình duyệt; chỉ log server-side và trả mã tổng quát cho người dùng.
+    console.error("[oauth:zalo] callback failed", err instanceof Error ? err.message : err);
+    errorMessage = "Không thể hoàn tất kết nối Zalo OA. Vui lòng thử lại hoặc liên hệ quản trị viên.";
   }
 
   if (errorMessage) {

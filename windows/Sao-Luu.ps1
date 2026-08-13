@@ -34,7 +34,7 @@ try {
   }
 
   # 2) Sao chep thu muc anh (truoc/sau, avatar...)
-  cmd /c "docker compose -f ""$Compose"" cp app:/app/public/uploads ""$tmp\uploads""" 2>$null
+  cmd /c "docker compose -f ""$Compose"" cp app:/app/private/uploads ""$tmp\uploads""" 2>$null
 
   # 3) Nen thanh 1 file .zip
   $zip = Join-Path $BackupRoot "zenith-$stamp.zip"

@@ -33,6 +33,7 @@ export default async function CarePage({ searchParams }: { searchParams: Promise
   const q = (sp.q ?? "").trim();
   const kenh = (sp.kenh ?? "").trim();
   const page = parsePage(sp.page);
+  const now = new Date();
 
   const where: Prisma.CareMessageWhereInput = {};
   if (q) where.customer = isValidLast5(q) ? { phoneLast5: q } : { fullName: { contains: q, mode: "insensitive" } };
@@ -51,7 +52,7 @@ export default async function CarePage({ searchParams }: { searchParams: Promise
     }),
     prisma.careMessage.count({ where }),
     prisma.careMessage.count({ where: { createdAt: todayRange() } }),
-    prisma.careMessage.count({ where: { createdAt: { gte: new Date(Date.now() - 7 * 86400000) } } }),
+    prisma.careMessage.count({ where: { createdAt: { gte: new Date(now.getTime() - 7 * 86400000) } } }),
   ]);
   const totalPages = totalPagesOf(total);
   const makeHref = (p: number) => {

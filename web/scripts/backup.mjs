@@ -18,7 +18,7 @@ const exec = promisify(execFile);
 const RUNTIME_DIR = process.env.ZENITH_RUNTIME_DIR || "/app/.runtime";
 const BACKUP_DIR = path.join(RUNTIME_DIR, "backups");
 const STATUS_FILE = path.join(RUNTIME_DIR, "backup-status.json");
-const UPLOADS_DIR = process.env.ZENITH_UPLOADS_DIR || path.join(process.cwd(), "public", "uploads");
+const UPLOADS_DIR = process.env.ZENITH_UPLOADS_DIR || process.env.UPLOAD_DIR || path.join(process.cwd(), "private", "uploads");
 const RETAIN = Number(process.env.ZENITH_BACKUP_RETAIN || 14);
 
 function ts() {

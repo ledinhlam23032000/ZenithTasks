@@ -10,12 +10,13 @@ import { fmtDate, fmtDateTime } from "@/lib/format";
 import { PAYMENT_LABEL } from "@/lib/status";
 import { Table, THead, TH, TR, TD } from "@/components/ui/table";
 import { PrintButton } from "@/components/ui/print-button";
+import { canAccessCase } from "@/lib/case-access";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Hóa đơn" };
 
 export default async function InvoicePage({ params }: { params: Promise<{ id: string }> }) {
-  await requireCap("mod:ho-so");
+  const user = await requireCap("mod:ho-so");
   const { id } = await params;
 
   const record = await prisma.caseRecord.findUnique({
@@ -27,6 +28,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
     },
   });
   if (!record) notFound();
+  if (!canAccessCase(user, record, "read")) notFound();
 
   // Hồ sơ chưa có dịch vụ nào thì không có gì để in hóa đơn (tránh in ra tờ toàn số 0).
   if (record.services.length === 0) {

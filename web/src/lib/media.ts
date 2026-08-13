@@ -4,5 +4,5 @@ export function photoSrc(url: string | null | undefined, accessToken?: string): 
   if (!url) return "";
   const src = url.startsWith("/uploads/") ? "/media/" + url.slice("/uploads/".length) : url;
   if (!accessToken || !src.startsWith("/media/")) return src;
-  return `${src}?token=${encodeURIComponent(accessToken)}`;
+  return `${src}?t=${encodeURIComponent(accessToken)}`;
 }

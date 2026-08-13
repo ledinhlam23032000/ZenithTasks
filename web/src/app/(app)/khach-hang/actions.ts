@@ -7,7 +7,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { userCan } from "@/lib/permissions";
-import { audit } from "@/lib/audit";
+import { auditRequired } from "@/lib/audit";
 import { encryptPhone, decryptPhone, normalizePhone, phoneLast5, hashPhone } from "@/lib/phone";
 
 export type EditCustomerState = { ok?: boolean; error?: string };
@@ -21,7 +21,7 @@ export async function revealPhone(customerId: string): Promise<RevealState> {
   if (!c) return { error: "Không tìm thấy khách hàng." };
   try {
     const phone = decryptPhone(c.phoneEnc);
-    await audit(user.id, "REVEAL_PHONE", { entity: "Customer", entityId: customerId });
+    await auditRequired(prisma, user.id, "REVEAL_PHONE", { entity: "Customer", entityId: customerId });
     return { phone };
   } catch {
     return { error: "Không giải mã được số điện thoại." };
@@ -95,47 +95,52 @@ export async function updateCustomer(_prev: EditCustomerState, formData: FormDat
     };
   }
 
-  await prisma.customer.update({
-    where: { id: d.customerId },
-    data: {
-      fullName: d.fullName,
-      gender: d.gender ?? null,
-      dob,
-      source: d.source,
-      sourceDetail: d.sourceDetail || null,
-      address: d.address || null,
-      note: d.note || null,
-      allergies: d.allergies || null,
-      medicalHistory: d.medicalHistory || null,
-      contraindications: d.contraindications || null,
-      ...(phoneFields ?? {}),
-    },
+  await prisma.$transaction(async (tx) => {
+    await tx.customer.update({
+      where: { id: d.customerId },
+      data: {
+        fullName: d.fullName,
+        gender: d.gender ?? null,
+        dob,
+        source: d.source,
+        sourceDetail: d.sourceDetail || null,
+        address: d.address || null,
+        note: d.note || null,
+        allergies: d.allergies || null,
+        medicalHistory: d.medicalHistory || null,
+        contraindications: d.contraindications || null,
+        ...(phoneFields ?? {}),
+      },
+    });
+    await auditRequired(tx, user.id, "UPDATE_CUSTOMER", { entity: "Customer", entityId: d.customerId });
   });
-
-  await prisma.auditLog
-    .create({ data: { actorId: user.id, action: "UPDATE_CUSTOMER", entity: "Customer", entityId: d.customerId } })
-    .catch(() => {});
 
   return { ok: true };
 }
 
 /** Tạo (hoặc đổi) link Cổng khách hàng — link riêng để khách tự xem lịch sử/ảnh. */
 export async function genPortalLink(formData: FormData): Promise<void> {
-  await requireUser([...ROLES]);
+  const user = await requireUser([...ROLES]);
   const id = String(formData.get("customerId") ?? "");
   if (!id) return;
   const token = crypto.randomBytes(24).toString("base64url");
   const expiresAt = new Date(Date.now() + 90 * 86_400_000); // link cổng khách hết hạn sau 90 ngày
-  await prisma.customer.update({ where: { id }, data: { portalToken: token, portalTokenExpiresAt: expiresAt } }).catch(() => {});
+  await prisma.$transaction(async (tx) => {
+    await tx.customer.update({ where: { id }, data: { portalToken: token, portalTokenExpiresAt: expiresAt } });
+    await auditRequired(tx, user.id, "GENERATE_PORTAL_LINK", { entity: "Customer", entityId: id, meta: { expiresAt: expiresAt.toISOString() } });
+  });
   revalidatePath(`/khach-hang/${id}`);
 }
 
 /** Thu hồi link Cổng khách hàng. */
 export async function revokePortalLink(formData: FormData): Promise<void> {
-  await requireUser([...ROLES]);
+  const user = await requireUser([...ROLES]);
   const id = String(formData.get("customerId") ?? "");
   if (!id) return;
-  await prisma.customer.update({ where: { id }, data: { portalToken: null, portalTokenExpiresAt: null } }).catch(() => {});
+  await prisma.$transaction(async (tx) => {
+    await tx.customer.update({ where: { id }, data: { portalToken: null, portalTokenExpiresAt: null } });
+    await auditRequired(tx, user.id, "REVOKE_PORTAL_LINK", { entity: "Customer", entityId: id });
+  });
   revalidatePath(`/khach-hang/${id}`);
 }
 
@@ -148,21 +153,18 @@ export async function deleteCustomer(formData: FormData): Promise<void> {
   const id = String(formData.get("id") ?? "");
   if (!id) return;
 
-  await prisma.$transaction([
-    prisma.payment.deleteMany({ where: { case: { customerId: id } } }),
-    prisma.caseService.deleteMany({ where: { case: { customerId: id } } }),
-    prisma.materialUsage.deleteMany({ where: { case: { customerId: id } } }),
-    prisma.followUp.deleteMany({ where: { customerId: id } }),
-    prisma.photo.deleteMany({ where: { customerId: id } }),
-    prisma.careMessage.deleteMany({ where: { customerId: id } }),
-    prisma.appointment.deleteMany({ where: { customerId: id } }),
-    prisma.caseRecord.deleteMany({ where: { customerId: id } }),
-    prisma.customer.delete({ where: { id } }),
-  ]);
-
-  await prisma.auditLog
-    .create({ data: { actorId: user.id, action: "DELETE_CUSTOMER", entity: "Customer", entityId: id } })
-    .catch(() => {});
+  await prisma.$transaction(async (tx) => {
+    await tx.payment.deleteMany({ where: { case: { customerId: id } } });
+    await tx.caseService.deleteMany({ where: { case: { customerId: id } } });
+    await tx.materialUsage.deleteMany({ where: { case: { customerId: id } } });
+    await tx.followUp.deleteMany({ where: { customerId: id } });
+    await tx.photo.deleteMany({ where: { customerId: id } });
+    await tx.careMessage.deleteMany({ where: { customerId: id } });
+    await tx.appointment.deleteMany({ where: { customerId: id } });
+    await tx.caseRecord.deleteMany({ where: { customerId: id } });
+    await tx.customer.delete({ where: { id } });
+    await auditRequired(tx, user.id, "DELETE_CUSTOMER", { entity: "Customer", entityId: id });
+  });
 
   revalidatePath("/khach-hang");
   redirect("/khach-hang");

@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { Crown, FolderHeart, Images, CalendarClock, Receipt, Star } from "lucide-react";
 import { prisma } from "@/lib/db";
-import { toNum, formatVND } from "@/lib/money";
+import { formatVND } from "@/lib/money";
 import { fmtDate, fmtDateTime } from "@/lib/format";
 import { CASE_STATUS, CASE_STATUS_PORTAL } from "@/lib/status";
 import { tierFor, pointsFor } from "@/lib/loyalty";
@@ -18,6 +18,7 @@ export const metadata = { title: "Hồ sơ của tôi" };
 
 export default async function CustomerPortalPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
+  const now = new Date();
   const customer = await prisma.customer.findUnique({
     where: { portalToken: token },
     include: {
@@ -37,21 +38,23 @@ export default async function CustomerPortalPage({ params }: { params: Promise<{
           payments: { select: { amount: true } },
         },
       },
-      photos: { orderBy: { takenAt: "desc" }, take: 12 },
-      followUps: { where: { scheduledAt: { gte: new Date(Date.now() - 86400000) } }, orderBy: { scheduledAt: "asc" }, take: 5 },
+      // The customer portal may show before/after progress, never internal
+      // clinical images (X-ray/CT/ultrasound or similar records).
+      photos: { where: { type: { not: "CLINICAL" } }, orderBy: { takenAt: "desc" }, take: 12 },
+      followUps: { where: { scheduledAt: { gte: new Date(now.getTime() - 86400000) } }, orderBy: { scheduledAt: "asc" }, take: 5 },
       appointments: {
-        where: { scheduledAt: { gte: new Date(Date.now() - 3 * 3600000) }, status: { in: ["BOOKED", "CONFIRMED"] } },
+        where: { scheduledAt: { gte: new Date(now.getTime() - 3 * 3600000) }, status: { in: ["BOOKED", "CONFIRMED"] } },
         orderBy: { scheduledAt: "asc" },
         take: 5,
       },
       // Đã đánh giá trong 30 ngày gần đây chưa (ẩn form nếu vừa đánh giá).
-      npsResponses: { where: { createdAt: { gte: new Date(Date.now() - 30 * 86400000) } }, take: 1, select: { id: true } },
+      npsResponses: { where: { createdAt: { gte: new Date(now.getTime() - 30 * 86400000) } }, take: 1, select: { id: true } },
     },
   });
   if (!customer) notFound();
 
   // Link cổng khách hết hạn (D3 gđ2) → hiện thông báo thân thiện thay vì lộ dữ liệu.
-  if (customer.portalTokenExpiresAt && customer.portalTokenExpiresAt.getTime() < Date.now()) {
+  if (customer.portalTokenExpiresAt && customer.portalTokenExpiresAt.getTime() < now.getTime()) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
         <div className="max-w-md rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">

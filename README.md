@@ -29,7 +29,7 @@ Có **cổng khách hàng** (link riêng) và **đặt lịch online**.
 ```bash
 cp .env.example .env       # điền khoá nếu muốn; để trống = tự sinh an toàn
 docker compose up --build
-# Mở http://localhost:3000 — đăng nhập lần đầu: admin / 123456 (ĐỔI NGAY)
+# Mở http://localhost:3000 — lần đầu CSDL trống phải cấu hình BOOTSTRAP_ADMIN_* trong .env.
 ```
 
 **Lập trình (dev):**
@@ -47,7 +47,7 @@ npx tsc --noEmit && npx vitest run # kiểm tra biên dịch + test
 
 ## 🔐 Bảo mật (đọc kỹ trước khi chia sẻ)
 - **Repo phải để PRIVATE.** Dữ liệu khách hàng thật (SĐT mã hoá AES-256-GCM) nằm trên máy chủ phòng khám, KHÔNG nằm trong repo.
-- Khoá bí mật (`AUTH_SECRET`) tự sinh mỗi máy, lưu trong volume Docker, **không commit**. `PHONE_ENC_KEY` đang dùng khoá DEMO tương thích — đổi khoá phải mã hoá lại dữ liệu (xem `web/DEPLOY.md`).
+- Khoá bí mật (`AUTH_SECRET`) tự sinh mỗi máy, lưu trong volume Docker, **không commit**. `PHONE_ENC_KEY` phải là secret ổn định do operator quản lý; đổi khoá phải mã hoá lại dữ liệu (xem `web/DEPLOY.md`).
 - File `.env` (khoá thật) **không bao giờ** được commit. Mẫu ở `.env.example`.
 
 ## 🗺️ Cấu trúc kho

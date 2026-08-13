@@ -1,5 +1,7 @@
 # Zenith Clinic — Hệ thống quản lý Trung tâm Phẫu thuật Thẩm mỹ
 
+> Lưu ý: phần tài khoản mẫu bên dưới chỉ dành cho QA với dữ liệu giả. Production phải dùng bootstrap admin riêng và không dùng mật khẩu mẫu.
+
 Ứng dụng web đa người dùng cho **Trung tâm Phẫu thuật Thẩm mỹ — Bệnh viện Đa khoa Hồng Phúc**:
 quản lý lịch hẹn, tiếp nhận khách, tư vấn — dịch vụ, hồ sơ điều trị, thanh toán & công nợ,
 chăm sóc khách hàng và báo cáo quản trị.
@@ -30,7 +32,7 @@ cp .env.example .env
 
 # 2) Khởi tạo cơ sở dữ liệu (PostgreSQL phải đang chạy — xem docker-compose bên dưới)
 npm run db:migrate                # tạo bảng
-npm run db:seed                   # nạp dữ liệu mẫu (tài khoản demo, dịch vụ, khách…)
+npm run db:seed                   # QA only: nạp dữ liệu mẫu, không dùng cho dữ liệu thật
 
 # 3) Chạy
 npm run dev                       # http://localhost:3000
@@ -43,9 +45,9 @@ docker compose up -d              # chạy Postgres 16 ở cổng 5432
 # DATABASE_URL="postgresql://zenith:zenith@127.0.0.1:5432/zenith_clinic?schema=public"
 ```
 
-## Tài khoản demo
+## Tài khoản QA (chỉ dùng với dữ liệu giả)
 
-Mật khẩu chung: **`123456`**
+Mật khẩu mẫu chỉ dành cho môi trường QA; không dùng seed hoặc mật khẩu này trên cơ sở dữ liệu thật.
 
 | Tài khoản | Vai trò | Thấy được |
 |---|---|---|
@@ -86,8 +88,8 @@ npm run start            # chạy server Node.js
 
 - Đặt biến môi trường `DATABASE_URL`, `AUTH_SECRET`, `PHONE_ENC_KEY` trên máy chủ.
 - Chạy được trên **máy chủ nội bộ** phòng khám hoặc **đám mây** (chỉ cần PostgreSQL).
-- ⚠️ Ảnh hiện lưu ở `public/uploads`. Khi chạy nhiều máy chủ/serverless nên chuyển sang
-  lưu trữ đối tượng (S3/MinIO).
+- Ảnh và giấy tờ được lưu ngoài `public/` (mặc định `private/uploads`) và chỉ phát qua route đã xác thực.
+  Docker cần volume bền vững; Vercel/serverless cần cấu hình object storage trước khi bật upload.
 
 ## Cấu trúc thư mục
 

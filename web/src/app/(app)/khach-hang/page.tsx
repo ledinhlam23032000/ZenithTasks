@@ -30,7 +30,10 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
   const loc = sp.loc === "done" || sp.loc === "undone" ? sp.loc : "all";
   const page = parsePage(sp.page);
 
+  const caseScope: Prisma.CaseRecordWhereInput =
+    user.role === "CONSULTANT" ? { consultantId: user.id } : user.role === "DOCTOR" ? { doctorId: user.id } : {};
   const filters: Prisma.CustomerWhereInput[] = [];
+  if (user.role === "CONSULTANT" || user.role === "DOCTOR") filters.push({ cases: { some: caseScope } });
   if (q) filters.push(isValidLast5(q) ? { phoneLast5: q } : { fullName: { contains: q, mode: "insensitive" } });
   if (loc === "done") filters.push({ cases: { some: { status: { in: DONE_STATUSES } } } });
   if (loc === "undone") filters.push({ cases: { none: { status: { in: DONE_STATUSES } } } });
@@ -50,8 +53,7 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
         phoneLast5: true,
         source: true,
         createdAt: true,
-        _count: { select: { cases: true } },
-        cases: { select: { status: true } },
+        cases: { where: caseScope, select: { status: true } },
       },
     }),
     prisma.customer.count({ where }),
@@ -158,7 +160,7 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
                       </div>
                       <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-slate-500">
                         <span>Nguồn: <b className="font-medium text-slate-700">{SOURCE_LABEL[customer.source]}</b></span>
-                        <span>Lượt khám: <b className="font-medium text-slate-700">{customer._count.cases}</b></span>
+                        <span>Lượt khám: <b className="font-medium text-slate-700">{customer.cases.length}</b></span>
                         <span>{customer.gender ? GENDER_LABEL[customer.gender] : "Chưa có giới tính"}</span>
                         <span>Tạo {fmtDate(customer.createdAt)}</span>
                       </div>
@@ -200,7 +202,7 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
                       </TD>
                       <TD className="text-slate-600">{c.gender ? GENDER_LABEL[c.gender] : "—"}</TD>
                       <TD className="text-slate-600">{SOURCE_LABEL[c.source]}</TD>
-                      <TD className="text-center font-medium text-slate-700">{c._count.cases}</TD>
+                      <TD className="text-center font-medium text-slate-700">{c.cases.length}</TD>
                       <TD className="text-slate-500">{fmtDate(c.createdAt)}</TD>
                     </TR>
                 ))}

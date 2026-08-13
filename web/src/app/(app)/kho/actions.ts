@@ -6,6 +6,7 @@ import { requireUser } from "@/lib/auth";
 import { toNum } from "@/lib/money";
 import { weightedAvgCost } from "@/lib/inventory-cost";
 import { parseStockInLines } from "@/lib/stock-in";
+import { auditRequired } from "@/lib/audit";
 
 export type StockInState = { ok?: boolean; error?: string };
 
@@ -28,7 +29,7 @@ export async function stockInBatch(formData: FormData): Promise<StockInState> {
   await prisma.$transaction(async (tx) => {
     for (const l of lines) {
       const m = await tx.material.findUnique({ where: { id: l.materialId }, select: { stock: true, avgCost: true } });
-      if (!m) continue; // vật tư đã bị xóa → bỏ qua dòng đó
+      if (!m) throw new Error("Một vật tư trong phiếu không còn tồn tại. Phiếu chưa được ghi nhận.");
       const newAvg = weightedAvgCost({
         oldStock: toNum(m.stock),
         oldAvg: toNum(m.avgCost),
@@ -47,6 +48,10 @@ export async function stockInBatch(formData: FormData): Promise<StockInState> {
         },
       });
     }
+    await auditRequired(tx, user.id, "STOCK_IN_BATCH", {
+      entity: "StockMovement",
+      meta: { lineCount: lines.length, quantities: lines.map((line) => ({ materialId: line.materialId, quantity: line.quantity })) },
+    });
   });
 
   revalidatePath("/kho");

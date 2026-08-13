@@ -139,7 +139,7 @@ export default async function DashboardPage() {
 
       {/* Biểu đồ: doanh thu 6 tháng + cơ cấu lịch hôm nay */}
       <div className="grid gap-6 lg:grid-cols-5">
-        <Card className="lg:col-span-3">
+        <Card className="min-w-0 lg:col-span-3">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <BarChart3 className="h-4 w-4 text-brand-500" /> Doanh thu
@@ -157,7 +157,7 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="lg:col-span-2">
+        <Card className="min-w-0 lg:col-span-2">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <CalendarClock className="h-4 w-4 text-brand-500" /> Cơ cấu lịch hôm nay

@@ -25,25 +25,22 @@ export async function proxy(request: NextRequest) {
 
   const token = request.cookies.get(COOKIE_NAME)?.value;
   let hasValidSession = false;
+  let mustChangePassword = false;
   if (token) {
     try {
-      await jwtVerify(token, secret());
+      const verified = await jwtVerify(token, secret());
       hasValidSession = true;
+      mustChangePassword = verified.payload.mustChangePassword === true;
     } catch {
       hasValidSession = false;
     }
   }
 
-  // public/uploads/* (ảnh hồ sơ/giấy tờ/avatar) — Next.js tự phục vụ mọi file trong
-  // public/ theo đường dẫn khớp, kể cả tệp ghi lúc chạy, HOÀN TOÀN BỎ QUA route
-  // /media/[file] (nơi có xác thực). Route đó vẫn là cách HIỂN THỊ đúng (qua
-  // photoSrc()), nhưng đường dẫn tĩnh gốc vẫn tồn tại song song và lộ công khai nếu
-  // không chặn riêng ở đây — chặn TRƯỚC khi Next phục vụ static (thứ tự proxy → static
-  // theo tài liệu Next 16). Cổng khách công khai dùng /media/?t=<vé>, KHÔNG dùng
-  // đường dẫn này, nên chặn ở đây không ảnh hưởng cổng khách.
+  // Compatibility path: files are no longer written below public/. Return a
+  // hard 404 so an old file cannot become public if it is left in an image or
+  // during a rolling deployment.
   if (pathname.startsWith("/uploads/")) {
-    if (!hasValidSession) return new NextResponse("Unauthorized", { status: 401 });
-    return NextResponse.next();
+    return new NextResponse("Not found", { status: 404 });
   }
 
   if (!hasValidSession && !isPublic) {
@@ -52,6 +49,12 @@ export async function proxy(request: NextRequest) {
     const res = NextResponse.redirect(url);
     if (token) res.cookies.delete({ name: COOKIE_NAME, path: "/" });
     return res;
+  }
+
+  if (hasValidSession && mustChangePassword && pathname !== "/tai-khoan" && !pathname.startsWith("/tai-khoan/")) {
+    const url = new URL("/tai-khoan", request.url);
+    url.searchParams.set("force", "1");
+    return NextResponse.redirect(url);
   }
 
   if (hasValidSession && pathname === "/login") {

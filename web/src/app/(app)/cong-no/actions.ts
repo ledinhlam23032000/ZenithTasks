@@ -5,9 +5,10 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireCap } from "@/lib/auth";
 import { isShareholder } from "@/lib/rbac";
-import { audit } from "@/lib/audit";
+import { auditRequired } from "@/lib/audit";
 import { clampDayOfMonth } from "@/lib/debt-plan";
-import { setSetting, DEBT_THRESHOLD_KEY } from "@/lib/settings";
+import { DEBT_THRESHOLD_KEY } from "@/lib/settings";
+import { canAccessCase } from "@/lib/case-access";
 
 export type DebtPlanState = { ok?: boolean; error?: string; nonce?: number };
 
@@ -20,8 +21,18 @@ export async function saveDebtThreshold(_prev: DebtPlanState, formData: FormData
   if (isShareholder(user.role)) return { error: "Bạn chỉ có quyền xem, không đổi được ngưỡng." };
   const n = Number(formData.get("threshold"));
   if (!Number.isFinite(n) || n < 0) return { error: "Ngưỡng không hợp lệ." };
-  await setSetting(DEBT_THRESHOLD_KEY, String(Math.round(n)));
-  await audit(user.id, "SET_DEBT_THRESHOLD", { entity: "AppSetting", entityId: DEBT_THRESHOLD_KEY, meta: { value: Math.round(n) } });
+  await prisma.$transaction(async (tx) => {
+    await tx.appSetting.upsert({
+      where: { key: DEBT_THRESHOLD_KEY },
+      create: { key: DEBT_THRESHOLD_KEY, value: String(Math.round(n)) },
+      update: { value: String(Math.round(n)) },
+    });
+    await auditRequired(tx, user.id, "SET_DEBT_THRESHOLD", {
+      entity: "AppSetting",
+      entityId: DEBT_THRESHOLD_KEY,
+      meta: { value: Math.round(n) },
+    });
+  });
   return { ok: true, nonce: Date.now() };
 }
 
@@ -51,19 +62,26 @@ export async function saveDebtPlan(_prev: DebtPlanState, formData: FormData): Pr
   const d = parsed.data;
 
   // Hồ sơ phải tồn tại + còn nợ mới cho lập kế hoạch.
-  const rec = await prisma.caseRecord.findUnique({ where: { id: d.caseId }, select: { id: true, debtAmount: true } });
+  const rec = await prisma.caseRecord.findUnique({ where: { id: d.caseId }, select: { id: true, debtAmount: true, consultantId: true, doctorId: true } });
   if (!rec) return { error: "Không tìm thấy hồ sơ." };
+  if (!canAccessCase(user, rec, "payment.add")) return { error: "Bạn không có quyền thao tác trên hồ sơ này." };
 
   const dayOfMonth = clampDayOfMonth(d.dayOfMonth);
   const startDate = d.startDate ? new Date(d.startDate) : new Date();
   if (Number.isNaN(startDate.getTime())) return { error: "Ngày bắt đầu không hợp lệ." };
 
-  await prisma.debtPlan.upsert({
-    where: { caseId: d.caseId },
-    create: { caseId: d.caseId, dayOfMonth, monthlyAmount: d.monthlyAmount, startDate, note: d.note || null, createdById: user.id },
-    update: { dayOfMonth, monthlyAmount: d.monthlyAmount, startDate, note: d.note || null },
+  await prisma.$transaction(async (tx) => {
+    await tx.debtPlan.upsert({
+      where: { caseId: d.caseId },
+      create: { caseId: d.caseId, dayOfMonth, monthlyAmount: d.monthlyAmount, startDate, note: d.note || null, createdById: user.id },
+      update: { dayOfMonth, monthlyAmount: d.monthlyAmount, startDate, note: d.note || null },
+    });
+    await auditRequired(tx, user.id, "SAVE_DEBT_PLAN", {
+      entity: "DebtPlan",
+      entityId: d.caseId,
+      meta: { dayOfMonth, monthlyAmount: d.monthlyAmount },
+    });
   });
-  await audit(user.id, "SAVE_DEBT_PLAN", { entity: "DebtPlan", entityId: d.caseId, meta: { dayOfMonth, monthlyAmount: d.monthlyAmount } });
 
   return { ok: true, nonce: Date.now() };
 }
@@ -73,8 +91,14 @@ export async function deleteDebtPlan(formData: FormData): Promise<void> {
   const user = await requireCap("payment.add");
   const caseId = String(formData.get("caseId") ?? "");
   if (!caseId) return;
-  await prisma.debtPlan.delete({ where: { caseId } }).catch(() => {});
-  await audit(user.id, "DELETE_DEBT_PLAN", { entity: "DebtPlan", entityId: caseId });
+  const rec = await prisma.caseRecord.findUnique({ where: { id: caseId }, select: { consultantId: true, doctorId: true } });
+  if (!rec || !canAccessCase(user, rec, "payment.add")) return;
+  await prisma.$transaction(async (tx) => {
+    const deleted = await tx.debtPlan.deleteMany({ where: { caseId } });
+    if (deleted.count > 0) {
+      await auditRequired(tx, user.id, "DELETE_DEBT_PLAN", { entity: "DebtPlan", entityId: caseId });
+    }
+  });
   revalidatePath(`/ho-so/${caseId}`);
   revalidatePath("/cong-no");
 }

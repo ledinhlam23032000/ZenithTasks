@@ -162,6 +162,7 @@ model User {
   // Xác thực 2 lớp (TOTP). Mặc định tắt — không ảnh hưởng đăng nhập hiện tại.
   totpSecret     String?
   totpEnabled    Boolean   @default(false)
+  mustChangePassword Boolean @default(false)
   baseSalary     Decimal   @default(0) @db.Decimal(14, 0) // Lương cơ bản theo tháng
   active         Boolean   @default(true)
   createdAt      DateTime  @default(now())
@@ -334,6 +335,7 @@ model Appointment {
   source          CustomerSource    @default(OTHER)
   sourceDetail    String?
   note            String?
+  publicNonce     String? @unique
   createdById     String?
   createdBy       User?             @relation("ApptCreatedBy", fields: [createdById], references: [id])
   consultantId    String?
@@ -490,6 +492,8 @@ model CaseService {
   // Đã trừ vật tư theo định mức (BOM) cho dòng dịch vụ này chưa — tránh trừ kho 2 lần (B5 gđ2).
   bomApplied  Boolean    @default(false)
   createdAt   DateTime   @default(now())
+
+  materialUsages MaterialUsage[]
 }
 
 model Payment {
@@ -511,6 +515,8 @@ model MaterialUsage {
   case          CaseRecord @relation(fields: [caseId], references: [id], onDelete: Cascade)
   materialId    String?
   material      Material?  @relation(fields: [materialId], references: [id])
+  caseServiceId String?
+  caseService   CaseService? @relation(fields: [caseServiceId], references: [id], onDelete: SetNull)
   name          String // Tên vật tư (snapshot)
   unit          String     @default("cái")
   quantity      Decimal    @default(1) @db.Decimal(10, 2)
@@ -668,6 +674,16 @@ model AuditLog {
   at       DateTime @default(now())
 
   @@index([at])
+}
+
+model RateLimitBucket {
+  key         String   @id
+  count       Int      @default(0)
+  firstAt     DateTime
+  lockedUntil DateTime?
+  updatedAt   DateTime @updatedAt
+
+  @@index([updatedAt])
 }
 
 // ============================ SỔ THU CHI (DÒNG TIỀN) ============================

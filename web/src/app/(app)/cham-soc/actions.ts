@@ -5,7 +5,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { generateMessage } from "@/lib/ai";
-import { audit } from "@/lib/audit";
+import { auditRequired } from "@/lib/audit";
 
 export type CareFormState = { ok?: boolean; error?: string; nonce?: number };
 
@@ -32,15 +32,25 @@ export async function addCareMessage(_prev: CareFormState, formData: FormData): 
   }
   const data = parsed.data;
 
-  await prisma.careMessage.create({
-    data: {
-      customerId: data.customerId,
-      channel: data.channel,
-      direction: data.direction,
-      content: data.content,
-      caseId: data.caseId || null,
-      createdById: user.id,
-    },
+  const customer = await prisma.customer.findUnique({ where: { id: data.customerId }, select: { id: true } });
+  if (!customer) return { error: "Khách hàng không tồn tại hoặc đã bị xóa." };
+  if (data.caseId) {
+    const linkedCase = await prisma.caseRecord.findUnique({ where: { id: data.caseId }, select: { customerId: true } });
+    if (!linkedCase || linkedCase.customerId !== data.customerId) return { error: "Hồ sơ không thuộc khách hàng đã chọn." };
+  }
+
+  await prisma.$transaction(async (tx) => {
+    const message = await tx.careMessage.create({
+      data: {
+        customerId: data.customerId,
+        channel: data.channel,
+        direction: data.direction,
+        content: data.content,
+        caseId: data.caseId || null,
+        createdById: user.id,
+      },
+    });
+    await auditRequired(tx, user.id, "CREATE_CARE", { entity: "CareMessage", entityId: message.id, meta: { customerId: data.customerId, caseId: data.caseId || null, channel: data.channel } });
   });
 
   return { ok: true, nonce: Date.now() };
@@ -54,7 +64,7 @@ const editSchema = z.object({
 });
 
 export async function updateCareMessage(_prev: CareFormState, formData: FormData): Promise<CareFormState> {
-  await requireUser(["ADMIN", "MANAGER", "CARE"]);
+  const user = await requireUser(["ADMIN", "MANAGER", "CARE"]);
 
   const parsed = editSchema.safeParse({
     id: formData.get("id") ?? "",
@@ -67,9 +77,11 @@ export async function updateCareMessage(_prev: CareFormState, formData: FormData
   }
   const { id, channel, direction, content } = parsed.data;
 
-  await prisma.careMessage.update({
-    where: { id },
-    data: { channel, direction, content },
+  await prisma.$transaction(async (tx) => {
+    const updated = await tx.careMessage.updateMany({ where: { id }, data: { channel, direction, content } });
+    if (updated.count > 0) {
+      await auditRequired(tx, user.id, "UPDATE_CARE", { entity: "CareMessage", entityId: id, meta: { channel, direction } });
+    }
   });
 
   return { ok: true, nonce: Date.now() };
@@ -80,8 +92,11 @@ export async function deleteCareMessage(formData: FormData): Promise<void> {
   const id = String(formData.get("id") ?? "");
   if (!id) return;
   const m = await prisma.careMessage.findUnique({ where: { id }, select: { customerId: true } });
-  await prisma.careMessage.delete({ where: { id } }).catch(() => {});
-  await audit(user.id, "DELETE_CARE", { entity: "CareMessage", entityId: id });
+  if (!m) return;
+  await prisma.$transaction(async (tx) => {
+    const deleted = await tx.careMessage.deleteMany({ where: { id } });
+    if (deleted.count > 0) await auditRequired(tx, user.id, "DELETE_CARE", { entity: "CareMessage", entityId: id });
+  });
   if (m?.customerId) revalidatePath(`/khach-hang/${m.customerId}`);
   revalidatePath("/cham-soc");
 }

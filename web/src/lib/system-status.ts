@@ -1,6 +1,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { prisma } from "./db";
+import { getUploadDir } from "./upload-storage";
 import { securityWarnings } from "./security-status";
 
 // ============================================================================
@@ -42,7 +43,7 @@ async function readBackupInfo(): Promise<BackupInfo> {
 }
 
 async function uploadsUsage(): Promise<{ count: number; bytes: number }> {
-  const dir = path.join(process.cwd(), "public", "uploads");
+  const dir = getUploadDir();
   try {
     const names = await fs.readdir(dir);
     let bytes = 0;

@@ -116,7 +116,7 @@ export function PasswordForm() {
         </div>
         <div>
           <Label htmlFor="ch-next">Mật khẩu mới</Label>
-          <Input id="ch-next" name="next" type="password" autoComplete="new-password" placeholder="Tối thiểu 8 ký tự" required />
+          <Input id="ch-next" name="next" type="password" autoComplete="new-password" placeholder="Tối thiểu 12 ký tự" required />
         </div>
         <div>
           <Label htmlFor="ch-confirm">Xác nhận mật khẩu mới</Label>

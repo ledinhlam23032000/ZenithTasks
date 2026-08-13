@@ -5,8 +5,8 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { userCan } from "@/lib/permissions";
-import { decryptPhone } from "@/lib/phone";
-import { audit } from "@/lib/audit";
+import { decryptPhone, redactPhoneLikeText } from "@/lib/phone";
+import { auditRequired } from "@/lib/audit";
 import { findConflicts, minutesApart, SLOT_WINDOW_MIN, type ApptSlot } from "@/lib/schedule";
 import type { AppointmentStatus } from "@/generated/prisma/client";
 
@@ -24,7 +24,7 @@ export async function revealAppointmentPhone(appointmentId: string): Promise<Rev
   if (!a?.phoneEnc) return { error: "Không có số điện thoại lưu cho lịch hẹn này." };
   try {
     const phone = decryptPhone(a.phoneEnc);
-    await audit(user.id, "REVEAL_PHONE", { entity: "Appointment", entityId: appointmentId });
+    await auditRequired(prisma, user.id, "REVEAL_PHONE", { entity: "Appointment", entityId: appointmentId });
     return { phone };
   } catch {
     return { error: "Không giải mã được số điện thoại." };
@@ -142,7 +142,7 @@ async function doCreateAppointment(formData: FormData, force: boolean): Promise<
       source: data.source,
       sourceDetail: data.sourceDetail || null,
       consultantId: data.consultantId || null,
-      note: data.note || null,
+      note: redactPhoneLikeText(data.note) || null,
       createdById: user.id,
     },
   });

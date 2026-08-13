@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ListTree, Sparkles, Trash2 } from "lucide-react";
+import { ListTree, Sparkles } from "lucide-react";
 import { requireCap } from "@/lib/auth";
 import { aiConfigured } from "@/lib/ai";
 import { prisma } from "@/lib/db";

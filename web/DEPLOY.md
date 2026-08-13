@@ -8,7 +8,7 @@ Có 3 cách, chọn theo nhu cầu:
 | **B. Vercel + Neon** | Muốn **link công khai**, không cài gì trên máy | URL `https://...vercel.app` mở được trên điện thoại |
 | **C. Thủ công** | Máy có sẵn Node 20+ và PostgreSQL | Chạy dev/tùy biến |
 
-Tài khoản demo (mật khẩu `123456`): `admin`, `letan`, `tuvan1`, `bacsi1`, `cskh`, `quanly`, `telesale`.
+Không có tài khoản demo tự động trong production. Khi CSDL trống, cấu hình `BOOTSTRAP_ADMIN_USERNAME`, `BOOTSTRAP_ADMIN_NAME`, `BOOTSTRAP_ADMIN_PASSWORD` (ít nhất 12 ký tự) để tạo một tài khoản quản trị cá nhân; tài khoản bắt buộc đổi mật khẩu lần đầu.
 
 ---
 
@@ -21,15 +21,14 @@ Cần [Docker Desktop](https://www.docker.com/products/docker-desktop/) (Windows
 docker compose up --build
 ```
 
-Lần đầu sẽ tự: dựng PostgreSQL → chạy migration → nạp dữ liệu mẫu → khởi động web.
+Lần đầu sẽ tự: dựng PostgreSQL → chạy migration → bootstrap tài khoản quản trị → khởi động web.
 Khi thấy dòng `🚀 Khởi động Zenith Clinic`, mở **http://localhost:3000**.
 
 - Dừng: `Ctrl + C` rồi `docker compose down` (giữ dữ liệu).
 - Xoá sạch để chạy lại từ đầu: `docker compose down -v`.
 - Dữ liệu DB và ảnh upload được lưu trong Docker volume nên không mất khi tắt máy.
 
-> ⚠️ Khoá `AUTH_SECRET` / `PHONE_ENC_KEY` trong `docker-compose.yml` chỉ để demo.
-> Đổi sang khoá riêng trước khi dùng thật (xem mục “Sinh khoá bí mật” cuối trang).
+> ⚠️ Không bật `ALLOW_DEMO_SEED=true` trong production. `AUTH_SECRET` và `PHONE_ENC_KEY` phải được quản lý bằng secret manager hoặc `.env` ngoài Git.
 
 ---
 
@@ -54,14 +53,8 @@ Khi thấy dòng `🚀 Khởi động Zenith Clinic`, mở **http://localhost:30
 
 4. Bấm **Deploy**. (Build sẽ tự chạy `prisma migrate deploy` để tạo bảng.)
 
-### 3) Nạp dữ liệu mẫu (chỉ làm 1 lần)
-Vào **Settings → General → Build & Development Settings**, tạm sửa **Build Command** thành:
-```
-prisma migrate deploy && npm run db:seed && next build
-```
-Bấm **Redeploy** một lần → vào lại Build Command cũ (`prisma migrate deploy && next build`) để lần sau không nạp lại đè dữ liệu.
-
-Xong! Mở URL Vercel, đăng nhập `admin / 123456`.
+### 3) Khởi tạo tài khoản và dữ liệu
+Không chạy `db:seed` trên database production. Hãy tạo tài khoản riêng bằng cơ chế bootstrap của Docker hoặc chạy `npm run db:bootstrap-admin` với các biến môi trường bootstrap trong một phiên vận hành được kiểm soát.
 
 > ℹ️ Trên Vercel (serverless), việc **tải ảnh trước–sau sẽ không lưu được** do hệ thống tệp chỉ đọc — các phần khác hoạt động bình thường. Nếu cần upload ảnh, dùng **Cách A (Docker)** hoặc gắn dịch vụ lưu trữ ảnh (S3/Cloudinary).
 
@@ -71,10 +64,10 @@ Xong! Mở URL Vercel, đăng nhập `admin / 123456`.
 
 ```bash
 cd web
-cp .env.example .env          # rồi điền DATABASE_URL, AUTH_SECRET, PHONE_ENC_KEY
+cp .env.example .env          # điền DATABASE_URL, AUTH_SECRET, PHONE_ENC_KEY và bootstrap admin
 npm install
 npm run db:deploy             # tạo bảng theo migration
-npm run db:seed               # nạp dữ liệu mẫu
+npm run db:bootstrap-admin    # chỉ khi CSDL chưa có tài khoản
 npm run dev                   # http://localhost:3000   (hoặc: npm run build && npm start)
 ```
 

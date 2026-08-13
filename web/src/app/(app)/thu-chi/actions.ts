@@ -8,6 +8,7 @@ import { requireCap } from "@/lib/auth";
 import { isShareholder } from "@/lib/rbac";
 import { CATEGORY_LABEL } from "@/lib/finance";
 import { isMonthClosed } from "@/lib/accounting";
+import { auditRequired } from "@/lib/audit";
 
 export type CashState = { ok?: boolean; error?: string };
 
@@ -50,17 +51,24 @@ export async function createCashTransaction(_prev: CashState, formData: FormData
   if (Number.isNaN(when.getTime())) return { error: "Ngày không hợp lệ." };
   if (await isMonthClosed(format(when, "yyyy-MM"))) return { error: closedMsg(when) };
 
-  await prisma.cashTransaction.create({
-    data: {
-      type: d.type,
-      category: d.category,
-      amount: Math.round(d.amount),
-      occurredAt: when,
-      method: d.method,
-      vendor: d.vendor || null,
-      note: d.note || null,
-      createdById: user.id,
-    },
+  await prisma.$transaction(async (tx) => {
+    const cash = await tx.cashTransaction.create({
+      data: {
+        type: d.type,
+        category: d.category,
+        amount: Math.round(d.amount),
+        occurredAt: when,
+        method: d.method,
+        vendor: d.vendor || null,
+        note: d.note || null,
+        createdById: user.id,
+      },
+    });
+    await auditRequired(tx, user.id, "CREATE_CASH_TRANSACTION", {
+      entity: "CashTransaction",
+      entityId: cash.id,
+      meta: { type: d.type, category: d.category, amount: Math.round(d.amount), occurredAt: when.toISOString() },
+    });
   });
   return { ok: true };
 }
@@ -82,17 +90,24 @@ export async function updateCashTransaction(_prev: CashState, formData: FormData
   if (await isMonthClosed(format(current.occurredAt, "yyyy-MM"))) return { error: closedMsg(current.occurredAt) };
   if (await isMonthClosed(format(when, "yyyy-MM"))) return { error: closedMsg(when) };
 
-  await prisma.cashTransaction.update({
-    where: { id },
-    data: {
-      type: d.type,
-      category: d.category,
-      amount: Math.round(d.amount),
-      occurredAt: when,
-      method: d.method,
-      vendor: d.vendor || null,
-      note: d.note || null,
-    },
+  await prisma.$transaction(async (tx) => {
+    await tx.cashTransaction.update({
+      where: { id },
+      data: {
+        type: d.type,
+        category: d.category,
+        amount: Math.round(d.amount),
+        occurredAt: when,
+        method: d.method,
+        vendor: d.vendor || null,
+        note: d.note || null,
+      },
+    });
+    await auditRequired(tx, user.id, "UPDATE_CASH_TRANSACTION", {
+      entity: "CashTransaction",
+      entityId: id,
+      meta: { type: d.type, category: d.category, amount: Math.round(d.amount), occurredAt: when.toISOString() },
+    });
   });
   return { ok: true };
 }
@@ -103,19 +118,25 @@ export async function deleteCashTransaction(formData: FormData): Promise<void> {
   const id = String(formData.get("id") ?? "");
   if (!id) return;
 
-  const tx = await prisma.cashTransaction.findUnique({ where: { id }, select: { occurredAt: true } });
-  if (!tx) return;
-  if (await isMonthClosed(format(tx.occurredAt, "yyyy-MM"))) return;
+  const cash = await prisma.cashTransaction.findUnique({ where: { id }, select: { occurredAt: true, amount: true, type: true, category: true } });
+  if (!cash) return;
+  if (await isMonthClosed(format(cash.occurredAt, "yyyy-MM"))) return;
 
   // Nếu đây là phiếu chi lương / hoa hồng do trang Kế toán sinh ra thì bỏ luôn
   // đánh dấu "đã chi" để bảng lương không lệch với sổ quỹ.
-  await prisma.payrollEntry.updateMany({
-    where: { cashTxId: id },
-    data: { paidAmount: 0, paidAt: null, cashTxId: null },
+  await prisma.$transaction(async (db) => {
+    await db.payrollEntry.updateMany({
+      where: { cashTxId: id },
+      data: { paidAmount: 0, paidAt: null, cashTxId: null },
+    });
+    await db.commissionPayout.deleteMany({ where: { cashTxId: id } });
+    await db.cashTransaction.delete({ where: { id } });
+    await auditRequired(db, user.id, "DELETE_CASH_TRANSACTION", {
+      entity: "CashTransaction",
+      entityId: id,
+      meta: { type: cash.type, category: cash.category, amount: cash.amount },
+    });
   });
-  await prisma.commissionPayout.deleteMany({ where: { cashTxId: id } });
-
-  await prisma.cashTransaction.delete({ where: { id } }).catch(() => {});
   revalidatePath("/thu-chi");
   revalidatePath("/dashboard");
   revalidatePath("/ke-toan");

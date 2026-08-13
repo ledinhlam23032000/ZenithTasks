@@ -8,6 +8,12 @@ const allowed = (process.env.APP_ORIGINS ?? "")
   .filter(Boolean);
 
 const nextConfig: NextConfig = {
+  // The repository sits below a broader Windows workspace that also has a
+  // lockfile. Pin Turbopack to this app so production builds do not infer the
+  // wrong workspace root.
+  turbopack: {
+    root: process.cwd(),
+  },
   experimental: {
     serverActions: {
       // Mặc định 1MB là quá nhỏ cho ảnh trước–sau (tối đa ~8MB/ảnh).
@@ -20,9 +26,12 @@ const nextConfig: NextConfig = {
     // Content-Security-Policy: hạn chế nguồn tài nguyên để giảm rủi ro XSS.
     // Ghi chú: Next.js cần script/style inline (hydration, Tailwind) → giữ
     // 'unsafe-inline'/'unsafe-eval'. Có thể siết chặt thêm bằng nonce về sau.
+    const scriptSources = process.env.NODE_ENV === "production"
+      ? "script-src 'self' 'unsafe-inline'"
+      : "script-src 'self' 'unsafe-inline' 'unsafe-eval'";
     const csp = [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+      scriptSources,
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob:",
       "font-src 'self' data:",

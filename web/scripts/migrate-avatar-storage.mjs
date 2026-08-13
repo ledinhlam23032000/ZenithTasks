@@ -14,7 +14,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import pg from "pg";
 
-const UPLOADS_DIR = process.env.ZENITH_UPLOADS_DIR || path.join(process.cwd(), "public", "uploads");
+const UPLOADS_DIR = process.env.ZENITH_UPLOADS_DIR || process.env.UPLOAD_DIR || path.join(process.cwd(), "private", "uploads");
 const AVATARS_DIR = path.join(UPLOADS_DIR, "avatars");
 
 async function main() {
@@ -39,7 +39,7 @@ async function main() {
       console.error(`  ✗ Không chuyển được ảnh đại diện ${f}:`, e.message);
       continue;
     }
-    await client.query('UPDATE "User" SET "avatarUrl" = $1 WHERE "avatarUrl" = $2', [`/uploads/${f}`, `/uploads/avatars/${f}`]);
+    await client.query('UPDATE "User" SET "avatarUrl" = $1 WHERE "avatarUrl" IN ($2, $3)', [`/media/${f}`, `/uploads/avatars/${f}`, `/uploads/${f}`]);
     moved++;
   }
   await client.end();

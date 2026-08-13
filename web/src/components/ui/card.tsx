@@ -31,5 +31,5 @@ export function CardDescription({ className, ...props }: React.HTMLAttributes<HT
 }
 
 export function CardContent({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("px-4 pb-4 sm:px-5 sm:pb-5", className)} {...props} />;
+  return <div className={cn("min-w-0 px-4 pb-4 sm:px-5 sm:pb-5", className)} {...props} />;
 }

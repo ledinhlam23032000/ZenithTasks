@@ -23,11 +23,12 @@ function ProgressBar() {
       timerRef.current = null;
     }
     if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current);
-    setProgress((p) => (p > 0 ? 100 : p));
+    const finish = window.setTimeout(() => setProgress((p) => (p > 0 ? 100 : p)), 0);
     hideTimeoutRef.current = setTimeout(() => {
       setVisible(false);
       setProgress(0);
     }, 200);
+    return () => window.clearTimeout(finish);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname, searchParams?.toString()]);
 

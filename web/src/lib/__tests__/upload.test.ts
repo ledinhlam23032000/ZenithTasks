@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isAllowedDocMime, docExt, safeStoredName, prettyFileSize } from "../upload";
+import { isAllowedDocMime, docExt, safeStoredName, prettyFileSize, isDocumentBufferValid } from "../upload";
 
 describe("isAllowedDocMime", () => {
   it("nhận PDF/ảnh/Word/Excel, từ chối loại lạ", () => {
@@ -39,5 +39,13 @@ describe("prettyFileSize", () => {
     expect(prettyFileSize(2048)).toBe("2 KB");
     expect(prettyFileSize(3 * 1024 * 1024)).toBe("3.0 MB");
     expect(prettyFileSize(-5)).toBe("0 B");
+  });
+});
+
+describe("isDocumentBufferValid", () => {
+  it("rejects a fake MIME and accepts known file signatures", () => {
+    expect(isDocumentBufferValid(Buffer.from("not-a-pdf"), "application/pdf")).toBe(false);
+    expect(isDocumentBufferValid(Buffer.from("%PDF-1.7\n"), "application/pdf")).toBe(true);
+    expect(isDocumentBufferValid(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]), "image/png")).toBe(true);
   });
 });

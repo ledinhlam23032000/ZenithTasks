@@ -31,6 +31,12 @@ services:
       # Để trống = container tự sinh/đọc khoá an toàn trong volume (không lộ trong Git).
       AUTH_SECRET: "${AUTH_SECRET:-}"
       PHONE_ENC_KEY: "${PHONE_ENC_KEY:-}"
+      UPLOAD_DIR: "${UPLOAD_DIR:-/app/private/uploads}"
+      ALLOW_DEMO_SEED: "${ALLOW_DEMO_SEED:-false}"
+      BOOTSTRAP_ADMIN_USERNAME: "${BOOTSTRAP_ADMIN_USERNAME:-}"
+      BOOTSTRAP_ADMIN_NAME: "${BOOTSTRAP_ADMIN_NAME:-}"
+      BOOTSTRAP_ADMIN_PASSWORD: "${BOOTSTRAP_ADMIN_PASSWORD:-}"
+      TRUSTED_PROXY: "${TRUSTED_PROXY:-false}"
       APP_NAME: "Trung tâm Phẫu thuật Tạo hình Thẩm mỹ — BVĐK Hồng Phúc"
       TZ: "Asia/Ho_Chi_Minh"
       APP_ORIGINS: "${APP_ORIGINS:-trungtamphauthuattaohinhvathammybenhviendakhoahongphuc.xyz,www.trungtamphauthuattaohinhvathammybenhviendakhoahongphuc.xyz}"
@@ -53,7 +59,7 @@ services:
       FB_APP_ID: "${FB_APP_ID:-}"
       FB_GRAPH_API_VERSION: "${FB_GRAPH_API_VERSION:-}"
     volumes:
-      - zenith_uploads:/app/public/uploads
+      - zenith_uploads:/app/private/uploads
       - zenith_secrets:/app/.runtime
 
   caddy:

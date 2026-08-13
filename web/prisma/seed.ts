@@ -61,7 +61,7 @@ async function main() {
   const users: Record<string, string> = {};
   for (const u of usersData) {
     const created = await prisma.user.create({
-      data: { ...u, passwordHash: pw, phone: "0900000000" },
+      data: { ...u, passwordHash: pw, phone: "0900000000", mustChangePassword: true },
     });
     users[u.username] = created.id;
   }
@@ -371,7 +371,7 @@ async function main() {
   }
   console.log(`  ✓ ${shiftCount} ca làm việc`);
 
-  console.log("\n✅ Hoàn tất! Tài khoản demo (mật khẩu chung: " + DEMO_PASSWORD + "):");
+  console.log("\n✅ Hoàn tất dữ liệu QA. Tài khoản demo phải đổi mật khẩu ngay khi đăng nhập:");
   for (const u of usersData) console.log(`   • ${u.username.padEnd(10)} — ${u.fullName} (${u.role})`);
 }
 

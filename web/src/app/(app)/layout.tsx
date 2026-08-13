@@ -12,10 +12,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const nav = navForUser(user).map((n) => ({ href: n.href, label: n.label, icon: n.icon, group: n.group }));
   // Cảnh báo bảo mật chỉ hiện cho ADMIN (người có thể xử lý).
   const warnings = user.role === "ADMIN" ? securityWarnings() : [];
-  // Cảnh báo mật khẩu demo hiện cho CHÍNH người đang đăng nhập, bất kể vai trò —
-  // ai đăng nhập bằng "123456" (mật khẩu seed) đều cần tự đổi ngay (xem login/actions.ts).
+  // Tài khoản bootstrap/QA được đánh dấu bắt buộc đổi mật khẩu trong JWT.
   const session = await getSession();
-  const weakPassword = session?.weakPw === true;
+  const weakPassword = user.mustChangePassword || session?.weakPw === true || session?.mustChangePassword === true;
 
   return (
     <ToastProvider>

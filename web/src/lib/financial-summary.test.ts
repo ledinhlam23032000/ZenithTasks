@@ -31,6 +31,21 @@ describe("summarizeCase", () => {
     expect(summary.debt).toBe(0);
   });
 
+  it("sums every payment entry instead of showing only the latest payment", () => {
+    const summary = summarizeCase({
+      services: [{ listPrice: 15_000_000, unitPrice: 15_000_000, quantity: 1, discount: 0 }],
+      payments: [{ amount: 10_000_000 }, { amount: 5_000_000 }],
+      voucherAmount: 0,
+      // Mô phỏng snapshot cũ bị ghi đè bằng khoản thu gần nhất.
+      snapshot: { totalAmount: 15_000_000, paidAmount: 5_000_000, debtAmount: 10_000_000 },
+    });
+
+    expect(summary.total).toBe(15_000_000);
+    expect(summary.paid).toBe(15_000_000);
+    expect(summary.debt).toBe(0);
+    expect(summary.anomalies).toContain("STALE_SNAPSHOT");
+  });
+
   it("flags a payment when the case has no services", () => {
     const summary = summarizeCase({
       services: [],

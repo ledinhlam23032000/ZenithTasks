@@ -52,6 +52,25 @@ export function sniffImageExt(buf: Buffer): string | null {
   return null;
 }
 
+/** Kiểm tra chữ ký file theo MIME khai báo, không tin phần mở rộng hay MIME tự gửi. */
+export function isDocumentBufferValid(buf: Buffer, mime: string): boolean {
+  if (buf.length < 4) return false;
+  if (mime === "application/pdf") return buf.subarray(0, 5).toString("ascii") === "%PDF-";
+  if (mime === "image/jpeg") return sniffImageExt(buf) === "jpg";
+  if (mime === "image/png") return sniffImageExt(buf) === "png";
+  if (mime === "image/webp") return sniffImageExt(buf) === "webp";
+  if (mime === "application/msword" || mime === "application/vnd.ms-excel") {
+    return buf.subarray(0, 8).equals(Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]));
+  }
+  if (
+    mime === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+    mime === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+  ) {
+    return buf.subarray(0, 4).equals(Buffer.from([0x50, 0x4b, 0x03, 0x04]));
+  }
+  return false;
+}
+
 export function prettyFileSize(bytes: number): string {
   if (!Number.isFinite(bytes) || bytes < 0) return "0 B";
   if (bytes < 1024) return `${bytes} B`;

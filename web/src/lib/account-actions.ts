@@ -6,8 +6,9 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireUser, verifyPassword, hashPassword, createSession } from "@/lib/auth";
 import { generateSecret, totpVerify, otpauthURL } from "@/lib/totp";
-import { audit } from "@/lib/audit";
+import { audit, auditRequired } from "@/lib/audit";
 import { sniffImageExt, safeStoredName } from "@/lib/upload";
+import { getUploadDir } from "@/lib/upload-storage";
 
 export type PasswordState = { ok?: boolean; error?: string };
 export type ProfileState = { ok?: boolean; error?: string; nonce?: number };
@@ -45,22 +46,20 @@ export async function updateMyAvatar(_prev: ProfileState, formData: FormData): P
   const ext = sniffImageExt(buf);
   if (!ext) return { error: "Tệp không phải ảnh hợp lệ (JPG/PNG/WEBP/HEIC/GIF)." };
 
-  // Lưu PHẲNG vào public/uploads (giống ảnh hồ sơ/giấy tờ) để phục vụ qua route
-  // /media/[file] CÓ XÁC THỰC — trước đây lưu ở public/uploads/avatars/ là đường dẫn
-  // tĩnh Next.js phục vụ công khai, không qua đăng nhập.
+  // Lưu ngoài public/; avatar vẫn đi qua route /media có xác thực.
   const fname = safeStoredName(`avatar-${user.id}`, ext);
-  const dir = path.join(process.cwd(), "public", "uploads");
+  const dir = getUploadDir();
   await fs.mkdir(dir, { recursive: true });
   await fs.writeFile(path.join(dir, fname), buf);
 
-  await prisma.user.update({ where: { id: user.id }, data: { avatarUrl: `/uploads/${fname}` } });
+  await prisma.user.update({ where: { id: user.id }, data: { avatarUrl: `/media/${fname}` } });
   return { ok: true, nonce: Date.now() };
 }
 
 const changeSchema = z
   .object({
     current: z.string().min(1, "Nhập mật khẩu hiện tại."),
-    next: z.string().min(8, "Mật khẩu mới tối thiểu 8 ký tự."),
+    next: z.string().min(12, "Mật khẩu mới tối thiểu 12 ký tự."),
     confirm: z.string().min(1, "Xác nhận mật khẩu mới."),
   })
   .refine((d) => d.next === d.confirm, { message: "Xác nhận mật khẩu không khớp.", path: ["confirm"] });
@@ -81,11 +80,12 @@ export async function changePassword(_prev: PasswordState, formData: FormData): 
   const ok = await verifyPassword(parsed.data.current, record.passwordHash);
   if (!ok) return { error: "Mật khẩu hiện tại không đúng." };
 
-  await prisma.user.update({ where: { id: user.id }, data: { passwordHash: await hashPassword(parsed.data.next) } });
-  await prisma.auditLog.create({ data: { actorId: user.id, action: "CHANGE_PASSWORD" } }).catch(() => {});
-  // Làm mới phiên ngay: mật khẩu mới (tối thiểu 8 ký tự) chắc chắn không còn là mật khẩu
-  // demo "123456" (chỉ 6 ký tự) → tắt cảnh báo "mật khẩu yếu" mà không cần đăng xuất lại.
-  await createSession({ uid: user.id, role: user.role, name: user.fullName, weakPw: false });
+  await prisma.$transaction(async (tx) => {
+    await tx.user.update({ where: { id: user.id }, data: { passwordHash: await hashPassword(parsed.data.next), mustChangePassword: false } });
+    await auditRequired(tx, user.id, "CHANGE_PASSWORD", { entity: "User", entityId: user.id });
+  });
+  // Làm mới phiên ngay để bỏ cờ bắt buộc đổi mật khẩu.
+  await createSession({ uid: user.id, role: user.role, name: user.fullName, weakPw: false, mustChangePassword: false });
   return { ok: true };
 }
 
@@ -95,15 +95,15 @@ export async function resetStaffPassword(_prev: PasswordState, formData: FormDat
   const userId = String(formData.get("userId") ?? "");
   const next = String(formData.get("next") ?? "");
   if (!userId) return { error: "Thiếu nhân viên." };
-  if (next.length < 8) return { error: "Mật khẩu mới tối thiểu 8 ký tự." };
+  if (next.length < 12) return { error: "Mật khẩu mới tối thiểu 12 ký tự." };
 
   const target = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
   if (!target) return { error: "Không tìm thấy nhân viên." };
 
-  await prisma.user.update({ where: { id: userId }, data: { passwordHash: await hashPassword(next) } });
-  await prisma.auditLog
-    .create({ data: { actorId: admin.id, action: "RESET_PASSWORD", entity: "User", entityId: userId } })
-    .catch(() => {});
+  await prisma.$transaction(async (tx) => {
+    await tx.user.update({ where: { id: userId }, data: { passwordHash: await hashPassword(next), mustChangePassword: true } });
+    await auditRequired(tx, admin.id, "RESET_PASSWORD", { entity: "User", entityId: userId });
+  });
   return { ok: true };
 }
 

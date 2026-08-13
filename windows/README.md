@@ -1,9 +1,11 @@
 # Cài Zenith Clinic trên Windows
 
+> Lưu ý hiện hành: cơ sở dữ liệu thật không dùng tài khoản/mật khẩu demo. Khi CSDL trống, cấu hình `BOOTSTRAP_ADMIN_USERNAME`, `BOOTSTRAP_ADMIN_NAME` và `BOOTSTRAP_ADMIN_PASSWORD` (tối thiểu 12 ký tự) trong `.env`.
+
 Chỉ cần **một file**: `Chay-Zenith.bat` → bấm đúp để chạy.
 
 File này tự: xin quyền Admin → cài Git/Docker Desktop nếu thiếu → tải mã nguồn →
-`docker compose up` → mở http://localhost:3000 (đăng nhập **admin / 123456**).
+`docker compose up` → mở http://localhost:3000. Khi CSDL trống, dùng `BOOTSTRAP_ADMIN_*` trong `.env` để tạo tài khoản cá nhân; không dùng mật khẩu demo cho production.
 
 Dữ liệu lưu ngay trên máy này (Docker volume); máy khác cùng mạng vào bằng
 `http://<IP-máy-này>:3000`.

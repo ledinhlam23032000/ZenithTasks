@@ -1,5 +1,5 @@
 #!/bin/sh
-# Khởi động container: chờ DB, chạy migration, nạp dữ liệu mẫu lần đầu, rồi start app.
+# Khởi động container: chờ DB, chạy migration, bootstrap an toàn, rồi start app.
 set -e
 
 # ---------------------------------------------------------------------------
@@ -32,6 +32,9 @@ if [ -z "$PHONE_ENC_KEY" ]; then
   export PHONE_ENC_KEY
 fi
 
+# Avatar migration follows the same private volume as clinical files.
+export ZENITH_UPLOADS_DIR="${UPLOAD_DIR:-/app/private/uploads}"
+
 echo "⏳ Áp dụng migration (chờ cơ sở dữ liệu sẵn sàng)..."
 n=0
 until npx prisma migrate deploy; do
@@ -63,8 +66,16 @@ if ! COUNT=$(node --input-type=commonjs -e "const {Client}=require('pg');(async(
 fi
 
 if [ "$COUNT" = "0" ]; then
-  echo "🌱 Cơ sở dữ liệu trống — nạp dữ liệu mẫu..."
-  npm run db:seed
+  if [ "${ALLOW_DEMO_SEED:-false}" = "true" ]; then
+    echo "⚠️ ALLOW_DEMO_SEED=true — chỉ dùng cho QA với dữ liệu giả."
+    npm run db:seed
+  elif [ -n "${BOOTSTRAP_ADMIN_USERNAME:-}" ] && [ -n "${BOOTSTRAP_ADMIN_PASSWORD:-}" ]; then
+    echo "🔐 Cơ sở dữ liệu trống — tạo tài khoản quản trị bootstrap..."
+    npm run db:bootstrap-admin
+  else
+    echo "❌ CSDL chưa có tài khoản. Hãy cấu hình BOOTSTRAP_ADMIN_USERNAME/BOOTSTRAP_ADMIN_PASSWORD (>=12 ký tự), hoặc chỉ bật ALLOW_DEMO_SEED=true trong môi trường QA." >&2
+    exit 1
+  fi
 else
   echo "✓ Đã có dữ liệu ($COUNT người dùng) — bỏ qua bước nạp mẫu."
 fi

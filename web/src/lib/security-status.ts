@@ -7,23 +7,17 @@
 // (đổi khoá thật + mã hoá lại bằng `npm run rotate:phone`).
 // ============================================================================
 
-// Khoá DEMO ship trong docker-entrypoint.sh (fallback khi chưa đặt .env).
-// Nếu khoá đang dùng trùng giá trị này → SĐT chưa thực sự được bảo vệ.
-const DEMO_PHONE_KEY = "QKuRqi5MjrXaJ6Dv5XwMQCD/0Dmyvc2TuTUEBf8nGM8=";
-
 export type SecurityWarning = { key: string; title: string; detail: string };
 
 /** Danh sách cảnh báo bảo mật hiện tại (rỗng = ổn). */
 export function securityWarnings(): SecurityWarning[] {
   const w: SecurityWarning[] = [];
 
-  if (process.env.PHONE_ENC_KEY === DEMO_PHONE_KEY) {
+  if (!process.env.PHONE_ENC_KEY) {
     w.push({
-      key: "demo-phone-key",
-      title: "Đang dùng khoá mã hoá số điện thoại MẶC ĐỊNH",
-      detail:
-        "Số điện thoại khách chưa thực sự được bảo vệ vì đang dùng khoá demo công khai. " +
-        "Hãy đặt PHONE_ENC_KEY riêng trong .env rồi chạy mã hoá lại (npm run rotate:phone).",
+      key: "missing-phone-key",
+      title: "Thiếu khoá mã hoá số điện thoại",
+      detail: "Hãy cấu hình PHONE_ENC_KEY ổn định trong secret manager trước khi đọc hoặc ghi dữ liệu khách hàng.",
     });
   }
 

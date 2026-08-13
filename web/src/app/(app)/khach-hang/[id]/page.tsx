@@ -25,7 +25,7 @@ import { tierFor, pointsFor, nextTier } from "@/lib/loyalty";
 import { prisma } from "@/lib/db";
 import { maskPhone } from "@/lib/phone";
 import { aiConfigured } from "@/lib/ai";
-import { toNum, formatVND } from "@/lib/money";
+import { formatVND } from "@/lib/money";
 import { fmtDate, fmtDateTime, fmtRelative } from "@/lib/format";
 import {
   GENDER_LABEL,
@@ -54,17 +54,23 @@ import { PhotoGallery } from "@/components/ui/photo-gallery";
 import { summarizeCase } from "@/lib/financial-summary";
 import { PhotoCompareButton } from "@/components/ui/photo-compare";
 import { MedicalAlert } from "@/components/ui/medical-alert";
+import type { Prisma } from "@/generated/prisma/client";
 
 export const dynamic = "force-dynamic";
 
 export default async function CustomerDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireCap("mod:khach-hang");
   const { id } = await params;
+  const caseScope: Prisma.CaseRecordWhereInput =
+    user.role === "CONSULTANT" ? { consultantId: user.id } : user.role === "DOCTOR" ? { doctorId: user.id } : {};
+  const scopedClinical = user.role === "CONSULTANT" || user.role === "DOCTOR";
+  const canViewClinical = userCan(user, "case.clinical");
 
   const customer = await prisma.customer.findUnique({
     where: { id },
     include: {
       cases: {
+        where: caseScope,
         orderBy: { createdAt: "desc" },
         include: {
           services: { select: { name: true, listPrice: true, unitPrice: true, quantity: true, discount: true, finalPrice: true } },
@@ -73,10 +79,16 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
           doctor: { select: { fullName: true } },
         },
       },
-      photos: { orderBy: { takenAt: "desc" } },
+      photos: scopedClinical
+        ? { where: { case: caseScope }, orderBy: { takenAt: "desc" } }
+        : canViewClinical
+          ? { orderBy: { takenAt: "desc" } }
+          : { where: { id: "__hidden__" }, orderBy: { takenAt: "desc" } },
       careMessages: { orderBy: { createdAt: "desc" }, take: 30, include: { createdBy: { select: { fullName: true } } } },
       appointments: { orderBy: { scheduledAt: "desc" }, take: 8 },
-      followUps: { orderBy: { scheduledAt: "desc" }, take: 8 },
+      followUps: scopedClinical
+        ? { where: { case: caseScope }, orderBy: { scheduledAt: "desc" }, take: 8 }
+        : { orderBy: { scheduledAt: "desc" }, take: 8 },
       createdBy: { select: { fullName: true } },
     },
   });
@@ -180,11 +192,13 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
         </CardContent>
       </Card>
 
-      <MedicalAlert
-        allergies={customer.allergies}
-        medicalHistory={customer.medicalHistory}
-        contraindications={customer.contraindications}
-      />
+      {canViewClinical && (
+        <MedicalAlert
+          allergies={customer.allergies}
+          medicalHistory={customer.medicalHistory}
+          contraindications={customer.contraindications}
+        />
+      )}
 
       <div className="grid gap-4 sm:grid-cols-3">
         <StatCard label="Số lượt khám" value={customer.cases.length} icon={<FolderHeart className="h-5 w-5" />} tone="brand" />
@@ -283,10 +297,10 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
               <CardTitle className="flex items-center gap-2">
                 <Images className="h-4 w-4 text-brand-500" /> Ảnh trước - sau
               </CardTitle>
-              <PhotoCompareButton photos={customer.photos} />
+              {canViewClinical && <PhotoCompareButton photos={customer.photos} />}
             </CardHeader>
             <CardContent className="pt-0">
-              {customer.photos.length === 0 ? (
+              {!canViewClinical || customer.photos.length === 0 ? (
                 <EmptyState title="Chưa có ảnh" description="Ảnh trước/sau và cận lâm sàng được bác sĩ cập nhật trong hồ sơ điều trị." />
               ) : (
                 <PhotoGallery photos={customer.photos} cols={4} />

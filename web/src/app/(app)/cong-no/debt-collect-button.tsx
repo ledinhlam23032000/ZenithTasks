@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { HandCoins, LoaderCircle, CheckCircle2 } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -29,17 +29,21 @@ export function DebtCollectButton({
 }) {
   const [open, setOpen] = useState(false);
   const [amount, setAmount] = useState(debt);
+  const nonceId = useId();
+  const [attempt, setAttempt] = useState(0);
+  const clientNonce = `debt-collection-${nonceId.replace(/[^a-zA-Z0-9]/g, "")}-${attempt}-nonce`;
   const [state, action, pending] = useFormAction(addPayment, () => setOpen(false));
   const isFull = amount >= debt;
 
   return (
     <>
-      <Button size="sm" variant="subtle" onClick={() => { setAmount(debt); setOpen(true); }}>
+      <Button size="sm" variant="subtle" onClick={() => { setAmount(debt); setAttempt((value) => value + 1); setOpen(true); }}>
         <HandCoins className="h-4 w-4" /> Thu nợ
       </Button>
       <Modal open={open} onClose={() => setOpen(false)} title={`Thu nợ — ${caseCode} · ${customerName}`}>
         <form action={action} className="space-y-4">
           <input type="hidden" name="caseId" value={caseId} />
+          <input type="hidden" name="clientNonce" value={clientNonce} />
           <div>
             <Label htmlFor="debt-amount">Số tiền thu (VND) *</Label>
             <MoneyInput id="debt-amount" name="amount" value={amount} onValueChange={setAmount} required autoFocus />

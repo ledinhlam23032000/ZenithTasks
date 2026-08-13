@@ -85,13 +85,14 @@ export function MultiChart({
         </div>
       </div>
 
-      <div style={{ height }} className="w-full min-w-0">
+      <div style={{ height, minWidth: 1 }} className="relative w-full min-w-[1px] overflow-hidden">
         <ResponsiveContainer
           width="100%"
           height="100%"
-          minWidth={0}
+          minWidth={1}
           minHeight={height}
           initialDimension={{ width: 640, height }}
+          debounce={80}
         >
           {type === "pie" ? (
             <PieChart>

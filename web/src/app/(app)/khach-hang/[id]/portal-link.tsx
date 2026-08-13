@@ -1,14 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { Share2, Copy, Check, RefreshCw, Trash2 } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { genPortalLink, revokePortalLink } from "../actions";
 
 export function PortalLink({ customerId, token }: { customerId: string; token: string | null }) {
-  const [origin, setOrigin] = useState("");
+  const origin = useSyncExternalStore(
+    () => () => {},
+    () => window.location.origin,
+    () => "",
+  );
   const [copied, setCopied] = useState(false);
-  useEffect(() => setOrigin(window.location.origin), []);
   const url = token ? `${origin}/khach/${token}` : "";
 
   if (!token) {

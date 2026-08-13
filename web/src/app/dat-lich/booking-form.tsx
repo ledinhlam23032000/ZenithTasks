@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useId, useState } from "react";
 import { CalendarCheck, LoaderCircle, CheckCircle2, Clock3 } from "lucide-react";
 import { Input, Label, Select, Textarea } from "@/components/ui/field";
 import { buttonVariants } from "@/components/ui/button";
@@ -19,14 +19,21 @@ export function BookingForm({
   const [state, action, pending] = useActionState<BookingState, FormData>(createPublicAppointment, {});
   const [date, setDate] = useState(defaultDateTime.slice(0, 10));
   const [time, setTime] = useState(defaultDateTime.slice(11, 16) || "09:00");
+  // useId() is stable across hydration, while the fixed prefix keeps the
+  // nonce above the server-side minimum length used by the idempotency check.
+  const clientNonce = `booking-form-${useId().replace(/[^a-zA-Z0-9]/g, "")}-nonce`;
 
   if (state.ok) {
     return (
       <div className="flex flex-col items-center gap-3 py-8 text-center">
         <CheckCircle2 className="h-12 w-12 text-emerald-500" />
         <p className="text-lg font-semibold text-slate-800">Đã gửi yêu cầu đặt lịch!</p>
+        <div className="w-full rounded-xl bg-emerald-50 px-4 py-3 text-left text-sm text-emerald-800">
+          <p><span className="font-semibold">Mã yêu cầu:</span> {state.reference ?? "—"}</p>
+          <p><span className="font-semibold">Thời gian mong muốn:</span> {state.requestedAt ?? "—"}</p>
+        </div>
         <p className="text-sm text-slate-500">
-          Trung tâm sẽ liên hệ xác nhận với Quý khách trong thời gian sớm nhất. Cảm ơn Quý khách! 💗
+          Trung tâm sẽ gọi xác nhận trong giờ làm việc. Nếu cần đổi hoặc hủy, vui lòng cung cấp mã yêu cầu khi liên hệ hotline.
         </p>
         <a href="/dat-lich" className={buttonVariants({ variant: "secondary", size: "sm" })}>
           Đặt thêm lịch khác
@@ -39,6 +46,7 @@ export function BookingForm({
     <form action={action} className="space-y-4">
       {/* Honeypot chống bot — người dùng thật không thấy */}
       <input type="text" name="company" tabIndex={-1} autoComplete="off" className="hidden" aria-hidden />
+      <input type="hidden" name="clientNonce" value={clientNonce} />
 
       <div>
         <Label htmlFor="b-name">Họ và tên *</Label>

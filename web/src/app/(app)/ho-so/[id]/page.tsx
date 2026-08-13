@@ -73,6 +73,7 @@ import { deleteCaseDocument } from "../actions";
 import { UploadDocumentButton } from "./case-document-widgets";
 import { DebtPlanCard } from "./debt-plan-widgets";
 import { debtPlanStatus } from "@/lib/debt-plan";
+import { photoSrc } from "@/lib/media";
 
 export const dynamic = "force-dynamic";
 
@@ -132,6 +133,14 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
   const discount = financial.lineDiscount;
   const voucher = financial.voucher;
   const gross = financial.gross;
+  const anomalyLabels: Record<string, string> = {
+    STALE_SNAPSHOT: "Tổng lưu trên hồ sơ cũ chưa khớp với các dòng chi tiết.",
+    PAYMENT_WITHOUT_SERVICE: "Có khoản đã thu nhưng hồ sơ chưa có dịch vụ.",
+    OVERPAYMENT: "Tổng đã thu đang lớn hơn thành tiền.",
+    INVALID_DISCOUNT: "Có mức giảm giá không hợp lệ.",
+    INVALID_VOUCHER: "Voucher đang lớn hơn giá trị dịch vụ.",
+    INVALID_PAYMENT: "Có khoản thanh toán không hợp lệ.",
+  };
   const commissionAmount = toNum(record.commissionAmount);
   const canVoidPayment = userCan(user, "payment.manage") && !lockedForMe;
 
@@ -442,7 +451,7 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
                       </div>
                       <div className="flex items-center gap-1">
                         <a
-                          href={doc.url}
+                          href={photoSrc(doc.url)}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-brand-600 hover:bg-brand-50"
@@ -558,12 +567,14 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
         </CardContent>
       </Card>
 
-      <MedicalAlert
-        allergies={record.customer.allergies}
-        medicalHistory={record.customer.medicalHistory}
-        contraindications={record.customer.contraindications}
-        compact
-      />
+      {canClinical && (
+        <MedicalAlert
+          allergies={record.customer.allergies}
+          medicalHistory={record.customer.medicalHistory}
+          contraindications={record.customer.contraindications}
+          compact
+        />
+      )}
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
@@ -579,6 +590,14 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
+              {financial.anomalies.length > 0 && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-900" role="alert">
+                  <p className="font-semibold">Cần đối soát dữ liệu tài chính</p>
+                  <ul className="mt-1 list-disc space-y-0.5 pl-4">
+                    {financial.anomalies.map((anomaly) => <li key={anomaly}>{anomalyLabels[anomaly] ?? anomaly}</li>)}
+                  </ul>
+                </div>
+              )}
               <Row label="Tổng dịch vụ (giá gốc)" value={formatVND(gross)} />
               {discount > 0 && <Row label="Đã giảm ưu đãi" value={`-${formatVND(discount)}`} valueClass="text-rose-500" />}
               {voucher > 0 && (
