@@ -1,6 +1,8 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { NextResponse } from "next/server";
+import { getCurrentUser } from "@/lib/auth";
+import { prisma } from "@/lib/db";
 
 // Phục vụ ảnh đã tải lên qua ROUTE (đáng tin cậy ở production hơn là để trong public/).
 // Đọc tệp từ thư mục uploads và trả về kèm đúng Content-Type.
@@ -16,7 +18,7 @@ const TYPES: Record<string, string> = {
   gif: "image/gif",
 };
 
-export async function GET(_req: Request, { params }: { params: Promise<{ file: string }> }) {
+export async function GET(req: Request, { params }: { params: Promise<{ file: string }> }) {
   const { file } = await params;
   // Chỉ cho phép tên tệp đơn giản (chống path traversal).
   if (!/^[A-Za-z0-9._-]+$/.test(file) || file.includes("..")) {
@@ -24,6 +26,14 @@ export async function GET(_req: Request, { params }: { params: Promise<{ file: s
   }
   const ext = (file.split(".").pop() || "").toLowerCase();
   const full = path.join(process.cwd(), "public", "uploads", file);
+  const currentUser = await getCurrentUser();
+  const portalToken = new URL(req.url).searchParams.get("token");
+  const photo = await prisma.photo.findFirst({
+    where: { url: { endsWith: file } },
+    select: { customer: { select: { portalToken: true } } },
+  });
+  const allowed = currentUser || (portalToken && photo?.customer.portalToken === portalToken);
+  if (!allowed) return new NextResponse("Not found", { status: 404 });
   try {
     const buf = await fs.readFile(full);
     return new NextResponse(new Uint8Array(buf), {

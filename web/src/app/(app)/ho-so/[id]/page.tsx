@@ -23,6 +23,8 @@ import { fmtDate, fmtDateTime, toDatetimeLocal } from "@/lib/format";
 import { addDays } from "date-fns";
 import { CASE_STATUS, CONSULT_RESULT, PAYMENT_LABEL, GENDER_LABEL } from "@/lib/status";
 import { getActiveServices, getActiveMaterials, getConsultants, getDoctors } from "@/lib/lookups";
+import { summarizeCase } from "@/lib/financial-summary";
+import { canAccessCase } from "@/lib/case-access";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -83,18 +85,25 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
   ]);
 
   if (!record) notFound();
+  if (!canAccessCase(user, record, "read")) notFound();
 
   const isAdmin = user.role === "ADMIN";
   const lockedForMe = record.locked && !isAdmin;
   const canClinical = userCan(user, "case.clinical") && !lockedForMe;
   const canPay = !lockedForMe && userCan(user, "payment.add");
 
-  const total = toNum(record.totalAmount);
-  const paid = toNum(record.paidAmount);
-  const debt = toNum(record.debtAmount);
-  const discount = toNum(record.discountAmount);
-  const voucher = toNum(record.voucherAmount);
-  const gross = total + voucher + discount; // giá gốc trước ưu đãi & voucher (total = net sau voucher)
+  const financial = summarizeCase({
+    services: record.services,
+    payments: record.payments,
+    voucherAmount: record.voucherAmount,
+    snapshot: record,
+  });
+  const total = financial.total;
+  const paid = financial.paid;
+  const debt = financial.debt;
+  const discount = financial.lineDiscount;
+  const voucher = financial.voucher;
+  const gross = financial.gross;
   const commissionAmount = toNum(record.commissionAmount);
   const canVoidPayment = userCan(user, "payment.manage") && !lockedForMe;
 

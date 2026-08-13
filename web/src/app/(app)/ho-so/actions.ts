@@ -9,6 +9,9 @@ import { prisma } from "@/lib/db";
 import { requireUser, requireCap } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 import { toNum } from "@/lib/money";
+import { Prisma } from "@/generated/prisma/client";
+import { summarizeCase, validatePaymentAmount, validateServicePrice } from "@/lib/financial-summary";
+import { canAccessCase, type CaseAccess } from "@/lib/case-access";
 
 export type CaseActionState = { ok?: boolean; error?: string; nonce?: number };
 
@@ -21,22 +24,32 @@ async function isLockedFor(caseId: string, role: string): Promise<boolean> {
   return !!c?.locked;
 }
 
-/** Tính lại tổng tiền / đã trả / công nợ cho hồ sơ (hoa hồng nhập tay, không tự tính). */
-async function recalc(caseId: string): Promise<void> {
-  const [services, payAgg, rec] = await Promise.all([
-    prisma.caseService.findMany({ where: { caseId }, select: { finalPrice: true, discount: true } }),
-    prisma.payment.aggregate({ where: { caseId }, _sum: { amount: true } }),
-    prisma.caseRecord.findUnique({ where: { id: caseId }, select: { voucherAmount: true } }),
+type RecalcDb = Pick<Prisma.TransactionClient, "caseService" | "payment" | "caseRecord">;
+
+class FinancialActionError extends Error {}
+
+async function caseAccessError(user: Parameters<typeof canAccessCase>[0], caseId: string, access: CaseAccess): Promise<string | null> {
+  if (!caseId) return "Thiếu hồ sơ.";
+  const record = await prisma.caseRecord.findUnique({ where: { id: caseId }, select: { consultantId: true, doctorId: true } });
+  return record && canAccessCase(user, record, access) ? null : "Bạn không có quyền thao tác trên hồ sơ này.";
+}
+
+/** Tính lại snapshot từ child records trong cùng transaction với mutation. */
+async function recalc(caseId: string, db: RecalcDb = prisma): Promise<void> {
+  const [services, payments, rec] = await Promise.all([
+    db.caseService.findMany({ where: { caseId }, select: { listPrice: true, unitPrice: true, quantity: true, discount: true } }),
+    db.payment.findMany({ where: { caseId }, select: { amount: true } }),
+    db.caseRecord.findUnique({ where: { id: caseId }, select: { voucherAmount: true } }),
   ]);
-  const subtotal = services.reduce((s, x) => s + toNum(x.finalPrice), 0);
-  const discount = services.reduce((s, x) => s + toNum(x.discount), 0);
-  const voucher = Math.min(toNum(rec?.voucherAmount), subtotal);
-  const net = subtotal - voucher; // doanh thu sau voucher = công nợ
-  const paid = toNum(payAgg._sum.amount);
-  const debt = Math.max(net - paid, 0);
-  await prisma.caseRecord.update({
+  const summary = summarizeCase({ services, payments, voucherAmount: rec?.voucherAmount });
+  await db.caseRecord.update({
     where: { id: caseId },
-    data: { totalAmount: net, discountAmount: discount, paidAmount: paid, debtAmount: debt },
+    data: {
+      totalAmount: summary.total,
+      discountAmount: summary.lineDiscount,
+      paidAmount: summary.paid,
+      debtAmount: summary.debt,
+    },
   });
 }
 
@@ -54,6 +67,7 @@ export async function lockCase(formData: FormData): Promise<void> {
   const user = await requireCap("case.clinical");
   const id = String(formData.get("caseId") ?? "");
   if (!id) return;
+  if (await caseAccessError(user, id, "clinical")) return;
   await prisma.caseRecord.update({
     where: { id },
     data: { locked: true, lockedAt: new Date(), lockedById: user.id },
@@ -87,6 +101,8 @@ const infoSchema = z.object({
 export async function updateCaseInfo(_prev: CaseActionState, formData: FormData): Promise<CaseActionState> {
   const user = await requireCap("case.clinical");
   const caseId = String(formData.get("caseId") ?? "");
+  const accessError = await caseAccessError(user, caseId, "clinical");
+  if (accessError) return { error: accessError };
   if (await isLockedFor(caseId, user.role)) return { error: LOCKED_MSG };
 
   const parsed = infoSchema.safeParse({
@@ -140,15 +156,17 @@ const serviceSchema = z.object({
   caseId: z.string().min(1),
   serviceId: z.string().optional(),
   name: z.string().trim().min(1, "Vui lòng nhập tên dịch vụ."),
-  listPrice: z.coerce.number().min(0).default(0),
-  unitPrice: z.coerce.number().min(0, "Đơn giá không hợp lệ."),
+  listPrice: z.coerce.number().int("Giá phải là số nguyên VND.").min(0).default(0),
+  unitPrice: z.coerce.number().int("Đơn giá phải là số nguyên VND.").min(0, "Đơn giá không hợp lệ."),
   quantity: z.coerce.number().int().min(1).default(1),
-  discount: z.coerce.number().min(0).default(0),
+  discount: z.coerce.number().int("Mức giảm phải là số nguyên VND.").min(0).default(0),
 });
 
 export async function addCaseService(_prev: CaseActionState, formData: FormData): Promise<CaseActionState> {
   const user = await requireCap("case.clinical");
   const caseId = String(formData.get("caseId") ?? "");
+  const accessError = await caseAccessError(user, caseId, "clinical");
+  if (accessError) return { error: accessError };
   if (await isLockedFor(caseId, user.role)) return { error: LOCKED_MSG };
 
   const parsed = serviceSchema.safeParse({
@@ -162,24 +180,29 @@ export async function addCaseService(_prev: CaseActionState, formData: FormData)
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu không hợp lệ." };
   const d = parsed.data;
-  const finalPrice = Math.max(d.unitPrice * d.quantity - d.discount, 0);
+  const priceValidation = validateServicePrice(d);
+  if (!priceValidation.ok) return { error: priceValidation.error };
+  const finalPrice = d.unitPrice * d.quantity - d.discount;
   const listPrice = d.listPrice > 0 ? d.listPrice : d.unitPrice; // không có giá gốc → lấy giá ưu đãi
 
-  const c = await prisma.caseRecord.findUnique({ where: { id: d.caseId }, select: { doctorId: true } });
-  await prisma.caseService.create({
-    data: {
-      caseId: d.caseId,
-      serviceId: d.serviceId || null,
-      name: d.name,
-      listPrice,
-      unitPrice: d.unitPrice,
-      quantity: d.quantity,
-      discount: d.discount,
-      finalPrice,
-      doctorId: c?.doctorId ?? null,
-    },
+  await prisma.$transaction(async (tx) => {
+    const c = await tx.caseRecord.findUnique({ where: { id: d.caseId }, select: { doctorId: true } });
+    if (!c) throw new FinancialActionError("Không tìm thấy hồ sơ.");
+    await tx.caseService.create({
+      data: {
+        caseId: d.caseId,
+        serviceId: d.serviceId || null,
+        name: d.name,
+        listPrice,
+        unitPrice: d.unitPrice,
+        quantity: d.quantity,
+        discount: d.discount,
+        finalPrice,
+        doctorId: c.doctorId ?? null,
+      },
+    });
+    await recalc(d.caseId, tx);
   });
-  await recalc(d.caseId);
   return { ok: true, nonce: Date.now() };
 }
 
@@ -187,10 +210,14 @@ export async function removeCaseService(formData: FormData): Promise<void> {
   const user = await requireCap("case.clinical");
   const id = String(formData.get("id") ?? "");
   const caseId = String(formData.get("caseId") ?? "");
+  if (await caseAccessError(user, caseId, "clinical")) return;
   if (!id || (await isLockedFor(caseId, user.role))) return;
-  await prisma.caseService.delete({ where: { id } }).catch(() => {});
-  if (caseId) {
-    await recalc(caseId);
+  const result = await prisma.$transaction(async (tx) => {
+    const deleted = await tx.caseService.deleteMany({ where: { id, caseId } });
+    if (deleted.count > 0) await recalc(caseId, tx);
+    return deleted.count;
+  });
+  if (caseId && result > 0) {
     refresh(caseId);
   }
 }
@@ -201,6 +228,8 @@ const serviceEditSchema = serviceSchema.extend({ id: z.string().min(1) });
 export async function updateCaseService(_prev: CaseActionState, formData: FormData): Promise<CaseActionState> {
   const user = await requireCap("case.clinical");
   const caseId = String(formData.get("caseId") ?? "");
+  const accessError = await caseAccessError(user, caseId, "clinical");
+  if (accessError) return { error: accessError };
   if (await isLockedFor(caseId, user.role)) return { error: LOCKED_MSG };
 
   const parsed = serviceEditSchema.safeParse({
@@ -215,14 +244,21 @@ export async function updateCaseService(_prev: CaseActionState, formData: FormDa
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu không hợp lệ." };
   const d = parsed.data;
-  const finalPrice = Math.max(d.unitPrice * d.quantity - d.discount, 0);
+  const priceValidation = validateServicePrice(d);
+  if (!priceValidation.ok) return { error: priceValidation.error };
+  const finalPrice = d.unitPrice * d.quantity - d.discount;
   const listPrice = d.listPrice > 0 ? d.listPrice : d.unitPrice;
 
-  await prisma.caseService.update({
-    where: { id: d.id },
-    data: { name: d.name, listPrice, unitPrice: d.unitPrice, quantity: d.quantity, discount: d.discount, finalPrice },
+  const result = await prisma.$transaction(async (tx) => {
+    const updated = await tx.caseService.updateMany({
+      where: { id: d.id, caseId: d.caseId },
+      data: { name: d.name, listPrice, unitPrice: d.unitPrice, quantity: d.quantity, discount: d.discount, finalPrice },
+    });
+    if (updated.count === 0) throw new FinancialActionError("Không tìm thấy dịch vụ thuộc hồ sơ này.");
+    await recalc(d.caseId, tx);
+    return updated.count;
   });
-  await recalc(d.caseId);
+  if (result === 0) return { error: "Không tìm thấy dịch vụ thuộc hồ sơ này." };
   return { ok: true, nonce: Date.now() };
 }
 
@@ -237,6 +273,8 @@ const voucherSchema = z.object({
 export async function updateCaseVoucher(_prev: CaseActionState, formData: FormData): Promise<CaseActionState> {
   const user = await requireCap("payment.manage");
   const caseId = String(formData.get("caseId") ?? "");
+  const accessError = await caseAccessError(user, caseId, "payment.manage");
+  if (accessError) return { error: accessError };
   if (await isLockedFor(caseId, user.role)) return { error: LOCKED_MSG };
 
   const parsed = voucherSchema.safeParse({
@@ -272,7 +310,8 @@ export async function updateCaseVoucher(_prev: CaseActionState, formData: FormDa
 // ---- Thêm thanh toán ----
 const paymentSchema = z.object({
   caseId: z.string().min(1),
-  amount: z.coerce.number().positive("Số tiền phải lớn hơn 0."),
+  clientNonce: z.string().uuid("Mã giao dịch không hợp lệ."),
+  amount: z.coerce.number().int("Số tiền phải là số nguyên VND.").positive("Số tiền phải lớn hơn 0."),
   method: z.enum(["CASH", "CARD", "TRANSFER", "EWALLET"]),
   note: z.string().trim().optional(),
 });
@@ -280,29 +319,52 @@ const paymentSchema = z.object({
 export async function addPayment(_prev: CaseActionState, formData: FormData): Promise<CaseActionState> {
   const user = await requireCap("payment.add");
   const caseId = String(formData.get("caseId") ?? "");
+  const accessError = await caseAccessError(user, caseId, "payment.add");
+  if (accessError) return { error: accessError };
   if (await isLockedFor(caseId, user.role)) return { error: LOCKED_MSG };
 
   const parsed = paymentSchema.safeParse({
     caseId,
+    clientNonce: formData.get("clientNonce") ?? "",
     amount: formData.get("amount") ?? 0,
     method: formData.get("method") ?? "CASH",
     note: formData.get("note") ?? "",
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu không hợp lệ." };
   const d = parsed.data;
-  await prisma.payment.create({
-    data: { caseId: d.caseId, amount: d.amount, method: d.method, note: d.note || null, receivedById: user.id },
-  });
-  await recalc(d.caseId);
+  try {
+    await prisma.$transaction(async (tx) => {
+      const duplicate = await tx.payment.findUnique({ where: { clientNonce: d.clientNonce }, select: { id: true } });
+      if (duplicate) return;
+      const [record, services, payments] = await Promise.all([
+        tx.caseRecord.findUnique({ where: { id: d.caseId }, select: { voucherAmount: true } }),
+        tx.caseService.findMany({ where: { caseId: d.caseId }, select: { listPrice: true, unitPrice: true, quantity: true, discount: true } }),
+        tx.payment.findMany({ where: { caseId: d.caseId }, select: { amount: true } }),
+      ]);
+      if (!record) throw new FinancialActionError("Không tìm thấy hồ sơ.");
+      const current = summarizeCase({ services, payments, voucherAmount: record.voucherAmount });
+      const validation = validatePaymentAmount({ amount: d.amount, total: current.total, paid: current.paid });
+      if (!validation.ok) throw new FinancialActionError(validation.error);
+      await tx.payment.create({
+        data: { clientNonce: d.clientNonce, caseId: d.caseId, amount: d.amount, method: d.method, note: d.note || null, receivedById: user.id },
+      });
+      await recalc(d.caseId, tx);
+    });
+  } catch (error) {
+    if (error instanceof FinancialActionError) return { error: error.message };
+    throw error;
+  }
   return { ok: true, nonce: Date.now() };
 }
 
 // ---- Sửa thanh toán (chỉ quản trị / quản lý — liên quan tiền) ----
-const paymentEditSchema = paymentSchema.extend({ id: z.string().min(1) });
+const paymentEditSchema = paymentSchema.omit({ clientNonce: true }).extend({ id: z.string().min(1) });
 
 export async function updatePayment(_prev: CaseActionState, formData: FormData): Promise<CaseActionState> {
   const user = await requireCap("payment.manage");
   const caseId = String(formData.get("caseId") ?? "");
+  const accessError = await caseAccessError(user, caseId, "payment.manage");
+  if (accessError) return { error: accessError };
   if (await isLockedFor(caseId, user.role)) return { error: LOCKED_MSG };
 
   const parsed = paymentEditSchema.safeParse({
@@ -328,12 +390,29 @@ export async function updatePayment(_prev: CaseActionState, formData: FormData):
     }
   }
 
-  await prisma.payment.update({
-    where: { id: d.id },
-    data: { amount: d.amount, method: d.method, note: d.note || null, ...(paidAt ? { paidAt } : {}) },
-  });
+  try {
+    await prisma.$transaction(async (tx) => {
+      const [payment, record, services, payments] = await Promise.all([
+        tx.payment.findFirst({ where: { id: d.id, caseId: d.caseId }, select: { amount: true } }),
+        tx.caseRecord.findUnique({ where: { id: d.caseId }, select: { voucherAmount: true } }),
+        tx.caseService.findMany({ where: { caseId: d.caseId }, select: { listPrice: true, unitPrice: true, quantity: true, discount: true } }),
+        tx.payment.findMany({ where: { caseId: d.caseId, NOT: { id: d.id } }, select: { amount: true } }),
+      ]);
+      if (!payment || !record) throw new FinancialActionError("Không tìm thấy khoản thu thuộc hồ sơ này.");
+      const current = summarizeCase({ services, payments, voucherAmount: record.voucherAmount });
+      const validation = validatePaymentAmount({ amount: d.amount, total: current.total, paid: current.paid });
+      if (!validation.ok) throw new FinancialActionError(validation.error);
+      await tx.payment.update({
+        where: { id: d.id },
+        data: { amount: d.amount, method: d.method, note: d.note || null, ...(paidAt ? { paidAt } : {}) },
+      });
+      await recalc(d.caseId, tx);
+    });
+  } catch (error) {
+    if (error instanceof FinancialActionError) return { error: error.message };
+    throw error;
+  }
   await audit(user.id, "UPDATE_PAYMENT", { entity: "Payment", entityId: d.id, meta: { amount: d.amount, paidAt: paidAt?.toISOString() } });
-  await recalc(d.caseId);
   return { ok: true, nonce: Date.now() };
 }
 
@@ -350,6 +429,8 @@ const materialSchema = z.object({
 export async function addMaterial(_prev: CaseActionState, formData: FormData): Promise<CaseActionState> {
   const user = await requireCap("case.clinical");
   const caseId = String(formData.get("caseId") ?? "");
+  const accessError = await caseAccessError(user, caseId, "clinical");
+  if (accessError) return { error: accessError };
   if (await isLockedFor(caseId, user.role)) return { error: LOCKED_MSG };
 
   const parsed = materialSchema.safeParse({
@@ -389,9 +470,11 @@ export async function removeMaterial(formData: FormData): Promise<void> {
   const user = await requireCap("case.clinical");
   const id = String(formData.get("id") ?? "");
   const caseId = String(formData.get("caseId") ?? "");
+  if (await caseAccessError(user, caseId, "clinical")) return;
   if (!id || (await isLockedFor(caseId, user.role))) return;
-  const usage = await prisma.materialUsage.findUnique({ where: { id }, select: { materialId: true, quantity: true } });
-  await prisma.materialUsage.delete({ where: { id } }).catch(() => {});
+  const usage = await prisma.materialUsage.findFirst({ where: { id, caseId }, select: { materialId: true, quantity: true } });
+  if (!usage) return;
+  await prisma.materialUsage.deleteMany({ where: { id, caseId } });
   // Hoàn kho lại nếu vật tư thuộc danh mục kho.
   if (usage?.materialId) {
     const q = toNum(usage.quantity);
@@ -409,6 +492,8 @@ const materialEditSchema = materialSchema.extend({ id: z.string().min(1) });
 export async function updateMaterialUsage(_prev: CaseActionState, formData: FormData): Promise<CaseActionState> {
   const user = await requireCap("case.clinical");
   const caseId = String(formData.get("caseId") ?? "");
+  const accessError = await caseAccessError(user, caseId, "clinical");
+  if (accessError) return { error: accessError };
   if (await isLockedFor(caseId, user.role)) return { error: LOCKED_MSG };
 
   const parsed = materialEditSchema.safeParse({
@@ -427,6 +512,9 @@ export async function updateMaterialUsage(_prev: CaseActionState, formData: Form
     where: { id: d.id },
     select: { materialId: true, quantity: true },
   });
+  if (!existing) return { error: "Không tìm thấy vật tư thuộc hồ sơ này." };
+  const existingCase = await prisma.materialUsage.findFirst({ where: { id: d.id, caseId }, select: { id: true } });
+  if (!existingCase) return { error: "Không tìm thấy vật tư thuộc hồ sơ này." };
 
   await prisma.materialUsage.update({
     where: { id: d.id },
@@ -464,6 +552,8 @@ export async function uploadPhoto(_prev: CaseActionState, formData: FormData): P
   const user = await requireCap("case.clinical");
   const caseId = String(formData.get("caseId") ?? "");
   const customerId = String(formData.get("customerId") ?? "");
+  const accessError = await caseAccessError(user, caseId, "clinical");
+  if (accessError) return { error: accessError };
   if (await isLockedFor(caseId, user.role)) return { error: LOCKED_MSG };
   const type = String(formData.get("type") ?? "BEFORE");
   const caption = String(formData.get("caption") ?? "").trim();
@@ -471,6 +561,8 @@ export async function uploadPhoto(_prev: CaseActionState, formData: FormData): P
   const file = formData.get("file");
 
   if (!caseId || !customerId) return { error: "Thiếu thông tin hồ sơ." };
+  const caseCustomer = await prisma.caseRecord.findUnique({ where: { id: caseId }, select: { customerId: true } });
+  if (!caseCustomer || caseCustomer.customerId !== customerId) return { error: "Khách hàng không thuộc hồ sơ này." };
   if (!(file instanceof File) || file.size === 0) return { error: "Vui lòng chọn ảnh." };
   if (file.size > 8 * 1024 * 1024) return { error: "Ảnh tối đa 8MB." };
   // Bắt buộc đúng định dạng ảnh (không cho phép thiếu/giả mạo kiểu tệp).
@@ -502,8 +594,9 @@ export async function deletePhoto(formData: FormData): Promise<void> {
   const user = await requireCap("case.clinical");
   const id = String(formData.get("id") ?? "");
   const caseId = String(formData.get("caseId") ?? "");
+  if (await caseAccessError(user, caseId, "clinical")) return;
   if (!id || (await isLockedFor(caseId, user.role))) return;
-  await prisma.photo.delete({ where: { id } }).catch(() => {});
+  await prisma.photo.deleteMany({ where: { id, caseId } });
   if (caseId) refresh(caseId);
 }
 
@@ -518,6 +611,8 @@ const followSchema = z.object({
 export async function addFollowUp(_prev: CaseActionState, formData: FormData): Promise<CaseActionState> {
   const user = await requireCap("case.clinical");
   const caseId = String(formData.get("caseId") ?? "");
+  const accessError = await caseAccessError(user, caseId, "clinical");
+  if (accessError) return { error: accessError };
   if (await isLockedFor(caseId, user.role)) return { error: LOCKED_MSG };
 
   const parsed = followSchema.safeParse({
@@ -530,6 +625,8 @@ export async function addFollowUp(_prev: CaseActionState, formData: FormData): P
   const d = parsed.data;
   const when = new Date(d.scheduledAt);
   if (Number.isNaN(when.getTime())) return { error: "Ngày tái khám không hợp lệ." };
+  const caseCustomer = await prisma.caseRecord.findUnique({ where: { id: d.caseId }, select: { customerId: true } });
+  if (!caseCustomer || caseCustomer.customerId !== d.customerId) return { error: "Khách hàng không thuộc hồ sơ này." };
 
   await prisma.followUp.create({
     data: { caseId: d.caseId, customerId: d.customerId, scheduledAt: when, note: d.note || null, createdById: user.id },
@@ -542,12 +639,16 @@ export async function deletePayment(formData: FormData): Promise<void> {
   const user = await requireCap("payment.manage");
   const id = String(formData.get("id") ?? "");
   const caseId = String(formData.get("caseId") ?? "");
+  if (await caseAccessError(user, caseId, "payment.manage")) return;
   if (!id || (await isLockedFor(caseId, user.role))) return;
-  const pay = await prisma.payment.findUnique({ where: { id }, select: { amount: true } });
-  await prisma.payment.delete({ where: { id } });
+  const pay = await prisma.payment.findFirst({ where: { id, caseId }, select: { amount: true } });
+  if (!pay) return;
+  await prisma.$transaction(async (tx) => {
+    const deleted = await tx.payment.deleteMany({ where: { id, caseId } });
+    if (deleted.count > 0) await recalc(caseId, tx);
+  });
   await audit(user.id, "DELETE_PAYMENT", { entity: "Payment", entityId: id, meta: { amount: toNum(pay?.amount), caseId } });
   if (caseId) {
-    await recalc(caseId);
     refresh(caseId);
   }
 }
@@ -557,8 +658,9 @@ export async function deleteFollowUp(formData: FormData): Promise<void> {
   const user = await requireCap("case.clinical");
   const id = String(formData.get("id") ?? "");
   const caseId = String(formData.get("caseId") ?? "");
+  if (await caseAccessError(user, caseId, "clinical")) return;
   if (!id || (await isLockedFor(caseId, user.role))) return;
-  await prisma.followUp.delete({ where: { id } }).catch(() => {});
+  await prisma.followUp.deleteMany({ where: { id, caseId } });
   if (caseId) refresh(caseId);
 }
 

@@ -1,12 +1,13 @@
 import { notFound } from "next/navigation";
 import { Crown, FolderHeart, Images, CalendarClock, Receipt } from "lucide-react";
 import { prisma } from "@/lib/db";
-import { toNum, formatVND } from "@/lib/money";
+import { formatVND } from "@/lib/money";
 import { fmtDate, fmtDateTime } from "@/lib/format";
 import { CASE_STATUS } from "@/lib/status";
 import { tierFor, pointsFor } from "@/lib/loyalty";
 import { Badge } from "@/components/ui/badge";
 import { PhotoGallery } from "@/components/ui/photo-gallery";
+import { summarizeCase } from "@/lib/financial-summary";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Hồ sơ của tôi" };
@@ -18,15 +19,27 @@ export default async function CustomerPortalPage({ params }: { params: Promise<{
   const customer = await prisma.customer.findUnique({
     where: { portalToken: token },
     include: {
-      cases: { orderBy: { createdAt: "desc" }, include: { services: { select: { name: true } } } },
+      cases: {
+        orderBy: { createdAt: "desc" },
+        include: {
+          services: { select: { name: true, listPrice: true, unitPrice: true, quantity: true, discount: true } },
+          payments: { select: { amount: true } },
+        },
+      },
       photos: { orderBy: { takenAt: "desc" }, take: 12 },
       followUps: { where: { scheduledAt: { gte: followUpCutoff } }, orderBy: { scheduledAt: "asc" }, take: 5 },
     },
   });
   if (!customer) notFound();
 
-  const lifetimePaid = customer.cases.reduce((s, c) => s + toNum(c.paidAmount), 0);
-  const totalDebt = customer.cases.reduce((s, c) => s + toNum(c.debtAmount), 0);
+  const caseFinancials = new Map(
+    customer.cases.map((c) => [
+      c.id,
+      summarizeCase({ services: c.services, payments: c.payments, voucherAmount: c.voucherAmount, snapshot: c }),
+    ]),
+  );
+  const lifetimePaid = customer.cases.reduce((s, c) => s + (caseFinancials.get(c.id)?.paid ?? 0), 0);
+  const totalDebt = customer.cases.reduce((s, c) => s + (caseFinancials.get(c.id)?.debt ?? 0), 0);
   const tier = tierFor(lifetimePaid);
   const points = pointsFor(lifetimePaid);
 
@@ -86,8 +99,8 @@ export default async function CustomerPortalPage({ params }: { params: Promise<{
                     {c.services.length > 0 ? c.services.map((s) => s.name).join(", ") : c.chiefComplaint || "—"}
                   </p>
                   <p className="mt-1 text-xs text-slate-500">
-                    Thành tiền: <b className="text-slate-700">{formatVND(c.totalAmount)}</b> · Đã trả: {formatVND(c.paidAmount)}
-                    {toNum(c.debtAmount) > 0 && <span className="text-rose-500"> · Còn nợ: {formatVND(c.debtAmount)}</span>}
+                    Thành tiền: <b className="text-slate-700">{formatVND(caseFinancials.get(c.id)?.total ?? 0)}</b> · Đã trả: {formatVND(caseFinancials.get(c.id)?.paid ?? 0)}
+                    {(caseFinancials.get(c.id)?.debt ?? 0) > 0 && <span className="text-rose-500"> · Còn nợ: {formatVND(caseFinancials.get(c.id)?.debt ?? 0)}</span>}
                   </p>
                 </li>
               ))}
@@ -98,7 +111,7 @@ export default async function CustomerPortalPage({ params }: { params: Promise<{
         {/* Ảnh trước - sau */}
         {customer.photos.length > 0 && (
           <Section icon={<Images className="h-4 w-4 text-brand-500" />} title="Ảnh trước - sau">
-            <PhotoGallery photos={customer.photos} cols={4} />
+            <PhotoGallery photos={customer.photos} cols={4} accessToken={token} />
           </Section>
         )}
 

@@ -4,6 +4,8 @@ import { ArrowLeft } from "lucide-react";
 import { requireCap } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { toNum, formatVND } from "@/lib/money";
+import { summarizeCase } from "@/lib/financial-summary";
+import { canAccessCase } from "@/lib/case-access";
 import { maskPhone } from "@/lib/phone";
 import { fmtDate, fmtDateTime } from "@/lib/format";
 import { PAYMENT_LABEL } from "@/lib/status";
@@ -14,7 +16,7 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Hóa đơn" };
 
 export default async function InvoicePage({ params }: { params: Promise<{ id: string }> }) {
-  await requireCap("mod:ho-so");
+  const user = await requireCap("mod:ho-so");
   const { id } = await params;
 
   const record = await prisma.caseRecord.findUnique({
@@ -26,14 +28,20 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
     },
   });
   if (!record) notFound();
+  if (!canAccessCase(user, record, "read")) notFound();
 
-  const grossTotal = record.services.reduce((s, x) => s + toNum(x.listPrice) * x.quantity, 0);
-  const finalTotal = record.services.reduce((s, x) => s + toNum(x.finalPrice), 0);
-  const voucher = Math.min(toNum(record.voucherAmount), finalTotal);
-  const totalSavings = grossTotal - finalTotal + voucher; // ưu đãi + giảm dòng + voucher
-  const net = finalTotal - voucher;
-  const paid = toNum(record.paidAmount);
-  const debt = toNum(record.debtAmount);
+  const financial = summarizeCase({
+    services: record.services,
+    payments: record.payments,
+    voucherAmount: record.voucherAmount,
+    snapshot: record,
+  });
+  const grossTotal = financial.gross;
+  const voucher = financial.voucher;
+  const totalSavings = grossTotal - financial.subtotal + voucher;
+  const net = financial.total;
+  const paid = financial.paid;
+  const debt = financial.debt;
 
   return (
     <div className="invoice-sheet mx-auto max-w-[820px] space-y-5">
@@ -96,7 +104,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
                     {list > unit ? <span className="line-through">{formatVND(list)}</span> : formatVND(list)}
                   </TD>
                   <TD className="text-right">{formatVND(unit)}</TD>
-                  <TD className="text-right font-semibold text-slate-800">{formatVND(s.finalPrice)}</TD>
+                  <TD className="text-right font-semibold text-slate-800">{formatVND(Math.max(unit * s.quantity - toNum(s.discount), 0))}</TD>
                 </TR>
               );
             })}
