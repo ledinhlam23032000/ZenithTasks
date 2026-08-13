@@ -5,6 +5,7 @@
 .env
 .env.*
 !.env.example
+PHONE_ENC_KEY*.txt
 
 # Phụ thuộc & build (web/ có .gitignore riêng cho Next.js)
 node_modules/
