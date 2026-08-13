@@ -7,7 +7,7 @@ import { toNum } from "../src/lib/money";
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
 
-try {
+async function main() {
   const cases = await prisma.caseRecord.findMany({
     select: {
       id: true,
@@ -34,6 +34,11 @@ try {
   const result = { cases: cases.length, mismatches, anomalies, negativeStock };
   console.log(JSON.stringify(result, null, 2));
   if (mismatches.length > 0 || anomalies.length > 0 || negativeStock > 0) process.exitCode = 1;
-} finally {
-  await prisma.$disconnect();
 }
+
+main()
+  .catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  })
+  .finally(() => prisma.$disconnect());
