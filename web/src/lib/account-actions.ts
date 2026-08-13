@@ -7,6 +7,7 @@ import { prisma } from "@/lib/db";
 import { requireUser, verifyPassword, hashPassword } from "@/lib/auth";
 import { generateSecret, totpVerify, otpauthURL } from "@/lib/totp";
 import { audit } from "@/lib/audit";
+import { getClinicConfig } from "@/lib/clinic-config";
 
 export type PasswordState = { ok?: boolean; error?: string };
 export type ProfileState = { ok?: boolean; error?: string; nonce?: number };
@@ -108,8 +109,9 @@ export type TwoFAState = { ok?: boolean; error?: string; secret?: string; otpaut
 export async function start2FA(): Promise<TwoFAState> {
   const user = await requireUser();
   const secret = generateSecret();
+  const clinic = await getClinicConfig();
   await prisma.user.update({ where: { id: user.id }, data: { totpSecret: secret, totpEnabled: false } });
-  return { secret, otpauth: otpauthURL(secret, user.username) };
+  return { secret, otpauth: otpauthURL(secret, user.username, clinic.legalName) };
 }
 
 /** Bật 2FA sau khi người dùng nhập đúng mã từ app xác thực. */

@@ -3,12 +3,14 @@ import { redirect } from "next/navigation";
 import { ShieldCheck, CalendarClock, TrendingUp } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth";
 import { LoginForm } from "./login-form";
+import { getClinicConfig } from "@/lib/clinic-config";
 
 export const metadata = { title: "Đăng nhập" };
 
 export default async function LoginPage() {
   const user = await getCurrentUser();
   if (user) redirect("/dashboard");
+  const clinic = await getClinicConfig();
 
   return (
     <div className="grid min-h-screen lg:grid-cols-2">
@@ -19,9 +21,9 @@ export default async function LoginPage() {
 
         <div className="relative max-w-md">
           <h2 className="text-3xl font-semibold leading-tight text-balance">
-            Trung tâm Phẫu thuật Tạo hình Thẩm mỹ
+            {clinic.brandName}
           </h2>
-          <p className="mt-2 text-sm font-medium text-white/80">Bệnh viện Đa khoa Hồng Phúc</p>
+          <p className="mt-2 text-sm font-medium text-white/80">{clinic.legalName}</p>
           <p className="mt-3 text-white/75">
             Ứng dụng nội bộ quản trị. Lịch hẹn, hồ sơ khách, tài chính, kho, lương và báo cáo trong một hệ thống.
           </p>
@@ -40,7 +42,7 @@ export default async function LoginPage() {
 
         <div className="relative text-xs text-white/60">
           <p>Thiết kế &amp; vận hành: GĐĐH — BS. Lê Đình Lam</p>
-          <p>Hỗ trợ sự cố: 0941 567 496</p>
+          <p>Hỗ trợ sự cố: {clinic.hotline}</p>
         </div>
       </div>
 
@@ -48,8 +50,8 @@ export default async function LoginPage() {
       <div className="flex items-center justify-center p-6 sm:p-12">
         <div className="w-full max-w-sm">
           <div className="mb-8 lg:hidden">
-            <p className="text-xl font-bold text-brand-700">Trung tâm Phẫu thuật Tạo hình Thẩm mỹ</p>
-            <p className="text-xs text-slate-500">Bệnh viện Đa khoa Hồng Phúc</p>
+            <p className="text-xl font-bold text-brand-700">{clinic.brandName}</p>
+            <p className="text-xs text-slate-500">{clinic.legalName}</p>
           </div>
 
           <h1 className="text-2xl font-semibold text-slate-900">Đăng nhập</h1>
@@ -64,11 +66,11 @@ export default async function LoginPage() {
           </div>
 
           <p className="mt-8 text-center text-xs leading-relaxed text-slate-400">
-            © {new Date().getFullYear()} Trung tâm Phẫu thuật Tạo hình Thẩm mỹ — BVĐK Hồng Phúc · Thiết kế: BS. Lê Đình Lam
+            © {new Date().getFullYear()} {clinic.brandName} — {clinic.legalName}
             <br />
             Hỗ trợ sự cố:{" "}
             <Link href="tel:0941567496" className="font-medium text-brand-600 hover:text-brand-700">
-              0941 567 496
+              {clinic.hotline}
             </Link>
           </p>
         </div>

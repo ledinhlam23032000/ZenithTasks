@@ -809,6 +809,12 @@ model AuditLog {
   @@index([at])
 }
 
+model AppSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
 // ============================ SỔ THU CHI (DÒNG TIỀN) ============================
 
 enum CashType {

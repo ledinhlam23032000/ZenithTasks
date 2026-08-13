@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import Image from "next/image";
 import {
   Menu,
   X,
@@ -27,6 +28,7 @@ import {
   ScrollText,
   Activity,
   Handshake,
+  Settings2,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -52,18 +54,22 @@ const ICONS: Record<string, LucideIcon> = {
   ScrollText,
   Activity,
   Handshake,
+  Settings2,
 };
 
 export type NavItemData = { href: string; label: string; icon: string };
 export type ShellUser = { fullName: string; roleLabel: string; username: string; avatarUrl?: string | null };
+export type ShellClinic = { brandName: string; legalName: string; hotline: string; logoUrl?: string };
 
 export function AppShell({
   user,
   nav,
+  clinic,
   children,
 }: {
   user: ShellUser;
   nav: NavItemData[];
+  clinic: ShellClinic;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -100,8 +106,9 @@ export function AppShell({
 
   const brand = (
     <div className="px-5 py-5 leading-snug">
-      <p className="text-sm font-bold text-brand-700">Trung tâm Phẫu thuật Tạo hình Thẩm mỹ</p>
-      <p className="mt-1 text-[11px] text-slate-400">Bệnh viện Đa khoa Hồng Phúc</p>
+      {clinic.logoUrl && <Image src={clinic.logoUrl} alt={clinic.brandName} width={44} height={44} className="mb-3 h-11 w-11 rounded-xl object-contain" unoptimized />}
+      <p className="text-sm font-bold text-brand-700">{clinic.brandName}</p>
+      <p className="mt-1 text-[11px] text-slate-400">{clinic.legalName}</p>
     </div>
   );
 
@@ -112,9 +119,8 @@ export function AppShell({
         {brand}
         {navList}
         <div className="px-5 py-4 text-[11px] leading-relaxed text-slate-400">
-          <p className="font-medium text-slate-500">BVĐK Hồng Phúc</p>
-          <p>Thiết kế: BS. Lê Đình Lam (GĐĐH)</p>
-          <p>Hỗ trợ sự cố: 0941567496</p>
+          <p className="font-medium text-slate-500">{clinic.legalName}</p>
+          <p>Hỗ trợ sự cố: {clinic.hotline || "Liên hệ quản trị"}</p>
         </div>
       </aside>
 

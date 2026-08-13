@@ -8,12 +8,14 @@ import { tierFor, pointsFor } from "@/lib/loyalty";
 import { Badge } from "@/components/ui/badge";
 import { PhotoGallery } from "@/components/ui/photo-gallery";
 import { summarizeCase } from "@/lib/financial-summary";
+import { getClinicConfig } from "@/lib/clinic-config";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Hồ sơ của tôi" };
 
 export default async function CustomerPortalPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
+  const clinic = await getClinicConfig();
   const followUpCutoff = new Date();
   followUpCutoff.setDate(followUpCutoff.getDate() - 1);
   const customer = await prisma.customer.findFirst({
@@ -47,8 +49,8 @@ export default async function CustomerPortalPage({ params }: { params: Promise<{
     <div className="min-h-screen bg-gradient-to-b from-brand-50/60 to-slate-50 px-4 py-8">
       <div className="mx-auto max-w-2xl space-y-5">
         <header className="text-center">
-          <p className="text-lg font-bold text-brand-700">Trung tâm Phẫu thuật Tạo hình Thẩm mỹ</p>
-          <p className="text-sm text-slate-500">Bệnh viện Đa khoa Hồng Phúc</p>
+          <p className="text-lg font-bold text-brand-700">{clinic.brandName}</p>
+          <p className="text-sm text-slate-500">{clinic.legalName}</p>
         </header>
 
         {/* Thẻ thành viên */}
@@ -125,7 +127,7 @@ export default async function CustomerPortalPage({ params }: { params: Promise<{
         )}
 
         <p className="pt-2 text-center text-xs text-slate-400">
-          Cảm ơn Quý khách! Mọi thắc mắc xin gọi 0941 567 496.
+          {clinic.portalGreeting} Mọi thắc mắc xin gọi {clinic.hotline}.
         </p>
       </div>
     </div>

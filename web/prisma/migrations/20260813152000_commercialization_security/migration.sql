@@ -46,3 +46,10 @@ CREATE TABLE "ServiceMaterial" (
 );
 CREATE UNIQUE INDEX "ServiceMaterial_serviceId_materialId_key" ON "ServiceMaterial"("serviceId", "materialId");
 CREATE INDEX "ServiceMaterial_materialId_idx" ON "ServiceMaterial"("materialId");
+
+CREATE TABLE "AppSetting" (
+  "key" TEXT NOT NULL,
+  "value" JSONB NOT NULL,
+  "updatedAt" TIMESTAMP(3) NOT NULL,
+  CONSTRAINT "AppSetting_pkey" PRIMARY KEY ("key")
+);

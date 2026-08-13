@@ -36,6 +36,7 @@ export const MODULES: ModuleDef[] = [
   { key: "thu-chi", href: "/thu-chi", label: "Thu chi", icon: "Coins", roles: ["ADMIN", "MANAGER", "SHAREHOLDER"] },
   { key: "nhan-su", href: "/nhan-su", label: "Nhân sự", icon: "Contact", roles: ["ADMIN"] },
   { key: "nhat-ky", href: "/nhat-ky", label: "Nhật ký hệ thống", icon: "ScrollText", roles: ["ADMIN"] },
+  { key: "he-thong", href: "/he-thong", label: "Cấu hình phòng khám", icon: "Settings2", roles: ["ADMIN"] },
   { key: "danh-muc", href: "/danh-muc", label: "Danh mục dịch vụ", icon: "ListChecks", roles: ["ADMIN", "MANAGER", "SHAREHOLDER"] },
   { key: "kho", href: "/kho", label: "Kho vật tư", icon: "Boxes", roles: ["ADMIN", "MANAGER", "SHAREHOLDER"] },
 ];
@@ -55,6 +56,7 @@ export const CAPABILITIES: CapDef[] = [
   { key: "financial.detail.read", label: "Xem chi tiết tài chính cá nhân", group: "Tài chính", roles: ["ADMIN", "MANAGER"] },
   { key: "reports.aggregate.read", label: "Xem báo cáo tổng hợp không định danh", group: "Báo cáo", roles: ["ADMIN", "MANAGER", "SHAREHOLDER"] },
   { key: "portal.manage", label: "Tạo và thu hồi cổng khách hàng", group: "Bảo mật", roles: ["ADMIN", "MANAGER"] },
+  { key: "clinic.settings.manage", label: "Quản lý cấu hình phòng khám", group: "Quản trị hệ thống", roles: ["ADMIN"] },
   { key: "phone.full", label: "Xem số điện thoại đầy đủ của khách", group: "Bảo mật", roles: ["ADMIN", "MANAGER"] },
   { key: "inbox.view", label: "Xem hội thoại được phân công", group: "Hộp thư chăm sóc", roles: ["ADMIN", "MANAGER", "CARE"] },
   { key: "inbox.viewAll", label: "Xem toàn bộ hội thoại", group: "Hộp thư chăm sóc", roles: ["ADMIN", "MANAGER"] },
