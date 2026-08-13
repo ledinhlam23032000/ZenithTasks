@@ -34,4 +34,3 @@ Chi tiết và các gate còn mở nằm ở `docs/COMMERCIAL-VERIFICATION-REPOR
 ## Điều kiện merge
 
 Draft PR này cần review security, migration, backup/restore và chạy E2E trên database giả trước khi chuyển ready-for-review.
-

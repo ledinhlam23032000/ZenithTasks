@@ -1,8 +1,8 @@
 # Báo cáo kiểm chứng thương mại hóa
 
-Ngày kiểm chứng: 13/08/2026  
-Nhánh: `codex/zenithtasks-commercialization`  
-Baseline: `6a6dc88`  
+Ngày kiểm chứng: 13/08/2026
+Nhánh: `codex/zenithtasks-commercialization`
+Baseline: `6a6dc88`
 
 ## Kết quả đã có bằng chứng
 
@@ -34,4 +34,3 @@ Nhánh này đã chứa phần triển khai nền tảng và là ứng viên đ�
 - Không xóa, reset hoặc sửa dữ liệu bệnh nhân thật.
 - Migration không được chạy tự động trong lượt kiểm chứng này.
 - Các test browser real không tự ý kết nối vào instance đang vận hành.
-
