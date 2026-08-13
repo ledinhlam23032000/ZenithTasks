@@ -222,15 +222,17 @@ function ServiceForm({ caseId, services, onDone }: { caseId: string; services: S
 // ===== Thêm thanh toán =====
 export function AddPaymentButton({ caseId, debt }: { caseId: string; debt: number }) {
   const [open, setOpen] = useState(false);
+  const [clientNonce, setClientNonce] = useState(() => crypto.randomUUID());
   const [state, action, pending] = useFormAction(addPayment, () => setOpen(false));
   return (
     <>
-      <Button size="sm" onClick={() => setOpen(true)}>
+      <Button size="sm" onClick={() => { setClientNonce(crypto.randomUUID()); setOpen(true); }}>
         <Wallet className="h-4 w-4" /> Thu tiền
       </Button>
       <Modal open={open} onClose={() => setOpen(false)} title="Ghi nhận thanh toán">
         <form action={action} className="space-y-4">
           <input type="hidden" name="caseId" value={caseId} />
+          <input type="hidden" name="clientNonce" value={clientNonce} />
           <div>
             <Label htmlFor="amount">Số tiền (VND) *</Label>
             <MoneyInput id="amount" name="amount" defaultValue={debt > 0 ? debt : 0} required autoFocus />

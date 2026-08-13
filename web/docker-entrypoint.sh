@@ -20,11 +20,13 @@ if [ -z "$AUTH_SECRET" ]; then
   export AUTH_SECRET
 fi
 
-# PHONE_ENC_KEY (khoá mã hoá SĐT) — KHÔNG tự đổi để dữ liệu cũ vẫn giải mã được.
-# Lần đầu dùng khoá tương thích bản cũ; có thể thay bằng .env (cần mã hoá lại dữ liệu).
+# PHONE_ENC_KEY (khoá mã hoá SĐT) — không dùng fallback cố định trong source.
+# Nếu chưa cấu hình, sinh một khoá ngẫu nhiên và giữ trong volume secrets.
+# Với dữ liệu cũ, phải cung cấp đúng PHONE_ENC_KEY cũ qua secret manager/.env.
 if [ -z "$PHONE_ENC_KEY" ]; then
   if [ ! -f "$SECRET_DIR/phone_key" ]; then
-    printf '%s' "QKuRqi5MjrXaJ6Dv5XwMQCD/0Dmyvc2TuTUEBf8nGM8=" > "$SECRET_DIR/phone_key"
+    node -e "process.stdout.write(require('crypto').randomBytes(32).toString('base64'))" > "$SECRET_DIR/phone_key"
+    echo "🔐 Đã tạo khóa mã hóa số điện thoại trong volume an toàn."
   fi
   PHONE_ENC_KEY="$(cat "$SECRET_DIR/phone_key")"
   export PHONE_ENC_KEY

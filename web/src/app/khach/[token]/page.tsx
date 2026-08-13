@@ -11,6 +11,7 @@ import { PhotoGallery } from "@/components/ui/photo-gallery";
 import { APPT_STATUS } from "@/lib/status";
 import { PortalAppointmentActions } from "./appointment-actions";
 import { PortalNpsForm } from "./nps-form";
+import { summarizeCase } from "@/lib/financial-summary";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Hồ sơ của tôi" };
@@ -31,7 +32,9 @@ export default async function CustomerPortalPage({ params }: { params: Promise<{
           totalAmount: true,
           paidAmount: true,
           debtAmount: true,
-          services: { select: { name: true } },
+          voucherAmount: true,
+          services: { select: { name: true, listPrice: true, unitPrice: true, quantity: true, discount: true } },
+          payments: { select: { amount: true } },
         },
       },
       photos: { orderBy: { takenAt: "desc" }, take: 12 },
@@ -61,8 +64,9 @@ export default async function CustomerPortalPage({ params }: { params: Promise<{
 
   const canRate = customer.cases.length > 0 && customer.npsResponses.length === 0;
 
-  const lifetimePaid = customer.cases.reduce((s, c) => s + toNum(c.paidAmount), 0);
-  const totalDebt = customer.cases.reduce((s, c) => s + toNum(c.debtAmount), 0);
+  const caseFinancials = new Map(customer.cases.map((c) => [c.id, summarizeCase({ services: c.services, payments: c.payments, voucherAmount: c.voucherAmount, snapshot: c })]));
+  const lifetimePaid = customer.cases.reduce((s, c) => s + (caseFinancials.get(c.id)?.paid ?? 0), 0);
+  const totalDebt = customer.cases.reduce((s, c) => s + (caseFinancials.get(c.id)?.debt ?? 0), 0);
   const tier = tierFor(lifetimePaid);
   const points = pointsFor(lifetimePaid);
 
@@ -141,8 +145,8 @@ export default async function CustomerPortalPage({ params }: { params: Promise<{
                     {c.services.length > 0 ? c.services.map((s) => s.name).join(", ") : "Đang tư vấn"}
                   </p>
                   <p className="mt-1 text-xs text-slate-500">
-                    Thành tiền: <b className="text-slate-700">{formatVND(c.totalAmount)}</b> · Đã trả: {formatVND(c.paidAmount)}
-                    {toNum(c.debtAmount) > 0 && <span className="text-rose-500"> · Còn nợ: {formatVND(c.debtAmount)}</span>}
+                    Thành tiền: <b className="text-slate-700">{formatVND(caseFinancials.get(c.id)?.total ?? 0)}</b> · Đã trả: {formatVND(caseFinancials.get(c.id)?.paid ?? 0)}
+                    {(caseFinancials.get(c.id)?.debt ?? 0) > 0 && <span className="text-rose-500"> · Còn nợ: {formatVND(caseFinancials.get(c.id)?.debt ?? 0)}</span>}
                   </p>
                 </li>
               ))}

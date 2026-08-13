@@ -25,11 +25,13 @@ export function PhotoGallery({
   cols = 4,
   deleteAction,
   caseId,
+  accessToken,
 }: {
   photos: GalleryPhoto[];
   cols?: number;
   deleteAction?: (formData: FormData) => void | Promise<void>;
   caseId?: string;
+  accessToken?: string;
 }) {
   const [idx, setIdx] = useState<number | null>(null);
   const open = idx !== null;
@@ -66,7 +68,7 @@ export function PhotoGallery({
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={photoSrc(p.url)}
+                src={photoSrc(p.url, accessToken)}
                 alt={p.caption ?? "Ảnh"}
                 loading="lazy"
                 decoding="async"
@@ -108,7 +110,7 @@ export function PhotoGallery({
             </div>
             <div className="flex items-center gap-1">
               <a
-                href={photoSrc(cur.url)}
+                href={photoSrc(cur.url, accessToken)}
                 download
                 className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-white hover:bg-white/10"
                 title="Tải ảnh về máy"
@@ -132,7 +134,7 @@ export function PhotoGallery({
               </button>
             )}
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={photoSrc(cur.url)} alt={cur.caption ?? "Ảnh"} className="max-h-full max-w-full rounded-lg object-contain" />
+            <img src={photoSrc(cur.url, accessToken)} alt={cur.caption ?? "Ảnh"} className="max-h-full max-w-full rounded-lg object-contain" />
             {photos.length > 1 && (
               <button
                 onClick={() => setIdx((i) => (i === null ? i : (i + 1) % photos.length))}

@@ -494,6 +494,7 @@ model CaseService {
 
 model Payment {
   id           String        @id @default(cuid())
+  clientNonce  String?       @unique
   caseId       String
   case         CaseRecord    @relation(fields: [caseId], references: [id], onDelete: Cascade)
   amount       Decimal       @db.Decimal(14, 0)

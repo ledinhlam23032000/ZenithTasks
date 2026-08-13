@@ -9,7 +9,7 @@ import { prisma } from "@/lib/db";
 import { requireUser, requireCap } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 import { toNum } from "@/lib/money";
-import { computeCaseTotals } from "@/lib/case-math";
+import { summarizeCase, validatePaymentAmount, validateServicePrice } from "@/lib/financial-summary";
 import { bomNeeds, type BomLine } from "@/lib/service-bom";
 import { isAllowedDocMime, docExt, safeStoredName } from "@/lib/upload";
 import type { Prisma } from "@/generated/prisma/client";
@@ -33,20 +33,15 @@ async function isLockedFor(caseId: string, role: string): Promise<boolean> {
  * Toán đặt ở `lib/case-math.ts` (thuần, có test). Nhận `db` để chạy trong $transaction.
  */
 async function recalc(caseId: string, db: Db = prisma): Promise<void> {
-  const [services, payAgg, rec] = await Promise.all([
-    db.caseService.findMany({ where: { caseId }, select: { finalPrice: true, discount: true } }),
-    db.payment.aggregate({ where: { caseId }, _sum: { amount: true } }),
+  const [services, payments, rec] = await Promise.all([
+    db.caseService.findMany({ where: { caseId }, select: { listPrice: true, unitPrice: true, quantity: true, discount: true } }),
+    db.payment.findMany({ where: { caseId }, select: { amount: true } }),
     db.caseRecord.findUnique({ where: { id: caseId }, select: { voucherAmount: true } }),
   ]);
-  const totals = computeCaseTotals({
-    finalPrices: services.map((x) => toNum(x.finalPrice)),
-    discounts: services.map((x) => toNum(x.discount)),
-    voucherAmount: toNum(rec?.voucherAmount),
-    payments: [toNum(payAgg._sum.amount)],
-  });
+  const totals = summarizeCase({ services, payments, voucherAmount: rec?.voucherAmount });
   await db.caseRecord.update({
     where: { id: caseId },
-    data: { totalAmount: totals.total, discountAmount: totals.discount, paidAmount: totals.paid, debtAmount: totals.debt },
+    data: { totalAmount: totals.total, discountAmount: totals.lineDiscount, paidAmount: totals.paid, debtAmount: totals.debt },
   });
 }
 
@@ -189,6 +184,8 @@ export async function addCaseService(_prev: CaseActionState, formData: FormData)
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu không hợp lệ." };
   const d = parsed.data;
+  const priceValidation = validateServicePrice(d);
+  if (!priceValidation.ok) return { error: priceValidation.error };
   const finalPrice = Math.max(d.unitPrice * d.quantity - d.discount, 0);
   const listPrice = d.listPrice > 0 ? d.listPrice : d.unitPrice; // không có giá gốc → lấy giá ưu đãi
 
@@ -286,6 +283,8 @@ export async function updateCaseService(_prev: CaseActionState, formData: FormDa
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu không hợp lệ." };
   const d = parsed.data;
+  const priceValidation = validateServicePrice(d);
+  if (!priceValidation.ok) return { error: priceValidation.error };
   const finalPrice = Math.max(d.unitPrice * d.quantity - d.discount, 0);
   const listPrice = d.listPrice > 0 ? d.listPrice : d.unitPrice;
 
@@ -347,6 +346,7 @@ export async function updateCaseVoucher(_prev: CaseActionState, formData: FormDa
 // ---- Thêm thanh toán ----
 const paymentSchema = z.object({
   caseId: z.string().min(1),
+  clientNonce: z.string().min(16).max(128),
   amount: z.coerce.number().positive("Số tiền phải lớn hơn 0."),
   method: z.enum(["CASH", "CARD", "TRANSFER", "EWALLET"]),
   note: z.string().trim().optional(),
@@ -359,6 +359,7 @@ export async function addPayment(_prev: CaseActionState, formData: FormData): Pr
 
   const parsed = paymentSchema.safeParse({
     caseId,
+    clientNonce: formData.get("clientNonce") ?? "",
     amount: formData.get("amount") ?? 0,
     method: formData.get("method") ?? "CASH",
     note: formData.get("note") ?? "",
@@ -366,8 +367,19 @@ export async function addPayment(_prev: CaseActionState, formData: FormData): Pr
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu không hợp lệ." };
   const d = parsed.data;
   await withCaseLock(d.caseId, async (tx) => {
+    const duplicate = await tx.payment.findUnique({ where: { clientNonce: d.clientNonce }, select: { id: true } });
+    if (duplicate) return;
+    const [record, services, payments] = await Promise.all([
+      tx.caseRecord.findUnique({ where: { id: d.caseId }, select: { voucherAmount: true } }),
+      tx.caseService.findMany({ where: { caseId: d.caseId }, select: { listPrice: true, unitPrice: true, quantity: true, discount: true } }),
+      tx.payment.findMany({ where: { caseId: d.caseId }, select: { amount: true } }),
+    ]);
+    if (!record) throw new Error("Không tìm thấy hồ sơ.");
+    const current = summarizeCase({ services, payments, voucherAmount: record.voucherAmount });
+    const validation = validatePaymentAmount({ amount: d.amount, total: current.total, paid: current.paid });
+    if (!validation.ok) throw new Error(validation.error);
     await tx.payment.create({
-      data: { caseId: d.caseId, amount: d.amount, method: d.method, note: d.note || null, receivedById: user.id },
+      data: { clientNonce: d.clientNonce, caseId: d.caseId, amount: d.amount, method: d.method, note: d.note || null, receivedById: user.id },
     });
     await recalc(d.caseId, tx);
   });
@@ -375,7 +387,7 @@ export async function addPayment(_prev: CaseActionState, formData: FormData): Pr
 }
 
 // ---- Sửa thanh toán (chỉ quản trị / quản lý — liên quan tiền) ----
-const paymentEditSchema = paymentSchema.extend({ id: z.string().min(1) });
+const paymentEditSchema = paymentSchema.omit({ clientNonce: true }).extend({ id: z.string().min(1) });
 
 export async function updatePayment(_prev: CaseActionState, formData: FormData): Promise<CaseActionState> {
   const user = await requireCap("payment.manage");
@@ -406,6 +418,16 @@ export async function updatePayment(_prev: CaseActionState, formData: FormData):
   }
 
   await withCaseLock(d.caseId, async (tx) => {
+    const [payment, record, services, payments] = await Promise.all([
+      tx.payment.findFirst({ where: { id: d.id, caseId: d.caseId }, select: { amount: true } }),
+      tx.caseRecord.findUnique({ where: { id: d.caseId }, select: { voucherAmount: true } }),
+      tx.caseService.findMany({ where: { caseId: d.caseId }, select: { listPrice: true, unitPrice: true, quantity: true, discount: true } }),
+      tx.payment.findMany({ where: { caseId: d.caseId, NOT: { id: d.id } }, select: { amount: true } }),
+    ]);
+    if (!payment || !record) throw new Error("Không tìm thấy khoản thu thuộc hồ sơ này.");
+    const current = summarizeCase({ services, payments, voucherAmount: record.voucherAmount });
+    const validation = validatePaymentAmount({ amount: d.amount, total: current.total, paid: current.paid });
+    if (!validation.ok) throw new Error(validation.error);
     await tx.payment.update({
       where: { id: d.id },
       data: { amount: d.amount, method: d.method, note: d.note || null, ...(paidAt ? { paidAt } : {}) },

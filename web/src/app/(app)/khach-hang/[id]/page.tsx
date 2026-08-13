@@ -51,6 +51,7 @@ import { AdminPhone } from "./admin-phone";
 import { PortalLink } from "./portal-link";
 import { CareComposer } from "../../cham-soc/care-composer";
 import { PhotoGallery } from "@/components/ui/photo-gallery";
+import { summarizeCase } from "@/lib/financial-summary";
 import { PhotoCompareButton } from "@/components/ui/photo-compare";
 import { MedicalAlert } from "@/components/ui/medical-alert";
 
@@ -66,7 +67,8 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
       cases: {
         orderBy: { createdAt: "desc" },
         include: {
-          services: { select: { name: true } },
+          services: { select: { name: true, listPrice: true, unitPrice: true, quantity: true, discount: true } },
+          payments: { select: { amount: true } },
           consultant: { select: { fullName: true } },
           doctor: { select: { fullName: true } },
         },
@@ -84,12 +86,13 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
   const canSeePhone = userCan(user, "phone.full");
   const canConfirmFollowUp = !isShareholder(user.role);
 
-  const totalValue = customer.cases.reduce((s, c) => s + toNum(c.totalAmount), 0);
-  const totalDebt = customer.cases.reduce((s, c) => s + toNum(c.debtAmount), 0);
+  const caseFinancials = new Map(customer.cases.map((c) => [c.id, summarizeCase({ services: c.services, payments: c.payments, voucherAmount: c.voucherAmount, snapshot: c })]));
+  const totalValue = customer.cases.reduce((s, c) => s + (caseFinancials.get(c.id)?.total ?? 0), 0);
+  const totalDebt = customer.cases.reduce((s, c) => s + (caseFinancials.get(c.id)?.debt ?? 0), 0);
   const age = customer.dob ? differenceInYears(new Date(), customer.dob) : null;
 
   // Thẻ thành viên: hạng & điểm theo tổng chi tiêu thực (tiền đã thanh toán)
-  const lifetimePaid = customer.cases.reduce((s, c) => s + toNum(c.paidAmount), 0);
+  const lifetimePaid = customer.cases.reduce((s, c) => s + (caseFinancials.get(c.id)?.paid ?? 0), 0);
   const tier = tierFor(lifetimePaid);
   const points = pointsFor(lifetimePaid);
   const nxt = nextTier(lifetimePaid);
@@ -261,9 +264,9 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
                           {c.services.length > 0 ? c.services.map((s) => s.name).join(", ") : c.chiefComplaint || "Chưa có dịch vụ"}
                         </p>
                         <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
-                          <span>Tổng: <b className="text-slate-700">{formatVND(c.totalAmount)}</b></span>
-                          <span>Đã trả: <b className="text-emerald-600">{formatVND(c.paidAmount)}</b></span>
-                          {toNum(c.debtAmount) > 0 && <span>Nợ: <b className="text-rose-600">{formatVND(c.debtAmount)}</b></span>}
+                          <span>Tổng: <b className="text-slate-700">{formatVND(caseFinancials.get(c.id)?.total ?? 0)}</b></span>
+                          <span>Đã trả: <b className="text-emerald-600">{formatVND(caseFinancials.get(c.id)?.paid ?? 0)}</b></span>
+                          {(caseFinancials.get(c.id)?.debt ?? 0) > 0 && <span>Nợ: <b className="text-rose-600">{formatVND(caseFinancials.get(c.id)?.debt ?? 0)}</b></span>}
                           {c.consultant && <span>TV: {c.consultant.fullName}</span>}
                         </div>
                       </Link>

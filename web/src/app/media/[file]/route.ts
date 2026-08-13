@@ -35,17 +35,16 @@ export async function GET(req: Request, { params }: { params: Promise<{ file: st
     return new NextResponse("Not found", { status: 404 });
   }
 
-  // Kiểm tra quyền xem: đăng nhập HOẶC có vé ký hợp lệ cho đúng tệp này.
+  const ext = (file.split(".").pop() || "").toLowerCase();
+  const full = path.join(process.cwd(), "public", "uploads", file);
   const session = await getSession();
-  if (!session) {
+  const currentUser = session;
+  if (!currentUser) {
     const token = new URL(req.url).searchParams.get("t");
     if (!verifyMediaToken(file, token)) {
       return new NextResponse("Unauthorized", { status: 401 });
     }
   }
-
-  const ext = (file.split(".").pop() || "").toLowerCase();
-  const full = path.join(process.cwd(), "public", "uploads", file);
   try {
     const buf = await fs.readFile(full);
     return new NextResponse(new Uint8Array(buf), {
