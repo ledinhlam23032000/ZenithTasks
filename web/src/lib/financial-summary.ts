@@ -13,6 +13,7 @@ export type FinancialServiceInput = {
   unitPrice?: unknown;
   quantity?: unknown;
   discount?: unknown;
+  finalPrice?: unknown;
 };
 
 export type FinancialPaymentInput = { amount?: unknown };
@@ -86,7 +87,15 @@ export function summarizeCase(input: {
     const unitPrice = integerMoney(service.unitPrice);
     const serviceQuantity = quantity(service.quantity ?? 1);
     const discount = integerMoney(service.discount);
-    const lineBase = unitPrice * serviceQuantity;
+    const storedFinalPrice = integerMoney(service.finalPrice);
+    // Một số hồ sơ cũ lưu listPrice nhưng unitPrice/finalPrice bằng 0. Khi
+    // đó, listPrice là giá duy nhất còn lại để không làm mất doanh thu đã ghi.
+    const calculatedLineBase = unitPrice * serviceQuantity;
+    const lineBase = calculatedLineBase > 0
+      ? calculatedLineBase
+      : storedFinalPrice > 0
+        ? storedFinalPrice + discount
+        : listPrice * serviceQuantity;
 
     gross += listPrice * serviceQuantity;
     lineDiscount += discount;

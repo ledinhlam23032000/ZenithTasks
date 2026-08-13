@@ -33,7 +33,7 @@ export default async function CustomerPortalPage({ params }: { params: Promise<{
           paidAmount: true,
           debtAmount: true,
           voucherAmount: true,
-          services: { select: { name: true, listPrice: true, unitPrice: true, quantity: true, discount: true } },
+          services: { select: { name: true, listPrice: true, unitPrice: true, quantity: true, discount: true, finalPrice: true } },
           payments: { select: { amount: true } },
         },
       },

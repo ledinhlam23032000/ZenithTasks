@@ -19,6 +19,18 @@ describe("summarizeCase", () => {
     expect(summary.anomalies).toContain("STALE_SNAPSHOT");
   });
 
+  it("uses the legacy listed price when an imported service has no unit price", () => {
+    const summary = summarizeCase({
+      services: [{ listPrice: 10_000_000, unitPrice: 0, quantity: 1, discount: 0 }],
+      payments: [{ amount: 10_000_000 }],
+      voucherAmount: 0,
+    });
+
+    expect(summary.total).toBe(10_000_000);
+    expect(summary.paid).toBe(10_000_000);
+    expect(summary.debt).toBe(0);
+  });
+
   it("flags a payment when the case has no services", () => {
     const summary = summarizeCase({
       services: [],

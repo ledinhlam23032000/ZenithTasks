@@ -34,7 +34,7 @@ async function isLockedFor(caseId: string, role: string): Promise<boolean> {
  */
 async function recalc(caseId: string, db: Db = prisma): Promise<void> {
   const [services, payments, rec] = await Promise.all([
-    db.caseService.findMany({ where: { caseId }, select: { listPrice: true, unitPrice: true, quantity: true, discount: true } }),
+    db.caseService.findMany({ where: { caseId }, select: { listPrice: true, unitPrice: true, quantity: true, discount: true, finalPrice: true } }),
     db.payment.findMany({ where: { caseId }, select: { amount: true } }),
     db.caseRecord.findUnique({ where: { id: caseId }, select: { voucherAmount: true } }),
   ]);
@@ -371,7 +371,7 @@ export async function addPayment(_prev: CaseActionState, formData: FormData): Pr
     if (duplicate) return;
     const [record, services, payments] = await Promise.all([
       tx.caseRecord.findUnique({ where: { id: d.caseId }, select: { voucherAmount: true } }),
-      tx.caseService.findMany({ where: { caseId: d.caseId }, select: { listPrice: true, unitPrice: true, quantity: true, discount: true } }),
+      tx.caseService.findMany({ where: { caseId: d.caseId }, select: { listPrice: true, unitPrice: true, quantity: true, discount: true, finalPrice: true } }),
       tx.payment.findMany({ where: { caseId: d.caseId }, select: { amount: true } }),
     ]);
     if (!record) throw new Error("Không tìm thấy hồ sơ.");
@@ -421,7 +421,7 @@ export async function updatePayment(_prev: CaseActionState, formData: FormData):
     const [payment, record, services, payments] = await Promise.all([
       tx.payment.findFirst({ where: { id: d.id, caseId: d.caseId }, select: { amount: true } }),
       tx.caseRecord.findUnique({ where: { id: d.caseId }, select: { voucherAmount: true } }),
-      tx.caseService.findMany({ where: { caseId: d.caseId }, select: { listPrice: true, unitPrice: true, quantity: true, discount: true } }),
+      tx.caseService.findMany({ where: { caseId: d.caseId }, select: { listPrice: true, unitPrice: true, quantity: true, discount: true, finalPrice: true } }),
       tx.payment.findMany({ where: { caseId: d.caseId, NOT: { id: d.id } }, select: { amount: true } }),
     ]);
     if (!payment || !record) throw new Error("Không tìm thấy khoản thu thuộc hồ sơ này.");

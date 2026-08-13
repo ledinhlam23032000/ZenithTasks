@@ -67,7 +67,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
       cases: {
         orderBy: { createdAt: "desc" },
         include: {
-          services: { select: { name: true, listPrice: true, unitPrice: true, quantity: true, discount: true } },
+          services: { select: { name: true, listPrice: true, unitPrice: true, quantity: true, discount: true, finalPrice: true } },
           payments: { select: { amount: true } },
           consultant: { select: { fullName: true } },
           doctor: { select: { fullName: true } },
