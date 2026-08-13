@@ -1,6 +1,6 @@
 @echo off
 setlocal
-title Zenith Clinic - Cap nhat master va chay
+title Zenith Clinic - Cap nhat nhanh claude va chay
 
 set "SCRIPT=%~dp0Chay-Zenith.ps1"
 if not exist "%SCRIPT%" (
