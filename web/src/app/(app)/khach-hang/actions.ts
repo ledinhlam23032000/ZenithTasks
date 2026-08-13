@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { requireUser } from "@/lib/auth";
+import { requireCap, requireUser } from "@/lib/auth";
 import { userCan } from "@/lib/permissions";
 import { audit } from "@/lib/audit";
 import { encryptPhone, decryptPhone, normalizePhone, phoneLast5, hashPhone } from "@/lib/phone";
@@ -112,46 +112,43 @@ export async function updateCustomer(_prev: EditCustomerState, formData: FormDat
 
 /** Tạo (hoặc đổi) link Cổng khách hàng — link riêng để khách tự xem lịch sử/ảnh. */
 export async function genPortalLink(formData: FormData): Promise<void> {
-  await requireUser([...ROLES]);
+  await requireCap("portal.manage");
   const id = String(formData.get("customerId") ?? "");
   if (!id) return;
   const token = crypto.randomBytes(24).toString("base64url");
-  await prisma.customer.update({ where: { id }, data: { portalToken: token } }).catch(() => {});
+  const portalTokenExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+  await prisma.customer.update({ where: { id }, data: { portalToken: token, portalTokenExpiresAt } }).catch(() => {});
   revalidatePath(`/khach-hang/${id}`);
 }
 
 /** Thu hồi link Cổng khách hàng. */
 export async function revokePortalLink(formData: FormData): Promise<void> {
-  await requireUser([...ROLES]);
+  await requireCap("portal.manage");
   const id = String(formData.get("customerId") ?? "");
   if (!id) return;
-  await prisma.customer.update({ where: { id }, data: { portalToken: null } }).catch(() => {});
+  await prisma.customer.update({ where: { id }, data: { portalToken: null, portalTokenExpiresAt: null } }).catch(() => {});
   revalidatePath(`/khach-hang/${id}`);
 }
 
-/**
- * Xóa vĩnh viễn một khách hàng và toàn bộ dữ liệu liên quan.
- * CHỈ quản trị viên. Xóa con trước, cha sau, trong một giao dịch.
- */
+/** Lưu trữ khách hàng thay vì xóa cứng dữ liệu y tế/tài chính. */
 export async function deleteCustomer(formData: FormData): Promise<void> {
   const user = await requireUser(["ADMIN"]);
   const id = String(formData.get("id") ?? "");
   if (!id) return;
 
-  await prisma.$transaction([
-    prisma.payment.deleteMany({ where: { case: { customerId: id } } }),
-    prisma.caseService.deleteMany({ where: { case: { customerId: id } } }),
-    prisma.materialUsage.deleteMany({ where: { case: { customerId: id } } }),
-    prisma.followUp.deleteMany({ where: { customerId: id } }),
-    prisma.photo.deleteMany({ where: { customerId: id } }),
-    prisma.careMessage.deleteMany({ where: { customerId: id } }),
-    prisma.appointment.deleteMany({ where: { customerId: id } }),
-    prisma.caseRecord.deleteMany({ where: { customerId: id } }),
-    prisma.customer.delete({ where: { id } }),
-  ]);
+  const reason = String(formData.get("reason") ?? "").trim() || "Lưu trữ theo quy trình quản trị";
+  const archivedAt = new Date();
+  const updated = await prisma.$transaction(async (tx) => {
+    const customer = await tx.customer.findUnique({ where: { id }, select: { archivedAt: true } });
+    if (!customer || customer.archivedAt) return false;
+    await tx.customer.update({ where: { id }, data: { archivedAt, archivedById: user.id, archiveReason: reason, portalToken: null, portalTokenExpiresAt: null } });
+    await tx.caseRecord.updateMany({ where: { customerId: id, archivedAt: null }, data: { archivedAt, archivedById: user.id, archiveReason: reason } });
+    return true;
+  });
+  if (!updated) return;
 
   await prisma.auditLog
-    .create({ data: { actorId: user.id, action: "DELETE_CUSTOMER", entity: "Customer", entityId: id } })
+    .create({ data: { actorId: user.id, action: "ARCHIVE_CUSTOMER", entity: "Customer", entityId: id, meta: { reason } } })
     .catch(() => {});
 
   revalidatePath("/khach-hang");

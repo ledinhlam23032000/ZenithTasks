@@ -11,6 +11,12 @@ export function proxy(request: NextRequest) {
   const hasSession = request.cookies.has("zsession");
   const isPublic = PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"));
 
+  // Không phục vụ file upload trực tiếp, kể cả khi chưa đăng nhập. Media phải
+  // đi qua /media/[file], nơi kiểm tra quan hệ hồ sơ ở server.
+  if (pathname.startsWith("/uploads/")) {
+    return new NextResponse("Not found", { status: 404 });
+  }
+
   if (!hasSession && !isPublic) {
     const url = new URL("/login", request.url);
     if (pathname !== "/") url.searchParams.set("next", pathname);
@@ -26,5 +32,5 @@ export function proxy(request: NextRequest) {
 
 export const config = {
   // Bỏ qua tài nguyên tĩnh và API
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|img|uploads|.*\\..*).*)"],
+  matcher: ["/uploads/:path*", "/media/:path*", "/((?!api|_next/static|_next/image|favicon.ico|img|.*\\..*).*)"],
 };

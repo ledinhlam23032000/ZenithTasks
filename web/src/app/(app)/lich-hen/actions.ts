@@ -52,7 +52,7 @@ export async function createAppointment(_prev: ApptFormState, formData: FormData
   let customerId: string | undefined;
   if (data.phoneLast5) {
     const matches = await prisma.customer.findMany({
-      where: { phoneLast5: data.phoneLast5 },
+      where: { phoneLast5: data.phoneLast5, archivedAt: null },
       select: { id: true },
       take: 2,
     });
@@ -110,7 +110,7 @@ export async function updateAppointment(_prev: ApptFormState, formData: FormData
   let customerId: string | undefined;
   if (data.phoneLast5) {
     const matches = await prisma.customer.findMany({
-      where: { phoneLast5: data.phoneLast5 },
+      where: { phoneLast5: data.phoneLast5, archivedAt: null },
       select: { id: true },
       take: 2,
     });

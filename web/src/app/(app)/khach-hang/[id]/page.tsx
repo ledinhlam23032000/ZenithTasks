@@ -78,9 +78,12 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
     },
   });
 
-  if (!customer) notFound();
+  if (!customer || (customer.archivedAt && user.role !== "ADMIN")) notFound();
 
   const canSeePhone = userCan(user, "phone.full");
+  const canReadCaseSummary = userCan(user, "mod:ho-so");
+  const canReadPhotos = userCan(user, "clinical.photos.read");
+  const canReadFinancial = userCan(user, "financial.detail.read");
 
   const caseFinancials = new Map(
     customer.cases.map((c) => [
@@ -93,13 +96,14 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
   const age = customer.dob ? differenceInYears(new Date(), customer.dob) : null;
 
   // Thẻ thành viên: hạng & điểm theo tổng chi tiêu thực (tiền đã thanh toán)
-  const lifetimePaid = customer.cases.reduce((s, c) => s + (caseFinancials.get(c.id)?.paid ?? 0), 0);
+  const lifetimePaid = canReadFinancial ? customer.cases.reduce((s, c) => s + (caseFinancials.get(c.id)?.paid ?? 0), 0) : 0;
   const tier = tierFor(lifetimePaid);
   const points = pointsFor(lifetimePaid);
   const nxt = nextTier(lifetimePaid);
 
   const canReceive = ["ADMIN", "RECEPTION", "CONSULTANT", "DOCTOR", "MANAGER"].includes(user.role);
-  const canCare = ["ADMIN", "MANAGER", "CARE"].includes(user.role);
+  const canCare = userCan(user, "inbox.view");
+  const canManagePortal = userCan(user, "portal.manage");
   const canEdit = ["ADMIN", "MANAGER", "RECEPTION", "TELESALE"].includes(user.role);
   const inboxTimeline = canCare ? (await getCustomerCareTimeline(customer.id)).filter((item) => item.source === "INBOX").slice(0, 30) : [];
 
@@ -170,9 +174,9 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
               <DeleteButton
                 action={deleteCustomer}
                 id={customer.id}
-                label="Xóa khách"
+                label="Lưu trữ khách"
                 className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 px-3 py-2 text-sm font-medium text-rose-600 hover:bg-rose-50"
-                confirmText={`Xóa vĩnh viễn hồ sơ "${customer.fullName}" cùng toàn bộ hồ sơ điều trị, thanh toán, ảnh và lịch hẹn? Không thể hoàn tác.`}
+                confirmText={`Lưu trữ hồ sơ "${customer.fullName}"? Dữ liệu y tế, tài chính và lịch sử sẽ được giữ lại, chỉ ẩn khỏi danh sách thường.`}
               />
             )}
           </div>
@@ -181,8 +185,14 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
 
       <div className="grid gap-4 sm:grid-cols-3">
         <StatCard label="Số lượt khám" value={customer.cases.length} icon={<FolderHeart className="h-5 w-5" />} tone="brand" />
-        <StatCard label="Tổng giá trị dịch vụ" value={formatVND(totalValue)} icon={<Wallet className="h-5 w-5" />} tone="green" />
-        <StatCard label="Công nợ còn lại" value={formatVND(totalDebt)} icon={<Receipt className="h-5 w-5" />} tone={totalDebt > 0 ? "red" : "slate"} />
+        {canReadFinancial ? (
+          <>
+            <StatCard label="Tổng giá trị dịch vụ" value={formatVND(totalValue)} icon={<Wallet className="h-5 w-5" />} tone="green" />
+            <StatCard label="Công nợ còn lại" value={formatVND(totalDebt)} icon={<Receipt className="h-5 w-5" />} tone={totalDebt > 0 ? "red" : "slate"} />
+          </>
+        ) : (
+          <StatCard label="Tài chính" value="Theo quyền" icon={<ShieldCheck className="h-5 w-5" />} tone="slate" />
+        )}
       </div>
 
       {/* Thẻ thành viên */}
@@ -198,12 +208,16 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
                 <Badge tone={tier.tone}>{tier.label}</Badge>
                 {tier.discount > 0 && <span className="text-xs font-medium text-emerald-600">Ưu đãi {tier.discount}%</span>}
               </div>
-              <p className="mt-0.5 text-xs text-slate-400">
-                Điểm tích lũy: <b className="text-slate-700">{points.toLocaleString("vi-VN")}</b> · Tổng chi tiêu: {formatVND(lifetimePaid)}
-              </p>
+              {canReadFinancial ? (
+                <p className="mt-0.5 text-xs text-slate-400">
+                  Điểm tích lũy: <b className="text-slate-700">{points.toLocaleString("vi-VN")}</b> · Tổng chi tiêu: {formatVND(lifetimePaid)}
+                </p>
+              ) : (
+                <p className="mt-0.5 text-xs text-slate-400">Chi tiết hạng và điểm được giới hạn theo quyền.</p>
+              )}
             </div>
           </div>
-          {nxt && (
+          {canReadFinancial && nxt && (
             <p className="text-xs text-slate-400">
               Còn <b className="text-slate-600">{formatVND(nxt.min - lifetimePaid)}</b> để lên hạng {nxt.label}
             </p>
@@ -212,7 +226,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
       </Card>
 
       {/* Cổng khách hàng (link riêng cho khách) */}
-      {canEdit && (
+      {canManagePortal && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -235,7 +249,9 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-0">
-              {customer.cases.length === 0 ? (
+              {!canReadCaseSummary ? (
+                <p className="text-sm text-slate-500">Thông tin điều trị được giới hạn theo vai trò của bạn.</p>
+              ) : customer.cases.length === 0 ? (
                 <EmptyState title="Chưa có hồ sơ điều trị" description="Bấm “Mở hồ sơ điều trị” để bắt đầu tư vấn." />
               ) : (
                 <ul className="space-y-2.5">
@@ -256,12 +272,14 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
                         <p className="mt-1 line-clamp-1 text-sm text-slate-600">
                           {c.services.length > 0 ? c.services.map((s) => s.name).join(", ") : c.chiefComplaint || "Chưa có dịch vụ"}
                         </p>
-                        <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
-                          <span>Tổng: <b className="text-slate-700">{formatVND(caseFinancials.get(c.id)?.total ?? 0)}</b></span>
-                          <span>Đã trả: <b className="text-emerald-600">{formatVND(caseFinancials.get(c.id)?.paid ?? 0)}</b></span>
-                          {(caseFinancials.get(c.id)?.debt ?? 0) > 0 && <span>Nợ: <b className="text-rose-600">{formatVND(caseFinancials.get(c.id)?.debt ?? 0)}</b></span>}
-                          {c.consultant && <span>TV: {c.consultant.fullName}</span>}
-                        </div>
+                        {canReadFinancial && (
+                          <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
+                            <span>Tổng: <b className="text-slate-700">{formatVND(caseFinancials.get(c.id)?.total ?? 0)}</b></span>
+                            <span>Đã trả: <b className="text-emerald-600">{formatVND(caseFinancials.get(c.id)?.paid ?? 0)}</b></span>
+                            {(caseFinancials.get(c.id)?.debt ?? 0) > 0 && <span>Nợ: <b className="text-rose-600">{formatVND(caseFinancials.get(c.id)?.debt ?? 0)}</b></span>}
+                            {c.consultant && <span>TV: {c.consultant.fullName}</span>}
+                          </div>
+                        )}
                       </Link>
                     </li>
                   ))}
@@ -271,7 +289,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
           </Card>
 
           {/* Ảnh trước - sau */}
-          <Card>
+          {canReadPhotos && <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Images className="h-4 w-4 text-brand-500" /> Ảnh trước - sau
@@ -284,12 +302,12 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
                 <PhotoGallery photos={customer.photos} cols={4} />
               )}
             </CardContent>
-          </Card>
+          </Card>}
         </div>
 
         {/* Chăm sóc + lịch hẹn */}
         <div className="space-y-6 lg:col-span-2">
-          <Card>
+          {canCare && <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <MessageCircleHeart className="h-4 w-4 text-accent-500" /> Chăm sóc khách hàng
@@ -342,7 +360,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
                 </ul>
               </div>}
             </CardContent>
-          </Card>
+          </Card>}
 
           <Card>
             <CardHeader>

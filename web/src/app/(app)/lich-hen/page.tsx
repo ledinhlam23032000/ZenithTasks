@@ -45,7 +45,7 @@ export default async function AppointmentsPage({
 
   const [appts, todayCount, tomorrowCount, services, consultants] = await Promise.all([
     prisma.appointment.findMany({
-      where: { scheduledAt: dayRange(day) },
+      where: { scheduledAt: dayRange(day), OR: [{ customerId: null }, { customer: { archivedAt: null } }] },
       orderBy: { scheduledAt: "asc" },
       include: {
         customer: { select: { id: true, fullName: true, code: true, phoneLast5: true } },
@@ -62,7 +62,7 @@ export default async function AppointmentsPage({
   const monthAppts =
     view === "month"
       ? await prisma.appointment.findMany({
-          where: { scheduledAt: { gte: startOfMonth(day), lte: endOfMonth(day) } },
+          where: { scheduledAt: { gte: startOfMonth(day), lte: endOfMonth(day) }, OR: [{ customerId: null }, { customer: { archivedAt: null } }] },
           select: { scheduledAt: true },
         })
       : [];

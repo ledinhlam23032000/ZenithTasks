@@ -27,7 +27,7 @@ export default async function ReceptionPage({ searchParams }: { searchParams: Pr
 
   const matches = validQuery
     ? await prisma.customer.findMany({
-        where: { phoneLast5: q },
+        where: { phoneLast5: q, archivedAt: null },
         orderBy: { createdAt: "desc" },
         select: {
           id: true,
@@ -44,7 +44,7 @@ export default async function ReceptionPage({ searchParams }: { searchParams: Pr
     : [];
 
   const waiting = await prisma.appointment.findMany({
-    where: { scheduledAt: todayRange(), status: { in: ["BOOKED", "CONFIRMED", "ARRIVED"] } },
+    where: { scheduledAt: todayRange(), status: { in: ["BOOKED", "CONFIRMED", "ARRIVED"] }, OR: [{ customerId: null }, { customer: { archivedAt: null } }] },
     orderBy: { scheduledAt: "asc" },
     take: 12,
     include: { customer: { select: { id: true, fullName: true, phoneLast5: true } } },

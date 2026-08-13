@@ -24,10 +24,10 @@ export const MODULES: ModuleDef[] = [
   { key: "cham-cong", href: "/cham-cong", label: "Chấm công", icon: "CalendarCheck", roles: ALL },
   { key: "lich-hen", href: "/lich-hen", label: "Lịch hẹn", icon: "CalendarClock", roles: ["ADMIN", "MANAGER", "TELESALE", "RECEPTION", "CONSULTANT", "SHAREHOLDER"] },
   { key: "tiep-nhan", href: "/tiep-nhan", label: "Tiếp nhận khách", icon: "UserPlus", roles: ["ADMIN", "RECEPTION", "TELESALE"] },
-  { key: "khach-hang", href: "/khach-hang", label: "Hồ sơ khách hàng", icon: "FolderHeart", roles: ["ADMIN", "MANAGER", "RECEPTION", "CONSULTANT", "DOCTOR", "CARE", "SHAREHOLDER"] },
+  { key: "khach-hang", href: "/khach-hang", label: "Hồ sơ khách hàng", icon: "FolderHeart", roles: ["ADMIN", "MANAGER", "RECEPTION", "CONSULTANT", "DOCTOR", "CARE"] },
   // "Hồ sơ điều trị" gộp vào "Hồ sơ khách hàng" — ẩn khỏi menu, vẫn là 1 module để phân quyền.
-  { key: "ho-so", href: "/ho-so", label: "Hồ sơ điều trị", icon: "FolderHeart", roles: ["ADMIN", "MANAGER", "CONSULTANT", "DOCTOR", "RECEPTION", "SHAREHOLDER"], hidden: true },
-  { key: "cham-soc", href: "/cham-soc", label: "Chăm sóc KH", icon: "MessageCircleHeart", roles: ["ADMIN", "MANAGER", "CARE", "SHAREHOLDER"] },
+  { key: "ho-so", href: "/ho-so", label: "Hồ sơ điều trị", icon: "FolderHeart", roles: ["ADMIN", "MANAGER", "CONSULTANT", "DOCTOR"], hidden: true },
+  { key: "cham-soc", href: "/cham-soc", label: "Chăm sóc KH", icon: "MessageCircleHeart", roles: ["ADMIN", "MANAGER", "CARE"] },
   { key: "bao-cao", href: "/bao-cao", label: "Báo cáo", icon: "TrendingUp", roles: ["ADMIN", "MANAGER", "SHAREHOLDER"] },
   { key: "hieu-suat", href: "/hieu-suat", label: "Hiệu suất nhân sự", icon: "Activity", roles: ["ADMIN", "MANAGER", "SHAREHOLDER"] },
   { key: "cong-tac-vien", href: "/cong-tac-vien", label: "Cộng tác viên", icon: "Handshake", roles: ["ADMIN", "MANAGER", "SHAREHOLDER"] },
@@ -44,9 +44,17 @@ export type CapDef = { key: string; label: string; group: string; roles: Role[] 
 
 // Các năng lực thao tác (mịn hơn mục).
 export const CAPABILITIES: CapDef[] = [
-  { key: "case.clinical", label: "Thao tác hồ sơ (thêm/sửa dịch vụ, vật tư, ảnh, tư vấn)", group: "Hồ sơ điều trị", roles: ["ADMIN", "MANAGER", "CONSULTANT", "DOCTOR"] },
+  { key: "case.clinical", label: "Thao tác hồ sơ (thêm/sửa dịch vụ, vật tư, ảnh, tư vấn)", group: "Hồ sơ điều trị", roles: ["ADMIN", "CONSULTANT", "DOCTOR"] },
+  { key: "clinical.alert.read", label: "Xem cảnh báo lâm sàng tối thiểu", group: "Dữ liệu lâm sàng", roles: ["ADMIN", "MANAGER", "DOCTOR"] },
+  { key: "clinical.full.read", label: "Xem đầy đủ dữ liệu lâm sàng", group: "Dữ liệu lâm sàng", roles: ["ADMIN", "MANAGER", "DOCTOR"] },
+  { key: "clinical.write", label: "Ghi dữ liệu lâm sàng", group: "Dữ liệu lâm sàng", roles: ["ADMIN", "DOCTOR"] },
+  { key: "clinical.photos.read", label: "Xem ảnh điều trị", group: "Dữ liệu lâm sàng", roles: ["ADMIN", "MANAGER", "DOCTOR"] },
+  { key: "clinical.photos.write", label: "Thêm/xóa ảnh điều trị", group: "Dữ liệu lâm sàng", roles: ["ADMIN", "MANAGER", "DOCTOR"] },
   { key: "payment.add", label: "Thu tiền cho hồ sơ", group: "Tài chính", roles: ["ADMIN", "MANAGER", "CONSULTANT", "DOCTOR", "RECEPTION"] },
   { key: "payment.manage", label: "Sửa / xóa khoản thu", group: "Tài chính", roles: ["ADMIN", "MANAGER"] },
+  { key: "financial.detail.read", label: "Xem chi tiết tài chính cá nhân", group: "Tài chính", roles: ["ADMIN", "MANAGER"] },
+  { key: "reports.aggregate.read", label: "Xem báo cáo tổng hợp không định danh", group: "Báo cáo", roles: ["ADMIN", "MANAGER", "SHAREHOLDER"] },
+  { key: "portal.manage", label: "Tạo và thu hồi cổng khách hàng", group: "Bảo mật", roles: ["ADMIN", "MANAGER"] },
   { key: "phone.full", label: "Xem số điện thoại đầy đủ của khách", group: "Bảo mật", roles: ["ADMIN", "MANAGER"] },
   { key: "inbox.view", label: "Xem hội thoại được phân công", group: "Hộp thư chăm sóc", roles: ["ADMIN", "MANAGER", "CARE"] },
   { key: "inbox.viewAll", label: "Xem toàn bộ hội thoại", group: "Hộp thư chăm sóc", roles: ["ADMIN", "MANAGER"] },
@@ -82,6 +90,9 @@ export function userCan(user: UserLike, key: string): boolean {
   // Hội thoại có thể chứa thông tin sức khỏe nhạy cảm. Cổ đông không được mở
   // quyền inbox bằng grant tùy chỉnh; đây là ranh giới bắt buộc ở tầng server.
   if (user.role === "SHAREHOLDER" && key.startsWith("inbox.")) return false;
+  // Đây là ranh giới dữ liệu bắt buộc: cổ đông chỉ được xem số liệu tổng hợp,
+  // không được mở quyền lâm sàng/tài chính cá nhân bằng grant tùy chỉnh.
+  if (user.role === "SHAREHOLDER" && (key.startsWith("clinical.") || key === "financial.detail.read" || key === "portal.manage" || key === "mod:khach-hang" || key === "mod:ho-so")) return false;
   const p = parsePerms(user.permissions);
   if (p.deny.includes(key)) return false;
   if (p.grant.includes(key)) return true;

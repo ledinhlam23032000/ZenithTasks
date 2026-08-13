@@ -16,8 +16,8 @@ export default async function CustomerPortalPage({ params }: { params: Promise<{
   const { token } = await params;
   const followUpCutoff = new Date();
   followUpCutoff.setDate(followUpCutoff.getDate() - 1);
-  const customer = await prisma.customer.findUnique({
-    where: { portalToken: token },
+  const customer = await prisma.customer.findFirst({
+    where: { portalToken: token, portalTokenExpiresAt: { gt: new Date() } },
     include: {
       cases: {
         orderBy: { createdAt: "desc" },

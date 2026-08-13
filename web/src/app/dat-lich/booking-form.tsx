@@ -37,15 +37,15 @@ export function BookingForm({
 
       <div>
         <Label htmlFor="b-name">Họ và tên *</Label>
-        <Input id="b-name" name="guestName" placeholder="Nguyễn Thị A" required autoFocus />
+        <Input id="b-name" name="guestName" defaultValue={state.values?.guestName ?? ""} placeholder="Nguyễn Thị A" required autoFocus />
       </div>
       <div>
         <Label htmlFor="b-phone">Số điện thoại *</Label>
-        <Input id="b-phone" name="phone" inputMode="tel" placeholder="09xx xxx xxx" required />
+        <Input id="b-phone" name="phone" defaultValue={state.values?.phone ?? ""} inputMode="tel" placeholder="09xx xxx xxx" required />
       </div>
       <div>
         <Label htmlFor="b-service">Dịch vụ quan tâm</Label>
-        <Select id="b-service" name="serviceInterest" defaultValue="">
+        <Select id="b-service" name="serviceInterest" defaultValue={state.values?.serviceInterest ?? ""}>
           <option value="">— Chưa xác định —</option>
           {services.map((s) => (
             <option key={s.id} value={s.name}>
@@ -56,11 +56,11 @@ export function BookingForm({
       </div>
       <div>
         <Label htmlFor="b-time">Ngày giờ mong muốn *</Label>
-        <Input id="b-time" name="scheduledAt" type="datetime-local" defaultValue={defaultDateTime} required />
+        <Input id="b-time" name="scheduledAt" type="datetime-local" defaultValue={state.values?.scheduledAt || defaultDateTime} required />
       </div>
       <div>
         <Label htmlFor="b-note">Ghi chú</Label>
-        <Textarea id="b-note" name="note" placeholder="Nhu cầu, câu hỏi của Quý khách…" />
+        <Textarea id="b-note" name="note" defaultValue={state.values?.note ?? ""} placeholder="Nhu cầu, câu hỏi của Quý khách…" />
       </div>
 
       {state.error && (

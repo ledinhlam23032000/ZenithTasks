@@ -29,6 +29,23 @@ describe("userCan", () => {
     expect(userCan({ role: "CARE" }, "inbox.manageChannels")).toBe(false);
     expect(userCan({ role: "ADMIN" }, "inbox.manageChannels")).toBe(true);
   });
+
+  it("tách quyền dữ liệu y tế khỏi quyền xem báo cáo cổ đông", () => {
+    expect(userCan({ role: "ADMIN" }, "clinical.full.read")).toBe(true);
+    expect(userCan({ role: "DOCTOR" }, "clinical.full.read")).toBe(true);
+    expect(userCan({ role: "RECEPTION" }, "clinical.full.read")).toBe(false);
+    expect(userCan({ role: "TELESALE" }, "clinical.photos.read")).toBe(false);
+    expect(userCan({ role: "SHAREHOLDER" }, "reports.aggregate.read")).toBe(true);
+    expect(userCan({ role: "SHAREHOLDER" }, "clinical.alert.read")).toBe(false);
+    expect(userCan({ role: "SHAREHOLDER" }, "mod:khach-hang")).toBe(false);
+  });
+
+  it("không cho vai trò phi lâm sàng ghi dữ liệu y tế", () => {
+    expect(userCan({ role: "MANAGER" }, "clinical.write")).toBe(false);
+    expect(userCan({ role: "RECEPTION" }, "clinical.write")).toBe(false);
+    expect(userCan({ role: "TELESALE" }, "clinical.write")).toBe(false);
+    expect(userCan({ role: "DOCTOR" }, "clinical.write")).toBe(true);
+  });
 });
 
 describe("diffFromDesired", () => {

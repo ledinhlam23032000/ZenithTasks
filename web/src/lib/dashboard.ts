@@ -38,7 +38,7 @@ export async function getAdminDashboard() {
     todaySchedule,
   ] = await Promise.all([
     prisma.appointment.findMany({
-      where: { scheduledAt: today },
+      where: { scheduledAt: today, OR: [{ customerId: null }, { customer: { archivedAt: null } }] },
       select: { status: true },
     }),
     prisma.caseRecord.count({ where: { createdAt: today, consultResult: "AGREED" } }),
@@ -64,10 +64,10 @@ export async function getAdminDashboard() {
         createdBy: { select: { fullName: true } },
       },
     }),
-    prisma.customer.count({ where: { createdAt: month } }),
-    prisma.customer.count({ where: { createdAt: last } }),
+    prisma.customer.count({ where: { createdAt: month, archivedAt: null } }),
+    prisma.customer.count({ where: { createdAt: last, archivedAt: null } }),
     prisma.appointment.findMany({
-      where: { scheduledAt: today },
+      where: { scheduledAt: today, OR: [{ customerId: null }, { customer: { archivedAt: null } }] },
       orderBy: { scheduledAt: "asc" },
       take: 14,
       include: { customer: { select: { id: true, fullName: true, phoneLast5: true } } },

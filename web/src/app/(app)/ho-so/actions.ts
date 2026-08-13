@@ -11,7 +11,8 @@ import { audit } from "@/lib/audit";
 import { toNum } from "@/lib/money";
 import { Prisma } from "@/generated/prisma/client";
 import { summarizeCase, validatePaymentAmount, validateServicePrice } from "@/lib/financial-summary";
-import { canAccessCase, type CaseAccess } from "@/lib/case-access";
+import { requireCaseAccess, type CaseAccess } from "@/lib/case-access";
+import { adjustBomQuantityTx, consumeBomTx, consumeServiceBomTx, reverseBomTx, InventoryError } from "@/lib/inventory";
 
 export type CaseActionState = { ok?: boolean; error?: string; nonce?: number };
 
@@ -28,17 +29,21 @@ type RecalcDb = Pick<Prisma.TransactionClient, "caseService" | "payment" | "case
 
 class FinancialActionError extends Error {}
 
-async function caseAccessError(user: Parameters<typeof canAccessCase>[0], caseId: string, access: CaseAccess): Promise<string | null> {
+async function caseAccessError(user: Parameters<typeof requireCaseAccess>[0], caseId: string, access: CaseAccess): Promise<string | null> {
   if (!caseId) return "Thiếu hồ sơ.";
-  const record = await prisma.caseRecord.findUnique({ where: { id: caseId }, select: { consultantId: true, doctorId: true } });
-  return record && canAccessCase(user, record, access) ? null : "Bạn không có quyền thao tác trên hồ sơ này.";
+  try {
+    await requireCaseAccess(user, caseId, access);
+    return null;
+  } catch {
+    return "Bạn không có quyền thao tác trên hồ sơ này.";
+  }
 }
 
 /** Tính lại snapshot từ child records trong cùng transaction với mutation. */
 async function recalc(caseId: string, db: RecalcDb = prisma): Promise<void> {
   const [services, payments, rec] = await Promise.all([
-    db.caseService.findMany({ where: { caseId }, select: { listPrice: true, unitPrice: true, quantity: true, discount: true } }),
-    db.payment.findMany({ where: { caseId }, select: { amount: true } }),
+    db.caseService.findMany({ where: { caseId, cancelledAt: null }, select: { listPrice: true, unitPrice: true, quantity: true, discount: true } }),
+    db.payment.findMany({ where: { caseId, voidedAt: null }, select: { amount: true } }),
     db.caseRecord.findUnique({ where: { id: caseId }, select: { voucherAmount: true } }),
   ]);
   const summary = summarizeCase({ services, payments, voucherAmount: rec?.voucherAmount });
@@ -185,24 +190,30 @@ export async function addCaseService(_prev: CaseActionState, formData: FormData)
   const finalPrice = d.unitPrice * d.quantity - d.discount;
   const listPrice = d.listPrice > 0 ? d.listPrice : d.unitPrice; // không có giá gốc → lấy giá ưu đãi
 
-  await prisma.$transaction(async (tx) => {
-    const c = await tx.caseRecord.findUnique({ where: { id: d.caseId }, select: { doctorId: true } });
-    if (!c) throw new FinancialActionError("Không tìm thấy hồ sơ.");
-    await tx.caseService.create({
-      data: {
-        caseId: d.caseId,
-        serviceId: d.serviceId || null,
-        name: d.name,
-        listPrice,
-        unitPrice: d.unitPrice,
-        quantity: d.quantity,
-        discount: d.discount,
-        finalPrice,
-        doctorId: c.doctorId ?? null,
-      },
+  try {
+    await prisma.$transaction(async (tx) => {
+      const c = await tx.caseRecord.findUnique({ where: { id: d.caseId }, select: { doctorId: true } });
+      if (!c) throw new FinancialActionError("Không tìm thấy hồ sơ.");
+      const created = await tx.caseService.create({
+        data: {
+          caseId: d.caseId,
+          serviceId: d.serviceId || null,
+          name: d.name,
+          listPrice,
+          unitPrice: d.unitPrice,
+          quantity: d.quantity,
+          discount: d.discount,
+          finalPrice,
+          doctorId: c.doctorId ?? null,
+        },
+      });
+      if (d.serviceId) await consumeServiceBomTx(tx, { serviceId: d.serviceId, caseServiceId: created.id, actorId: user.id });
+      await recalc(d.caseId, tx);
     });
-    await recalc(d.caseId, tx);
-  });
+  } catch (error) {
+    if (error instanceof InventoryError) return { error: error.message };
+    throw error;
+  }
   return { ok: true, nonce: Date.now() };
 }
 
@@ -213,9 +224,16 @@ export async function removeCaseService(formData: FormData): Promise<void> {
   if (await caseAccessError(user, caseId, "clinical")) return;
   if (!id || (await isLockedFor(caseId, user.role))) return;
   const result = await prisma.$transaction(async (tx) => {
-    const deleted = await tx.caseService.deleteMany({ where: { id, caseId } });
-    if (deleted.count > 0) await recalc(caseId, tx);
-    return deleted.count;
+    const service = await tx.caseService.findFirst({ where: { id, caseId, cancelledAt: null }, select: { id: true } });
+    if (!service) return 0;
+    const usages = await tx.materialUsage.findMany({ where: { caseServiceId: id, materialId: { not: null } }, select: { id: true, materialId: true, quantity: true } });
+    for (const usage of usages) {
+      const original = await tx.stockMovement.findFirst({ where: { sourceType: "CASE_SERVICE", sourceId: id, type: "OUT", materialId: usage.materialId! }, orderBy: { createdAt: "asc" }, select: { id: true } });
+      await reverseBomTx(tx, { materialId: usage.materialId!, quantity: toNum(usage.quantity), actorId: user.id, sourceType: "CASE_SERVICE_REVERSAL", sourceId: id, reversalOfId: original?.id, note: "Hoàn kho do hủy dịch vụ" });
+    }
+    await tx.caseService.update({ where: { id }, data: { cancelledAt: new Date(), cancelledById: user.id, cancelReason: "Hủy dịch vụ trong hồ sơ" } });
+    await recalc(caseId, tx);
+    return 1;
   });
   if (caseId && result > 0) {
     refresh(caseId);
@@ -250,12 +268,24 @@ export async function updateCaseService(_prev: CaseActionState, formData: FormDa
   const listPrice = d.listPrice > 0 ? d.listPrice : d.unitPrice;
 
   const result = await prisma.$transaction(async (tx) => {
-    const updated = await tx.caseService.updateMany({
-      where: { id: d.id, caseId: d.caseId },
+      const existing = await tx.caseService.findFirst({ where: { id: d.id, caseId: d.caseId, cancelledAt: null }, select: { serviceId: true, quantity: true } });
+      if (!existing) throw new FinancialActionError("Không tìm thấy dịch vụ thuộc hồ sơ này.");
+      const updated = await tx.caseService.updateMany({
+      where: { id: d.id, caseId: d.caseId, cancelledAt: null },
       data: { name: d.name, listPrice, unitPrice: d.unitPrice, quantity: d.quantity, discount: d.discount, finalPrice },
-    });
-    if (updated.count === 0) throw new FinancialActionError("Không tìm thấy dịch vụ thuộc hồ sơ này.");
-    await recalc(d.caseId, tx);
+      });
+      if (updated.count === 0) throw new FinancialActionError("Không tìm thấy dịch vụ thuộc hồ sơ này.");
+      if (existing.serviceId && existing.serviceId === d.serviceId) {
+        const usages = await tx.materialUsage.findMany({ where: { caseServiceId: d.id, materialId: { not: null } }, select: { materialId: true, quantity: true } });
+        for (const usage of usages) {
+          const original = await tx.stockMovement.findFirst({ where: { sourceType: "CASE_SERVICE", sourceId: d.id, type: "OUT", materialId: usage.materialId! }, orderBy: { createdAt: "asc" }, select: { id: true } });
+          const perUnit = toNum(usage.quantity) / Math.max(1, existing.quantity);
+          const nextQuantity = perUnit * d.quantity;
+          await adjustBomQuantityTx(tx, { oldMaterialId: usage.materialId, oldQuantity: toNum(usage.quantity), newMaterialId: usage.materialId, newQuantity: nextQuantity, actorId: user.id, sourceType: "CASE_SERVICE", sourceId: d.id, originalMovementId: original?.id });
+          await tx.materialUsage.updateMany({ where: { caseServiceId: d.id, materialId: usage.materialId }, data: { quantity: nextQuantity } });
+        }
+      }
+      await recalc(d.caseId, tx);
     return updated.count;
   });
   if (result === 0) return { error: "Không tìm thấy dịch vụ thuộc hồ sơ này." };
@@ -334,19 +364,19 @@ export async function addPayment(_prev: CaseActionState, formData: FormData): Pr
   const d = parsed.data;
   try {
     await prisma.$transaction(async (tx) => {
-      const duplicate = await tx.payment.findUnique({ where: { clientNonce: d.clientNonce }, select: { id: true } });
+      const duplicate = await tx.payment.findFirst({ where: { OR: [{ clientNonce: d.clientNonce }, { idempotencyKey: d.clientNonce }] }, select: { id: true } });
       if (duplicate) return;
       const [record, services, payments] = await Promise.all([
         tx.caseRecord.findUnique({ where: { id: d.caseId }, select: { voucherAmount: true } }),
-        tx.caseService.findMany({ where: { caseId: d.caseId }, select: { listPrice: true, unitPrice: true, quantity: true, discount: true } }),
-        tx.payment.findMany({ where: { caseId: d.caseId }, select: { amount: true } }),
+        tx.caseService.findMany({ where: { caseId: d.caseId, cancelledAt: null }, select: { listPrice: true, unitPrice: true, quantity: true, discount: true } }),
+        tx.payment.findMany({ where: { caseId: d.caseId, voidedAt: null }, select: { amount: true } }),
       ]);
       if (!record) throw new FinancialActionError("Không tìm thấy hồ sơ.");
       const current = summarizeCase({ services, payments, voucherAmount: record.voucherAmount });
       const validation = validatePaymentAmount({ amount: d.amount, total: current.total, paid: current.paid });
       if (!validation.ok) throw new FinancialActionError(validation.error);
       await tx.payment.create({
-        data: { clientNonce: d.clientNonce, caseId: d.caseId, amount: d.amount, method: d.method, note: d.note || null, receivedById: user.id },
+        data: { clientNonce: d.clientNonce, idempotencyKey: d.clientNonce, caseId: d.caseId, amount: d.amount, method: d.method, note: d.note || null, receivedById: user.id },
       });
       await recalc(d.caseId, tx);
     });
@@ -393,10 +423,10 @@ export async function updatePayment(_prev: CaseActionState, formData: FormData):
   try {
     await prisma.$transaction(async (tx) => {
       const [payment, record, services, payments] = await Promise.all([
-        tx.payment.findFirst({ where: { id: d.id, caseId: d.caseId }, select: { amount: true } }),
+        tx.payment.findFirst({ where: { id: d.id, caseId: d.caseId, voidedAt: null }, select: { amount: true } }),
         tx.caseRecord.findUnique({ where: { id: d.caseId }, select: { voucherAmount: true } }),
         tx.caseService.findMany({ where: { caseId: d.caseId }, select: { listPrice: true, unitPrice: true, quantity: true, discount: true } }),
-        tx.payment.findMany({ where: { caseId: d.caseId, NOT: { id: d.id } }, select: { amount: true } }),
+        tx.payment.findMany({ where: { caseId: d.caseId, voidedAt: null, NOT: { id: d.id } }, select: { amount: true } }),
       ]);
       if (!payment || !record) throw new FinancialActionError("Không tìm thấy khoản thu thuộc hồ sơ này.");
       const current = summarizeCase({ services, payments, voucherAmount: record.voucherAmount });
@@ -443,25 +473,34 @@ export async function addMaterial(_prev: CaseActionState, formData: FormData): P
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu không hợp lệ." };
   const d = parsed.data;
-  await prisma.materialUsage.create({
-    data: {
-      caseId: d.caseId,
-      materialId: d.materialId || null,
-      name: d.name,
-      unit: d.unit,
-      quantity: d.quantity,
-      note: d.note || null,
-      performedById: user.id,
-    },
-  });
-  // Xuất kho: trừ tồn + ghi nhật ký (nếu vật tư có trong danh mục kho).
-  if (d.materialId) {
-    await prisma.material
-      .update({ where: { id: d.materialId }, data: { stock: { decrement: d.quantity } } })
-      .catch(() => {});
-    await prisma.stockMovement
-      .create({ data: { materialId: d.materialId, type: "OUT", quantity: d.quantity, note: "Dùng cho hồ sơ", createdById: user.id } })
-      .catch(() => {});
+  try {
+    await prisma.$transaction(async (tx) => {
+      const usage = await tx.materialUsage.create({
+        data: {
+          caseId: d.caseId,
+          materialId: d.materialId || null,
+          name: d.name,
+          unit: d.unit,
+          quantity: d.quantity,
+          sourceType: "MATERIAL_USAGE",
+          note: d.note || null,
+          performedById: user.id,
+        },
+      });
+      if (d.materialId) {
+        await consumeBomTx(tx, {
+          materialId: d.materialId,
+          quantity: d.quantity,
+          actorId: user.id,
+          sourceType: "MATERIAL_USAGE",
+          sourceId: usage.id,
+          note: "Dùng cho hồ sơ",
+        });
+      }
+    });
+  } catch (error) {
+    if (error instanceof InventoryError) return { error: error.message };
+    throw error;
   }
   return { ok: true, nonce: Date.now() };
 }
@@ -472,16 +511,19 @@ export async function removeMaterial(formData: FormData): Promise<void> {
   const caseId = String(formData.get("caseId") ?? "");
   if (await caseAccessError(user, caseId, "clinical")) return;
   if (!id || (await isLockedFor(caseId, user.role))) return;
-  const usage = await prisma.materialUsage.findFirst({ where: { id, caseId }, select: { materialId: true, quantity: true } });
-  if (!usage) return;
-  await prisma.materialUsage.deleteMany({ where: { id, caseId } });
-  // Hoàn kho lại nếu vật tư thuộc danh mục kho.
-  if (usage?.materialId) {
-    const q = toNum(usage.quantity);
-    await prisma.material.update({ where: { id: usage.materialId }, data: { stock: { increment: q } } }).catch(() => {});
-    await prisma.stockMovement
-      .create({ data: { materialId: usage.materialId, type: "IN", quantity: q, note: "Hoàn kho (xóa vật tư)", createdById: user.id } })
-      .catch(() => {});
+  try {
+    await prisma.$transaction(async (tx) => {
+      const usage = await tx.materialUsage.findFirst({ where: { id, caseId }, select: { materialId: true, quantity: true } });
+      if (!usage) return;
+      await tx.materialUsage.deleteMany({ where: { id, caseId } });
+      if (usage.materialId) {
+        const original = await tx.stockMovement.findFirst({ where: { materialId: usage.materialId, sourceType: "MATERIAL_USAGE", sourceId: id, type: "OUT" }, orderBy: { createdAt: "asc" }, select: { id: true } });
+        await reverseBomTx(tx, { materialId: usage.materialId, quantity: toNum(usage.quantity), actorId: user.id, sourceType: "MATERIAL_USAGE_REVERSAL", sourceId: id, reversalOfId: original?.id, note: "Hoàn kho (hủy vật tư)" });
+      }
+    });
+  } catch (error) {
+    if (error instanceof InventoryError) return;
+    throw error;
   }
   if (caseId) refresh(caseId);
 }
@@ -508,38 +550,28 @@ export async function updateMaterialUsage(_prev: CaseActionState, formData: Form
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu không hợp lệ." };
   const d = parsed.data;
 
-  const existing = await prisma.materialUsage.findUnique({
-    where: { id: d.id },
-    select: { materialId: true, quantity: true },
-  });
-  if (!existing) return { error: "Không tìm thấy vật tư thuộc hồ sơ này." };
-  const existingCase = await prisma.materialUsage.findFirst({ where: { id: d.id, caseId }, select: { id: true } });
-  if (!existingCase) return { error: "Không tìm thấy vật tư thuộc hồ sơ này." };
-
-  await prisma.materialUsage.update({
-    where: { id: d.id },
-    data: { name: d.name, unit: d.unit, quantity: d.quantity, note: d.note || null },
-  });
-
-  // Điều chỉnh tồn kho theo chênh lệch (dương = dùng thêm → trừ kho; âm = trả lại kho).
-  if (existing?.materialId) {
-    const delta = d.quantity - toNum(existing.quantity);
-    if (delta !== 0) {
-      await prisma.material
-        .update({ where: { id: existing.materialId }, data: { stock: { decrement: delta } } })
-        .catch(() => {});
-      await prisma.stockMovement
-        .create({
-          data: {
-            materialId: existing.materialId,
-            type: delta > 0 ? "OUT" : "IN",
-            quantity: Math.abs(delta),
-            note: "Điều chỉnh vật tư (sửa hồ sơ)",
-            createdById: user.id,
-          },
-        })
-        .catch(() => {});
-    }
+  try {
+    await prisma.$transaction(async (tx) => {
+      const existing = await tx.materialUsage.findFirst({ where: { id: d.id, caseId }, select: { materialId: true, quantity: true } });
+      if (!existing) throw new InventoryError("Không tìm thấy vật tư thuộc hồ sơ này.");
+      const original = existing.materialId
+        ? await tx.stockMovement.findFirst({ where: { materialId: existing.materialId, sourceType: "MATERIAL_USAGE", sourceId: d.id, type: "OUT" }, orderBy: { createdAt: "asc" }, select: { id: true } })
+        : null;
+      await tx.materialUsage.update({ where: { id: d.id }, data: { materialId: d.materialId || null, name: d.name, unit: d.unit, quantity: d.quantity, sourceType: "MATERIAL_USAGE", note: d.note || null } });
+      await adjustBomQuantityTx(tx, {
+        oldMaterialId: existing.materialId,
+        oldQuantity: toNum(existing.quantity),
+        newMaterialId: d.materialId || null,
+        newQuantity: d.quantity,
+        actorId: user.id,
+        sourceType: "MATERIAL_USAGE",
+        sourceId: d.id,
+        originalMovementId: original?.id,
+      });
+    });
+  } catch (error) {
+    if (error instanceof InventoryError) return { error: error.message };
+    throw error;
   }
   return { ok: true, nonce: Date.now() };
 }
@@ -549,7 +581,7 @@ export async function updateMaterialUsage(_prev: CaseActionState, formData: Form
 const ALLOWED_IMG = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
 
 export async function uploadPhoto(_prev: CaseActionState, formData: FormData): Promise<CaseActionState> {
-  const user = await requireCap("case.clinical");
+  const user = await requireCap("clinical.photos.write");
   const caseId = String(formData.get("caseId") ?? "");
   const customerId = String(formData.get("customerId") ?? "");
   const accessError = await caseAccessError(user, caseId, "clinical");
@@ -591,7 +623,7 @@ export async function uploadPhoto(_prev: CaseActionState, formData: FormData): P
 }
 
 export async function deletePhoto(formData: FormData): Promise<void> {
-  const user = await requireCap("case.clinical");
+  const user = await requireCap("clinical.photos.write");
   const id = String(formData.get("id") ?? "");
   const caseId = String(formData.get("caseId") ?? "");
   if (await caseAccessError(user, caseId, "clinical")) return;
@@ -641,13 +673,14 @@ export async function deletePayment(formData: FormData): Promise<void> {
   const caseId = String(formData.get("caseId") ?? "");
   if (await caseAccessError(user, caseId, "payment.manage")) return;
   if (!id || (await isLockedFor(caseId, user.role))) return;
-  const pay = await prisma.payment.findFirst({ where: { id, caseId }, select: { amount: true } });
+  const pay = await prisma.payment.findFirst({ where: { id, caseId, voidedAt: null }, select: { amount: true } });
   if (!pay) return;
+  const voidReason = String(formData.get("reason") ?? "").trim() || "Điều chỉnh bởi quản trị viên";
   await prisma.$transaction(async (tx) => {
-    const deleted = await tx.payment.deleteMany({ where: { id, caseId } });
-    if (deleted.count > 0) await recalc(caseId, tx);
+    const voided = await tx.payment.updateMany({ where: { id, caseId, voidedAt: null }, data: { voidedAt: new Date(), voidedById: user.id, voidReason } });
+    if (voided.count > 0) await recalc(caseId, tx);
   });
-  await audit(user.id, "DELETE_PAYMENT", { entity: "Payment", entityId: id, meta: { amount: toNum(pay?.amount), caseId } });
+  await audit(user.id, "VOID_PAYMENT", { entity: "Payment", entityId: id, meta: { amount: toNum(pay?.amount), caseId, reason: voidReason } });
   if (caseId) {
     refresh(caseId);
   }

@@ -275,10 +275,14 @@ model Customer {
   phoneHash    String
   // Token cổng khách hàng (link riêng để khách tự xem lịch sử/ảnh). Null = chưa bật.
   portalToken  String?        @unique
+  portalTokenExpiresAt DateTime?
   source       CustomerSource @default(OTHER)
   sourceDetail String? // Tên CTV / chiến dịch / nguồn cụ thể
   address      String?
   note         String?
+  archivedAt   DateTime?
+  archivedById String?
+  archiveReason String?
   createdById  String?
   createdBy    User?          @relation("CustomerCreatedBy", fields: [createdById], references: [id])
   createdAt    DateTime       @default(now())
@@ -304,6 +308,8 @@ model Appointment {
   customer        Customer?         @relation(fields: [customerId], references: [id])
   guestName       String? // Tên khách khi đặt lịch mà chưa lập hồ sơ
   phoneLast5      String?
+  phoneEnc        String?
+  phoneHash       String?
   type            AppointmentType   @default(NEW)
   status          AppointmentStatus @default(BOOKED)
   scheduledAt     DateTime
@@ -323,6 +329,7 @@ model Appointment {
 
   @@index([scheduledAt])
   @@index([status])
+  @@index([phoneHash])
 }
 
 // ============================ DANH MỤC ============================
@@ -336,6 +343,7 @@ model Service {
   active       Boolean       @default(true)
   createdAt    DateTime      @default(now())
   caseServices CaseService[]
+  billOfMaterials ServiceMaterial[]
 }
 
 model Material {
@@ -351,6 +359,20 @@ model Material {
   createdAt  DateTime        @default(now())
   usages     MaterialUsage[]
   movements  StockMovement[]
+  serviceBoms ServiceMaterial[]
+}
+
+model ServiceMaterial {
+  id         String   @id @default(cuid())
+  serviceId  String
+  service    Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  materialId String
+  material   Material @relation(fields: [materialId], references: [id], onDelete: Restrict)
+  quantity   Decimal  @db.Decimal(10, 2)
+  createdAt  DateTime @default(now())
+
+  @@unique([serviceId, materialId])
+  @@index([materialId])
 }
 
 enum StockType {
@@ -365,6 +387,11 @@ model StockMovement {
   material    Material  @relation(fields: [materialId], references: [id], onDelete: Cascade)
   type        StockType
   quantity    Decimal   @db.Decimal(12, 2)
+  sourceType  String?
+  sourceId    String?
+  reversalOfId String?
+  reversalOf  StockMovement? @relation("StockReversal", fields: [reversalOfId], references: [id], onDelete: SetNull)
+  reversals   StockMovement[] @relation("StockReversal")
   note        String?
   createdById String?
   createdBy   User?     @relation(fields: [createdById], references: [id])
@@ -372,6 +399,8 @@ model StockMovement {
 
   @@index([materialId])
   @@index([createdAt])
+  @@index([sourceType, sourceId])
+  @@index([reversalOfId])
 }
 
 // ============================ HỒ SƠ ĐIỀU TRỊ ============================
@@ -406,6 +435,9 @@ model CaseRecord {
   locked           Boolean       @default(false)
   lockedAt         DateTime?
   lockedById       String?
+  archivedAt       DateTime?
+  archivedById     String?
+  archiveReason    String?
   // Hoa hồng cộng tác viên giới thiệu khách (số tiền nhập tay).
   commissionAmount Decimal       @default(0) @db.Decimal(14, 0)
 
@@ -439,11 +471,16 @@ model CaseService {
   performedAt DateTime?
   note        String?
   createdAt   DateTime   @default(now())
+  cancelledAt DateTime?
+  cancelledById String?
+  cancelReason String?
+  materialUsages MaterialUsage[]
 }
 
 model Payment {
   id           String        @id @default(cuid())
   clientNonce  String?       @unique
+  idempotencyKey String?     @unique
   caseId       String
   case         CaseRecord    @relation(fields: [caseId], references: [id], onDelete: Cascade)
   amount       Decimal       @db.Decimal(14, 0)
@@ -452,6 +489,9 @@ model Payment {
   receivedById String?
   receivedBy   User?         @relation(fields: [receivedById], references: [id])
   note         String?
+  voidedAt     DateTime?
+  voidedById   String?
+  voidReason   String?
 }
 
 model MaterialUsage {
@@ -466,6 +506,9 @@ model MaterialUsage {
   performedById String?
   performedBy   User?      @relation(fields: [performedById], references: [id])
   performedAt   DateTime   @default(now())
+  caseServiceId String?
+  caseService   CaseService? @relation(fields: [caseServiceId], references: [id], onDelete: SetNull)
+  sourceType    String?
   note          String?
 }
 

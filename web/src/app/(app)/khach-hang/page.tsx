@@ -31,7 +31,7 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
   if (q) filters.push(isValidLast5(q) ? { phoneLast5: q } : { fullName: { contains: q, mode: "insensitive" } });
   if (loc === "done") filters.push({ cases: { some: { status: { in: DONE_STATUSES } } } });
   if (loc === "undone") filters.push({ cases: { none: { status: { in: DONE_STATUSES } } } });
-  const where: Prisma.CustomerWhereInput = filters.length ? { AND: filters } : {};
+  const where: Prisma.CustomerWhereInput = filters.length ? { AND: [{ archivedAt: null }, ...filters] } : { archivedAt: null };
 
   const [customers, total] = await Promise.all([
     prisma.customer.findMany({

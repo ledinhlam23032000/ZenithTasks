@@ -7,6 +7,7 @@ import { prisma } from "@/lib/db";
 import { verifyPassword, createSession } from "@/lib/auth";
 import { totpVerify } from "@/lib/totp";
 import { checkLoginAllowed, registerLoginFailure, clearLoginFailures } from "@/lib/rate-limit";
+import { requiresTwoFactor } from "@/lib/security-policy";
 
 export type LoginState = { error?: string };
 
@@ -59,7 +60,12 @@ export async function loginAction(_prev: LoginState, formData: FormData): Promis
     return { error: "Sai mật khẩu. Vui lòng thử lại." };
   }
 
-  // Xác thực 2 lớp (chỉ với tài khoản đã bật) — không ảnh hưởng tài khoản chưa bật.
+  // Tài khoản có quyền nhạy cảm không được đăng nhập khi chưa hoàn tất TOTP.
+  if (requiresTwoFactor(user) && (!user.totpEnabled || !user.totpSecret)) {
+    registerLoginFailure(ip, uname);
+    return { error: "Tài khoản có quyền nhạy cảm bắt buộc phải bật xác thực 2 lớp trước khi đăng nhập. Liên hệ quản trị viên để kích hoạt." };
+  }
+
   if (user.totpEnabled) {
     const code = String(formData.get("code") ?? "");
     if (!user.totpSecret || !totpVerify(user.totpSecret, code)) {
