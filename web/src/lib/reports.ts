@@ -2,6 +2,8 @@ import { startOfDay, subDays, subMonths, subYears, startOfYear, startOfWeek, sta
 import { vi } from "date-fns/locale";
 import { prisma } from "@/lib/db";
 import { toNum } from "@/lib/money";
+import { loadCaseFinancials } from "@/lib/financial-summary-db";
+import { summarizeCase } from "@/lib/financial-summary";
 import { monthRange, lastMonthRange, growthPct } from "@/lib/dates";
 import { getMonthlyAccounting } from "@/lib/accounting";
 
@@ -27,14 +29,21 @@ export async function getSalesSeries() {
   const since = startOfYear(subYears(now, 4)); // bao trùm cả 3 mốc
   const cases = await prisma.caseRecord.findMany({
     where: { createdAt: { gte: since } },
-    select: { createdAt: true, totalAmount: true },
+    select: {
+      id: true,
+      createdAt: true,
+      voucherAmount: true,
+      services: { select: { listPrice: true, unitPrice: true, quantity: true, discount: true, finalPrice: true } },
+      payments: { select: { amount: true } },
+    },
   });
+  const financials = await loadCaseFinancials(cases.map((c) => c.id));
 
   function build(keys: { key: string; label: string }[], keyOf: (d: Date) => string): SalesPoint[] {
     const m = new Map(keys.map((k) => [k.key, 0]));
     for (const c of cases) {
       const k = keyOf(c.createdAt);
-      if (m.has(k)) m.set(k, (m.get(k) ?? 0) + toNum(c.totalAmount));
+      if (m.has(k)) m.set(k, (m.get(k) ?? 0) + (financials.get(c.id)?.total ?? 0));
     }
     return keys.map((k) => ({ label: k.label, value: m.get(k.key) ?? 0 }));
   }
@@ -67,7 +76,7 @@ export async function getSalesSeries() {
   for (const c of cases) {
     if (c.createdAt >= mStart && c.createdAt <= mEnd) {
       const wi = Math.floor((getDate(c.createdAt) - 1) / 7);
-      if (weeksOfMonth[wi]) weeksOfMonth[wi].value += toNum(c.totalAmount);
+      if (weeksOfMonth[wi]) weeksOfMonth[wi].value += financials.get(c.id)?.total ?? 0;
     }
   }
 
@@ -90,7 +99,7 @@ export async function getReports(monthDate = new Date()) {
   const last = lastMonthRange(monthDate);
   const since14 = startOfDay(subDays(now, 13));
 
-  const [payments14, revThis, revLast, topServicesRaw, sourceRaw, debtAgg, topDebtors, doctorGroups, doctors, casesThis, casesLast, agreedThis] =
+  const [payments14, revThis, revLast, topServicesRaw, sourceRaw, debtCases, doctorCases, doctors, casesThis, casesLast, agreedThis] =
     await Promise.all([
       // Biểu đồ "14 ngày gần nhất" chỉ có ý nghĩa khi xem tháng hiện tại — tháng quá khứ thì bỏ trống.
       isCurrentMonth
@@ -106,18 +115,21 @@ export async function getReports(monthDate = new Date()) {
       }),
       // Nguồn khách PHẢI lọc theo tháng (khách tạo trong tháng) — trước đây đếm toàn bộ lịch sử, sai khi xem theo tháng.
       prisma.customer.groupBy({ by: ["source"], where: { createdAt: month }, _count: { _all: true } }),
-      prisma.caseRecord.aggregate({ _sum: { debtAmount: true } }),
       prisma.caseRecord.findMany({
-        where: { debtAmount: { gt: 0 } },
-        orderBy: { debtAmount: "desc" },
-        take: 6,
-        include: { customer: { select: { id: true, fullName: true, code: true, phoneLast5: true } } },
+        where: {},
+        select: {
+          id: true,
+          customer: { select: { id: true, fullName: true, code: true, phoneLast5: true } },
+        },
       }),
-      prisma.caseRecord.groupBy({
-        by: ["doctorId"],
+      prisma.caseRecord.findMany({
         where: { createdAt: month, doctorId: { not: null }, consultResult: "AGREED" },
-        _count: { _all: true },
-        _sum: { totalAmount: true },
+        select: {
+          doctorId: true,
+          voucherAmount: true,
+          services: { select: { listPrice: true, unitPrice: true, quantity: true, discount: true, finalPrice: true } },
+          payments: { select: { amount: true } },
+        },
       }),
       prisma.user.findMany({ where: { role: "DOCTOR" }, select: { id: true, fullName: true } }),
       prisma.caseRecord.count({ where: { createdAt: month } }),
@@ -138,6 +150,22 @@ export async function getReports(monthDate = new Date()) {
 
   const nameMap = new Map(doctors.map((d) => [d.id, d.fullName]));
 
+  const debtFinancials = await loadCaseFinancials(debtCases.map((c) => c.id));
+  const debtRows = debtCases
+    .map((c) => ({ ...c, debt: debtFinancials.get(c.id)?.debt ?? 0 }))
+    .filter((c) => c.debt > 0)
+    .sort((a, b) => b.debt - a.debt);
+  const doctorStats = new Map<string, { cases: number; revenue: number }>();
+  for (const c of doctorCases) {
+    if (!c.doctorId) continue;
+    const financial = summarizeCase({ services: c.services, payments: c.payments, voucherAmount: c.voucherAmount });
+    const current = doctorStats.get(c.doctorId) ?? { cases: 0, revenue: 0 };
+    current.cases += 1;
+    current.revenue += financial.total;
+    doctorStats.set(c.doctorId, current);
+  }
+  const doctorGroups = [...doctorStats.entries()].map(([doctorId, stats]) => ({ doctorId, cases: stats.cases, revenue: stats.revenue }));
+
   const revenueThisMonth = toNum(revThis._sum.amount);
   const revenueLastMonth = toNum(revLast._sum.amount);
 
@@ -152,18 +180,18 @@ export async function getReports(monthDate = new Date()) {
       .sort((a, b) => b.count - a.count || b.revenue - a.revenue) // xếp theo SỐ LƯỢT, rồi doanh thu
       .slice(0, 8),
     sources: sourceRaw.map((s) => ({ source: s.source, count: s._count._all })).sort((a, b) => b.count - a.count),
-    outstandingDebt: toNum(debtAgg._sum.debtAmount),
-    topDebtors: topDebtors.map((c) => ({
+    outstandingDebt: debtRows.reduce((s, c) => s + c.debt, 0),
+    topDebtors: debtRows.slice(0, 6).map((c) => ({
       id: c.id,
       customer: c.customer,
-      debt: toNum(c.debtAmount),
+      debt: c.debt,
     })),
     doctors: doctorGroups
       .map((g) => ({
         id: g.doctorId as string,
         name: nameMap.get(g.doctorId as string) ?? "—",
-        cases: g._count._all,
-        revenue: toNum(g._sum.totalAmount),
+        cases: g.cases,
+        revenue: g.revenue,
       }))
       .sort((a, b) => b.revenue - a.revenue),
   };

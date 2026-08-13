@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireCap } from "@/lib/auth";
-import { audit } from "@/lib/audit";
+import { auditRequired } from "@/lib/audit";
 import { encryptSecret, decryptSecret } from "@/lib/secret-crypto";
 import { getPageInfo, exchangeLongLivedToken } from "@/lib/channels/facebook";
 import { getOaInfo } from "@/lib/channels/zalo";
@@ -23,26 +23,28 @@ export async function connectFacebookPage(_prev: ConnectState, formData: FormDat
   const info = await getPageInfo(parsed.data.pageAccessToken);
   if (!info.ok) return { error: info.error };
 
-  const account = await prisma.channelAccount.upsert({
-    where: { kind_externalId: { kind: "FACEBOOK", externalId: info.id } },
-    create: {
-      kind: "FACEBOOK",
-      label: info.name,
-      externalId: info.id,
-      externalName: info.name,
-      accessTokenEnc: encryptSecret(parsed.data.pageAccessToken),
-      active: true,
-      connectedById: user.id,
-    },
-    update: {
-      label: info.name,
-      externalName: info.name,
-      accessTokenEnc: encryptSecret(parsed.data.pageAccessToken),
-      active: true,
-      connectedById: user.id,
-    },
+  await prisma.$transaction(async (tx) => {
+    const account = await tx.channelAccount.upsert({
+      where: { kind_externalId: { kind: "FACEBOOK", externalId: info.id } },
+      create: {
+        kind: "FACEBOOK",
+        label: info.name,
+        externalId: info.id,
+        externalName: info.name,
+        accessTokenEnc: encryptSecret(parsed.data.pageAccessToken),
+        active: true,
+        connectedById: user.id,
+      },
+      update: {
+        label: info.name,
+        externalName: info.name,
+        accessTokenEnc: encryptSecret(parsed.data.pageAccessToken),
+        active: true,
+        connectedById: user.id,
+      },
+    });
+    await auditRequired(tx, user.id, "CONNECT_CHANNEL", { entity: "ChannelAccount", entityId: account.id, meta: { kind: "FACEBOOK", label: info.name } });
   });
-  await audit(user.id, "CONNECT_CHANNEL", { entity: "ChannelAccount", entityId: account.id, meta: { kind: "FACEBOOK", label: info.name } });
   return { ok: true, nonce: Date.now() };
 }
 
@@ -56,14 +58,16 @@ export async function extendFacebookToken(formData: FormData): Promise<void> {
   const result = await exchangeLongLivedToken(decryptSecret(account.accessTokenEnc));
   if (!result.ok) return;
 
-  await prisma.channelAccount.update({
-    where: { id },
-    data: {
-      accessTokenEnc: encryptSecret(result.accessToken),
-      tokenExpiresAt: result.expiresInSec ? new Date(Date.now() + result.expiresInSec * 1000) : null,
-    },
+  await prisma.$transaction(async (tx) => {
+    await tx.channelAccount.update({
+      where: { id },
+      data: {
+        accessTokenEnc: encryptSecret(result.accessToken),
+        tokenExpiresAt: result.expiresInSec ? new Date(Date.now() + result.expiresInSec * 1000) : null,
+      },
+    });
+    await auditRequired(tx, user.id, "EXTEND_CHANNEL_TOKEN", { entity: "ChannelAccount", entityId: id });
   });
-  await audit(user.id, "EXTEND_CHANNEL_TOKEN", { entity: "ChannelAccount", entityId: id });
 }
 
 /** Ngắt kết nối (KHÔNG xoá lịch sử hội thoại — chỉ ngừng nhận/gửi tin mới). */
@@ -71,18 +75,20 @@ export async function disconnectChannelAccount(formData: FormData): Promise<void
   const user = await requireCap("mod:ket-noi-kenh");
   const id = String(formData.get("id") ?? "");
   if (!id) return;
-  const account = await prisma.channelAccount.update({ where: { id }, data: { active: false } }).catch(() => null);
-  if (account) {
-    await audit(user.id, "DISCONNECT_CHANNEL", { entity: "ChannelAccount", entityId: id, meta: { kind: account.kind, label: account.label } });
-  }
+  await prisma.$transaction(async (tx) => {
+    const account = await tx.channelAccount.update({ where: { id }, data: { active: false } });
+    await auditRequired(tx, user.id, "DISCONNECT_CHANNEL", { entity: "ChannelAccount", entityId: id, meta: { kind: account.kind, label: account.label } });
+  });
 }
 
 export async function reconnectChannelAccount(formData: FormData): Promise<void> {
   const user = await requireCap("mod:ket-noi-kenh");
   const id = String(formData.get("id") ?? "");
   if (!id) return;
-  await prisma.channelAccount.update({ where: { id }, data: { active: true } }).catch(() => {});
-  await audit(user.id, "RECONNECT_CHANNEL", { entity: "ChannelAccount", entityId: id });
+  await prisma.$transaction(async (tx) => {
+    await tx.channelAccount.update({ where: { id }, data: { active: true } });
+    await auditRequired(tx, user.id, "RECONNECT_CHANNEL", { entity: "ChannelAccount", entityId: id });
+  });
 }
 
 export type TestState = { ok?: boolean; error?: string; label?: string };

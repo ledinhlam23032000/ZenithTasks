@@ -4,7 +4,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireUser, requireCap } from "@/lib/auth";
-import { audit } from "@/lib/audit";
+import { auditRequired } from "@/lib/audit";
 import { generateMessage } from "@/lib/ai";
 import { decryptSecret } from "@/lib/secret-crypto";
 import { ensureZaloAccessToken, sendZaloTextMessage } from "@/lib/channels/zalo";
@@ -69,11 +69,13 @@ export async function linkConversationToCustomer(formData: FormData): Promise<vo
   });
   if (!parsed.success) return;
 
-  await prisma.conversation.update({ where: { id: parsed.data.conversationId }, data: { customerId: parsed.data.customerId } });
-  await audit(user.id, "LINK_CONVERSATION", {
-    entity: "Conversation",
-    entityId: parsed.data.conversationId,
-    meta: { customerId: parsed.data.customerId },
+  await prisma.$transaction(async (tx) => {
+    await tx.conversation.update({ where: { id: parsed.data.conversationId }, data: { customerId: parsed.data.customerId } });
+    await auditRequired(tx, user.id, "LINK_CONVERSATION", {
+      entity: "Conversation",
+      entityId: parsed.data.conversationId,
+      meta: { customerId: parsed.data.customerId },
+    });
   });
   revalidatePath(`/cham-soc/hop-thu/${parsed.data.conversationId}`);
 }
@@ -82,8 +84,10 @@ export async function unlinkConversationCustomer(formData: FormData): Promise<vo
   const user = await requireUser([...CARE_WRITE_ROLES]);
   const id = String(formData.get("conversationId") ?? "");
   if (!id) return;
-  await prisma.conversation.update({ where: { id }, data: { customerId: null } }).catch(() => {});
-  await audit(user.id, "UNLINK_CONVERSATION", { entity: "Conversation", entityId: id });
+  await prisma.$transaction(async (tx) => {
+    const changed = await tx.conversation.updateMany({ where: { id }, data: { customerId: null } });
+    if (changed.count > 0) await auditRequired(tx, user.id, "UNLINK_CONVERSATION", { entity: "Conversation", entityId: id });
+  });
   revalidatePath(`/cham-soc/hop-thu/${id}`);
 }
 

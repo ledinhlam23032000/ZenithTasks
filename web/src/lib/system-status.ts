@@ -3,6 +3,7 @@ import path from "node:path";
 import { prisma } from "./db";
 import { getUploadDir } from "./upload-storage";
 import { securityWarnings } from "./security-status";
+import { loadCaseFinancials } from "./financial-summary-db";
 
 // ============================================================================
 // TÌNH TRẠNG HỆ THỐNG (A7) — số liệu cho trang /he-thong (ADMIN).
@@ -73,7 +74,7 @@ export async function getSystemStatus() {
     payments,
     photos,
     users,
-    openDebt,
+    debtCases,
     dbSize,
     uploads,
     backup,
@@ -84,7 +85,7 @@ export async function getSystemStatus() {
     prisma.payment.count(),
     prisma.photo.count(),
     prisma.user.count({ where: { active: true } }),
-    prisma.caseRecord.aggregate({ where: { debtAmount: { gt: 0 } }, _sum: { debtAmount: true }, _count: true }),
+    prisma.caseRecord.findMany({ select: { id: true } }),
     prisma.$queryRaw<Array<{ size: bigint }>>`SELECT pg_database_size(current_database()) AS size`,
     uploadsUsage(),
     readBackupInfo(),
@@ -95,6 +96,9 @@ export async function getSystemStatus() {
     }),
   ]);
 
+  const currentDebt = await loadCaseFinancials(debtCases.map((c) => c.id));
+  const openDebtCount = [...currentDebt.values()].filter((summary) => summary.debt > 0).length;
+
   return {
     warnings: securityWarnings(),
     data: {
@@ -103,7 +107,7 @@ export async function getSystemStatus() {
       payments,
       photos,
       activeUsers: users,
-      openDebtCount: openDebt._count,
+      openDebtCount,
     },
     storage: {
       dbBytes: Number(dbSize[0]?.size ?? 0),

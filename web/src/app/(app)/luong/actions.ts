@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
-import { audit } from "@/lib/audit";
+import { auditRequired } from "@/lib/audit";
 import { isMonthClosed } from "@/lib/accounting";
 
 /**
@@ -23,13 +23,15 @@ export async function savePayroll(formData: FormData): Promise<void> {
   const bonus = Math.max(0, Math.round(Number(formData.get("bonus") ?? 0) || 0));
   const adjustment = Math.round(Number(formData.get("adjustment") ?? 0) || 0);
 
-  await prisma.user.update({ where: { id }, data: { baseSalary: base } });
-  await prisma.payrollEntry.upsert({
-    where: { userId_month: { userId: id, month } },
-    create: { userId: id, month, commission, bonus, adjustment },
-    update: { commission, bonus, adjustment },
+  await prisma.$transaction(async (tx) => {
+    await tx.user.update({ where: { id }, data: { baseSalary: base } });
+    await tx.payrollEntry.upsert({
+      where: { userId_month: { userId: id, month } },
+      create: { userId: id, month, commission, bonus, adjustment },
+      update: { commission, bonus, adjustment },
+    });
+    await auditRequired(tx, user.id, "SAVE_PAYROLL", { entity: "PayrollEntry", entityId: id, meta: { month } });
   });
-  await audit(user.id, "SAVE_PAYROLL", { entity: "PayrollEntry", entityId: id, meta: { month } });
 }
 
 export type BulkPayrollState = { ok?: boolean; error?: string };
@@ -61,15 +63,15 @@ export async function saveBulkPayroll(_prev: BulkPayrollState, formData: FormDat
   if (!parsed.success) return { error: "Dữ liệu không hợp lệ." };
   if (parsed.data.length === 0) return { ok: true };
 
-  await prisma.$transaction(
-    parsed.data.map((r) =>
-      prisma.payrollEntry.upsert({
+  await prisma.$transaction(async (tx) => {
+    for (const r of parsed.data) {
+      await tx.payrollEntry.upsert({
         where: { userId_month: { userId: r.id, month } },
         create: { userId: r.id, month, commission: r.commission, bonus: r.bonus, adjustment: r.adjustment },
         update: { commission: r.commission, bonus: r.bonus, adjustment: r.adjustment },
-      }),
-    ),
-  );
-  await audit(user.id, "BULK_SAVE_PAYROLL", { entity: "PayrollEntry", meta: { month, count: parsed.data.length } });
+      });
+    }
+    await auditRequired(tx, user.id, "BULK_SAVE_PAYROLL", { entity: "PayrollEntry", meta: { month, count: parsed.data.length } });
+  });
   return { ok: true };
 }

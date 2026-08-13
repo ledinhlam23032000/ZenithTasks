@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
-import { audit } from "@/lib/audit";
+import { audit, auditRequired } from "@/lib/audit";
 import { aiConfigured, generateMessage } from "@/lib/ai";
 import { PLAN_ROLES } from "@/lib/plans";
 import { PLAN_DRAFT_SYSTEM, buildPlanDraftPrompt, parsePlanDraft, planDraftSchema, type PlanDraft } from "@/lib/plan-ai";
@@ -23,8 +23,11 @@ export async function createPlan(_prev: PlanFormState, formData: FormData): Prom
   const user = await requireUser([...PLAN_ROLES]);
   const parsed = planSchema.safeParse({ title: formData.get("title") ?? "", note: formData.get("note") ?? "" });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu không hợp lệ." };
-  const plan = await prisma.plan.create({ data: { title: parsed.data.title, note: parsed.data.note || null, createdById: user.id } });
-  await audit(user.id, "CREATE_PLAN", { entity: "Plan", entityId: plan.id });
+  const plan = await prisma.$transaction(async (tx) => {
+    const created = await tx.plan.create({ data: { title: parsed.data.title, note: parsed.data.note || null, createdById: user.id } });
+    await auditRequired(tx, user.id, "CREATE_PLAN", { entity: "Plan", entityId: created.id });
+    return created;
+  });
   redirect(`/ke-hoach/${plan.id}`);
 }
 
@@ -35,8 +38,10 @@ export async function updatePlan(_prev: PlanFormState, formData: FormData): Prom
   const user = await requireUser([...PLAN_ROLES]);
   const parsed = editPlanSchema.safeParse({ id: formData.get("id") ?? "", title: formData.get("title") ?? "", note: formData.get("note") ?? "" });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu không hợp lệ." };
-  await prisma.plan.update({ where: { id: parsed.data.id }, data: { title: parsed.data.title, note: parsed.data.note || null } });
-  await audit(user.id, "UPDATE_PLAN", { entity: "Plan", entityId: parsed.data.id });
+  await prisma.$transaction(async (tx) => {
+    await tx.plan.update({ where: { id: parsed.data.id }, data: { title: parsed.data.title, note: parsed.data.note || null } });
+    await auditRequired(tx, user.id, "UPDATE_PLAN", { entity: "Plan", entityId: parsed.data.id });
+  });
   return { ok: true, nonce: Date.now() };
 }
 
@@ -45,8 +50,10 @@ export async function deletePlan(formData: FormData): Promise<void> {
   const user = await requireUser([...PLAN_ROLES]);
   const id = String(formData.get("id") ?? "");
   if (!id) redirect("/ke-hoach");
-  await prisma.plan.delete({ where: { id } }).catch(() => {});
-  await audit(user.id, "DELETE_PLAN", { entity: "Plan", entityId: id });
+  await prisma.$transaction(async (tx) => {
+    const deleted = await tx.plan.deleteMany({ where: { id } });
+    if (deleted.count > 0) await auditRequired(tx, user.id, "DELETE_PLAN", { entity: "Plan", entityId: id });
+  });
   redirect("/ke-hoach");
 }
 
@@ -66,9 +73,11 @@ export async function createTask(_prev: TaskFormState, formData: FormData): Prom
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu không hợp lệ." };
   const d = parsed.data;
-  const max = await prisma.planTask.aggregate({ where: { planId: d.planId, parentId: null }, _max: { order: true } });
-  await prisma.planTask.create({ data: { planId: d.planId, title: d.title, note: d.note || null, order: (max._max.order ?? -1) + 1 } });
-  await audit(user.id, "CREATE_PLAN_TASK", { entity: "PlanTask", meta: { planId: d.planId } });
+  await prisma.$transaction(async (tx) => {
+    const max = await tx.planTask.aggregate({ where: { planId: d.planId, parentId: null }, _max: { order: true } });
+    const task = await tx.planTask.create({ data: { planId: d.planId, title: d.title, note: d.note || null, order: (max._max.order ?? -1) + 1 } });
+    await auditRequired(tx, user.id, "CREATE_PLAN_TASK", { entity: "PlanTask", entityId: task.id, meta: { planId: d.planId } });
+  });
   return { ok: true, nonce: Date.now() };
 }
 
@@ -91,11 +100,13 @@ export async function createSubtask(_prev: TaskFormState, formData: FormData): P
   const parent = await prisma.planTask.findUnique({ where: { id: d.parentId }, select: { planId: true, parentId: true } });
   if (!parent) return { error: "Không tìm thấy nhiệm vụ chính." };
   if (parent.parentId !== null) return { error: "Không thể tạo nhiệm vụ phụ trong nhiệm vụ phụ (chỉ hỗ trợ 2 cấp)." };
-  const max = await prisma.planTask.aggregate({ where: { parentId: d.parentId }, _max: { order: true } });
-  await prisma.planTask.create({
-    data: { planId: parent.planId, parentId: d.parentId, title: d.title, note: d.note || null, order: (max._max.order ?? -1) + 1 },
+  await prisma.$transaction(async (tx) => {
+    const max = await tx.planTask.aggregate({ where: { parentId: d.parentId }, _max: { order: true } });
+    const task = await tx.planTask.create({
+      data: { planId: parent.planId, parentId: d.parentId, title: d.title, note: d.note || null, order: (max._max.order ?? -1) + 1 },
+    });
+    await auditRequired(tx, user.id, "CREATE_PLAN_TASK", { entity: "PlanTask", entityId: task.id, meta: { parentId: d.parentId } });
   });
-  await audit(user.id, "CREATE_PLAN_TASK", { entity: "PlanTask", meta: { parentId: d.parentId } });
   return { ok: true, nonce: Date.now() };
 }
 
@@ -114,8 +125,10 @@ export async function updateTask(_prev: TaskFormState, formData: FormData): Prom
     note: formData.get("note") ?? "",
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu không hợp lệ." };
-  await prisma.planTask.update({ where: { id: parsed.data.id }, data: { title: parsed.data.title, note: parsed.data.note || null } });
-  await audit(user.id, "UPDATE_PLAN_TASK", { entity: "PlanTask", entityId: parsed.data.id });
+  await prisma.$transaction(async (tx) => {
+    await tx.planTask.update({ where: { id: parsed.data.id }, data: { title: parsed.data.title, note: parsed.data.note || null } });
+    await auditRequired(tx, user.id, "UPDATE_PLAN_TASK", { entity: "PlanTask", entityId: parsed.data.id });
+  });
   return { ok: true, nonce: Date.now() };
 }
 
@@ -124,8 +137,10 @@ export async function deleteTask(formData: FormData): Promise<void> {
   const user = await requireUser([...PLAN_ROLES]);
   const id = String(formData.get("id") ?? "");
   if (!id) return;
-  await prisma.planTask.delete({ where: { id } }).catch(() => {});
-  await audit(user.id, "DELETE_PLAN_TASK", { entity: "PlanTask", entityId: id });
+  await prisma.$transaction(async (tx) => {
+    const deleted = await tx.planTask.deleteMany({ where: { id } });
+    if (deleted.count > 0) await auditRequired(tx, user.id, "DELETE_PLAN_TASK", { entity: "PlanTask", entityId: id });
+  });
 }
 
 /** Bật/tắt hoàn thành — thao tác "câm" gọi trực tiếp qua useTransition (không revalidate). */
@@ -134,13 +149,15 @@ export async function setTaskStatus(formData: FormData): Promise<void> {
   const id = String(formData.get("id") ?? "");
   const status = String(formData.get("status") ?? "");
   if (!id || !["TODO", "IN_PROGRESS", "DONE"].includes(status)) return;
-  await prisma.planTask.update({ where: { id }, data: { status: status as "TODO" | "IN_PROGRESS" | "DONE" } }).catch(() => {});
-  await audit(user.id, "SET_PLAN_TASK_STATUS", { entity: "PlanTask", entityId: id, meta: { status } });
+  await prisma.$transaction(async (tx) => {
+    const changed = await tx.planTask.updateMany({ where: { id }, data: { status: status as "TODO" | "IN_PROGRESS" | "DONE" } });
+    if (changed.count > 0) await auditRequired(tx, user.id, "SET_PLAN_TASK_STATUS", { entity: "PlanTask", entityId: id, meta: { status } });
+  });
 }
 
 /** Đổi thứ tự với phần tử liền kề CÙNG cấp (cùng planId + cùng parentId). */
 export async function reorderTask(formData: FormData): Promise<void> {
-  await requireUser([...PLAN_ROLES]);
+  const user = await requireUser([...PLAN_ROLES]);
   const id = String(formData.get("id") ?? "");
   const direction = String(formData.get("direction") ?? "");
   if (!id || (direction !== "up" && direction !== "down")) return;
@@ -151,10 +168,11 @@ export async function reorderTask(formData: FormData): Promise<void> {
     orderBy: { order: direction === "up" ? "desc" : "asc" },
   });
   if (!sibling) return;
-  await prisma.$transaction([
-    prisma.planTask.update({ where: { id }, data: { order: sibling.order } }),
-    prisma.planTask.update({ where: { id: sibling.id }, data: { order: task.order } }),
-  ]);
+  await prisma.$transaction(async (tx) => {
+    await tx.planTask.update({ where: { id }, data: { order: sibling.order } });
+    await tx.planTask.update({ where: { id: sibling.id }, data: { order: task.order } });
+    await auditRequired(tx, user.id, "REORDER_PLAN_TASK", { entity: "PlanTask", entityId: id, meta: { direction, siblingId: sibling.id } });
+  });
 }
 
 /**
@@ -202,8 +220,8 @@ export async function createPlanFromDraft(_prev: PlanFormState, formData: FormDa
         await tx.planTask.create({ data: { planId: plan.id, parentId: task.id, title: s.title, note: s.note || null, order: si } });
       }
     }
+    await auditRequired(tx, user.id, "CREATE_PLAN_FROM_AI", { entity: "Plan", entityId: plan.id, meta: { taskCount: d.tasks.length } });
     return plan;
   });
-  await audit(user.id, "CREATE_PLAN_FROM_AI", { entity: "Plan", entityId: plan.id, meta: { taskCount: d.tasks.length } });
   redirect(`/ke-hoach/${plan.id}`);
 }

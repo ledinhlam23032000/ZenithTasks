@@ -6,7 +6,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireUser, verifyPassword, hashPassword, createSession } from "@/lib/auth";
 import { generateSecret, totpVerify, otpauthURL } from "@/lib/totp";
-import { audit, auditRequired } from "@/lib/audit";
+import { auditRequired } from "@/lib/audit";
 import { sniffImageExt, safeStoredName } from "@/lib/upload";
 import { getUploadDir } from "@/lib/upload-storage";
 
@@ -125,8 +125,10 @@ export async function enable2FA(_prev: TwoFAState, formData: FormData): Promise<
   const rec = await prisma.user.findUnique({ where: { id: user.id }, select: { totpSecret: true } });
   if (!rec?.totpSecret) return { error: "Chưa khởi tạo. Bấm “Bật” để lấy mã trước." };
   if (!totpVerify(rec.totpSecret, code)) return { error: "Mã không đúng. Vui lòng thử lại." };
-  await prisma.user.update({ where: { id: user.id }, data: { totpEnabled: true } });
-  await audit(user.id, "ENABLE_2FA");
+  await prisma.$transaction(async (tx) => {
+    await tx.user.update({ where: { id: user.id }, data: { totpEnabled: true } });
+    await auditRequired(tx, user.id, "ENABLE_2FA", { entity: "User", entityId: user.id });
+  });
   return { ok: true };
 }
 
@@ -136,7 +138,9 @@ export async function disable2FA(_prev: TwoFAState, formData: FormData): Promise
   const pwd = String(formData.get("current") ?? "");
   const rec = await prisma.user.findUnique({ where: { id: user.id }, select: { passwordHash: true } });
   if (!rec || !(await verifyPassword(pwd, rec.passwordHash))) return { error: "Mật khẩu không đúng." };
-  await prisma.user.update({ where: { id: user.id }, data: { totpEnabled: false, totpSecret: null } });
-  await audit(user.id, "DISABLE_2FA");
+  await prisma.$transaction(async (tx) => {
+    await tx.user.update({ where: { id: user.id }, data: { totpEnabled: false, totpSecret: null } });
+    await auditRequired(tx, user.id, "DISABLE_2FA", { entity: "User", entityId: user.id });
+  });
   return { ok: true };
 }

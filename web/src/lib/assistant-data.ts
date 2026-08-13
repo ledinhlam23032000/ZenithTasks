@@ -1,5 +1,6 @@
 import { prisma } from "./db";
 import { toNum } from "./money";
+import { loadCaseFinancials } from "./financial-summary-db";
 import { fmtDate } from "./format";
 import { getBusinessAnalytics } from "./analytics-data";
 import { summarizeLeads, type LeadStatusKey } from "./leads";
@@ -19,7 +20,7 @@ export async function getAssistantContext(): Promise<AssistantContext> {
   const todayEnd = new Date(todayStart.getTime() + 86_400_000);
   const in7 = new Date(now.getTime() + 7 * 86_400_000);
 
-  const [analytics, revenueAgg, newCustomers, newCases, apptToday, followUps7, debtAgg, topDebtorsRows, topServicesRows, materials, leadRows] =
+  const [analytics, revenueAgg, newCustomers, newCases, apptToday, followUps7, debtCases, topServicesRows, materials, leadRows] =
     await Promise.all([
       getBusinessAnalytics(PERIOD),
       prisma.payment.aggregate({ _sum: { amount: true }, where: { paidAt: { gte: since } } }),
@@ -27,12 +28,9 @@ export async function getAssistantContext(): Promise<AssistantContext> {
       prisma.caseRecord.count({ where: { createdAt: { gte: since } } }),
       prisma.appointment.count({ where: { scheduledAt: { gte: todayStart, lt: todayEnd } } }),
       prisma.followUp.count({ where: { scheduledAt: { gte: now, lte: in7 } } }),
-      prisma.caseRecord.aggregate({ _sum: { debtAmount: true }, _count: true, where: { debtAmount: { gt: 0 } } }),
       prisma.caseRecord.findMany({
-        where: { debtAmount: { gt: 0 } },
-        orderBy: { debtAmount: "desc" },
-        take: 5,
-        select: { debtAmount: true, customer: { select: { fullName: true } } },
+        where: {},
+        select: { id: true, customer: { select: { fullName: true } } },
       }),
       prisma.$queryRaw<Array<{ name: string; cnt: bigint; rev: string }>>`
         SELECT cs.name, COUNT(*)::bigint AS cnt, COALESCE(SUM(cs."finalPrice"), 0) AS rev
@@ -49,6 +47,11 @@ export async function getAssistantContext(): Promise<AssistantContext> {
     .slice(0, 10);
 
   const leads = summarizeLeads(leadRows.map((l) => ({ status: l.status as LeadStatusKey })));
+  const debtFinancials = await loadCaseFinancials(debtCases.map((c) => c.id));
+  const debtRows = debtCases
+    .map((c) => ({ ...c, debt: debtFinancials.get(c.id)?.debt ?? 0 }))
+    .filter((c) => c.debt > 0)
+    .sort((a, b) => b.debt - a.debt);
 
   return {
     today: fmtDate(now),
@@ -58,9 +61,9 @@ export async function getAssistantContext(): Promise<AssistantContext> {
     newCases,
     appointmentsToday: apptToday,
     followUpsNext7: followUps7,
-    debtTotal: toNum(debtAgg._sum.debtAmount ?? 0),
-    debtCount: debtAgg._count,
-    topDebtors: topDebtorsRows.map((d) => ({ name: d.customer.fullName, amount: toNum(d.debtAmount) })),
+    debtTotal: debtRows.reduce((s, d) => s + d.debt, 0),
+    debtCount: debtRows.length,
+    topDebtors: debtRows.slice(0, 5).map((d) => ({ name: d.customer.fullName, amount: d.debt })),
     topServices: topServicesRows.map((s) => ({ name: s.name, count: Number(s.cnt), revenue: toNum(s.rev) })),
     segments: analytics.segCount,
     churnRiskCount: analytics.churn.length,

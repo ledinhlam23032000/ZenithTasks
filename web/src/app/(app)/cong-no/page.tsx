@@ -5,6 +5,7 @@ import { requireCap } from "@/lib/auth";
 import { userCan } from "@/lib/permissions";
 import { prisma } from "@/lib/db";
 import { toNum, formatVND, formatVNDShort } from "@/lib/money";
+import { loadCaseFinancials } from "@/lib/financial-summary-db";
 import { fmtDate } from "@/lib/format";
 import { DEBT_BUCKETS, DEBT_BUCKET_LABEL, debtAgeDays, debtAgingBucket, isOverThreshold } from "@/lib/debt-aging";
 import { nextDueDate } from "@/lib/debt-plan";
@@ -21,16 +22,18 @@ import { revealPhone } from "../khach-hang/actions";
 import { getDebtThreshold } from "@/lib/settings";
 import { DebtCollectButton } from "./debt-collect-button";
 import { DebtFilters } from "./debt-filters";
+import { Pagination } from "@/components/ui/pagination";
+import { PAGE_SIZE, parsePage, totalPagesOf } from "@/lib/pagination";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Sổ công nợ" };
 
-const TAKE = 200;
+const TAKE = PAGE_SIZE;
 
 export default async function DebtLedgerPage({
   searchParams,
 }: {
-  searchParams: Promise<{ bucket?: string; tv?: string }>;
+  searchParams: Promise<{ bucket?: string; tv?: string; page?: string }>;
 }) {
   const user = await requireCap("mod:cong-no");
   const canCollect = userCan(user, "payment.add");
@@ -39,15 +42,18 @@ export default async function DebtLedgerPage({
   // Ngưỡng cảnh báo LƯU Ở DB (dùng chung mọi máy) — không còn nằm ở URL nên không mất khi rời trang.
   const threshold = await getDebtThreshold();
   const tvFilter = (sp.tv ?? "").trim();
+  const page = parsePage(sp.page);
 
   const now = new Date();
   const monthStart = startOfMonth(now);
 
   const [cases, monthDebtPayments] = await Promise.all([
     prisma.caseRecord.findMany({
-      where: { debtAmount: { gt: 0 } },
-      orderBy: { debtAmount: "desc" },
-      take: TAKE,
+      // Do not filter by CaseRecord.debtAmount here. It is a denormalized
+      // snapshot and may be stale after a legacy import or an interrupted
+      // write; the authoritative debt is rebuilt below from child rows.
+      where: {},
+      orderBy: { updatedAt: "desc" },
       select: {
         id: true,
         code: true,
@@ -65,24 +71,32 @@ export default async function DebtLedgerPage({
     }),
   ]);
 
-  const rows = cases.map((c) => {
-    const days = debtAgeDays(c.createdAt, now);
-    const debt = toNum(c.debtAmount);
-    return { ...c, days, debt, bucket: debtAgingBucket(days), over: isOverThreshold(debt, threshold) };
-  });
+  const financials = await loadCaseFinancials(cases.map((c) => c.id));
 
-  const consultants = [...new Map(rows.filter((r) => r.consultant).map((r) => [r.consultant!.id, r.consultant!])).values()]
+  const allRows = cases
+    .map((c) => {
+      const financial = financials.get(c.id);
+      const debt = financial?.debt ?? 0;
+      return { ...c, debt, days: debtAgeDays(c.createdAt, now), bucket: debtAgingBucket(debtAgeDays(c.createdAt, now)), over: isOverThreshold(debt, threshold) };
+    })
+    .filter((r) => r.debt > 0)
+    .sort((a, b) => b.debt - a.debt);
+  const consultants = [...new Map(allRows.filter((r) => r.consultant).map((r) => [r.consultant!.id, r.consultant!])).values()]
     .sort((a, b) => a.fullName.localeCompare(b.fullName, "vi"));
 
-  const filtered = rows
+  const filteredAll = allRows
     .filter((r) => (bucket === "all" ? true : r.bucket === bucket))
     .filter((r) => (tvFilter ? r.consultant?.id === tvFilter : true));
-  const totalDebt = rows.reduce((s, r) => s + r.debt, 0);
-  const overCount = rows.filter((r) => r.over).length;
+  const totalPages = totalPagesOf(filteredAll.length);
+  const rows = filteredAll.slice((page - 1) * TAKE, page * TAKE);
+  const filtered = rows;
+  const totalDebt = allRows.reduce((s, r) => s + r.debt, 0);
+  const overCount = allRows.filter((r) => r.over).length;
   const collectedDebtThisMonth = toNum(monthDebtPayments._sum.amount);
 
   const qs = (b: string, tv = tvFilter) =>
     `/cong-no?bucket=${b}${tv ? `&tv=${tv}` : ""}`;
+  const makePageHref = (p: number) => `/cong-no?bucket=${bucket}${tvFilter ? `&tv=${tvFilter}` : ""}${p > 1 ? `&page=${p}` : ""}`;
 
   return (
     <div className="space-y-6">
@@ -100,7 +114,7 @@ export default async function DebtLedgerPage({
       />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Tổng công nợ" value={formatVNDShort(totalDebt)} sub={`${rows.length} hồ sơ còn nợ`} icon={<Wallet className="h-5 w-5" />} tone="red" />
+        <StatCard label="Tổng công nợ" value={formatVNDShort(totalDebt)} sub={`${allRows.length} hồ sơ còn nợ`} icon={<Wallet className="h-5 w-5" />} tone="red" />
         <StatCard
           label="Đã thu nợ tháng này"
           value={formatVNDShort(collectedDebtThisMonth)}
@@ -115,7 +129,7 @@ export default async function DebtLedgerPage({
           icon={<AlertTriangle className="h-5 w-5" />}
           tone="amber"
         />
-        <StatCard label="Nợ lâu nhất" value={`${rows.reduce((m, r) => Math.max(m, r.days), 0)} ngày`} icon={<Clock className="h-5 w-5" />} tone="purple" />
+        <StatCard label="Nợ lâu nhất" value={`${allRows.reduce((m, r) => Math.max(m, r.days), 0)} ngày`} icon={<Clock className="h-5 w-5" />} tone="purple" />
       </div>
 
       <Card>
@@ -197,6 +211,7 @@ export default async function DebtLedgerPage({
             </Table>
           )}
         </CardContent>
+        <Pagination page={page} totalPages={totalPages} makeHref={makePageHref} />
       </Card>
     </div>
   );

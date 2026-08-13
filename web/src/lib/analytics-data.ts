@@ -50,11 +50,12 @@ export async function getBusinessAnalytics(days = 90): Promise<BusinessAnalytics
     Array<{ id: string; fullName: string; phoneLast5: string | null; freq: bigint; monetary: string; last_at: Date }>
   >`
     SELECT c.id, c."fullName", c."phoneLast5",
-           COUNT(cr.id) AS freq,
-           COALESCE(SUM(cr."paidAmount"), 0) AS monetary,
+           COUNT(DISTINCT cr.id) AS freq,
+           COALESCE(SUM(p.amount) FILTER (WHERE p.amount > 0), 0) AS monetary,
            MAX(cr."createdAt") AS last_at
     FROM "Customer" c
     JOIN "CaseRecord" cr ON cr."customerId" = c.id AND cr.status <> 'CANCELLED'
+    LEFT JOIN "Payment" p ON p."caseId" = cr.id
     GROUP BY c.id, c."fullName", c."phoneLast5"`;
 
   const now = Date.now();
@@ -80,7 +81,7 @@ export async function getBusinessAnalytics(days = 90): Promise<BusinessAnalytics
     prisma.caseRecord.count({ where: { createdAt: { gte: since } } }),
     prisma.caseRecord.count({ where: { createdAt: { gte: since }, OR: [{ status: { not: "OPEN" } }, { consultResult: { not: "PENDING" } }] } }),
     prisma.caseRecord.count({ where: { createdAt: { gte: since }, consultResult: "AGREED" } }),
-    prisma.caseRecord.count({ where: { createdAt: { gte: since }, paidAmount: { gt: 0 } } }),
+    prisma.caseRecord.count({ where: { createdAt: { gte: since }, payments: { some: { amount: { gt: 0 } } } } }),
     prisma.appointment.count({ where: { scheduledAt: { gte: since } } }),
     prisma.appointment.count({ where: { scheduledAt: { gte: since }, arrivedAt: { not: null } } }),
   ]);
@@ -100,9 +101,10 @@ export async function getBusinessAnalytics(days = 90): Promise<BusinessAnalytics
   const srcRows = await prisma.$queryRaw<Array<{ source: CustomerSource; customers: bigint; revenue: string }>>`
     SELECT c.source AS source,
            COUNT(DISTINCT c.id) AS customers,
-           COALESCE(SUM(cr."paidAmount"), 0) AS revenue
+           COALESCE(SUM(p.amount) FILTER (WHERE p.amount > 0), 0) AS revenue
     FROM "Customer" c
     LEFT JOIN "CaseRecord" cr ON cr."customerId" = c.id AND cr.status <> 'CANCELLED'
+    LEFT JOIN "Payment" p ON p."caseId" = cr.id
     GROUP BY c.source`;
 
   const bySource: SourceLtv[] = srcRows

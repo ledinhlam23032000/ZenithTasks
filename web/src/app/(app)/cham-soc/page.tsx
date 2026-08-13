@@ -145,7 +145,7 @@ export default async function CarePage({ searchParams }: { searchParams: Promise
                         id={m.id}
                         label=""
                         confirmText={`Xóa tin chăm sóc của ${m.customer.fullName}?`}
-                        className="rounded-md p-1.5 text-slate-300 hover:bg-rose-50 hover:text-rose-500"
+                        className="inline-flex h-10 w-10 items-center justify-center rounded-md text-slate-300 hover:bg-rose-50 hover:text-rose-500"
                       />
                     </div>
                     )}

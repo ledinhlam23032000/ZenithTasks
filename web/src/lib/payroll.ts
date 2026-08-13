@@ -1,6 +1,7 @@
 import { startOfMonth, endOfMonth, subMonths, format } from "date-fns";
 import { prisma } from "@/lib/db";
 import { toNum } from "@/lib/money";
+import { loadCaseFinancials } from "@/lib/financial-summary-db";
 import { vnDateOnly } from "@/lib/dates";
 import { collectionsByStaff, collectionsTotal, type StaffCollection } from "@/lib/collections";
 import { computeBaseActual } from "@/lib/payroll-pure";
@@ -54,7 +55,7 @@ export async function getPayroll(monthDate: Date, standardDays = STANDARD_DAYS_D
   const monthStr = format(monthDate, "yyyy-MM");
   const prevMonthStr = format(subMonths(monthDate, 1), "yyyy-MM");
 
-  const [users, monthCases, attendance, entries, prevEntries, monthPayments, debtConsultG, debtDoctorG] = await Promise.all([
+  const [users, monthCases, attendance, entries, prevEntries, monthPayments, debtCases] = await Promise.all([
     prisma.user.findMany({
       where: { active: true },
       select: { id: true, fullName: true, role: true, code: true, baseSalary: true },
@@ -78,8 +79,14 @@ export async function getPayroll(monthDate: Date, standardDays = STANDARD_DAYS_D
         case: { select: { createdAt: true, consultantId: true, doctorId: true } },
       },
     }),
-    prisma.caseRecord.groupBy({ by: ["consultantId"], where: { debtAmount: { gt: 0 }, consultantId: { not: null } }, _sum: { debtAmount: true } }),
-    prisma.caseRecord.groupBy({ by: ["doctorId"], where: { debtAmount: { gt: 0 }, doctorId: { not: null } }, _sum: { debtAmount: true } }),
+    prisma.caseRecord.findMany({
+      where: {},
+      select: {
+        id: true,
+        consultantId: true,
+        doctorId: true,
+      },
+    }),
   ]);
 
   // Thực thu trong tháng theo nhân sự (tiền thật đã về, gồm thu nợ từ ca các tháng trước)
@@ -92,8 +99,14 @@ export async function getPayroll(monthDate: Date, standardDays = STANDARD_DAYS_D
   }));
   const collected = collectionsByStaff(attributions, gte);
   const collectedAll = collectionsTotal(attributions, gte);
-  const debtByConsult = new Map(debtConsultG.map((g) => [g.consultantId as string, toNum(g._sum.debtAmount)]));
-  const debtByDoctor = new Map(debtDoctorG.map((g) => [g.doctorId as string, toNum(g._sum.debtAmount)]));
+  const debtFinancials = await loadCaseFinancials(debtCases.map((c) => c.id));
+  const debtByConsult = new Map<string, number>();
+  const debtByDoctor = new Map<string, number>();
+  for (const c of debtCases) {
+    const debt = debtFinancials.get(c.id)?.debt ?? 0;
+    if (c.consultantId) debtByConsult.set(c.consultantId, (debtByConsult.get(c.consultantId) ?? 0) + debt);
+    if (c.doctorId) debtByDoctor.set(c.doctorId, (debtByDoctor.get(c.doctorId) ?? 0) + debt);
+  }
 
   // Ngày công (Attendance đã unique theo user/ngày)
   const days = new Map<string, number>();

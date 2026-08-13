@@ -12,6 +12,7 @@ import {
 } from "date-fns";
 import { prisma } from "@/lib/db";
 import { toNum } from "@/lib/money";
+import { summarizeCase } from "@/lib/financial-summary";
 import { todayRange, monthRange, lastMonthRange, growthPct } from "@/lib/dates";
 
 export type AdminDashboard = Awaited<ReturnType<typeof getAdminDashboard>>;
@@ -31,6 +32,7 @@ export async function getAdminDashboard() {
     casesMonth,
     agreedMonth,
     consultGroups,
+    consultantCasesMonth,
     consultants,
     recentCare,
     newCustomersMonth,
@@ -52,7 +54,15 @@ export async function getAdminDashboard() {
       by: ["consultantId"],
       where: { createdAt: month },
       _count: { _all: true },
-      _sum: { totalAmount: true, debtAmount: true },
+    }),
+    prisma.caseRecord.findMany({
+      where: { createdAt: month },
+      select: {
+        consultantId: true,
+        voucherAmount: true,
+        services: { select: { listPrice: true, unitPrice: true, quantity: true, discount: true, finalPrice: true } },
+        payments: { select: { amount: true } },
+      },
     }),
     prisma.user.findMany({ select: { id: true, fullName: true } }),
     prisma.careMessage.findMany({
@@ -88,19 +98,29 @@ export async function getAdminDashboard() {
   });
   const agreedMap = new Map(agreedByConsultant.map((g) => [g.consultantId, g._count._all]));
   const nameMap = new Map(consultants.map((c) => [c.id, c.fullName]));
+  const consultantFinancials = new Map<string, { revenue: number; debt: number }>();
+  for (const c of consultantCasesMonth) {
+    const key = c.consultantId ?? "none";
+    const financial = summarizeCase({ services: c.services, payments: c.payments, voucherAmount: c.voucherAmount });
+    const current = consultantFinancials.get(key) ?? { revenue: 0, debt: 0 };
+    current.revenue += financial.total;
+    current.debt += financial.debt;
+    consultantFinancials.set(key, current);
+  }
 
   const consultantRows = consultGroups
     .map((g) => {
       const totalConsults = g._count._all;
       const agreed = agreedMap.get(g.consultantId) ?? 0;
+      const financial = consultantFinancials.get(g.consultantId ?? "none") ?? { revenue: 0, debt: 0 };
       return {
         id: (g.consultantId as string) ?? "none",
         name: g.consultantId ? (nameMap.get(g.consultantId) ?? "—") : "Chưa gán tư vấn",
         consults: totalConsults,
         agreed,
         rate: totalConsults > 0 ? Math.round((agreed / totalConsults) * 100) : 0,
-        revenue: toNum(g._sum.totalAmount),
-        debt: toNum(g._sum.debtAmount),
+        revenue: financial.revenue,
+        debt: financial.debt,
       };
     })
     .sort((a, b) => b.revenue - a.revenue);

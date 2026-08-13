@@ -2,6 +2,7 @@ import { format } from "date-fns";
 import { requireCap } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { toNum } from "@/lib/money";
+import { loadCaseFinancials } from "@/lib/financial-summary-db";
 import { fmtDate } from "@/lib/format";
 import { DEBT_BUCKETS, DEBT_BUCKET_LABEL, debtAgeDays, debtAgingBucket, isOverThreshold } from "@/lib/debt-aging";
 import { nextDueDate } from "@/lib/debt-plan";
@@ -23,8 +24,8 @@ export async function GET(request: Request) {
   const now = new Date();
 
   const cases = await prisma.caseRecord.findMany({
-    where: { debtAmount: { gt: 0 } },
-    orderBy: { debtAmount: "desc" },
+    where: {},
+    orderBy: { updatedAt: "desc" },
     select: {
       id: true,
       code: true,
@@ -35,13 +36,16 @@ export async function GET(request: Request) {
       debtPlan: { select: { dayOfMonth: true, monthlyAmount: true } },
     },
   });
+  const financials = await loadCaseFinancials(cases.map((c) => c.id));
 
   const rows0 = cases
     .map((c) => {
       const days = debtAgeDays(c.createdAt, now);
-      const debt = toNum(c.debtAmount);
+      const debt = financials.get(c.id)?.debt ?? 0;
       return { ...c, days, debt, bucket: debtAgingBucket(days), over: isOverThreshold(debt, threshold) };
     })
+    .filter((r) => r.debt > 0)
+    .sort((a, b) => b.debt - a.debt)
     .filter((r) => (bucket === "all" ? true : r.bucket === bucket))
     .filter((r) => (tvFilter ? r.consultant?.id === tvFilter : true));
 

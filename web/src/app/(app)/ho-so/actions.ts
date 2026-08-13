@@ -726,7 +726,9 @@ export async function uploadPhoto(_prev: CaseActionState, formData: FormData): P
   const customerId = String(formData.get("customerId") ?? "");
   if (!(await hasCaseAccess(user, caseId, "clinical"))) return { error: CASE_ACCESS_MSG };
   if (await isLockedFor(caseId, user.role)) return { error: LOCKED_MSG };
-  const type = String(formData.get("type") ?? "BEFORE");
+  const typeParsed = z.enum(["BEFORE", "AFTER", "FOLLOW_UP", "CLINICAL"]).safeParse(String(formData.get("type") ?? "BEFORE"));
+  if (!typeParsed.success) return { error: "Loại ảnh không hợp lệ." };
+  const type = typeParsed.data;
   const caption = String(formData.get("caption") ?? "").trim();
   const followUpIndex = Number(formData.get("followUpIndex") ?? 0) || null;
   const file = formData.get("file");
@@ -750,7 +752,7 @@ export async function uploadPhoto(_prev: CaseActionState, formData: FormData): P
         data: {
           customerId: owner.customerId,
           caseId,
-          type: type as "BEFORE" | "AFTER" | "FOLLOW_UP" | "CLINICAL",
+          type,
           url: `/media/${fname}`,
           caption: caption || null,
           followUpIndex,

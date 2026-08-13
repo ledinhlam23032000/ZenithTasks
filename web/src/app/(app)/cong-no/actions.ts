@@ -9,6 +9,7 @@ import { auditRequired } from "@/lib/audit";
 import { clampDayOfMonth } from "@/lib/debt-plan";
 import { DEBT_THRESHOLD_KEY } from "@/lib/settings";
 import { canAccessCase } from "@/lib/case-access";
+import { loadCaseFinancials } from "@/lib/financial-summary-db";
 
 export type DebtPlanState = { ok?: boolean; error?: string; nonce?: number };
 
@@ -62,9 +63,11 @@ export async function saveDebtPlan(_prev: DebtPlanState, formData: FormData): Pr
   const d = parsed.data;
 
   // Hồ sơ phải tồn tại + còn nợ mới cho lập kế hoạch.
-  const rec = await prisma.caseRecord.findUnique({ where: { id: d.caseId }, select: { id: true, debtAmount: true, consultantId: true, doctorId: true } });
+  const rec = await prisma.caseRecord.findUnique({ where: { id: d.caseId }, select: { id: true, consultantId: true, doctorId: true } });
   if (!rec) return { error: "Không tìm thấy hồ sơ." };
   if (!canAccessCase(user, rec, "payment.add")) return { error: "Bạn không có quyền thao tác trên hồ sơ này." };
+  const currentDebt = (await loadCaseFinancials([d.caseId])).get(d.caseId)?.debt ?? 0;
+  if (currentDebt <= 0) return { error: "Hồ sơ hiện không còn công nợ để lập kế hoạch." };
 
   const dayOfMonth = clampDayOfMonth(d.dayOfMonth);
   const startDate = d.startDate ? new Date(d.startDate) : new Date();

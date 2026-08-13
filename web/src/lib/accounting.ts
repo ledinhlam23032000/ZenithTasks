@@ -19,6 +19,7 @@
 import { startOfMonth, endOfMonth, format } from "date-fns";
 import { prisma } from "@/lib/db";
 import { toNum } from "@/lib/money";
+import { loadCaseFinancials } from "@/lib/financial-summary-db";
 import { getPayroll, STANDARD_DAYS_DEFAULT } from "@/lib/payroll";
 import { REVENUE_TRANSFER_CODES, INVESTMENT_CATEGORY_CODE } from "@/lib/finance";
 import { splitCashflow, computePnl } from "@/lib/pnl";
@@ -48,7 +49,7 @@ export async function getMonthlyAccounting(
   const lte = endOfMonth(monthDate);
   const monthKey = format(monthDate, "yyyy-MM");
 
-  const [byMethod, cashRows, payroll, ctvPayouts, period, debtAll, debtMonth, topDebtors] = await Promise.all([
+  const [byMethod, cashRows, payroll, ctvPayouts, period, debtCases] = await Promise.all([
     prisma.payment.groupBy({
       by: ["method"],
       where: { paidAt: { gte, lte } },
@@ -68,16 +69,12 @@ export async function getMonthlyAccounting(
       where: { month: monthKey },
       include: { closedBy: { select: { fullName: true } } },
     }),
-    prisma.caseRecord.aggregate({ _sum: { debtAmount: true } }),
-    prisma.caseRecord.aggregate({ where: { createdAt: { gte, lte } }, _sum: { debtAmount: true } }),
     prisma.caseRecord.findMany({
-      where: { debtAmount: { gt: 0 } },
-      orderBy: { debtAmount: "desc" },
-      take: 8,
+      where: {},
       select: {
         id: true,
         code: true,
-        debtAmount: true,
+        createdAt: true,
         customer: { select: { id: true, fullName: true, code: true, phoneLast5: true } },
       },
     }),
@@ -99,6 +96,18 @@ export async function getMonthlyAccounting(
   const ctvPayable = payroll.totalCtv;
   const paidCtv = new Map(ctvPayouts.map((p) => [p.name, toNum(p.amount)]));
   const ctvPaid = ctvPayouts.reduce((s, p) => s + toNum(p.amount), 0);
+
+  const debtFinancials = await loadCaseFinancials(debtCases.map((c) => c.id));
+  const debtRows = debtCases
+    .map((c) => ({ ...c, debt: debtFinancials.get(c.id)?.debt ?? 0 }))
+    .filter((c) => c.debt > 0)
+    .sort((a, b) => b.debt - a.debt);
+  const debtMonthRows = debtRows.filter((c) => c.createdAt >= gte && c.createdAt <= lte);
+  // Keep the return shape stable for the accounting UI while sourcing these
+  // values from the child-row calculation above.
+  const debtAll = { _sum: { debtAmount: debtRows.reduce((s, c) => s + c.debt, 0) } };
+  const debtMonth = { _sum: { debtAmount: debtMonthRows.reduce((s, c) => s + c.debt, 0) } };
+  const topDebtors = debtRows.slice(0, 8).map((c) => ({ ...c, debtAmount: c.debt }));
 
   const ctv = payroll.ctv.map((c) => ({
     name: c.name,

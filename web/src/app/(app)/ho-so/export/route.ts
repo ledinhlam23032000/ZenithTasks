@@ -1,7 +1,7 @@
 import { format } from "date-fns";
 import { requireCap } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { toNum } from "@/lib/money";
+import { loadCaseFinancials } from "@/lib/financial-summary-db";
 import { maskPhone, isValidLast5 } from "@/lib/phone";
 import { CASE_STATUS, CONSULT_RESULT } from "@/lib/status";
 import { xlsxResponse, wordResponse, csvResponse, type Cell } from "@/lib/export";
@@ -35,6 +35,7 @@ export async function GET(request: Request) {
       doctor: { select: { fullName: true } },
     },
   });
+  const financials = await loadCaseFinancials(cases.map((c) => c.id));
 
   const fileBase = `ho-so-${format(new Date(), "yyyy-MM-dd")}`;
   const columns = [
@@ -52,21 +53,24 @@ export async function GET(request: Request) {
     "Voucher (VND)",
     "Ngày tạo",
   ];
-  const rows: Cell[][] = cases.map((c) => [
-    c.code,
-    c.customer.fullName,
-    maskPhone(c.customer.phoneLast5),
-    CASE_STATUS[c.status].label,
-    CONSULT_RESULT[c.consultResult].label,
-    c.consultant?.fullName ?? "",
-    c.doctor?.fullName ?? "",
-    toNum(c.totalAmount),
-    toNum(c.paidAmount),
-    toNum(c.debtAmount),
-    toNum(c.discountAmount),
-    toNum(c.voucherAmount),
-    format(c.createdAt, "dd/MM/yyyy"),
-  ]);
+  const rows: Cell[][] = cases.map((c) => {
+    const financial = financials.get(c.id);
+    return [
+      c.code,
+      c.customer.fullName,
+      maskPhone(c.customer.phoneLast5),
+      CASE_STATUS[c.status].label,
+      CONSULT_RESULT[c.consultResult].label,
+      c.consultant?.fullName ?? "",
+      c.doctor?.fullName ?? "",
+      financial?.total ?? 0,
+      financial?.paid ?? 0,
+      financial?.debt ?? 0,
+      financial?.lineDiscount ?? 0,
+      financial?.voucher ?? 0,
+      format(c.createdAt, "dd/MM/yyyy"),
+    ];
+  });
   const totals: Cell[][] = [
     [
       `Tổng ${cases.length} hồ sơ`,
@@ -76,9 +80,9 @@ export async function GET(request: Request) {
       "",
       "",
       "",
-      cases.reduce((s, c) => s + toNum(c.totalAmount), 0),
-      cases.reduce((s, c) => s + toNum(c.paidAmount), 0),
-      cases.reduce((s, c) => s + toNum(c.debtAmount), 0),
+      cases.reduce((s, c) => s + (financials.get(c.id)?.total ?? 0), 0),
+      cases.reduce((s, c) => s + (financials.get(c.id)?.paid ?? 0), 0),
+      cases.reduce((s, c) => s + (financials.get(c.id)?.debt ?? 0), 0),
     ],
   ];
 

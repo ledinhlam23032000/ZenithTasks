@@ -3,7 +3,8 @@ import { FolderHeart, Search, ShieldCheck } from "lucide-react";
 import { requireCap } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { isValidLast5, maskPhone } from "@/lib/phone";
-import { toNum, formatVND } from "@/lib/money";
+import { formatVND } from "@/lib/money";
+import { loadCaseFinancials } from "@/lib/financial-summary-db";
 import { fmtDate } from "@/lib/format";
 import { CASE_STATUS, CONSULT_RESULT } from "@/lib/status";
 import { PageHeader } from "@/components/ui/page-header";
@@ -68,6 +69,7 @@ export default async function CasesPage({
     }),
     prisma.caseRecord.count({ where: filters }),
   ]);
+  const financials = await loadCaseFinancials(cases.map((c) => c.id));
   const totalPages = totalPagesOf(total);
   const makeHref = (p: number) => {
     const params = new URLSearchParams();
@@ -151,7 +153,11 @@ export default async function CasesPage({
                 </TR>
               </THead>
               <tbody>
-                {cases.map((c) => (
+                {cases.map((c) => {
+                  const financial = financials.get(c.id);
+                  const totalAmount = financial?.total ?? 0;
+                  const debtAmount = financial?.debt ?? 0;
+                  return (
                   <TR key={c.id}>
                     <TD>
                       <Link href={`/ho-so/${c.id}`} className="font-semibold text-brand-600 hover:text-brand-700">
@@ -175,13 +181,14 @@ export default async function CasesPage({
                     <TD>
                       <Badge tone={CONSULT_RESULT[c.consultResult].tone}>{CONSULT_RESULT[c.consultResult].label}</Badge>
                     </TD>
-                    <TD className="text-right font-semibold text-slate-800">{formatVND(c.totalAmount)}</TD>
-                    <TD className={cn("text-right font-medium", toNum(c.debtAmount) > 0 ? "text-rose-600" : "text-slate-400")}>
-                      {formatVND(c.debtAmount)}
+                    <TD className="text-right font-semibold text-slate-800">{formatVND(totalAmount)}</TD>
+                    <TD className={cn("text-right font-medium", debtAmount > 0 ? "text-rose-600" : "text-slate-400")}>
+                      {formatVND(debtAmount)}
                     </TD>
                     <TD className="text-slate-500">{fmtDate(c.createdAt)}</TD>
                   </TR>
-                ))}
+                  );
+                })}
               </tbody>
             </Table>
           )}

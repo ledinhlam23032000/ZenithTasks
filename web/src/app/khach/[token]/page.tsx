@@ -41,7 +41,14 @@ export default async function CustomerPortalPage({ params }: { params: Promise<{
       // The customer portal may show before/after progress, never internal
       // clinical images (X-ray/CT/ultrasound or similar records).
       photos: { where: { type: { not: "CLINICAL" } }, orderBy: { takenAt: "desc" }, take: 12 },
-      followUps: { where: { scheduledAt: { gte: new Date(now.getTime() - 86400000) } }, orderBy: { scheduledAt: "asc" }, take: 5 },
+      // Internal follow-up notes can contain clinical or operational details;
+      // the public portal only needs the appointment time and status.
+      followUps: {
+        where: { scheduledAt: { gte: new Date(now.getTime() - 86400000) } },
+        orderBy: { scheduledAt: "asc" },
+        take: 5,
+        select: { id: true, scheduledAt: true, status: true },
+      },
       appointments: {
         where: { scheduledAt: { gte: new Date(now.getTime() - 3 * 3600000) }, status: { in: ["BOOKED", "CONFIRMED"] } },
         orderBy: { scheduledAt: "asc" },
@@ -124,7 +131,6 @@ export default async function CustomerPortalPage({ params }: { params: Promise<{
               {customer.followUps.map((f) => (
                 <li key={f.id} className="flex items-center justify-between">
                   <span className="text-slate-700">{fmtDateTime(f.scheduledAt)}</span>
-                  {f.note && <span className="text-xs text-slate-400">{f.note}</span>}
                 </li>
               ))}
             </ul>

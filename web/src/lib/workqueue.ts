@@ -1,6 +1,7 @@
 import { startOfDay, endOfDay, addDays, subDays } from "date-fns";
 import { prisma } from "./db";
 import { toNum } from "./money";
+import { loadCaseFinancials } from "./financial-summary-db";
 import { debtPlanStatus } from "./debt-plan";
 import type { Tone } from "@/components/ui/badge";
 
@@ -60,9 +61,10 @@ export async function getWorkqueue(): Promise<{ sections: WorkSection[]; total: 
       include: { customer: { select: { id: true, fullName: true } } },
     }),
     prisma.caseRecord.findMany({
-      where: { debtAmount: { gt: 0 }, createdAt: { lt: debtBefore } },
-      orderBy: { debtAmount: "desc" },
-      take: TAKE,
+      // Debt is rebuilt from service/payment rows below; the CaseRecord
+      // amount is only a compatibility snapshot.
+      where: { createdAt: { lt: debtBefore } },
+      orderBy: { updatedAt: "desc" },
       include: { customer: { select: { id: true, fullName: true, phoneLast5: true } }, debtPlan: true },
     }),
     prisma.material.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
@@ -88,6 +90,13 @@ export async function getWorkqueue(): Promise<{ sections: WorkSection[]; total: 
       LIMIT 30`,
   ]);
 
+  const debtFinancials = await loadCaseFinancials(debtors.map((d) => d.id));
+  const currentDebtors = debtors
+    .map((d) => ({ ...d, debt: debtFinancials.get(d.id)?.debt ?? 0 }))
+    .filter((d) => d.debt > 0)
+    .sort((a, b) => b.debt - a.debt)
+    .slice(0, TAKE);
+
   // Kho cảnh báo (tái dùng logic trang Kho).
   const soon = new Date(now.getTime() + 30 * 86400000);
   const stockAlerts: WorkItem[] = [];
@@ -110,13 +119,13 @@ export async function getWorkqueue(): Promise<{ sections: WorkSection[]; total: 
   // Khách đã trả đủ kỳ theo cam kết thì không nhắc nữa (dù còn dư nợ) — chỉ nhắc
   // ca KHÔNG có hẹn nợ, hoặc có hẹn nợ nhưng ĐANG CHẬM. Cần tổng đã trả kể từ khi
   // lập kế hoạch để biết chậm/đúng hẹn.
-  const plannedIds = debtors.filter((d) => d.debtPlan).map((d) => d.id);
+  const plannedIds = currentDebtors.filter((d) => d.debtPlan).map((d) => d.id);
   const planPayments = plannedIds.length
     ? await prisma.payment.findMany({ where: { caseId: { in: plannedIds } }, select: { caseId: true, amount: true, paidAt: true } })
     : [];
   const debtItems: WorkItem[] = [];
-  for (const c of debtors) {
-    const debt = toNum(c.debtAmount);
+  for (const c of currentDebtors) {
+    const debt = c.debt;
     let behind = 0;
     if (c.debtPlan) {
       const since = c.debtPlan.createdAt;

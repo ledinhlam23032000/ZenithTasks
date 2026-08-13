@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
-import { audit } from "@/lib/audit";
+import { auditRequired } from "@/lib/audit";
 import { encryptPhone, normalizePhone, phoneLast5, hashPhone } from "@/lib/phone";
 import { nextCustomerCode, isUniqueViolation } from "@/lib/codes";
 
@@ -50,18 +50,20 @@ export async function createLead(_prev: LeadFormState, formData: FormData): Prom
   const pf = phoneFields(d.phone);
   if ("error" in pf) return { error: pf.error };
 
-  const lead = await prisma.lead.create({
-    data: {
-      fullName: d.fullName,
-      ...pf,
-      source: d.source,
-      sourceDetail: d.sourceDetail || null,
-      serviceInterest: d.serviceInterest || null,
-      note: d.note || null,
-      createdById: user.id,
-    },
+  await prisma.$transaction(async (tx) => {
+    const lead = await tx.lead.create({
+      data: {
+        fullName: d.fullName,
+        ...pf,
+        source: d.source,
+        sourceDetail: d.sourceDetail || null,
+        serviceInterest: d.serviceInterest || null,
+        note: d.note || null,
+        createdById: user.id,
+      },
+    });
+    await auditRequired(tx, user.id, "CREATE_LEAD", { entity: "Lead", entityId: lead.id });
   });
-  await audit(user.id, "CREATE_LEAD", { entity: "Lead", entityId: lead.id });
   return { ok: true, nonce: Date.now() };
 }
 
@@ -86,19 +88,21 @@ export async function updateLead(_prev: LeadFormState, formData: FormData): Prom
   const pf = phoneFields(d.phone);
   if ("error" in pf) return { error: pf.error };
 
-  await prisma.lead.update({
-    where: { id: d.id },
-    data: {
-      fullName: d.fullName,
-      ...pf,
-      source: d.source,
-      sourceDetail: d.sourceDetail || null,
-      serviceInterest: d.serviceInterest || null,
-      note: d.note || null,
-      status: d.status ?? "NEW",
-    },
+  await prisma.$transaction(async (tx) => {
+    await tx.lead.update({
+      where: { id: d.id },
+      data: {
+        fullName: d.fullName,
+        ...pf,
+        source: d.source,
+        sourceDetail: d.sourceDetail || null,
+        serviceInterest: d.serviceInterest || null,
+        note: d.note || null,
+        status: d.status ?? "NEW",
+      },
+    });
+    await auditRequired(tx, user.id, "UPDATE_LEAD", { entity: "Lead", entityId: d.id });
   });
-  await audit(user.id, "UPDATE_LEAD", { entity: "Lead", entityId: d.id });
   return { ok: true, nonce: Date.now() };
 }
 
@@ -108,8 +112,10 @@ export async function setLeadStatus(formData: FormData): Promise<void> {
   const id = String(formData.get("id") ?? "");
   const status = String(formData.get("status") ?? "");
   if (!id || !["NEW", "CONTACTED", "CONVERTED", "LOST"].includes(status)) return;
-  await prisma.lead.update({ where: { id }, data: { status: status as "NEW" | "CONTACTED" | "CONVERTED" | "LOST" } }).catch(() => {});
-  await audit(user.id, "SET_LEAD_STATUS", { entity: "Lead", entityId: id, meta: { status } });
+  await prisma.$transaction(async (tx) => {
+    const changed = await tx.lead.updateMany({ where: { id }, data: { status: status as "NEW" | "CONTACTED" | "CONVERTED" | "LOST" } });
+    if (changed.count > 0) await auditRequired(tx, user.id, "SET_LEAD_STATUS", { entity: "Lead", entityId: id, meta: { status } });
+  });
   // KHÔNG gọi revalidatePath: gọi trực tiếp từ client qua useTransition + router.refresh()
   // (xem LeadStatusSelect), không phải qua <form action> thuần — mục 8.1 BAN-GIAO.md.
 }
@@ -119,8 +125,10 @@ export async function deleteLead(formData: FormData): Promise<void> {
   const user = await requireUser([...LEAD_ROLES]);
   const id = String(formData.get("id") ?? "");
   if (!id) return;
-  await prisma.lead.delete({ where: { id } }).catch(() => {});
-  await audit(user.id, "DELETE_LEAD", { entity: "Lead", entityId: id });
+  await prisma.$transaction(async (tx) => {
+    const deleted = await tx.lead.deleteMany({ where: { id } });
+    if (deleted.count > 0) await auditRequired(tx, user.id, "DELETE_LEAD", { entity: "Lead", entityId: id });
+  });
   revalidatePath("/khach-tham-khao");
 }
 
@@ -142,8 +150,10 @@ export async function convertLeadToCustomer(formData: FormData): Promise<void> {
   // Đã có khách trùng SĐT? → gắn CONVERTED rồi mở hồ sơ khách đó.
   const dup = await prisma.customer.findFirst({ where: { phoneHash: lead.phoneHash }, select: { id: true } });
   if (dup) {
-    await prisma.lead.update({ where: { id }, data: { status: "CONVERTED" } });
-    await audit(user.id, "CONVERT_LEAD", { entity: "Lead", entityId: id, meta: { customerId: dup.id, dup: true } });
+    await prisma.$transaction(async (tx) => {
+      await tx.lead.update({ where: { id }, data: { status: "CONVERTED" } });
+      await auditRequired(tx, user.id, "CONVERT_LEAD", { entity: "Lead", entityId: id, meta: { customerId: dup.id, dup: true } });
+    });
     redirect(`/khach-hang/${dup.id}`);
   }
 
@@ -151,18 +161,23 @@ export async function convertLeadToCustomer(formData: FormData): Promise<void> {
   for (let attempt = 0; attempt < 5; attempt++) {
     const code = await nextCustomerCode();
     try {
-      customer = await prisma.customer.create({
+      customer = await prisma.$transaction(async (tx) => {
+        const created = await tx.customer.create({
         data: {
           code,
           fullName: lead.fullName,
-          phoneEnc: lead.phoneEnc,
-          phoneLast5: lead.phoneLast5,
-          phoneHash: lead.phoneHash,
+          phoneEnc: lead.phoneEnc!,
+          phoneLast5: lead.phoneLast5!,
+          phoneHash: lead.phoneHash!,
           source: lead.source,
           sourceDetail: lead.sourceDetail,
           note: lead.serviceInterest ? `Quan tâm: ${lead.serviceInterest}${lead.note ? `. ${lead.note}` : ""}` : lead.note,
           createdById: user.id,
         },
+        });
+        await tx.lead.update({ where: { id }, data: { status: "CONVERTED" } });
+        await auditRequired(tx, user.id, "CONVERT_LEAD", { entity: "Lead", entityId: id, meta: { customerId: created.id } });
+        return { id: created.id };
       });
       break;
     } catch (e) {
@@ -172,8 +187,6 @@ export async function convertLeadToCustomer(formData: FormData): Promise<void> {
   }
   if (!customer) redirect("/khach-tham-khao?err=create");
 
-  await prisma.lead.update({ where: { id }, data: { status: "CONVERTED" } });
-  await audit(user.id, "CONVERT_LEAD", { entity: "Lead", entityId: id, meta: { customerId: customer.id } });
   revalidatePath("/khach-tham-khao");
   revalidatePath("/khach-hang");
   redirect(`/khach-hang/${customer.id}`);

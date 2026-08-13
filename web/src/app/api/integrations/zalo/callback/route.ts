@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { requireCap } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { audit } from "@/lib/audit";
+import { auditRequired } from "@/lib/audit";
 import { encryptSecret } from "@/lib/secret-crypto";
 import { exchangeZaloCode, getOaInfo } from "@/lib/channels/zalo";
 import { ZALO_STATE_COOKIE, ZALO_SETTINGS_PATH } from "@/lib/channels/zalo-oauth-constants";
@@ -40,31 +40,33 @@ export async function GET(req: Request) {
     if (!info.oaId) throw new Error("Không xác định được oa_id từ Zalo.");
 
     const expiresInSec = Number(tokenData.expires_in ?? 3600) || 3600;
-    const account = await prisma.channelAccount.upsert({
-      where: { kind_externalId: { kind: "ZALO_OA", externalId: info.oaId } },
-      create: {
-        kind: "ZALO_OA",
-        label: info.name,
-        externalId: info.oaId,
-        externalName: info.name,
-        accessTokenEnc: encryptSecret(accessToken),
-        refreshTokenEnc: tokenData.refresh_token ? encryptSecret(tokenData.refresh_token) : null,
-        tokenExpiresAt: new Date(Date.now() + expiresInSec * 1000),
-        active: true,
-        connectedById: user.id,
-      },
-      update: {
-        label: info.name,
-        externalName: info.name,
-        accessTokenEnc: encryptSecret(accessToken),
-        refreshTokenEnc: tokenData.refresh_token ? encryptSecret(tokenData.refresh_token) : null,
-        tokenExpiresAt: new Date(Date.now() + expiresInSec * 1000),
-        active: true,
-        connectedById: user.id,
-      },
+    await prisma.$transaction(async (tx) => {
+      const account = await tx.channelAccount.upsert({
+        where: { kind_externalId: { kind: "ZALO_OA", externalId: info.oaId } },
+        create: {
+          kind: "ZALO_OA",
+          label: info.name,
+          externalId: info.oaId,
+          externalName: info.name,
+          accessTokenEnc: encryptSecret(accessToken),
+          refreshTokenEnc: tokenData.refresh_token ? encryptSecret(tokenData.refresh_token) : null,
+          tokenExpiresAt: new Date(Date.now() + expiresInSec * 1000),
+          active: true,
+          connectedById: user.id,
+        },
+        update: {
+          label: info.name,
+          externalName: info.name,
+          accessTokenEnc: encryptSecret(accessToken),
+          refreshTokenEnc: tokenData.refresh_token ? encryptSecret(tokenData.refresh_token) : null,
+          tokenExpiresAt: new Date(Date.now() + expiresInSec * 1000),
+          active: true,
+          connectedById: user.id,
+        },
+      });
+      await auditRequired(tx, user.id, "CONNECT_CHANNEL", { entity: "ChannelAccount", entityId: account.id, meta: { kind: "ZALO_OA", label: info.name } });
     });
     connectedLabel = info.name;
-    await audit(user.id, "CONNECT_CHANNEL", { entity: "ChannelAccount", entityId: account.id, meta: { kind: "ZALO_OA", label: info.name } });
   } catch (err) {
     // Không đưa thông báo thô của provider (có thể chứa request/token detail)
     // vào URL trình duyệt; chỉ log server-side và trả mã tổng quát cho người dùng.
