@@ -85,7 +85,7 @@ Set-Location -LiteralPath $RepoDir
 Write-Host '[3/4] Build va khoi dong Docker (migration se tu dong ap dung)...' -ForegroundColor Yellow
 $composeArgs = @('compose', '-p', $ComposeProject, '-f', $ComposeFile)
 $runningCommit = (& docker inspect 'zenithtasks-app-1' --format '{{.Config.Labels}}' 2>$null | Out-String).Trim()
-if ($runningCommit -like "*org.opencontainers.image.revision=$BuildCommit*") {
+if ($runningCommit -like "*org.opencontainers.image.revision:$BuildCommit*") {
     Write-Host "    Image da chay dung commit $BuildCommit; bo qua build lai." -ForegroundColor DarkGray
     Invoke-Checked 'docker' @($composeArgs + @('up', '-d'))
 } else {
