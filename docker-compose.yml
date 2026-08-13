@@ -24,7 +24,10 @@ services:
       retries: 12
 
   app:
-    build: ./web
+    build:
+      context: ./web
+      args:
+        BUILD_COMMIT: "${ZENITH_BUILD_COMMIT:-unknown}"
     restart: unless-stopped
     depends_on:
       db:

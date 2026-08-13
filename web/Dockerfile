@@ -32,7 +32,9 @@ RUN npx prisma generate && npm run build
 
 # ---------- runner ----------
 FROM base AS runner
+ARG BUILD_COMMIT=unknown
 ENV NODE_ENV=production
+LABEL org.opencontainers.image.revision=$BUILD_COMMIT
 COPY --from=build /app ./
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 # Bỏ ký tự CR (\r) phòng khi file bị checkout dạng CRLF trên Windows — nếu không
