@@ -79,9 +79,24 @@ export function AppShell({
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
 
+  const groups = [
+    { label: "Hôm nay", hrefs: ["/dashboard", "/lich-hen", "/tiep-nhan"] },
+    { label: "Khách hàng", hrefs: ["/khach-hang"] },
+    { label: "Điều trị", hrefs: ["/ho-so", "/danh-muc"] },
+    { label: "Chăm sóc", hrefs: ["/cham-soc"] },
+    { label: "Tài chính", hrefs: ["/thu-chi", "/luong", "/cong-tac-vien"] },
+    { label: "Kho & báo cáo", hrefs: ["/kho", "/bao-cao", "/hieu-suat"] },
+    { label: "Quản trị", hrefs: ["/nhan-su", "/nhat-ky", "/cham-cong", "/lich-lam-viec", "/he-thong"] },
+  ];
+
   const navList = (
     <nav className="flex-1 min-h-0 space-y-1 overflow-y-auto px-3 py-4">
-      {nav.map((item) => {
+      {groups.map((group) => {
+        const items = nav.filter((item) => group.hrefs.includes(item.href));
+        if (items.length === 0) return null;
+        return <div key={group.label} className="mb-4 last:mb-0">
+          <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">{group.label}</p>
+          {items.map((item) => {
         const Icon = ICONS[item.icon] ?? LayoutDashboard;
         const active = isActive(item.href);
         return (
@@ -100,6 +115,13 @@ export function AppShell({
             {item.label}
           </Link>
         );
+          })}
+        </div>;
+      })}
+      {nav.filter((item) => !groups.some((group) => group.hrefs.includes(item.href))).map((item) => {
+        const Icon = ICONS[item.icon] ?? LayoutDashboard;
+        const active = isActive(item.href);
+        return <Link key={item.href} href={item.href} onClick={() => setMobileOpen(false)} className={cn("group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900", active && "bg-brand-50 text-brand-700")}><Icon className="h-[18px] w-[18px]" />{item.label}</Link>;
       })}
     </nav>
   );

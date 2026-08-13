@@ -24,7 +24,7 @@ import { tierFor, pointsFor, nextTier } from "@/lib/loyalty";
 import { prisma } from "@/lib/db";
 import { maskPhone } from "@/lib/phone";
 import { aiConfigured } from "@/lib/ai";
-import { formatVND } from "@/lib/money";
+import { formatVND, toNum } from "@/lib/money";
 import { fmtDate, fmtDateTime, fmtRelative } from "@/lib/format";
 import {
   GENDER_LABEL,
@@ -51,6 +51,7 @@ import { CareComposer } from "../../cham-soc/care-composer";
 import { PhotoGallery } from "@/components/ui/photo-gallery";
 import { getCustomerCareTimeline } from "../../cham-soc/inbox-queries";
 import { summarizeCase } from "@/lib/financial-summary";
+import { PatientTimeline, type PatientTimelineEvent } from "@/components/patient/patient-timeline";
 
 export const dynamic = "force-dynamic";
 
@@ -64,8 +65,8 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
       cases: {
         orderBy: { createdAt: "desc" },
         include: {
-          services: { select: { name: true, listPrice: true, unitPrice: true, quantity: true, discount: true } },
-          payments: { select: { amount: true } },
+          services: { select: { name: true, listPrice: true, unitPrice: true, quantity: true, discount: true, createdAt: true } },
+          payments: { select: { amount: true, paidAt: true } },
           consultant: { select: { fullName: true } },
           doctor: { select: { fullName: true } },
         },
@@ -84,19 +85,26 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
   const canReadCaseSummary = userCan(user, "mod:ho-so");
   const canReadPhotos = userCan(user, "clinical.photos.read");
   const canReadFinancial = userCan(user, "financial.detail.read");
+  const visibleCases = ["ADMIN", "MANAGER"].includes(user.role)
+    ? customer.cases
+    : customer.cases.filter((c) => c.consultantId === user.id || c.doctorId === user.id);
+  const visibleCaseIds = new Set(visibleCases.map((c) => c.id));
+  const visiblePhotos = ["ADMIN", "MANAGER"].includes(user.role)
+    ? customer.photos
+    : customer.photos.filter((photo) => photo.caseId !== null && visibleCaseIds.has(photo.caseId));
 
   const caseFinancials = new Map(
-    customer.cases.map((c) => [
+    visibleCases.map((c) => [
       c.id,
       summarizeCase({ services: c.services, payments: c.payments, voucherAmount: c.voucherAmount, snapshot: c }),
     ]),
   );
-  const totalValue = customer.cases.reduce((s, c) => s + (caseFinancials.get(c.id)?.total ?? 0), 0);
-  const totalDebt = customer.cases.reduce((s, c) => s + (caseFinancials.get(c.id)?.debt ?? 0), 0);
+  const totalValue = visibleCases.reduce((s, c) => s + (caseFinancials.get(c.id)?.total ?? 0), 0);
+  const totalDebt = visibleCases.reduce((s, c) => s + (caseFinancials.get(c.id)?.debt ?? 0), 0);
   const age = customer.dob ? differenceInYears(new Date(), customer.dob) : null;
 
   // Thẻ thành viên: hạng & điểm theo tổng chi tiêu thực (tiền đã thanh toán)
-  const lifetimePaid = canReadFinancial ? customer.cases.reduce((s, c) => s + (caseFinancials.get(c.id)?.paid ?? 0), 0) : 0;
+  const lifetimePaid = canReadFinancial ? visibleCases.reduce((s, c) => s + (caseFinancials.get(c.id)?.paid ?? 0), 0) : 0;
   const tier = tierFor(lifetimePaid);
   const points = pointsFor(lifetimePaid);
   const nxt = nextTier(lifetimePaid);
@@ -106,6 +114,16 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
   const canManagePortal = userCan(user, "portal.manage");
   const canEdit = ["ADMIN", "MANAGER", "RECEPTION", "TELESALE"].includes(user.role);
   const inboxTimeline = canCare ? (await getCustomerCareTimeline(customer.id)).filter((item) => item.source === "INBOX").slice(0, 30) : [];
+  const timeline: PatientTimelineEvent[] = [
+    { id: "customer-created", at: customer.createdAt, label: "Tạo hồ sơ khách hàng", detail: customer.code, tone: "brand" },
+    ...customer.appointments.map((a) => ({ id: `appointment-${a.id}`, at: a.scheduledAt, label: "Lịch hẹn", detail: a.serviceInterest ?? "Chưa chọn dịch vụ", tone: "slate" as const })),
+    ...(canReadCaseSummary ? visibleCases.flatMap((c) => [
+      { id: `case-${c.id}`, at: c.createdAt, label: "Mở hồ sơ điều trị", detail: c.code, tone: "purple" as const },
+      ...c.services.map((s) => ({ id: `service-${c.id}-${s.name}-${s.createdAt.toISOString()}`, at: s.createdAt, label: "Thêm dịch vụ", detail: s.name, tone: "green" as const })),
+      ...(canReadFinancial ? c.payments.map((p) => ({ id: `payment-${c.id}-${p.paidAt.toISOString()}`, at: p.paidAt, label: "Ghi nhận thanh toán", detail: formatVND(toNum(p.amount)), tone: "amber" as const })) : []),
+    ]) : []),
+    ...(canReadPhotos ? visiblePhotos.map((p) => ({ id: `photo-${p.id}`, at: p.takenAt, label: "Cập nhật ảnh điều trị", detail: p.caption ?? undefined, tone: "purple" as const })) : []),
+  ];
 
   return (
     <div className="space-y-6">
@@ -183,8 +201,13 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
         </CardContent>
       </Card>
 
+      <Card>
+        <CardHeader><CardTitle className="flex items-center gap-2"><CalendarClock className="h-4 w-4 text-brand-500" /> Timeline khách hàng</CardTitle></CardHeader>
+        <CardContent className="pt-0"><PatientTimeline events={timeline} /></CardContent>
+      </Card>
+
       <div className="grid gap-4 sm:grid-cols-3">
-        <StatCard label="Số lượt khám" value={customer.cases.length} icon={<FolderHeart className="h-5 w-5" />} tone="brand" />
+        <StatCard label="Số lượt khám" value={canReadCaseSummary ? visibleCases.length : "Theo quyền"} icon={<FolderHeart className="h-5 w-5" />} tone="brand" />
         {canReadFinancial ? (
           <>
             <StatCard label="Tổng giá trị dịch vụ" value={formatVND(totalValue)} icon={<Wallet className="h-5 w-5" />} tone="green" />
@@ -251,11 +274,11 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
             <CardContent className="pt-0">
               {!canReadCaseSummary ? (
                 <p className="text-sm text-slate-500">Thông tin điều trị được giới hạn theo vai trò của bạn.</p>
-              ) : customer.cases.length === 0 ? (
+              ) : visibleCases.length === 0 ? (
                 <EmptyState title="Chưa có hồ sơ điều trị" description="Bấm “Mở hồ sơ điều trị” để bắt đầu tư vấn." />
               ) : (
                 <ul className="space-y-2.5">
-                  {customer.cases.map((c) => (
+                  {visibleCases.map((c) => (
                     <li key={c.id}>
                       <Link
                         href={`/ho-so/${c.id}`}
@@ -296,10 +319,10 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-0">
-              {customer.photos.length === 0 ? (
+              {visiblePhotos.length === 0 ? (
                 <EmptyState title="Chưa có ảnh" description="Ảnh trước/sau và cận lâm sàng được bác sĩ cập nhật trong hồ sơ điều trị." />
               ) : (
-                <PhotoGallery photos={customer.photos} cols={4} />
+                <PhotoGallery photos={visiblePhotos} cols={4} />
               )}
             </CardContent>
           </Card>}
