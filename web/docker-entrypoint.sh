@@ -24,12 +24,14 @@ fi
 # Nếu chưa cấu hình, sinh một khoá ngẫu nhiên và giữ trong volume secrets.
 # Với dữ liệu cũ, phải cung cấp đúng PHONE_ENC_KEY cũ qua secret manager/.env.
 if [ -z "$PHONE_ENC_KEY" ]; then
-  if [ ! -f "$SECRET_DIR/phone_key" ]; then
+  if [ ! -f "$SECRET_DIR/phone_key" ] && [ "${ZENITH_ALLOW_NEW_PHONE_KEY:-false}" = "true" ]; then
     node -e "process.stdout.write(require('crypto').randomBytes(32).toString('base64'))" > "$SECRET_DIR/phone_key"
     echo "🔐 Đã tạo khóa mã hóa số điện thoại trong volume an toàn."
   fi
-  PHONE_ENC_KEY="$(cat "$SECRET_DIR/phone_key")"
-  export PHONE_ENC_KEY
+  if [ -f "$SECRET_DIR/phone_key" ]; then
+    PHONE_ENC_KEY="$(cat "$SECRET_DIR/phone_key")"
+    export PHONE_ENC_KEY
+  fi
 fi
 
 # Avatar migration follows the same private volume as clinical files.
@@ -46,6 +48,22 @@ until npx prisma migrate deploy; do
   echo "   ...DB chưa sẵn sàng, thử lại lần $n"
   sleep 2
 done
+
+# Nếu CSDL còn phoneEnc mà secret/biến môi trường bị mất thì dừng, không chạy
+# bằng khóa mới khiến dữ liệu cũ không thể giải mã. Chỉ tạo khóa tự động cho CSDL mới.
+if [ -z "$PHONE_ENC_KEY" ]; then
+  if ! PHONE_ROWS=$(node --input-type=commonjs -e "const {Client}=require('pg');(async()=>{try{const c=new Client({connectionString:process.env.DATABASE_URL});await c.connect();const r=await c.query('SELECT ((SELECT COUNT(*) FROM \"Customer\" WHERE \"phoneEnc\" IS NOT NULL)+(SELECT COUNT(*) FROM \"Appointment\" WHERE \"phoneEnc\" IS NOT NULL))::int AS n');process.stdout.write(String(r.rows[0].n));await c.end();}catch(e){process.stderr.write(String(e&&e.message||e));process.exitCode=1;}})();"); then
+    echo "Khong kiem tra duoc du lieu phoneEnc; dung khoi dong." >&2
+    exit 1
+  fi
+  if [ "$PHONE_ROWS" != "0" ]; then
+    echo "Thieu PHONE_ENC_KEY/volume secret trong khi CSDL con $PHONE_ROWS ban ghi phoneEnc; dung khoi dong." >&2
+    exit 1
+  fi
+  node -e "process.stdout.write(require('crypto').randomBytes(32).toString('base64'))" > "$SECRET_DIR/phone_key"
+  PHONE_ENC_KEY="$(cat "$SECRET_DIR/phone_key")"
+  export PHONE_ENC_KEY
+fi
 
 # Dọn lưu trữ ảnh đại diện cũ (nếu có) — xem chi tiết trong chính script. An toàn chạy
 # lại nhiều lần; lỗi ở bước này KHÔNG chặn khởi động (không phải dữ liệu nghiệp vụ).

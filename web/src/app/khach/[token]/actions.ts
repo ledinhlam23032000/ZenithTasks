@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { auditRequired } from "@/lib/audit";
 import { bump } from "@/lib/rate-limit";
 import { clampScore, NPS_MIN, NPS_MAX } from "@/lib/nps";
+import { redactPhoneLikeText } from "@/lib/phone";
 
 // ============================================================================
 // CỔNG KHÁCH NÂNG CAO (D3) — server action CÔNG KHAI (không đăng nhập), chỉ mở khoá
@@ -79,11 +80,14 @@ export async function portalRequestReschedule(token: string, appointmentId: stri
   });
   if (!appt) return { error: "Không tìm thấy lịch hẹn." };
 
-  const msg = (message || "").trim().slice(0, 400);
+  const msg = redactPhoneLikeText((message || "").trim()).slice(0, 400);
   const whenLabel = new Intl.DateTimeFormat("vi-VN", { dateStyle: "short", timeStyle: "short" }).format(appt.scheduledAt);
 
   // Ghi lịch sử chăm sóc, cập nhật lịch hẹn và audit trong cùng transaction.
-  const newNote = [appt.note, `Khách đề nghị đổi lịch: ${msg || "(không ghi chú)"}`].filter(Boolean).join(" | ").slice(0, 300);
+  const newNote = [redactPhoneLikeText(appt.note), `Khách đề nghị đổi lịch: ${msg || "(không ghi chú)"}`]
+    .filter(Boolean)
+    .join(" | ")
+    .slice(0, 300);
   await prisma.$transaction(async (tx) => {
     await tx.careMessage.create({
       data: {

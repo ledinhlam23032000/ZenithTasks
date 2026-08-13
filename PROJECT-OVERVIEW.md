@@ -44,7 +44,7 @@ cd web
 cp .env.example .env          # set DATABASE_URL, AUTH_SECRET, PHONE_ENC_KEY
 npm install
 npm run db:deploy             # apply migrations  (or db:migrate in dev)
-npm run db:seed               # demo data (admin / 123456)
+npm run db:seed               # demo data (QA only; DEMO_PASSWORD from environment)
 npm run dev                   # http://localhost:3000
 ```
 
@@ -190,9 +190,8 @@ Money math (`lib/.../ho-so/actions.ts recalc()`): `totalAmount = Σ finalPrice �
   honeypot + rate-limit on public booking, audit log for sensitive actions.
 
 > 🔒 **SECURITY NOTE for the reviewer**: keep this package private.
-> - `web/docker-entrypoint.sh` ships a **demo fallback `PHONE_ENC_KEY`** (used only if none is set via `.env`).
->   For real production it must be replaced and data re-encrypted (`prisma/rotate-phone-key.ts`).
-> - The seed creates a default admin **`admin` / `123456`** — change immediately in production.
+> - `web/docker-entrypoint.sh` never uses a fixed `PHONE_ENC_KEY` fallback. It reads the secret from the environment or the protected runtime volume, and stops if existing encrypted data has no key.
+> - The seed is QA-only and requires an explicit `DEMO_PASSWORD` (minimum 12 characters); it has no default production credential.
 > - No real customer data is in this package (data lives only in the clinic's database).
 
 ---

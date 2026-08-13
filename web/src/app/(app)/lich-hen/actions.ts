@@ -131,20 +131,27 @@ async function doCreateAppointment(formData: FormData, force: boolean): Promise<
     if (matches.length === 1) customerId = matches[0].id;
   }
 
-  await prisma.appointment.create({
-    data: {
-      customerId,
-      guestName: data.guestName,
-      phoneLast5: data.phoneLast5 || null,
-      scheduledAt: when,
-      type: data.type,
-      serviceInterest: data.serviceInterest || null,
-      source: data.source,
-      sourceDetail: data.sourceDetail || null,
-      consultantId: data.consultantId || null,
-      note: redactPhoneLikeText(data.note) || null,
-      createdById: user.id,
-    },
+  await prisma.$transaction(async (tx) => {
+    const created = await tx.appointment.create({
+      data: {
+        customerId,
+        guestName: data.guestName,
+        phoneLast5: data.phoneLast5 || null,
+        scheduledAt: when,
+        type: data.type,
+        serviceInterest: data.serviceInterest || null,
+        source: data.source,
+        sourceDetail: data.sourceDetail || null,
+        consultantId: data.consultantId || null,
+        note: redactPhoneLikeText(data.note) || null,
+        createdById: user.id,
+      },
+    });
+    await auditRequired(tx, user.id, "CREATE_APPOINTMENT", {
+      entity: "Appointment",
+      entityId: created.id,
+      meta: { customerId: customerId ?? null, scheduledAt: when.toISOString(), type: data.type },
+    });
   });
 
   return { ok: true };
@@ -163,7 +170,7 @@ const ALLOWED_EDIT = ["ADMIN", "MANAGER"] as const;
 
 /** Lõi sửa lịch. `force=true` → bỏ qua kiểm tra trùng lịch. */
 async function doUpdateAppointment(formData: FormData, force: boolean): Promise<ApptFormState> {
-  await requireUser([...ALLOWED_EDIT]);
+  const user = await requireUser([...ALLOWED_EDIT]);
 
   const id = String(formData.get("id") ?? "");
   if (!id) return { error: "Thiếu mã lịch hẹn." };
@@ -204,20 +211,27 @@ async function doUpdateAppointment(formData: FormData, force: boolean): Promise<
     if (matches.length === 1) customerId = matches[0].id;
   }
 
-  await prisma.appointment.update({
-    where: { id },
-    data: {
-      guestName: data.guestName,
-      phoneLast5: data.phoneLast5 || null,
-      scheduledAt: when,
-      type: data.type,
-      serviceInterest: data.serviceInterest || null,
-      source: data.source,
-      sourceDetail: data.sourceDetail || null,
-      consultantId: data.consultantId || null,
-      note: data.note || null,
-      ...(customerId ? { customerId } : {}),
-    },
+  await prisma.$transaction(async (tx) => {
+    const updated = await tx.appointment.update({
+      where: { id },
+      data: {
+        guestName: data.guestName,
+        phoneLast5: data.phoneLast5 || null,
+        scheduledAt: when,
+        type: data.type,
+        serviceInterest: data.serviceInterest || null,
+        source: data.source,
+        sourceDetail: data.sourceDetail || null,
+        consultantId: data.consultantId || null,
+        note: redactPhoneLikeText(data.note) || null,
+        ...(customerId ? { customerId } : {}),
+      },
+    });
+    await auditRequired(tx, user.id, "UPDATE_APPOINTMENT", {
+      entity: "Appointment",
+      entityId: updated.id,
+      meta: { customerId: customerId ?? null, scheduledAt: when.toISOString(), type: data.type },
+    });
   });
 
   return { ok: true };
@@ -247,17 +261,20 @@ const STATUS_VALUES: AppointmentStatus[] = [
 export async function updateAppointmentStatus(formData: FormData): Promise<void> {
   // Chỉ các vai trò có quyền với lịch hẹn mới được đổi trạng thái (tránh người
   // dùng vai trò khác đổi trạng thái lịch của bất kỳ ai qua ID).
-  await requireUser(["ADMIN", "MANAGER", "TELESALE", "RECEPTION", "CONSULTANT", "NURSE"]);
+  const user = await requireUser(["ADMIN", "MANAGER", "TELESALE", "RECEPTION", "CONSULTANT", "NURSE"]);
   const id = String(formData.get("id") ?? "");
   const status = String(formData.get("status") ?? "") as AppointmentStatus;
   if (!id || !STATUS_VALUES.includes(status)) return;
 
-  await prisma.appointment.update({
-    where: { id },
-    data: {
-      status,
-      arrivedAt: status === "ARRIVED" ? new Date() : undefined,
-    },
+  await prisma.$transaction(async (tx) => {
+    await tx.appointment.update({
+      where: { id },
+      data: {
+        status,
+        arrivedAt: status === "ARRIVED" ? new Date() : undefined,
+      },
+    });
+    await auditRequired(tx, user.id, "UPDATE_APPOINTMENT_STATUS", { entity: "Appointment", entityId: id, meta: { status } });
   });
   // KHÔNG gọi revalidatePath: gọi trực tiếp từ client qua useTransition + router.refresh()
   // (xem AppointmentStatusControl), không phải qua <form action> thuần — mục 8.1 BAN-GIAO.md.
@@ -265,10 +282,13 @@ export async function updateAppointmentStatus(formData: FormData): Promise<void>
 
 /** Xóa lịch hẹn (quản trị / quản lý). Lịch thường thì nên đổi trạng thái "Hủy". */
 export async function deleteAppointment(formData: FormData): Promise<void> {
-  await requireUser(["ADMIN", "MANAGER"]);
+  const user = await requireUser(["ADMIN", "MANAGER"]);
   const id = String(formData.get("id") ?? "");
   if (!id) return;
-  await prisma.appointment.delete({ where: { id } }).catch(() => {});
+  await prisma.$transaction(async (tx) => {
+    const deleted = await tx.appointment.deleteMany({ where: { id } });
+    if (deleted.count > 0) await auditRequired(tx, user.id, "DELETE_APPOINTMENT", { entity: "Appointment", entityId: id });
+  });
   revalidatePath("/lich-hen");
   revalidatePath("/dashboard");
 }

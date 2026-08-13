@@ -33,6 +33,8 @@ services:
       PHONE_ENC_KEY: "${PHONE_ENC_KEY:-}"
       UPLOAD_DIR: "${UPLOAD_DIR:-/app/private/uploads}"
       ALLOW_DEMO_SEED: "${ALLOW_DEMO_SEED:-false}"
+      # Chỉ dùng khi ALLOW_DEMO_SEED=true trong QA cô lập; không dùng production.
+      DEMO_PASSWORD: "${DEMO_PASSWORD:-}"
       BOOTSTRAP_ADMIN_USERNAME: "${BOOTSTRAP_ADMIN_USERNAME:-}"
       BOOTSTRAP_ADMIN_NAME: "${BOOTSTRAP_ADMIN_NAME:-}"
       BOOTSTRAP_ADMIN_PASSWORD: "${BOOTSTRAP_ADMIN_PASSWORD:-}"

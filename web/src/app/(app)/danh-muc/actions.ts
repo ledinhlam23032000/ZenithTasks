@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { toNum } from "@/lib/money";
 import { weightedAvgCost } from "@/lib/inventory-cost";
+import { auditRequired } from "@/lib/audit";
 
 export type CatalogState = { ok?: boolean; error?: string };
 const ROLES = ["ADMIN", "MANAGER"] as const;
@@ -115,10 +116,15 @@ export async function stockIn(formData: FormData): Promise<void> {
   const qty = Number(formData.get("quantity") ?? 0) || 0;
   const unitCost = Number(formData.get("unitCost") ?? 0) || 0; // đơn giá nhập (VND/đơn vị), tùy chọn
   const note = String(formData.get("note") ?? "").trim();
-  if (!id || qty <= 0) return;
+  if (!id || !Number.isFinite(qty) || qty <= 0 || !Number.isFinite(unitCost) || unitCost < 0) return;
   await prisma.$transaction(async (tx) => {
-    const m = await tx.material.findUnique({ where: { id }, select: { stock: true, avgCost: true } });
-    if (!m) return;
+    // Khóa đúng dòng vật tư trước khi đọc tồn kho để hai phiếu nhập đồng thời
+    // không cùng đọc một số dư cũ rồi ghi đè giá vốn/tồn kho của nhau.
+    const rows = await tx.$queryRaw<Array<{ stock: unknown; avgCost: unknown }>>`
+      SELECT "stock", "avgCost" FROM "Material" WHERE "id" = ${id} FOR UPDATE
+    `;
+    const m = rows[0];
+    if (!m) throw new Error("Vật tư không còn tồn tại. Phiếu nhập chưa được ghi nhận.");
     const newAvg = weightedAvgCost({
       oldStock: toNum(m.stock),
       oldAvg: toNum(m.avgCost),
@@ -135,6 +141,10 @@ export async function stockIn(formData: FormData): Promise<void> {
         note: note || null,
         createdById: user.id,
       },
+    });
+    await auditRequired(tx, user.id, "STOCK_IN", {
+      entity: "StockMovement",
+      meta: { materialId: id, quantity: qty, unitCost: unitCost > 0 ? unitCost : null },
     });
   });
   revalidatePath("/danh-muc");

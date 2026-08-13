@@ -121,7 +121,7 @@
 - **A1 — Xác thực ảnh y khoa**: route `/media/[file]` KHÔNG còn công khai. Chỉ phục vụ khi (1) đã đăng nhập (cookie phiên) HOẶC (2) có "vé" ký ngắn hạn `?t=`. Vé = HMAC-SHA256(tên tệp + hạn) ký bằng `AUTH_SECRET`, gắn đúng 1 tệp, hạn 24h — `web/src/lib/media-token.ts` (`signMediaToken`/`verifyMediaToken`/`withMediaToken`). Cổng khách `/khach/[token]` ký vé từng ảnh qua `withMediaToken`. Trang nhân viên không đổi (trình duyệt tự gửi cookie). Đã test dev: không vé→401, vé đúng→200, vé sai/khác tệp→401.
 - **A3 — Tiền nguyên tử**: `ho-so/actions.ts` thêm `withCaseLock(caseId, fn)` = `$transaction` + `SELECT … FOR UPDATE` khoá hàng hồ sơ. `recalc(caseId, db)` nhận client giao dịch. Đã bọc add/update/remove dịch vụ, voucher, add/update/delete thanh toán → hai người thao tác cùng lúc không ghi đè số liệu.
 - **A4 — Test toán tiền**: tách toán thuần ra `web/src/lib/case-math.ts` (`computeCaseTotals`) + test (`case-math.test.ts` 8, `media-token.test.ts` 7).
-- **A2 — Cảnh báo khoá demo**: `web/src/lib/security-status.ts` (`securityWarnings()`) phát hiện `PHONE_ENC_KEY` = khoá demo công khai → banner đỏ cho ADMIN ở `(app)/layout.tsx`. KHÔNG hard-fail (tránh sập app đang chạy bằng khoá demo). 🔑 Chủ cần đổi khoá thật + `npm run rotate:phone`.
+- **A2 — Khoá mã hoá**: `PHONE_ENC_KEY` phải được cấp từ secret manager/.env hoặc volume runtime; không có fallback cố định trong source. Khi mất khóa trong lúc CSDL còn dữ liệu mã hóa, entrypoint dừng khởi động để tránh mất khả năng giải mã.
 - **A6 — CSP**: `next.config.ts` thêm `Content-Security-Policy` (+ object-src none, base-uri, form-action, frame-ancestors).
 - ⚠️ **Sandbox/proxy Prisma**: nếu `npm install` lỗi ECONNRESET ở `@prisma/engines` (trình tải bỏ qua proxy), tải engine bằng `curl --proxy http://127.0.0.1:34227 --cacert /root/.ccr/ca-bundle.crt <url schema-engine.gz>` rồi `gunzip` vào `node_modules/@prisma/engines/schema-engine-debian-openssl-3.0.x` + `chmod +x`; đặt `CHECKPOINT_DISABLE=1` để tắt telemetry (bị policy chặn 403).
 
@@ -130,7 +130,7 @@
 - **B1 (lõi) — "Việc cần làm hôm nay"** (`/viec-hom-nay`): `lib/workqueue.ts` `getWorkqueue()` tổng hợp **từ dữ liệu sẵn có, KHÔNG đổi schema, KHÔNG cron**: tái khám đến hạn (≤2 ngày), hẹn hôm nay chưa đến, công nợ quá hạn (>15 ngày), sinh nhật khách hôm nay (raw `EXTRACT`), khách nguội (>60 ngày + không có tái khám sắp tới, raw `make_interval`), kho cảnh báo. Ngưỡng = hằng số đầu file. Module `viec-hom-nay` (icon `ListTodo`) cho hầu hết vai trò vận hành. ⏳ Phần 2 (Web Push + việc có người phụ trách/đánh dấu xong) cần model + cron + VAPID.
 - **A7 — Tình trạng hệ thống** (`/he-thong`, ADMIN): `lib/system-status.ts` gom cảnh báo bảo mật + quy mô dữ liệu + kích thước DB (`pg_database_size`) + dung lượng ảnh (quét `public/uploads`) + lần sao lưu gần nhất + 10 audit gần nhất. Icon `ServerCog`.
 - **A5 — Sao lưu tự động**: `scripts/backup.mjs` (`pg_dump -Fc` + ảnh `tar.gz` + giữ 14 bản + ghi `backup-status.json`); `npm run backup`; `docker-entrypoint.sh` chạy nền 1 lần lúc khởi động rồi mỗi 24h. Sao lưu OFFSITE vẫn là `windows/Sao-Luu.ps1`.
-- Lưu ý kỹ thuật: trong sandbox Postgres có thể tự dừng (stale pid) → `pg_ctlcluster 16 main start`. DB sandbox cần `npm run db:seed` để có dữ liệu thử (admin/123456).
+- Lưu ý kỹ thuật: trong sandbox Postgres có thể tự dừng (stale pid) → `pg_ctlcluster 16 main start`. DB sandbox cần `DEMO_PASSWORD=... npm run db:seed` để có dữ liệu thử; seed chỉ dùng cho QA cô lập.
 
 ## Đợt vá bảo mật & mặt tiền khách nhìn thấy (kiểm định QA — Đợt 1/6) — "Đợt 25"
 > "Đợt 1" trong kế hoạch đại tu 6 đợt lớn hơn (sau "Đợt 0" = "Đợt 24" ở dưới). Tự kiểm thử bằng
@@ -154,7 +154,7 @@
 - **Sao lưu tự động ĐANG HỎNG THẬT**: `Dockerfile` chỉ cài `openssl ca-certificates` → container KHÔNG có `pg_dump` → `scripts/backup.mjs` lỗi ENOENT âm thầm dù trang Hệ thống báo "đã bật sao lưu tự động". Thêm `postgresql-client-16` (khớp đúng major version với service `db` trong compose, qua kho APT chính thức apt.postgresql.org vì Debian bookworm mặc định chỉ có client v15). Đã diễn tập: sao lưu → `pg_restore` vào DB trống → khôi phục đúng 100% (16 khách, 30 hồ sơ, tài khoản admin) + kiểm cơ chế giữ N bản gần nhất (RETAIN).
 - **Nguy cơ seed tự xoá dữ liệu thật**: `docker-entrypoint.sh` cũ coi LỖI đếm bảng `User` (mất kết nối/quyền truy vấn thoáng qua) = "0 người dùng" rồi tự chạy seed (seed mở đầu bằng loạt `deleteMany()`). Sửa: lỗi đếm → DỪNG hẳn (`exit 1`, có thông báo rõ), KHÔNG bao giờ suy ra "trống" từ lỗi. Đã kiểm cả 2 nhánh (DB thật có dữ liệu → bỏ qua seed; DB lỗi kết nối → dừng, không seed) chạy thật qua `dash` (khớp shebang `/bin/sh` + `set -e` của script thật).
 - **Vòng lặp đăng nhập vô hạn**: `proxy.ts` cũ chỉ kiểm tra cookie phiên có tồn tại (không xác thực JWT) → cookie hỏng (đổi `AUTH_SECRET`, hết hạn) vẫn bị coi "đã đăng nhập" → trang tự phát hiện sai → đá về `/login` → `/login` lại thấy cookie "có" → đá ngược lại → `ERR_TOO_MANY_REDIRECTS`. Next.js 16 chạy proxy bằng Node.js runtime (không còn giới hạn Edge) nên xác thực JWT thật ngay trong proxy an toàn; cookie hỏng bị xoá thẳng trên response trước khi chuyển hướng. Tái hiện đúng lỗi gốc bằng JWT ký sai khoá + xác nhận đã hết loop, đối chứng phiên hợp lệ vẫn hoạt động bình thường.
-- **Cảnh báo mật khẩu demo chưa đổi**: thêm cờ `weakPw` vào JWT khi đăng nhập bằng đúng mật khẩu seed `123456` (`login/actions.ts`) → banner đỏ cho CHÍNH người đó (mọi vai trò, không riêng ADMIN) ở `(app)/layout.tsx`, link `/tai-khoan`. Đổi mật khẩu (`changePassword`) tự làm mới session `weakPw:false` ngay, không cần đăng xuất lại.
+- **Mật khẩu demo**: seed QA không còn mật khẩu mặc định; `DEMO_PASSWORD` phải được cấp rõ ràng từ môi trường và chỉ bật trong môi trường dữ liệu giả.
 - Việc này nằm trong "Đợt 0" của kế hoạch đại tu 6 đợt lớn hơn (an toàn hạ tầng → bảo mật/mặt-tiền-khách → chống-nổ-chậm → tính-năng-mới → đánh-bóng-UI → sản-phẩm-hoá) — các đợt sau xem tiếp trong hội thoại/PR liên quan.
 
 ## Đợt thiết kế lại Trợ lý AI thành màn chat + render markdown — "Đợt 23"
@@ -528,7 +528,7 @@
 - **Tải ảnh**: bỏ SVG, bắt buộc đúng định dạng JPG/PNG/WEBP/HEIC.
 - **Header bảo mật** trong `next.config.ts`; **bcrypt cost 12**; mật khẩu tối thiểu **8 ký tự**.
 - **Khoá bí mật**: `docker-compose.yml` KHÔNG còn nhúng AUTH_SECRET. Entrypoint tự sinh AUTH_SECRET ngẫu nhiên lưu trong volume `zenith_secrets`. Có thể đặt khoá riêng qua file `.env` (xem `.env.example`).
-- ⚠️ **Còn phải làm thủ công**: đổi `PHONE_ENC_KEY` (hiện vẫn dùng khoá tương thích cũ để không mất dữ liệu SĐT) → cần viết migration mã hoá lại; đổi mật khẩu `admin/123456`; bật rate-limit của Cloudflare cho `/login`. Cân nhắc đưa ảnh y khoa ra khỏi `public/` và phục vụ qua route có xác thực.
+- ⚠️ **Còn phải làm thủ công**: quản lý/backup secret `PHONE_ENC_KEY`, bật rate-limit của Cloudflare cho `/login`, và kiểm tra khôi phục backup định kỳ. Ảnh lâm sàng đã được chuyển sang storage riêng và route có xác thực.
 
 ## Liên lạc khách hàng & AI
 - **SĐT**: chỉ ADMIN xem số đầy đủ (giải mã ở `khach-hang/[id]/page.tsx`), kèm nút gọi/Zalo/sao chép (`admin-phone.tsx`). Nhân sự khác chỉ thấy 5 số cuối.

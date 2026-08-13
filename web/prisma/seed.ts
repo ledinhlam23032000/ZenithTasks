@@ -23,7 +23,11 @@ function pick<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-const DEMO_PASSWORD = "123456";
+// Seed chỉ dành cho môi trường QA cô lập. Không có mật khẩu mặc định trong source.
+const DEMO_PASSWORD = process.env.DEMO_PASSWORD ?? "";
+if (DEMO_PASSWORD.length < 12) {
+  throw new Error("DEMO_PASSWORD phải được cấp từ môi trường QA và có ít nhất 12 ký tự.");
+}
 
 async function main() {
   console.log("🌱 Bắt đầu nạp dữ liệu mẫu...");

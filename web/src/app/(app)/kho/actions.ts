@@ -28,7 +28,10 @@ export async function stockInBatch(formData: FormData): Promise<StockInState> {
 
   await prisma.$transaction(async (tx) => {
     for (const l of lines) {
-      const m = await tx.material.findUnique({ where: { id: l.materialId }, select: { stock: true, avgCost: true } });
+      const rows = await tx.$queryRaw<Array<{ stock: unknown; avgCost: unknown }>>`
+        SELECT "stock", "avgCost" FROM "Material" WHERE "id" = ${l.materialId} FOR UPDATE
+      `;
+      const m = rows[0];
       if (!m) throw new Error("Một vật tư trong phiếu không còn tồn tại. Phiếu chưa được ghi nhận.");
       const newAvg = weightedAvgCost({
         oldStock: toNum(m.stock),

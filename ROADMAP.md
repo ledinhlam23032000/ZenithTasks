@@ -85,12 +85,10 @@ phần "Đánh giá" trong lịch sử hội thoại + `web/DU-AN.md`.
   - Trang nhân viên (`ho-so`, `khach-hang`) KHÔNG cần đổi: trình duyệt tự gửi cookie phiên.
 - **Đã kiểm thử (dev server thực):** không vé → 401 · vé đúng → 200 · vé sai/khác tệp → 401.
 
-### A2 — Cảnh báo khoá mã hoá mặc định
-- `web/src/lib/security-status.ts` (mới): `securityWarnings()` phát hiện `PHONE_ENC_KEY` đang
-  dùng khoá DEMO công khai.
-- `web/src/app/(app)/layout.tsx`: hiện **banner đỏ cho ADMIN** nếu có cảnh báo.
-- **KHÔNG hard-fail** khi khởi động (tránh sập phòng khám đang chạy bằng khoá demo + mất khả
-  năng giải mã). 🔑 Việc của chủ: đặt `PHONE_ENC_KEY` riêng trong `.env` rồi `npm run rotate:phone`.
+### A2 — Quản lý khoá mã hoá
+- `PHONE_ENC_KEY` không còn fallback cố định trong source; production đọc từ secret manager/.env hoặc volume runtime.
+- Nếu mất khóa trong khi CSDL còn dữ liệu `phoneEnc`, `docker-entrypoint.sh` **dừng khởi động** thay vì sinh khóa sai khiến dữ liệu không thể giải mã.
+- Khi đổi khóa, phải sao lưu và chạy quy trình mã hóa lại (`prisma/rotate-phone-key.ts`).
 
 ### A3 — Giao dịch nguyên tử cho luồng tiền
 - **Vấn đề:** `recalc()` + thêm/sửa/xóa thanh toán/dịch vụ/voucher KHÔNG nằm trong giao dịch →
@@ -466,7 +464,7 @@ phần "Đánh giá" trong lịch sử hội thoại + `web/DU-AN.md`.
 
 ## VIỆC CỦA CHỦ (🔑 — làm khi rảnh, không gấp)
 - Đặt `PHONE_ENC_KEY` riêng + `npm run rotate:phone` (tắt banner đỏ A2).
-- Đổi mật khẩu `admin/123456`.
+- Trong QA, seed dùng `DEMO_PASSWORD` cấp từ môi trường; production phải dùng tài khoản bootstrap cá nhân và không bật `ALLOW_DEMO_SEED`.
 - Khi muốn bật: cấp `ANTHROPIC_API_KEY` (AI), tài khoản SMS/Email (gửi tin thật), nơi đẩy backup offsite (A5).
 - **Muốn bật Hộp thư Zalo OA + Facebook (B2 bậc 2/3, mới xong phần code)**: lập Zalo Official Account
   tại oa.zalo.me (KHÔNG phải Zalo cá nhân đang dùng) + app tại developers.zalo.me; tạo Facebook App

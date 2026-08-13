@@ -7,6 +7,7 @@ import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { encryptPhone, normalizePhone, phoneLast5, hashPhone } from "@/lib/phone";
 import { nextCustomerCode, nextCaseCode, isUniqueViolation } from "@/lib/codes";
+import { auditRequired } from "@/lib/audit";
 
 export type CustomerFormState = { ok?: boolean; error?: string };
 
@@ -69,21 +70,25 @@ export async function createCustomer(_prev: CustomerFormState, formData: FormDat
   for (let attempt = 0; attempt < 5; attempt++) {
     const code = await nextCustomerCode();
     try {
-      customer = await prisma.customer.create({
-        data: {
-          code,
-          fullName: data.fullName,
-          gender: data.gender ?? null,
-          dob,
-          phoneEnc: encryptPhone(normalized),
-          phoneLast5: phoneLast5(normalized),
-          phoneHash: hashPhone(normalized),
-          source: data.source,
-          sourceDetail: data.sourceDetail || null,
-          address: data.address || null,
-          note: data.note || null,
-          createdById: user.id,
-        },
+      customer = await prisma.$transaction(async (tx) => {
+        const created = await tx.customer.create({
+          data: {
+            code,
+            fullName: data.fullName,
+            gender: data.gender ?? null,
+            dob,
+            phoneEnc: encryptPhone(normalized),
+            phoneLast5: phoneLast5(normalized),
+            phoneHash: hashPhone(normalized),
+            source: data.source,
+            sourceDetail: data.sourceDetail || null,
+            address: data.address || null,
+            note: data.note || null,
+            createdById: user.id,
+          },
+        });
+        await auditRequired(tx, user.id, "CREATE_CUSTOMER", { entity: "Customer", entityId: created.id });
+        return { id: created.id };
       });
       break;
     } catch (e) {
@@ -92,10 +97,6 @@ export async function createCustomer(_prev: CustomerFormState, formData: FormDat
     }
   }
   if (!customer) return { error: "Không tạo được hồ sơ khách. Vui lòng thử lại." };
-
-  await prisma.auditLog
-    .create({ data: { actorId: user.id, action: "CREATE_CUSTOMER", entity: "Customer", entityId: customer.id } })
-    .catch(() => {});
 
   revalidatePath("/khach-hang");
   redirect(`/khach-hang/${customer.id}`);
@@ -120,15 +121,19 @@ export async function receiveCustomer(formData: FormData): Promise<void> {
   for (let attempt = 0; attempt < 5; attempt++) {
     const code = await nextCaseCode();
     try {
-      created = await prisma.caseRecord.create({
-        data: {
-          code,
-          customerId,
-          status: "OPEN",
-          consultantId,
-          chiefComplaint: serviceInterest || null,
-          createdById: user.id,
-        },
+      created = await prisma.$transaction(async (tx) => {
+        const record = await tx.caseRecord.create({
+          data: {
+            code,
+            customerId,
+            status: "OPEN",
+            consultantId,
+            chiefComplaint: serviceInterest || null,
+            createdById: user.id,
+          },
+        });
+        await auditRequired(tx, user.id, "CREATE_CASE", { entity: "CaseRecord", entityId: record.id, meta: { customerId } });
+        return { id: record.id };
       });
       break;
     } catch (e) {
