@@ -23,15 +23,12 @@ const nextConfig: NextConfig = {
   },
   // Các header bảo mật cơ bản (chống nhúng iframe, dò kiểu tệp, rò rỉ referrer…).
   async headers() {
-    // Content-Security-Policy: hạn chế nguồn tài nguyên để giảm rủi ro XSS.
-    // Ghi chú: Next.js cần script/style inline (hydration, Tailwind) → giữ
-    // 'unsafe-inline'/'unsafe-eval'. Có thể siết chặt thêm bằng nonce về sau.
-    const scriptSources = process.env.NODE_ENV === "production"
-      ? "script-src 'self' 'unsafe-inline'"
-      : "script-src 'self' 'unsafe-inline' 'unsafe-eval'";
+    // HTML responses receive a per-request nonce in proxy.ts. This static
+    // fallback covers assets and non-proxied responses without allowing
+    // executable inline scripts.
     const csp = [
       "default-src 'self'",
-      scriptSources,
+      "script-src 'self'",
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob:",
       "font-src 'self' data:",

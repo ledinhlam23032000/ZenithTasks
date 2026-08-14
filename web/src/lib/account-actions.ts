@@ -8,7 +8,7 @@ import { requireUser, verifyPassword, hashPassword, createSession } from "@/lib/
 import { generateSecret, totpVerify, otpauthURL } from "@/lib/totp";
 import { auditRequired } from "@/lib/audit";
 import { sniffImageExt, safeStoredName } from "@/lib/upload";
-import { getUploadDir } from "@/lib/upload-storage";
+import { getUploadDir, getUploadStorageError } from "@/lib/upload-storage";
 
 export type PasswordState = { ok?: boolean; error?: string };
 export type ProfileState = { ok?: boolean; error?: string; nonce?: number };
@@ -45,6 +45,9 @@ export async function updateMyAvatar(_prev: ProfileState, formData: FormData): P
   // Dò định dạng THẬT qua magic bytes — KHÔNG tin file.type/đuôi tên tệp (dễ giả mạo).
   const ext = sniffImageExt(buf);
   if (!ext) return { error: "Tệp không phải ảnh hợp lệ (JPG/PNG/WEBP/HEIC/GIF)." };
+
+  const storageError = getUploadStorageError();
+  if (storageError) return { error: storageError };
 
   // Lưu ngoài public/; avatar vẫn đi qua route /media có xác thực.
   const fname = safeStoredName(`avatar-${user.id}`, ext);

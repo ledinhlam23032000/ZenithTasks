@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { jwtVerify } from "jose";
+import { buildContentSecurityPolicy, createCspNonce } from "@/lib/security-headers";
 
 // Next.js 16: "proxy" thay cho "middleware", mặc định chạy Node.js runtime (không
 // còn giới hạn Edge) → xác thực JWT thật ở đây an toàn, không cần "đoán" qua việc
@@ -22,6 +23,14 @@ function secret(): Uint8Array {
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const isPublic = PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"));
+  const nonce = createCspNonce();
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-nonce", nonce);
+
+  const secure = (response: NextResponse): NextResponse => {
+    response.headers.set("Content-Security-Policy", buildContentSecurityPolicy(nonce));
+    return response;
+  };
 
   const token = request.cookies.get(COOKIE_NAME)?.value;
   let hasValidSession = false;
@@ -40,7 +49,7 @@ export async function proxy(request: NextRequest) {
   // hard 404 so an old file cannot become public if it is left in an image or
   // during a rolling deployment.
   if (pathname.startsWith("/uploads/")) {
-    return new NextResponse("Not found", { status: 404 });
+    return secure(new NextResponse("Not found", { status: 404 }));
   }
 
   if (!hasValidSession && !isPublic) {
@@ -48,20 +57,21 @@ export async function proxy(request: NextRequest) {
     if (pathname !== "/") url.searchParams.set("next", pathname);
     const res = NextResponse.redirect(url);
     if (token) res.cookies.delete({ name: COOKIE_NAME, path: "/" });
-    return res;
+    return secure(res);
   }
 
   if (hasValidSession && mustChangePassword && pathname !== "/tai-khoan" && !pathname.startsWith("/tai-khoan/")) {
     const url = new URL("/tai-khoan", request.url);
     url.searchParams.set("force", "1");
-    return NextResponse.redirect(url);
+    return secure(NextResponse.redirect(url));
   }
 
   if (hasValidSession && pathname === "/login") {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
+    return secure(NextResponse.redirect(new URL("/dashboard", request.url)));
   }
 
-  return NextResponse.next();
+  const response = NextResponse.next({ request: { headers: requestHeaders } });
+  return secure(response);
 }
 
 export const config = {

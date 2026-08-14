@@ -12,7 +12,7 @@ import { toNum } from "@/lib/money";
 import { summarizeCase, validatePaymentAmount, validateServicePrice } from "@/lib/financial-summary";
 import { bomNeeds, type BomLine } from "@/lib/service-bom";
 import { isAllowedDocMime, docExt, safeStoredName, sniffImageExt, isDocumentBufferValid } from "@/lib/upload";
-import { getUploadDir } from "@/lib/upload-storage";
+import { getUploadDir, getUploadStorageError } from "@/lib/upload-storage";
 import { canAccessCase, type CaseAccess, type CaseAccessUser } from "@/lib/case-access";
 import type { Prisma } from "@/generated/prisma/client";
 
@@ -741,6 +741,8 @@ export async function uploadPhoto(_prev: CaseActionState, formData: FormData): P
   const buffer = Buffer.from(await file.arrayBuffer());
   const ext = sniffImageExt(buffer);
   if (!ext || !["jpg", "png", "webp", "heic"].includes(ext)) return { error: "Tệp không phải ảnh bitmap hợp lệ (JPG, PNG, WEBP, HEIC)." };
+  const storageError = getUploadStorageError();
+  if (storageError) return { error: storageError };
   const fname = `${caseId}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}.${ext}`;
   const dir = getUploadDir();
   await fs.mkdir(dir, { recursive: true });
@@ -796,6 +798,8 @@ export async function uploadCaseDocument(_prev: CaseActionState, formData: FormD
   const buffer = Buffer.from(await file.arrayBuffer());
   if (!isDocumentBufferValid(buffer, file.type)) return { error: "Nội dung tệp không khớp định dạng đã chọn." };
 
+  const storageError = getUploadStorageError();
+  if (storageError) return { error: storageError };
   const fname = safeStoredName(caseId, docExt(file.type, file.name));
   const dir = getUploadDir();
   await fs.mkdir(dir, { recursive: true });

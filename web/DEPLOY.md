@@ -5,7 +5,7 @@ Có 3 cách, chọn theo nhu cầu:
 | Cách | Phù hợp khi | Kết quả |
 |------|-------------|---------|
 | **A. Docker** | Máy/VPS có Docker | 1 lệnh, đầy đủ (kể cả upload ảnh) — chạy ở `localhost:3000` |
-| **B. Vercel + Neon** | Muốn **link công khai**, không cài gì trên máy | URL `https://...vercel.app` mở được trên điện thoại |
+| **B. Vercel + Neon** | Muốn **link công khai**, không cài gì trên máy | URL `https://...vercel.app` mở được trên điện thoại; không hỗ trợ upload clinical |
 | **C. Thủ công** | Máy có sẵn Node 20+ và PostgreSQL | Chạy dev/tùy biến |
 
 Không có tài khoản demo tự động trong production. Khi CSDL trống, cấu hình `BOOTSTRAP_ADMIN_USERNAME`, `BOOTSTRAP_ADMIN_NAME`, `BOOTSTRAP_ADMIN_PASSWORD` (ít nhất 12 ký tự) để tạo một tài khoản quản trị cá nhân; tài khoản bắt buộc đổi mật khẩu lần đầu.
@@ -56,7 +56,7 @@ Khi thấy dòng `🚀 Khởi động Zenith Clinic`, mở **http://localhost:30
 ### 3) Khởi tạo tài khoản và dữ liệu
 Không chạy `db:seed` trên database production. Hãy tạo tài khoản riêng bằng cơ chế bootstrap của Docker hoặc chạy `npm run db:bootstrap-admin` với các biến môi trường bootstrap trong một phiên vận hành được kiểm soát.
 
-> ℹ️ Trên Vercel (serverless), việc **tải ảnh trước–sau sẽ không lưu được** do hệ thống tệp chỉ đọc — các phần khác hoạt động bình thường. Nếu cần upload ảnh, dùng **Cách A (Docker)** hoặc gắn dịch vụ lưu trữ ảnh (S3/Cloudinary).
+> ⚠️ **Không dùng Vercel/serverless cho dữ liệu clinical cần lưu tệp.** Các upload ảnh hồ sơ (trước/sau/tái khám), giấy tờ hành chính và avatar sẽ bị từ chối rõ ràng trước khi ghi, vì filesystem local của Vercel là ephemeral; cấu hình `UPLOAD_DIR` sang `/tmp` hay đường dẫn khác cũng không làm dữ liệu bền vững. Dùng **Cách A (Docker)** với volume `zenith_uploads`, hoặc triển khai một adapter object storage bền vững (S3/Cloudinary tương đương) trước khi bật upload.
 
 ---
 
