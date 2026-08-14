@@ -1,18 +1,22 @@
 "use client";
 
 import { useState, useRef, useEffect, useTransition } from "react";
-import { Sparkles, LoaderCircle, SendHorizontal, User } from "lucide-react";
+import Link from "next/link";
+import { Sparkles, LoaderCircle, SendHorizontal, User, ClipboardList, Check } from "lucide-react";
 import { Markdown } from "@/components/ui/markdown";
 import { SUGGESTED_QUESTIONS } from "@/lib/assistant";
-import { askAssistant } from "./actions";
+import { askAssistant, logAssistantChangeRequest } from "./actions";
 
-type Turn = { q: string; a: string };
+type Turn = { q: string; a: string; loggedTaskUrl?: string };
 
 export function AssistantChat({ aiOn, greetName }: { aiOn: boolean; greetName: string }) {
   const [q, setQ] = useState("");
   const [turns, setTurns] = useState<Turn[]>([]);
   const [err, setErr] = useState<string | null>(null);
   const [pending, start] = useTransition();
+  const [loggingIndex, setLoggingIndex] = useState<number | null>(null);
+  const [loggingErr, setLoggingErr] = useState<{ index: number; message: string } | null>(null);
+  const [logPending, startLog] = useTransition();
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Tự cuộn xuống cuối khi có tin mới / đang trả lời (effect không gọi setState).
@@ -33,6 +37,26 @@ export function AssistantChat({ aiOn, greetName }: { aiOn: boolean; greetName: s
         setTurns((t) => [...t, { q: text, a: r.answer as string }]);
         setQ("");
       }
+    });
+  }
+
+  // Ghi lại 1 câu hỏi/yêu cầu thành nhiệm vụ trong Lập kế hoạch — trợ lý KHÔNG
+  // tự sửa hệ thống, chỉ tóm tắt + lưu để quản lý duyệt/giao lập trình sau.
+  function logAsRequest(index: number) {
+    const turn = turns[index];
+    if (!turn || logPending) return;
+    setLoggingErr(null);
+    setLoggingIndex(index);
+    const fd = new FormData();
+    fd.set("question", turn.q);
+    fd.set("answer", turn.a);
+    startLog(async () => {
+      const r = await logAssistantChangeRequest({}, fd);
+      if (r.error) setLoggingErr({ index, message: r.error });
+      else if (r.ok && r.planId) {
+        setTurns((t) => t.map((x, i) => (i === index ? { ...x, loggedTaskUrl: `/ke-hoach/${r.planId}` } : x)));
+      }
+      setLoggingIndex(null);
     });
   }
 
@@ -69,7 +93,8 @@ export function AssistantChat({ aiOn, greetName }: { aiOn: boolean; greetName: s
             </span>
             <h2 className="mt-4 text-lg font-semibold text-slate-800">Chào {greetName} 👋</h2>
             <p className="mt-1 text-sm text-slate-500">
-              Hỏi tôi bất cứ điều gì về số liệu phòng khám — doanh thu, công nợ, dịch vụ bán chạy, khách rời bỏ, tồn kho…
+              Hỏi tôi về số liệu phòng khám — doanh thu, công nợ, dịch vụ bán chạy, khách rời bỏ, tồn kho… hoặc hỏi cơ chế
+              hoạt động — lương, hạng thành viên, cách tính công nợ tính như thế nào.
             </p>
             <div className="mt-6 grid w-full gap-2 sm:grid-cols-2">
               {SUGGESTED_QUESTIONS.map((s) => (
@@ -108,8 +133,34 @@ export function AssistantChat({ aiOn, greetName }: { aiOn: boolean; greetName: s
                   <span className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-violet-500 text-white">
                     <Sparkles className="h-4 w-4" />
                   </span>
-                  <div className="max-w-[85%] rounded-2xl rounded-tl-sm border border-slate-100 bg-slate-50 px-4 py-2.5">
-                    <Markdown text={t.a} />
+                  <div className="max-w-[85%] space-y-2">
+                    <div className="rounded-2xl rounded-tl-sm border border-slate-100 bg-slate-50 px-4 py-2.5">
+                      <Markdown text={t.a} />
+                    </div>
+                    {t.loggedTaskUrl ? (
+                      <p className="flex items-center gap-1.5 text-xs font-medium text-emerald-600">
+                        <Check className="h-3.5 w-3.5" /> Đã ghi lại yêu cầu ·{" "}
+                        <Link href={t.loggedTaskUrl} className="underline hover:text-emerald-700">
+                          Xem tại Kế hoạch
+                        </Link>
+                      </p>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => logAsRequest(i)}
+                        disabled={logPending}
+                        className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 disabled:opacity-50"
+                        title="Lưu câu hỏi/yêu cầu này thành 1 việc trong Kế hoạch để giao lập trình xử lý — trợ lý không tự sửa hệ thống."
+                      >
+                        {logPending && loggingIndex === i ? (
+                          <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <ClipboardList className="h-3.5 w-3.5" />
+                        )}
+                        Ghi thành yêu cầu cho lập trình
+                      </button>
+                    )}
+                    {loggingErr?.index === i && <p className="text-xs text-rose-600">{loggingErr.message}</p>}
                   </div>
                 </div>
               </div>
@@ -164,7 +215,8 @@ export function AssistantChat({ aiOn, greetName }: { aiOn: boolean; greetName: s
           </button>
         </div>
         <p className="mx-auto mt-2 max-w-2xl text-center text-[11px] text-slate-400">
-          Trợ lý dựa trên số liệu tổng hợp 30 ngày gần nhất · không gửi SĐT/dữ liệu y khoa cho AI · hãy kiểm tra lại số quan trọng.
+          Trợ lý dựa trên số liệu tổng hợp 30 ngày gần nhất + quy tắc nghiệp vụ đang chạy thật · không gửi SĐT/dữ liệu y khoa
+          cho AI · hãy kiểm tra lại số quan trọng · trợ lý không tự sửa hệ thống, chỉ ghi lại yêu cầu để giao lập trình.
         </p>
       </div>
     </div>
