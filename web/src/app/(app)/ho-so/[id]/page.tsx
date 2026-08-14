@@ -28,7 +28,7 @@ import { fmtDate, fmtDateTime, toDatetimeLocal } from "@/lib/format";
 import { addDays } from "date-fns";
 import { CASE_STATUS, CONSULT_RESULT, PAYMENT_LABEL, GENDER_LABEL, APPT_STATUS } from "@/lib/status";
 import { getActiveServices, getActiveMaterials, getConsultants, getDoctors } from "@/lib/lookups";
-import { summarizeCase } from "@/lib/financial-summary";
+import { summarizeCase, correctedFinalPrice } from "@/lib/financial-summary";
 import { canAccessCase } from "@/lib/case-access";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -233,7 +233,7 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
                       </TD>
                       <TD className="text-right">{formatVND(s.unitPrice)}</TD>
                       <TD className="text-right text-rose-500">{toNum(s.discount) > 0 ? `-${formatVND(s.discount)}` : "—"}</TD>
-                      <TD className="text-right font-semibold text-slate-800">{formatVND(s.finalPrice)}</TD>
+                      <TD className="text-right font-semibold text-slate-800">{formatVND(correctedFinalPrice(s))}</TD>
                       {canClinical && (
                         <TD className="text-right">
                           <div className="flex items-center justify-end gap-0.5">

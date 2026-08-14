@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { FolderHeart, Search, ShieldCheck } from "lucide-react";
+import { FolderHeart, Search, ShieldCheck, AlertTriangle } from "lucide-react";
 import { requireCap } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { isValidLast5, maskPhone } from "@/lib/phone";
@@ -157,11 +157,17 @@ export default async function CasesPage({
                   const financial = financials.get(c.id);
                   const totalAmount = financial?.total ?? 0;
                   const debtAmount = financial?.debt ?? 0;
+                  const hasAnomaly = (financial?.anomalies.length ?? 0) > 0;
                   return (
                   <TR key={c.id}>
                     <TD>
-                      <Link href={`/ho-so/${c.id}`} className="font-semibold text-brand-600 hover:text-brand-700">
+                      <Link href={`/ho-so/${c.id}`} className="inline-flex items-center gap-1.5 font-semibold text-brand-600 hover:text-brand-700">
                         {c.code}
+                        {hasAnomaly && (
+                          <span title="Số liệu tài chính hồ sơ này cần đối soát — mở hồ sơ để xem chi tiết.">
+                            <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+                          </span>
+                        )}
                       </Link>
                     </TD>
                     <TD>
