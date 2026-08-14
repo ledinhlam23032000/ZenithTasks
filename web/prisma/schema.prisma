@@ -175,6 +175,7 @@ model User {
   casesConsulted       CaseRecord[]       @relation("CaseConsultant")
   casesAsDoctor        CaseRecord[]       @relation("CaseDoctor")
   caseServices         CaseService[]      @relation("CaseServiceDoctor")
+  caseServicesNursed   CaseService[]      @relation("CaseServiceNurse")
   payments             Payment[]
   materialUsages       MaterialUsage[]
   photos               Photo[]
@@ -487,6 +488,11 @@ model CaseService {
   finalPrice  Decimal    @default(0) @db.Decimal(14, 0)
   doctorId    String?
   doctor      User?      @relation("CaseServiceDoctor", fields: [doctorId], references: [id])
+  // Điều dưỡng phụ trách dòng dịch vụ này (căn cứ tính "Tiền dịch vụ phụ" 100k/ca —
+  // xem lib/commission.ts). Khác doctorId: KHÔNG tự sao chép từ CaseRecord lúc tạo,
+  // phải chọn tay vì 1 hồ sơ không có "điều dưỡng phụ trách" mặc định như bác sĩ.
+  nurseId     String?
+  nurse       User?      @relation("CaseServiceNurse", fields: [nurseId], references: [id])
   performedAt DateTime?
   note        String?
   // Đã trừ vật tư theo định mức (BOM) cho dòng dịch vụ này chưa — tránh trừ kho 2 lần (B5 gđ2).

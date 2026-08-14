@@ -1,14 +1,27 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Download, Printer, FileSpreadsheet, FileText, FileDown, ChevronDown } from "lucide-react";
+import { Download, Printer, FileSpreadsheet, FileText, FileDown, ChevronDown, FileStack } from "lucide-react";
 import { DropdownPortal } from "@/components/ui/dropdown-portal";
+
+export type ExportMenuExtraItem = { label: string; href: string };
 
 /**
  * Nút "Xuất file" gộp: In/Lưu PDF (trình duyệt), Excel (.xlsx), Word (.doc), CSV (tuỳ chọn).
  * excelHref/wordHref/csvHref trỏ tới route /…/export?format=xlsx|doc|csv.
+ * `extra` (tuỳ chọn): các mục xuất file khác — vd bảng lương mẫu kế toán ở /luong.
  */
-export function ExportMenu({ excelHref, wordHref, csvHref }: { excelHref: string; wordHref: string; csvHref?: string }) {
+export function ExportMenu({
+  excelHref,
+  wordHref,
+  csvHref,
+  extra,
+}: {
+  excelHref: string;
+  wordHref: string;
+  csvHref?: string;
+  extra?: ExportMenuExtraItem[];
+}) {
   const [open, setOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
@@ -58,6 +71,21 @@ export function ExportMenu({ excelHref, wordHref, csvHref }: { excelHref: string
           >
             <FileDown className="h-4 w-4 text-slate-500" /> CSV
           </a>
+        )}
+        {extra && extra.length > 0 && (
+          <>
+            <div className="my-1 border-t border-slate-100" />
+            {extra.map((item) => (
+              <a
+                key={item.href}
+                href={item.href}
+                onClick={() => setOpen(false)}
+                className="flex w-full items-center gap-2.5 px-3.5 py-2 text-sm text-slate-700 hover:bg-slate-50"
+              >
+                <FileStack className="h-4 w-4 text-amber-600" /> {item.label}
+              </a>
+            ))}
+          </>
         )}
       </DropdownPortal>
     </div>

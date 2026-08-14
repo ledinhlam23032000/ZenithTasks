@@ -1,15 +1,26 @@
 // Tiện ích xuất file: Excel (.xlsx thật, không cần thư viện) và Word (.doc mở bằng MS Word).
 // Dùng chung cho các route /…/export. PDF dùng chức năng "In / Lưu PDF" của trình duyệt.
 
-import { buildXlsx, type Sheet, type Cell } from "@/lib/xlsx";
+import { buildXlsx, buildRichXlsx, type Sheet, type Cell, type RichSheet } from "@/lib/xlsx";
 
-export type { Sheet, Cell };
+export type { Sheet, Cell, RichSheet };
 
 const vn = new Intl.NumberFormat("vi-VN");
 
 /** Trả file .xlsx (tải về). */
 export function xlsxResponse(filename: string, sheets: Sheet[]): Response {
   const buf = buildXlsx(sheets);
+  return new Response(new Uint8Array(buf), {
+    headers: {
+      "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "Content-Disposition": `attachment; filename="${filename}.xlsx"`,
+    },
+  });
+}
+
+/** Trả file .xlsx có định dạng đầy đủ (mẫu biểu công ty — xem lib/xlsx.ts buildRichXlsx). */
+export function xlsxRichResponse(filename: string, sheets: RichSheet[]): Response {
+  const buf = buildRichXlsx(sheets);
   return new Response(new Uint8Array(buf), {
     headers: {
       "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

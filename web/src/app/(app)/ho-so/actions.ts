@@ -187,6 +187,7 @@ const serviceSchema = z.object({
   unitPrice: z.coerce.number().min(0, "Đơn giá không hợp lệ."),
   quantity: z.coerce.number().int().min(1).default(1),
   discount: z.coerce.number().min(0).default(0),
+  nurseId: z.string().optional(),
 });
 
 export async function addCaseService(_prev: CaseActionState, formData: FormData): Promise<CaseActionState> {
@@ -203,6 +204,7 @@ export async function addCaseService(_prev: CaseActionState, formData: FormData)
     unitPrice: formData.get("unitPrice") ?? 0,
     quantity: formData.get("quantity") ?? 1,
     discount: formData.get("discount") ?? 0,
+    nurseId: formData.get("nurseId") ?? "",
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu không hợp lệ." };
   const d = parsed.data;
@@ -224,6 +226,7 @@ export async function addCaseService(_prev: CaseActionState, formData: FormData)
         discount: d.discount,
         finalPrice,
         doctorId: c?.doctorId ?? null,
+        nurseId: d.nurseId || null,
       },
     });
     // TỰ ĐỘNG trừ kho theo định mức (BOM) nếu dịch vụ có khai báo định mức vật tư.
@@ -379,6 +382,7 @@ export async function updateCaseService(_prev: CaseActionState, formData: FormDa
     unitPrice: formData.get("unitPrice") ?? 0,
     quantity: formData.get("quantity") ?? 1,
     discount: formData.get("discount") ?? 0,
+    nurseId: formData.get("nurseId") ?? "",
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu không hợp lệ." };
   const d = parsed.data;
@@ -416,7 +420,7 @@ export async function updateCaseService(_prev: CaseActionState, formData: FormDa
 
     await tx.caseService.update({
       where: { id: d.id },
-      data: { name: d.name, listPrice, unitPrice: d.unitPrice, quantity: d.quantity, discount: d.discount, finalPrice },
+      data: { name: d.name, listPrice, unitPrice: d.unitPrice, quantity: d.quantity, discount: d.discount, finalPrice, nurseId: d.nurseId || null },
     });
     await recalc(d.caseId, tx);
     await auditRequired(tx, user.id, "UPDATE_CASE_SERVICE", {

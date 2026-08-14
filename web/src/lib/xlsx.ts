@@ -95,7 +95,7 @@ function esc(s: string): string {
     .replace(/"/g, "&quot;");
 }
 
-function colName(i: number): string {
+export function colName(i: number): string {
   let s = "";
   let n = i;
   do {
@@ -140,6 +140,165 @@ const STYLES = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 
 const RELS = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`;
+
+// ============================================================================
+// "RICH" SHEET — dựng file .xlsx có định dạng đầy đủ (merge ô, viền, font, canh
+// giữa, khổ ngang) để in đúng mẫu biểu công ty (vd bảng lương có tiêu đề công
+// ty, lưới ngày công, chữ ký). Tách hẳn khỏi `Sheet`/`buildXlsx` ở trên (giữ
+// nguyên, không đổi) — dùng khi cần layout tự do theo toạ độ ô thay vì bảng
+// cột-hàng đơn giản.
+// ============================================================================
+
+export type RichFont = { name?: string; size?: number; bold?: boolean };
+export type RichAlign = "left" | "center" | "right";
+export type RichCellStyle = {
+  font?: RichFont;
+  align?: RichAlign;
+  valign?: "top" | "center" | "bottom";
+  wrap?: boolean;
+  border?: boolean; // viền mảnh 4 cạnh
+  fill?: "header"; // nền xám nhạt (tiêu đề bảng) — bỏ trống = không tô nền
+  numFmt?: "int"; // số nguyên có dấu phân cách hàng nghìn — bỏ trống = văn bản thường
+};
+export type RichCell = { value?: Cell; style?: RichCellStyle } | null | undefined;
+export type RichSheet = {
+  name: string;
+  rows: RichCell[][];
+  /** Độ rộng cột theo chỉ số 0-based; bỏ trống = mặc định. */
+  columnWidths?: (number | undefined)[];
+  /** Chiều cao hàng theo chỉ số 0-based (điểm); bỏ trống = mặc định. */
+  rowHeights?: (number | undefined)[];
+  /** Vùng ô gộp, dạng "A1:F1". Chỉ ghi giá trị vào ô góc trên-trái của vùng. */
+  merges?: string[];
+  landscape?: boolean;
+};
+
+class StyleRegistry {
+  fonts: RichFont[] = [{}]; // index 0 = mặc định (Calibri 11 thường)
+  fills: string[] = ["__none__", "__gray125__"]; // 2 mục bắt buộc theo chuẩn OOXML, giữ nguyên thứ tự
+  xfs: { fontId: number; fillId: number; borderId: number; numFmtId: number; align?: RichAlign; valign?: RichCellStyle["valign"]; wrap?: boolean }[] = [
+    { fontId: 0, fillId: 0, borderId: 0, numFmtId: 0 }, // index 0 = mặc định
+  ];
+
+  fontId(f?: RichFont): number {
+    if (!f) return 0;
+    const key = JSON.stringify(f);
+    const i = this.fonts.findIndex((x) => JSON.stringify(x) === key);
+    if (i >= 0) return i;
+    return this.fonts.push(f) - 1;
+  }
+
+  fillId(fill?: RichCellStyle["fill"]): number {
+    if (fill !== "header") return 0;
+    const i = this.fills.indexOf("header");
+    if (i >= 0) return i;
+    return this.fills.push("header") - 1;
+  }
+
+  xfId(style?: RichCellStyle): number {
+    const fontId = this.fontId(style?.font);
+    const fillId = this.fillId(style?.fill);
+    const borderId = style?.border ? 1 : 0;
+    const numFmtId = style?.numFmt === "int" ? 164 : 0;
+    const align = style?.align;
+    const valign = style?.valign;
+    const wrap = style?.wrap;
+    const key = JSON.stringify({ fontId, fillId, borderId, numFmtId, align, valign, wrap });
+    const i = this.xfs.findIndex((x) => JSON.stringify({ fontId: x.fontId, fillId: x.fillId, borderId: x.borderId, numFmtId: x.numFmtId, align: x.align, valign: x.valign, wrap: x.wrap }) === key);
+    if (i >= 0) return i;
+    return this.xfs.push({ fontId, fillId, borderId, numFmtId, align, valign, wrap }) - 1;
+  }
+
+  toStylesXml(): string {
+    const fontsXml = this.fonts
+      .map((f) => `<font>${f.bold ? "<b/>" : ""}<sz val="${f.size ?? 11}"/><name val="${esc(f.name ?? "Calibri")}"/></font>`)
+      .join("");
+    const fillsXml = this.fills
+      .map((f) => {
+        if (f === "__none__") return `<fill><patternFill patternType="none"/></fill>`;
+        if (f === "__gray125__") return `<fill><patternFill patternType="gray125"/></fill>`;
+        return `<fill><patternFill patternType="solid"><fgColor rgb="FFE8E8E8"/><bgColor indexed="64"/></patternFill></fill>`;
+      })
+      .join("");
+    const xfsXml = this.xfs
+      .map((x) => {
+        const hasAlign = x.align || x.valign || x.wrap;
+        const alignXml = hasAlign
+          ? `<alignment${x.align ? ` horizontal="${x.align}"` : ""}${x.valign ? ` vertical="${x.valign}"` : ""}${x.wrap ? ` wrapText="1"` : ""}/>`
+          : "";
+        return `<xf numFmtId="${x.numFmtId}" fontId="${x.fontId}" fillId="${x.fillId}" borderId="${x.borderId}" xfId="0" applyFont="1" applyFill="1" applyBorder="1"${x.numFmtId ? ' applyNumberFormat="1"' : ""}${hasAlign ? ' applyAlignment="1"' : ""}>${alignXml}</xf>`;
+      })
+      .join("");
+    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="1"><numFmt numFmtId="164" formatCode="#,##0"/></numFmts><fonts count="${this.fonts.length}">${fontsXml}</fonts><fills count="${this.fills.length}">${fillsXml}</fills><borders count="2"><border/><border><left style="thin"/><right style="thin"/><top style="thin"/><bottom style="thin"/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="${this.xfs.length}">${xfsXml}</cellXfs></styleSheet>`;
+  }
+}
+
+function richSheetXml(sheet: RichSheet, reg: StyleRegistry): string {
+  const colsXml = (sheet.columnWidths ?? [])
+    .map((w, i) => (w ? `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>` : ""))
+    .join("");
+
+  const rowsXml = sheet.rows
+    .map((row, ri) => {
+      const r = ri + 1;
+      const h = sheet.rowHeights?.[ri];
+      const cellsXml = row
+        .map((cell, ci) => {
+          if (!cell) return "";
+          const ref = `${colName(ci)}${r}`;
+          const s = reg.xfId(cell.style);
+          const val = cell.value;
+          if (val == null || val === "") return s ? `<c r="${ref}" s="${s}"/>` : "";
+          if (typeof val === "number" && Number.isFinite(val)) return `<c r="${ref}" s="${s}"><v>${val}</v></c>`;
+          return `<c r="${ref}" s="${s}" t="inlineStr"><is><t xml:space="preserve">${esc(String(val))}</t></is></c>`;
+        })
+        .join("");
+      return `<row r="${r}"${h ? ` ht="${h}" customHeight="1"` : ""}>${cellsXml}</row>`;
+    })
+    .join("");
+
+  const mergesXml = sheet.merges?.length
+    ? `<mergeCells count="${sheet.merges.length}">${sheet.merges.map((m) => `<mergeCell ref="${m}"/>`).join("")}</mergeCells>`
+    : "";
+  const pageSetupXml = sheet.landscape ? `<pageSetup orientation="landscape" paperSize="9"/>` : "";
+
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><cols>${colsXml}</cols><sheetData>${rowsXml}</sheetData>${mergesXml}${pageSetupXml}</worksheet>`;
+}
+
+/** Dựng file .xlsx có định dạng đầy đủ (merge ô, viền, font, khổ ngang…). */
+export function buildRichXlsx(sheets: RichSheet[]): Buffer {
+  const list = sheets.length ? sheets : [{ name: "Sheet1", rows: [] }];
+  const reg = new StyleRegistry();
+  const sheetXmls = list.map((s) => richSheetXml(s, reg)); // phải dựng TRƯỚC styles.xml để đăng ký hết font/fill dùng tới
+
+  const contentTypes = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${list
+    .map((_, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`)
+    .join("")}</Types>`;
+
+  const workbook = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>${list
+    .map((s, i) => `<sheet name="${esc(s.name).slice(0, 31)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`)
+    .join("")}</sheets></workbook>`;
+
+  const wbRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${list
+    .map((_, i) => `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`)
+    .join("")}<Relationship Id="rId${list.length + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`;
+
+  const files: { name: string; data: Buffer }[] = [
+    { name: "[Content_Types].xml", data: Buffer.from(contentTypes, "utf8") },
+    { name: "_rels/.rels", data: Buffer.from(RELS, "utf8") },
+    { name: "xl/workbook.xml", data: Buffer.from(workbook, "utf8") },
+    { name: "xl/_rels/workbook.xml.rels", data: Buffer.from(wbRels, "utf8") },
+    { name: "xl/styles.xml", data: Buffer.from(reg.toStylesXml(), "utf8") },
+    ...list.map((s, i) => ({ name: `xl/worksheets/sheet${i + 1}.xml`, data: Buffer.from(sheetXmls[i], "utf8") })),
+  ];
+
+  return zip(files);
+}
 
 /** Dựng file .xlsx (nhiều sheet) trả về Buffer. */
 export function buildXlsx(sheets: Sheet[]): Buffer {
