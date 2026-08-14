@@ -24,6 +24,7 @@ import { DebtCollectButton } from "./debt-collect-button";
 import { DebtFilters } from "./debt-filters";
 import { Pagination } from "@/components/ui/pagination";
 import { PAGE_SIZE, parsePage, totalPagesOf } from "@/lib/pagination";
+import type { Prisma } from "@/generated/prisma/client";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Sổ công nợ" };
@@ -47,12 +48,17 @@ export default async function DebtLedgerPage({
   const now = new Date();
   const monthStart = startOfMonth(now);
 
+  // Tư vấn viên chỉ thấy công nợ của khách mình phụ trách — đồng bộ với
+  // "Hồ sơ điều trị" (Yêu cầu số 7). Trước đây trang này KHÔNG lọc, nên tư
+  // vấn viên nhìn thấy công nợ của mọi khách hàng, kể cả của đồng nghiệp.
+  const scope: Prisma.CaseRecordWhereInput = user.role === "CONSULTANT" ? { consultantId: user.id } : {};
+
   const [cases, monthDebtPayments] = await Promise.all([
     prisma.caseRecord.findMany({
       // Do not filter by CaseRecord.debtAmount here. It is a denormalized
       // snapshot and may be stale after a legacy import or an interrupted
       // write; the authoritative debt is rebuilt below from child rows.
-      where: {},
+      where: scope,
       orderBy: { updatedAt: "desc" },
       select: {
         id: true,
@@ -66,7 +72,7 @@ export default async function DebtLedgerPage({
     }),
     // "Đã thu nợ tháng này" = tiền thu trong tháng từ hồ sơ tạo TRƯỚC tháng (đồng bộ định nghĩa với bảng lương)
     prisma.payment.aggregate({
-      where: { paidAt: { gte: monthStart }, case: { createdAt: { lt: monthStart } } },
+      where: { paidAt: { gte: monthStart }, case: { createdAt: { lt: monthStart }, ...scope } },
       _sum: { amount: true },
     }),
   ]);

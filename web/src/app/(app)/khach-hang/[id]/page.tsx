@@ -16,6 +16,7 @@ import {
   FilePlus2,
   Crown,
   Share2,
+  AlertTriangle,
 } from "lucide-react";
 import { differenceInYears, format } from "date-fns";
 import { requireCap } from "@/lib/auth";
@@ -271,6 +272,13 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
                             <span className="font-semibold text-slate-800">{c.code}</span>
                             <Badge tone={CASE_STATUS[c.status].tone}>{CASE_STATUS[c.status].label}</Badge>
                             <Badge tone={CONSULT_RESULT[c.consultResult].tone}>{CONSULT_RESULT[c.consultResult].label}</Badge>
+                            {(caseFinancials.get(c.id)?.anomalies.length ?? 0) > 0 && (
+                              <span title="Số liệu tài chính hồ sơ này cần đối soát — mở hồ sơ để xem chi tiết.">
+                                <Badge tone="amber">
+                                  <AlertTriangle className="h-3 w-3" /> Cần đối soát
+                                </Badge>
+                              </span>
+                            )}
                           </div>
                           <span className="text-xs text-slate-400">{fmtDate(c.createdAt)}</span>
                         </div>

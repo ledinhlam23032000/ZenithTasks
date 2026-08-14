@@ -3,7 +3,7 @@ import { vi } from "date-fns/locale";
 import { prisma } from "@/lib/db";
 import { toNum } from "@/lib/money";
 import { loadCaseFinancials } from "@/lib/financial-summary-db";
-import { summarizeCase } from "@/lib/financial-summary";
+import { summarizeCase, correctedFinalPrice } from "@/lib/financial-summary";
 import { monthRange, lastMonthRange, growthPct } from "@/lib/dates";
 import { getMonthlyAccounting } from "@/lib/accounting";
 
@@ -107,11 +107,12 @@ export async function getReports(monthDate = new Date()) {
         : Promise.resolve([]),
       prisma.payment.aggregate({ where: { paidAt: month }, _sum: { amount: true } }),
       prisma.payment.aggregate({ where: { paidAt: last }, _sum: { amount: true } }),
-      prisma.caseService.groupBy({
-        by: ["name"],
+      // findMany (không groupBy _sum finalPrice thẳng) vì hồ sơ cũ có thể lưu
+      // finalPrice=0 dù còn listPrice — phải cộng qua correctedFinalPrice() ở
+      // dưới để khớp với cách summarizeCase() tính tổng ở mọi trang khác.
+      prisma.caseService.findMany({
         where: { case: { createdAt: month } },
-        _count: { _all: true },
-        _sum: { finalPrice: true },
+        select: { name: true, listPrice: true, unitPrice: true, quantity: true, discount: true, finalPrice: true },
       }),
       // Nguồn khách PHẢI lọc theo tháng (khách tạo trong tháng) — trước đây đếm toàn bộ lịch sử, sai khi xem theo tháng.
       prisma.customer.groupBy({ by: ["source"], where: { createdAt: month }, _count: { _all: true } }),
@@ -169,14 +170,22 @@ export async function getReports(monthDate = new Date()) {
   const revenueThisMonth = toNum(revThis._sum.amount);
   const revenueLastMonth = toNum(revLast._sum.amount);
 
+  const topServiceStats = new Map<string, { count: number; revenue: number }>();
+  for (const s of topServicesRaw) {
+    const cur = topServiceStats.get(s.name) ?? { count: 0, revenue: 0 };
+    cur.count += 1;
+    cur.revenue += correctedFinalPrice(s);
+    topServiceStats.set(s.name, cur);
+  }
+
   return {
     isCurrentMonth,
     revenueSeries,
     revenue: { thisMonth: revenueThisMonth, lastMonth: revenueLastMonth, growth: growthPct(revenueThisMonth, revenueLastMonth) },
     cases: { thisMonth: casesThis, lastMonth: casesLast, growth: growthPct(casesThis, casesLast) },
     consultRate: { total: casesThis, agreed: agreedThis, rate: casesThis > 0 ? Math.round((agreedThis / casesThis) * 100) : 0 },
-    topServices: topServicesRaw
-      .map((s) => ({ name: s.name, count: s._count._all, revenue: toNum(s._sum.finalPrice) }))
+    topServices: [...topServiceStats.entries()]
+      .map(([name, stats]) => ({ name, count: stats.count, revenue: stats.revenue }))
       .sort((a, b) => b.count - a.count || b.revenue - a.revenue) // xếp theo SỐ LƯỢT, rồi doanh thu
       .slice(0, 8),
     sources: sourceRaw.map((s) => ({ source: s.source, count: s._count._all })).sort((a, b) => b.count - a.count),

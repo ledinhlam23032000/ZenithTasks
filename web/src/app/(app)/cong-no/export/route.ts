@@ -8,12 +8,13 @@ import { DEBT_BUCKETS, DEBT_BUCKET_LABEL, debtAgeDays, debtAgingBucket, isOverTh
 import { nextDueDate } from "@/lib/debt-plan";
 import { getDebtThreshold } from "@/lib/settings";
 import { xlsxResponse, wordResponse, csvResponse, type Cell } from "@/lib/export";
+import type { Prisma } from "@/generated/prisma/client";
 
 export const dynamic = "force-dynamic";
 
 /** Xuất sổ công nợ (toàn bộ hồ sơ còn nợ, đúng bộ lọc đang xem): ?format=xlsx (mặc định) | doc | csv, ?bucket=, ?tv=. */
 export async function GET(request: Request) {
-  await requireCap("mod:cong-no");
+  const user = await requireCap("mod:cong-no");
   const url = new URL(request.url);
   const fmt = url.searchParams.get("format") ?? "xlsx";
   const bucketParam = url.searchParams.get("bucket");
@@ -23,8 +24,12 @@ export async function GET(request: Request) {
   const threshold = await getDebtThreshold();
   const now = new Date();
 
+  // Phải khớp phạm vi phân quyền của trang /cong-no: tư vấn viên chỉ xuất
+  // được công nợ khách mình phụ trách (Yêu cầu số 7).
+  const scope: Prisma.CaseRecordWhereInput = user.role === "CONSULTANT" ? { consultantId: user.id } : {};
+
   const cases = await prisma.caseRecord.findMany({
-    where: {},
+    where: scope,
     orderBy: { updatedAt: "desc" },
     select: {
       id: true,

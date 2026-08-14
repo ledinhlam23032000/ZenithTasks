@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { ShieldCheck, LoaderCircle, Plus, Minus } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -69,6 +70,7 @@ export function PermissionEditorButton({
   granted: string[];
   catalog: Catalog;
 }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [state, action, pending] = useActionState<StaffFormState, FormData>(savePermissions, {});
   const [on, setOn] = useState<Set<string>>(new Set(granted));
@@ -83,9 +85,13 @@ export function PermissionEditorButton({
 
   useEffect(() => {
     if (!state.ok) return;
+    // savePermissions không gọi revalidatePath (đúng quy ước) nên phải tự làm
+    // mới trang ở đây — nếu không, danh sách nhân sự vẫn hiện quyền cũ cho
+    // tới khi tải lại tay, dễ khiến admin tưởng chưa lưu và bấm lại nhiều lần.
+    router.refresh();
     const timer = window.setTimeout(() => setOpen(false), 0);
     return () => window.clearTimeout(timer);
-  }, [state.ok]);
+  }, [state.ok, router]);
 
   function setMember(key: string, member: boolean) {
     setOn((prev) => {

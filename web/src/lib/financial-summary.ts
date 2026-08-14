@@ -67,6 +67,34 @@ export function validatePaymentAmount(input: { amount: unknown; total: unknown; 
   return { ok: true };
 }
 
+// Một số hồ sơ cũ lưu listPrice nhưng unitPrice/finalPrice bằng 0. Khi đó,
+// listPrice là giá duy nhất còn lại để không làm mất doanh thu đã ghi.
+function lineBaseFor(service: FinancialServiceInput): number {
+  const listPrice = integerMoney(service.listPrice);
+  const unitPrice = integerMoney(service.unitPrice);
+  const serviceQuantity = quantity(service.quantity ?? 1);
+  const discount = integerMoney(service.discount);
+  const storedFinalPrice = integerMoney(service.finalPrice);
+  const calculatedLineBase = unitPrice * serviceQuantity;
+  return calculatedLineBase > 0
+    ? calculatedLineBase
+    : storedFinalPrice > 0
+      ? storedFinalPrice + discount
+      : listPrice * serviceQuantity;
+}
+
+/**
+ * Thành tiền THỰC (net) của MỘT dòng dịch vụ — nguồn DUY NHẤT cho cách tính
+ * 1 dòng. Mọi nơi hiển thị thành tiền per-dòng (hóa đơn, bảng dịch vụ trong
+ * hồ sơ, thống kê dịch vụ nổi bật…) PHẢI dùng hàm này thay vì đọc thẳng
+ * `finalPrice` từ DB, kẻo hiện 0đ cho đúng những dòng mà `summarizeCase` đã
+ * âm thầm bù đúng ở tổng.
+ */
+export function correctedFinalPrice(service: FinancialServiceInput): number {
+  const discount = integerMoney(service.discount);
+  return Math.max(lineBaseFor(service) - discount, 0);
+}
+
 /**
  * Tính tiền từ child records. Snapshot trên CaseRecord chỉ được dùng để
  * phát hiện lệch dữ liệu, không được dùng làm nguồn sự thật.
@@ -84,18 +112,9 @@ export function summarizeCase(input: {
 
   for (const service of input.services) {
     const listPrice = integerMoney(service.listPrice);
-    const unitPrice = integerMoney(service.unitPrice);
     const serviceQuantity = quantity(service.quantity ?? 1);
     const discount = integerMoney(service.discount);
-    const storedFinalPrice = integerMoney(service.finalPrice);
-    // Một số hồ sơ cũ lưu listPrice nhưng unitPrice/finalPrice bằng 0. Khi
-    // đó, listPrice là giá duy nhất còn lại để không làm mất doanh thu đã ghi.
-    const calculatedLineBase = unitPrice * serviceQuantity;
-    const lineBase = calculatedLineBase > 0
-      ? calculatedLineBase
-      : storedFinalPrice > 0
-        ? storedFinalPrice + discount
-        : listPrice * serviceQuantity;
+    const lineBase = lineBaseFor(service);
 
     gross += listPrice * serviceQuantity;
     lineDiscount += discount;

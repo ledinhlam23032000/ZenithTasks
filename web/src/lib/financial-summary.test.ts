@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { summarizeCase, validatePaymentAmount, validateServicePrice } from "./financial-summary";
+import { summarizeCase, validatePaymentAmount, validateServicePrice, correctedFinalPrice } from "./financial-summary";
 
 describe("summarizeCase", () => {
   it("sums services and payments from child records instead of a stale snapshot", () => {
@@ -89,5 +89,21 @@ describe("summarizeCase", () => {
       ok: false,
       error: "Mức giảm không được lớn hơn giá trị dịch vụ.",
     });
+  });
+});
+
+describe("correctedFinalPrice", () => {
+  it("uses unitPrice*quantity minus discount for a normal line", () => {
+    expect(correctedFinalPrice({ listPrice: 10_000_000, unitPrice: 8_000_000, quantity: 2, discount: 1_000_000 })).toBe(15_000_000);
+  });
+
+  it("falls back to the legacy listed price when unitPrice/finalPrice are both zero", () => {
+    expect(correctedFinalPrice({ listPrice: 5_000_000, unitPrice: 0, quantity: 1, discount: 0, finalPrice: 0 })).toBe(5_000_000);
+  });
+
+  it("matches per-line what summarizeCase adds to the case total, so invoices never show 0đ lines under a non-zero total", () => {
+    const service = { listPrice: 5_000_000, unitPrice: 0, quantity: 2, discount: 0, finalPrice: 0 };
+    const summary = summarizeCase({ services: [service], payments: [], voucherAmount: 0 });
+    expect(correctedFinalPrice(service)).toBe(summary.subtotal);
   });
 });

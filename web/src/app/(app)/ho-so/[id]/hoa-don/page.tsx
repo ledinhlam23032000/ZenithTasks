@@ -4,7 +4,7 @@ import { ArrowLeft, FileWarning } from "lucide-react";
 import { requireCap } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { toNum, formatVND } from "@/lib/money";
-import { summarizeCase } from "@/lib/financial-summary";
+import { summarizeCase, correctedFinalPrice } from "@/lib/financial-summary";
 import { maskPhone } from "@/lib/phone";
 import { fmtDate, fmtDateTime } from "@/lib/format";
 import { PAYMENT_LABEL } from "@/lib/status";
@@ -115,7 +115,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
                     {list > unit ? <span className="line-through">{formatVND(list)}</span> : formatVND(list)}
                   </TD>
                   <TD className="text-right">{formatVND(unit)}</TD>
-                  <TD className="text-right font-semibold text-slate-800">{formatVND(s.finalPrice)}</TD>
+                  <TD className="text-right font-semibold text-slate-800">{formatVND(correctedFinalPrice(s))}</TD>
                 </TR>
               );
             })}

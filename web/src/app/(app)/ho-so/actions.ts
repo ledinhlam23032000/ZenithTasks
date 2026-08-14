@@ -8,7 +8,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireUser, requireCap } from "@/lib/auth";
 import { auditRequired } from "@/lib/audit";
-import { toNum } from "@/lib/money";
+import { toNum, formatVND } from "@/lib/money";
 import { summarizeCase, validatePaymentAmount, validateServicePrice } from "@/lib/financial-summary";
 import { bomNeeds, type BomLine } from "@/lib/service-bom";
 import { isAllowedDocMime, docExt, safeStoredName, sniffImageExt, isDocumentBufferValid } from "@/lib/upload";
@@ -310,6 +310,23 @@ export async function removeCaseService(formData: FormData): Promise<void> {
       const service = await tx.caseService.findFirst({ where: { id, caseId }, select: { id: true, name: true, bomApplied: true } });
       if (!service) return;
 
+      // Xóa dòng này không được làm tổng hồ sơ tụt xuống dưới số tiền ĐÃ THU
+      // — giống lý do chặn ở sửa dịch vụ/áp voucher.
+      const [record, otherServices, payments] = await Promise.all([
+        tx.caseRecord.findUnique({ where: { id: caseId }, select: { voucherAmount: true } }),
+        tx.caseService.findMany({
+          where: { caseId, NOT: { id } },
+          select: { listPrice: true, unitPrice: true, quantity: true, discount: true, finalPrice: true },
+        }),
+        tx.payment.findMany({ where: { caseId }, select: { amount: true } }),
+      ]);
+      const after = summarizeCase({ services: otherServices, payments, voucherAmount: record?.voucherAmount });
+      if (after.overpaid > 0) {
+        throw new Error(
+          `Không thể xóa: hồ sơ đã thu ${formatVND(after.paid)}, nếu xóa dịch vụ này tổng chỉ còn ${formatVND(after.total)}. Vui lòng sửa/hoàn khoản thu trước.`,
+        );
+      }
+
       // A BOM-backed service has already consumed stock. Deleting only the
       // CaseService would leave the usage rows behind and permanently lose
       // inventory. Restore every BOM usage atomically before removing it.
@@ -370,10 +387,33 @@ export async function updateCaseService(_prev: CaseActionState, formData: FormDa
   const finalPrice = Math.max(d.unitPrice * d.quantity - d.discount, 0);
   const listPrice = d.listPrice > 0 ? d.listPrice : d.unitPrice;
 
-  await withCaseLock(d.caseId, async (tx) => {
+  const result = await withCaseLock(d.caseId, async (tx) => {
     const existing = await tx.caseService.findFirst({ where: { id: d.id, caseId: d.caseId }, select: { id: true, bomApplied: true } });
     if (!existing) throw new Error("Không tìm thấy dịch vụ thuộc hồ sơ này.");
     if (existing.bomApplied) throw new Error("Dịch vụ đã trừ vật tư theo định mức; hãy hoàn vật tư trước khi sửa dòng này.");
+
+    // Sửa giá/số lượng/giảm giá của dòng này không được làm tổng hồ sơ tụt
+    // xuống dưới số tiền ĐÃ THU — nếu không, hồ sơ sẽ hiện "Tổng thấp hơn Đã
+    // trả" giống hệt lỗi dữ liệu cũ đã từng gặp, nhưng lần này là dữ liệu MỚI.
+    const [record, otherServices, payments] = await Promise.all([
+      tx.caseRecord.findUnique({ where: { id: d.caseId }, select: { voucherAmount: true } }),
+      tx.caseService.findMany({
+        where: { caseId: d.caseId, NOT: { id: d.id } },
+        select: { listPrice: true, unitPrice: true, quantity: true, discount: true, finalPrice: true },
+      }),
+      tx.payment.findMany({ where: { caseId: d.caseId }, select: { amount: true } }),
+    ]);
+    const after = summarizeCase({
+      services: [...otherServices, { listPrice, unitPrice: d.unitPrice, quantity: d.quantity, discount: d.discount, finalPrice }],
+      payments,
+      voucherAmount: record?.voucherAmount,
+    });
+    if (after.overpaid > 0) {
+      return {
+        error: `Không thể lưu: sửa dòng này khiến tổng hồ sơ chỉ còn ${formatVND(after.total)}, thấp hơn số tiền đã thu ${formatVND(after.paid)}. Vui lòng sửa/hoàn khoản thu trước.`,
+      };
+    }
+
     await tx.caseService.update({
       where: { id: d.id },
       data: { name: d.name, listPrice, unitPrice: d.unitPrice, quantity: d.quantity, discount: d.discount, finalPrice },
@@ -384,7 +424,9 @@ export async function updateCaseService(_prev: CaseActionState, formData: FormDa
       entityId: d.id,
       meta: { caseId: d.caseId, quantity: d.quantity, amount: finalPrice },
     });
+    return null;
   });
+  if (result?.error) return { error: result.error };
   return { ok: true, nonce: Date.now() };
 }
 
@@ -411,17 +453,30 @@ export async function updateCaseVoucher(_prev: CaseActionState, formData: FormDa
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu không hợp lệ." };
   const d = parsed.data;
 
-  await withCaseLock(d.caseId, async (tx) => {
+  const result = await withCaseLock(d.caseId, async (tx) => {
     // Use the same legacy-safe fallback as all other financial views. An
     // aggregate over finalPrice alone loses voucher value for imported rows
     // where only unitPrice/listPrice was preserved.
-    const services = await tx.caseService.findMany({
-      where: { caseId: d.caseId },
-      select: { listPrice: true, unitPrice: true, quantity: true, discount: true, finalPrice: true },
-    });
+    const [services, payments] = await Promise.all([
+      tx.caseService.findMany({
+        where: { caseId: d.caseId },
+        select: { listPrice: true, unitPrice: true, quantity: true, discount: true, finalPrice: true },
+      }),
+      tx.payment.findMany({ where: { caseId: d.caseId }, select: { amount: true } }),
+    ]);
     const subtotal = summarizeCase({ services, payments: [], voucherAmount: 0 }).subtotal;
     let amount = d.voucherKind === "PCT" ? Math.round((subtotal * d.voucherValue) / 100) : Math.round(d.voucherValue);
     amount = Math.max(0, Math.min(amount, subtotal));
+
+    // Voucher càng lớn thì tổng càng nhỏ — không được để tổng tụt xuống dưới
+    // tiền đã thu (giống lý do chặn ở sửa/xóa dịch vụ).
+    const after = summarizeCase({ services, payments, voucherAmount: amount });
+    if (after.overpaid > 0) {
+      return {
+        error: `Không thể áp voucher này: tổng hồ sơ chỉ còn ${formatVND(after.total)}, thấp hơn số tiền đã thu ${formatVND(after.paid)}. Vui lòng sửa/hoàn khoản thu trước.`,
+      };
+    }
+
     const label =
       amount > 0
         ? `${d.voucherCode || "Voucher"}${d.voucherKind === "PCT" ? ` (-${d.voucherValue}%)` : ""}`
@@ -432,7 +487,9 @@ export async function updateCaseVoucher(_prev: CaseActionState, formData: FormDa
     });
     await recalc(d.caseId, tx);
     await auditRequired(tx, user.id, "APPLY_VOUCHER", { entity: "CaseRecord", entityId: d.caseId, meta: { amount, code: label ?? "" } });
+    return null;
   });
+  if (result?.error) return { error: result.error };
   return { ok: true, nonce: Date.now() };
 }
 
@@ -871,7 +928,6 @@ export async function addFollowUp(_prev: CaseActionState, formData: FormData): P
       meta: { caseId: d.caseId, customerId: d.customerId, scheduledAt: when.toISOString() },
     });
   });
-  refresh(d.caseId, d.customerId);
   return { ok: true, nonce: Date.now() };
 }
 
