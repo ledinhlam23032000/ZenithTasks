@@ -5,6 +5,8 @@ import { requireCap } from "@/lib/auth";
 import { getPayroll, getPayrollTrend, STANDARD_DAYS_DEFAULT } from "@/lib/payroll";
 import { missingAttendanceStaff } from "@/lib/payroll-pure";
 import { getStaffPerformance } from "@/lib/performance";
+import { getCommissionForMonth } from "@/lib/commission-data";
+import type { CommissionBreakdown } from "@/lib/commission";
 import { ROLE_LABELS } from "@/lib/rbac";
 import { formatVND } from "@/lib/money";
 import { PageHeader } from "@/components/ui/page-header";
@@ -20,6 +22,19 @@ import { PayrollBulkEditor } from "./payroll-bulk-edit";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Lương & hoa hồng" };
 
+// Diễn giải gợi ý hoa hồng hệ thống tính được thành 1 dòng chữ ngắn — chỉ liệt kê
+// các khoản THỰC SỰ áp dụng cho người đó (vd tư vấn viên sẽ không có "DV bác sĩ").
+function commissionSuggestionNote(b: CommissionBreakdown): string {
+  const parts: string[] = [];
+  if (b.doctorService > 0) parts.push(`DV bác sĩ (8%): ${formatVND(b.doctorService)}`);
+  if (b.doctorConsult > 0) parts.push(`Tư vấn khách cũ (10%): ${formatVND(b.doctorConsult)}`);
+  if (b.nurseService > 0) parts.push(`Phụ trách ca dịch vụ: ${formatVND(b.nurseService)}`);
+  if (b.nurseConsult > 0) parts.push(`Tư vấn (4%): ${formatVND(b.nurseConsult)}`);
+  if (b.consultant.newCommission > 0) parts.push(`Khách mới (${Math.round(b.consultant.newRate * 100)}%): ${formatVND(b.consultant.newCommission)}`);
+  if (b.consultant.returningCommission > 0) parts.push(`Khách cũ (${Math.round(b.consultant.returningRate * 100)}%): ${formatVND(b.consultant.returningCommission)}`);
+  return parts.join(" · ");
+}
+
 export default async function PayrollPage({ searchParams }: { searchParams: Promise<{ m?: string; d?: string }> }) {
   const user = await requireCap("mod:luong");
   const isAdmin = user.role === "ADMIN";
@@ -29,7 +44,12 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
   const monthDate = Number.isNaN(parsed.getTime()) ? new Date() : parsed;
   const monthValue = format(monthDate, "yyyy-MM");
   const standardDays = Math.max(1, Math.min(31, Number(sp.d) || STANDARD_DAYS_DEFAULT));
-  const [p, perf, trend] = await Promise.all([getPayroll(monthDate, standardDays), getStaffPerformance(monthDate), getPayrollTrend(6)]);
+  const [p, perf, trend, commissionMap] = await Promise.all([
+    getPayroll(monthDate, standardDays),
+    getStaffPerformance(monthDate),
+    getPayrollTrend(6),
+    getCommissionForMonth(monthDate, standardDays),
+  ]);
   const revMap = new Map(perf.map((x) => [x.id, x.totalRevenue]));
 
   // Cảnh báo chấm công có thể chưa chốt — chỉ xét tháng ĐÃ QUA (tháng đang chạy dở dang thì
@@ -62,6 +82,9 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
             <ExportMenu
               excelHref={`/luong/export?format=xlsx&m=${monthValue}&d=${standardDays}`}
               wordHref={`/luong/export?format=doc&m=${monthValue}&d=${standardDays}`}
+              extra={[
+                { label: "Bảng lương kế toán (mẫu chuẩn + phụ lục hoa hồng)", href: `/luong/export-ke-toan?m=${monthValue}&d=${standardDays}` },
+              ]}
             />
           </div>
         }
@@ -100,7 +123,7 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
           <CardTitle>Bảng lương — {format(monthDate, "MM/yyyy")}</CardTitle>
           <span className="text-xs text-slate-400">
             Thực thu = tiền thật đã về trong tháng từ hồ sơ mình phụ trách (kể cả khách trả nợ ca cũ) — căn cứ nhập hoa hồng.
-            {isAdmin && " Bấm “Sửa” để nhập lương cứng / hoa hồng / thưởng / điều chỉnh."}
+            {isAdmin && " Bấm “Sửa” để nhập lương cứng / hoa hồng / thưởng / điều chỉnh — cột Hoa hồng có gợi ý hệ thống tự tính theo cơ chế lương, tham khảo chứ không tự ghi đè."}
           </span>
         </CardHeader>
         <CardContent className="overflow-x-auto pt-0">
@@ -121,7 +144,10 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
               </TR>
             </THead>
             <tbody>
-              {p.rows.map((r) => (
+              {p.rows.map((r) => {
+                const suggested = commissionMap.get(r.id)?.breakdown.totalCommission ?? 0;
+                const suggestedNote = commissionMap.get(r.id) ? commissionSuggestionNote(commissionMap.get(r.id)!.breakdown) : "";
+                return (
                 <TR key={r.id}>
                   <TD>
                     <Link href={`/hieu-suat/${r.id}?m=${monthValue}`} className="font-medium text-slate-800 hover:text-brand-600 hover:underline">
@@ -151,7 +177,12 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
                   </TD>
                   <TD className="text-right tabular-nums text-rose-600">{r.debtOutstanding > 0 ? formatVND(r.debtOutstanding) : "—"}</TD>
                   <TD className="text-right tabular-nums">{formatVND(r.baseActual)}</TD>
-                  <TD className="text-right tabular-nums text-amber-600">{formatVND(r.commission)}</TD>
+                  <TD className="text-right tabular-nums text-amber-600">
+                    {formatVND(r.commission)}
+                    {suggested > 0 && suggested !== r.commission && (
+                      <span className="block text-[11px] font-normal text-slate-400">gợi ý {formatVND(suggested)}</span>
+                    )}
+                  </TD>
                   <TD className="text-right tabular-nums text-slate-600">{formatVND(r.bonus + r.adjustment)}</TD>
                   <TD className="text-right font-semibold tabular-nums text-slate-900">{formatVND(r.total)}</TD>
                   {isAdmin && (
@@ -163,11 +194,14 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
                           hasEntry: r.hasEntry, prevCommission: r.prevCommission, prevBonus: r.prevBonus, prevAdjustment: r.prevAdjustment,
                         }}
                         month={monthValue}
+                        suggested={suggested}
+                        suggestedNote={suggestedNote}
                       />
                     </TD>
                   )}
                 </TR>
-              ))}
+                );
+              })}
             </tbody>
           </Table>
         </CardContent>

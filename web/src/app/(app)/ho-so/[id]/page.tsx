@@ -27,7 +27,7 @@ import { toNum, formatVND } from "@/lib/money";
 import { fmtDate, fmtDateTime, toDatetimeLocal } from "@/lib/format";
 import { addDays } from "date-fns";
 import { CASE_STATUS, CONSULT_RESULT, PAYMENT_LABEL, GENDER_LABEL, APPT_STATUS } from "@/lib/status";
-import { getActiveServices, getActiveMaterials, getConsultants, getDoctors } from "@/lib/lookups";
+import { getActiveServices, getActiveMaterials, getConsultants, getDoctors, getNurses } from "@/lib/lookups";
 import { summarizeCase, correctedFinalPrice } from "@/lib/financial-summary";
 import { canAccessCase } from "@/lib/case-access";
 import { PageHeader } from "@/components/ui/page-header";
@@ -81,7 +81,7 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
   const user = await requireCap("mod:ho-so");
   const { id } = await params;
 
-  const [record, services, materials, consultants, doctors, consentTemplates] = await Promise.all([
+  const [record, services, materials, consultants, doctors, nurses, consentTemplates] = await Promise.all([
     prisma.caseRecord.findUnique({
       where: { id },
       include: {
@@ -102,6 +102,7 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
     getActiveMaterials(),
     getConsultants(),
     getDoctors(),
+    getNurses(),
     prisma.consentTemplate.findMany({ where: { active: true }, orderBy: { title: "asc" }, select: { id: true, title: true, body: true } }),
   ]);
 
@@ -205,7 +206,7 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
             <CardTitle className="flex items-center gap-2">
               <Receipt className="h-4 w-4 text-brand-500" /> Dịch vụ &amp; chi phí
             </CardTitle>
-            {canClinical && <AddServiceButton caseId={record.id} services={services} />}
+            {canClinical && <AddServiceButton caseId={record.id} services={services} nurses={nurses} />}
           </CardHeader>
           <CardContent className="pt-0">
             {record.services.length === 0 ? (
@@ -257,7 +258,8 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
                             )}
                             <EditCaseServiceButton
                               caseId={record.id}
-                              service={{ id: s.id, name: s.name, listPrice: toNum(s.listPrice), unitPrice: toNum(s.unitPrice), quantity: s.quantity, discount: toNum(s.discount) }}
+                              service={{ id: s.id, name: s.name, listPrice: toNum(s.listPrice), unitPrice: toNum(s.unitPrice), quantity: s.quantity, discount: toNum(s.discount), nurseId: s.nurseId }}
+                              nurses={nurses}
                             />
                             <form action={removeCaseService}>
                               <input type="hidden" name="id" value={s.id} />
