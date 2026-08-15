@@ -61,7 +61,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 Start-Sleep -Seconds 10
 docker compose run --rm --entrypoint sh app -c "npx prisma migrate resolve --rolled-back $StuckMigration" 2>&1 | Write-Host
-Write-Host "(Neu dong tren ghi 'not in a failed state'/da duoc xu ly tu truoc thi KHONG sao ca — cu de script chay tiep.)" -ForegroundColor DarkGray
+Write-Host "(Neu dong tren ghi 'not in a failed state'/da duoc xu ly tu truoc thi KHONG sao ca - cu de script chay tiep.)" -ForegroundColor DarkGray
 
 Write-Host "`n[3/3] Chay cap nhat day du (build lai + khoi dong + ap dung CSDL)..." -ForegroundColor Cyan
 Write-Host "(Buoc nay co the mat 5-15 phut, dung tat cua so.)" -ForegroundColor DarkGray
