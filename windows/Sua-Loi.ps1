@@ -28,11 +28,28 @@ if ($LASTEXITCODE -ne 0) {
 
 Write-Host "`n[1/4] Tai lai ma nguon moi nhat..." -ForegroundColor Cyan
 if (Test-Path $Dir) {
-  git -C $Dir fetch origin $Branch 2>&1 | Write-Host
+  git -C $Dir fetch origin $Branch --prune 2>&1 | Write-Host
+  if ($LASTEXITCODE -ne 0) {
+    Write-Host "`nKHONG TAI DUOC MA NGUON MOI (fetch that bai) — DUNG LAI de khong build nham ban cu." -ForegroundColor Red
+    Write-Host "Kiem tra mang, hoac bao ky thuat kem dong loi mau do o tren." -ForegroundColor Yellow
+    EndHere 1
+  }
   git -C $Dir reset --hard "origin/$Branch" 2>&1 | Write-Host
+  if ($LASTEXITCODE -ne 0) {
+    Write-Host "`nKHONG CAP NHAT DUOC MA NGUON (reset that bai) — DUNG LAI. Bao ky thuat kem dong loi mau do o tren." -ForegroundColor Red
+    EndHere 1
+  }
 } else {
   git clone $Repo $Dir 2>&1 | Write-Host
+  if ($LASTEXITCODE -ne 0) {
+    Write-Host "`nKHONG TAI DUOC MA NGUON (clone that bai). Kiem tra mang, hoac bao ky thuat." -ForegroundColor Red
+    EndHere 1
+  }
   git -C $Dir checkout $Branch 2>&1 | Write-Host
+  if ($LASTEXITCODE -ne 0) {
+    Write-Host "`nKHONG CHUYEN DUOC SANG NHANH $Branch. Bao ky thuat kem dong loi mau do o tren." -ForegroundColor Red
+    EndHere 1
+  }
 }
 Set-Location $Dir
 
@@ -49,6 +66,11 @@ docker compose up -d --force-recreate
 Start-Sleep -Seconds 10
 Write-Host "Ap dung migration:" -ForegroundColor Cyan
 docker compose exec -T app npx prisma migrate deploy 2>&1 | Write-Host
+if ($LASTEXITCODE -ne 0) {
+  Write-Host "`nCAP NHAT CO SO DU LIEU (migration) THAT BAI — day thuong la nguyen nhan khien ung dung khong phan hoi o buoc sau." -ForegroundColor Red
+  Write-Host "Copy nguyen dong loi mau do/vang o tren gui cho ky thuat (dung sua tay co so du lieu)." -ForegroundColor Yellow
+  EndHere 1
+}
 
 Write-Host "`n[4/4] Kiem tra ung dung..." -ForegroundColor Cyan
 $ok = $false
