@@ -11,7 +11,12 @@
 #  binh thuong (da duoc sua o cung dot nay de tu dung lai + bao loi ro rang
 #  neu gap su co tuong tu, khong con am tham chay tiep nua).
 # ============================================================================
-$ErrorActionPreference = 'Stop'
+# LUU Y: KHONG dat $ErrorActionPreference = 'Stop' o day. Git/Docker ghi ca
+# thong bao BINH THUONG ra luong stderr (vd "From https://github.com/..."),
+# ma khi ket hop voi "2>&1" thi PowerShell boc chung thanh ErrorRecord ->
+# 'Stop' se coi do la loi nghiem trong va dung script giua chung DU LENH DA
+# CHAY THANH CONG. Dung $LASTEXITCODE sau tung lenh de kiem tra that/bai
+# (giong Sua-Loi.ps1 - cach nay da chay on dinh).
 $Branch = "claude/lucid-cori-fg136w"
 $Dir    = Join-Path $HOME "ZenithTasks"
 $StuckMigration = "20260801090000_omnichannel_inbox"
