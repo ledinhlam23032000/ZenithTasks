@@ -43,7 +43,7 @@ try {
 
   # 3) Sao luu khoa runtime + tep dinh kem inbox. Day la du lieu NHAY CAM:
   #    ban backup phai nam tren o dia/Google Drive chi chu de an truy cap.
-  & docker compose -f $Compose cp 'app:/.runtime' $runtimeDir
+  & docker compose -f $Compose cp 'app:/app/.runtime' $runtimeDir
   if ($LASTEXITCODE -ne 0) { throw "Khong sao luu duoc khoa runtime cua ung dung." }
   & docker compose -f $Compose cp 'app:/app/private/inbox' $inboxDir
   if ($LASTEXITCODE -ne 0) { throw "Khong sao luu duoc tep dinh kem hop thu." }
