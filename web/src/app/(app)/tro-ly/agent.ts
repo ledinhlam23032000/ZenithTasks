@@ -12,6 +12,7 @@ import { isMonthClosed } from "@/lib/accounting";
 import { audit, auditRequired } from "@/lib/audit";
 import { savePayroll, saveBulkPayroll } from "../luong/actions";
 import { addPayment, addFollowUp } from "../ho-so/actions";
+import { createAppointment } from "../lich-hen/actions";
 import { summarizeCase } from "@/lib/financial-summary";
 import { getFinancialHealthIssues } from "@/lib/financial-health-db";
 import type { Prisma } from "@/generated/prisma/client";
@@ -29,6 +30,7 @@ const actionNames = [
   "save_bulk_payroll",
   "record_payment",
   "create_follow_up",
+  "create_appointment",
   "propose_system_change",
 ] as const;
 
@@ -91,6 +93,7 @@ const bulkRowArgs = z.object({
 const bulkPayrollArgs = z.object({ month: monthSchema, rows: z.array(bulkRowArgs).min(1).max(100) });
 const paymentArgs = z.object({ caseCode: z.string().min(1).max(40), amount: z.number().int().positive(), method: z.enum(["CASH", "CARD", "TRANSFER", "EWALLET"]), note: z.string().max(500).optional() });
 const followUpArgs = z.object({ caseCode: z.string().min(1).max(40), scheduledAt: z.string().min(10), note: z.string().max(500).optional() });
+const appointmentArgs = z.object({ guestName: z.string().min(1).max(120), phoneLast5: z.string().regex(/^\d{5}$/).optional(), scheduledAt: z.string().min(10), type: z.enum(["NEW", "FOLLOW_UP", "RE_SERVICE"]), serviceInterest: z.string().max(200).optional(), source: z.enum(["MARKETING", "COLLABORATOR", "WALK_IN", "REFERRAL", "HOTLINE", "FACEBOOK", "ZALO", "TIKTOK", "OTHER"]), sourceDetail: z.string().max(200).optional(), consultantName: z.string().max(120).optional(), note: z.string().max(500).optional() });
 const changeArgs = z.object({ request: z.string().min(5).max(2000) });
 
 const nowMonth = () => {
@@ -118,6 +121,7 @@ Công cụ được phép:
 - save_bulk_payroll: sửa nhiều nhân sự; args {month, rows:[{staffName, commission, bonus, adjustment}]}. Luôn cần ADMIN xác nhận.
 - record_payment: ghi nhận khoản thu cho hồ sơ; args {caseCode, amount, method, note}. Luôn xem trước và xác nhận.
 - create_follow_up: tạo lịch chăm sóc/tái khám; args {caseCode, scheduledAt, note}. Luôn xem trước và xác nhận.
+- create_appointment: tạo lịch hẹn; args {guestName, phoneLast5?, scheduledAt, type, serviceInterest?, source, sourceDetail?, consultantName?, note?}. Luôn xem trước và xác nhận.
 - propose_system_change: ghi đề xuất đổi cơ chế/code thành kế hoạch để duyệt; args {request}.
 Không tự đoán tên người, tháng, số tiền; nếu thiếu thì action=none và hỏi lại. Không gọi tool khác, không viết SQL, không sửa file trực tiếp.`;
 
@@ -264,6 +268,21 @@ async function validateWrite(action: ActionName, args: unknown, userId: string):
     if (Number.isNaN(when.getTime()) || when.getTime() < Date.now() - 60_000) return { error: "Thời gian follow-up không hợp lệ hoặc đã ở quá khứ." };
     return { args: { ...parsed.data, caseId: found.record.id, customerId: found.record.customerId }, preview: `Tạo follow-up cho ${found.record.customer.fullName} — hồ sơ ${found.record.code} vào ${when.toLocaleString("vi-VN")}.` };
   }
+  if (action === "create_appointment") {
+    const parsed = appointmentArgs.safeParse(args);
+    if (!parsed.success) return { error: "Cần đủ tên khách, thời gian, loại lịch và nguồn khách." };
+    const when = new Date(parsed.data.scheduledAt);
+    if (Number.isNaN(when.getTime()) || when.getTime() < Date.now() - 60_000) return { error: "Thời gian lịch hẹn không hợp lệ hoặc đã ở quá khứ." };
+    let consultantId: string | null = null;
+    let consultantDisplay = "chưa phân công";
+    if (parsed.data.consultantName) {
+      const found = await findStaff(parsed.data.consultantName);
+      if (!found.user) return { error: found.choices.length ? `Có nhiều nhân sự gần giống: ${found.choices.join(", ")}.` : "Không tìm thấy người tư vấn." };
+      consultantId = found.user.id;
+      consultantDisplay = found.user.fullName;
+    }
+    return { args: { ...parsed.data, consultantId }, preview: `Tạo lịch ${parsed.data.type === "FOLLOW_UP" ? "tái khám" : "mới"} cho ${parsed.data.guestName} vào ${when.toLocaleString("vi-VN")}; dịch vụ ${parsed.data.serviceInterest ?? "chưa nêu"}; tư vấn viên ${consultantDisplay}.` };
+  }
   if (action === "propose_system_change") {
     const parsed = changeArgs.safeParse(args);
     if (!parsed.success) return { error: "Cần mô tả rõ cơ chế hoặc chức năng muốn thay đổi." };
@@ -352,6 +371,19 @@ export async function confirmAssistantApproval(_prev: AgentState, formData: Form
       fd.set("scheduledAt", String(args.scheduledAt));
       fd.set("note", String(args.note ?? ""));
       const result = await addFollowUp({}, fd);
+      if (result.error) return planError(result.error);
+    } else if (approval.toolName === "create_appointment") {
+      const fd = new FormData();
+      fd.set("guestName", String(args.guestName));
+      fd.set("phoneLast5", String(args.phoneLast5 ?? ""));
+      fd.set("scheduledAt", String(args.scheduledAt));
+      fd.set("type", String(args.type));
+      fd.set("serviceInterest", String(args.serviceInterest ?? ""));
+      fd.set("source", String(args.source));
+      fd.set("sourceDetail", String(args.sourceDetail ?? ""));
+      fd.set("consultantId", String(args.consultantId ?? ""));
+      fd.set("note", String(args.note ?? ""));
+      const result = await createAppointment({}, fd);
       if (result.error) return planError(result.error);
     } else if (approval.toolName === "propose_system_change") {
       const request = String(args.request);
