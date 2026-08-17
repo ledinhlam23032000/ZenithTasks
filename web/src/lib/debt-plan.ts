@@ -44,18 +44,25 @@ export function monthsToClear(debtRemaining: number, monthlyAmount: number): num
 }
 
 /**
- * Số KỲ đã tới hạn tính đến `now` (kể từ kỳ đầu `startDate`), tối thiểu 0.
+ * Kỳ trả ĐẦU TIÊN thật sự: "ngày X" của tháng bắt đầu — TRỪ KHI ngày đó đã qua trước cả
+ * `startDate` (vd lập kế hoạch ngày 17, hẹn trả vào ngày 5 hằng tháng — kỳ 05 của CHÍNH
+ * tháng đó đã trôi qua trước khi kế hoạch tồn tại), khi đó kỳ đầu dời sang tháng kế tiếp.
+ */
+function firstDueDate(plan: DebtPlanLike): Date {
+  const start = atMidnight(plan.startDate);
+  const sameMonth = dueDateInMonth(plan.dayOfMonth, start.getFullYear(), start.getMonth());
+  return sameMonth >= start ? sameMonth : dueDateInMonth(plan.dayOfMonth, start.getFullYear(), start.getMonth() + 1);
+}
+
+/**
+ * Số KỲ đã tới hạn tính đến `now` (kể từ kỳ đầu — xem `firstDueDate`), tối thiểu 0.
  * Dùng để ước lượng đáng lẽ đã phải trả bao nhiêu theo cam kết.
  */
 export function duePeriods(plan: DebtPlanLike, now: Date): number {
-  const start = atMidnight(plan.startDate);
   const cur = atMidnight(now);
-  if (cur < dueDateInMonth(plan.dayOfMonth, start.getFullYear(), start.getMonth())) {
-    // chưa tới kỳ đầu tiên
-    const monthDiff = (cur.getFullYear() - start.getFullYear()) * 12 + (cur.getMonth() - start.getMonth());
-    return Math.max(0, monthDiff);
-  }
-  const monthDiff = (cur.getFullYear() - start.getFullYear()) * 12 + (cur.getMonth() - start.getMonth());
+  const first = firstDueDate(plan);
+  if (cur < first) return 0; // chưa tới kỳ đầu tiên
+  const monthDiff = (cur.getFullYear() - first.getFullYear()) * 12 + (cur.getMonth() - first.getMonth());
   const passedThisMonth = cur >= dueDateInMonth(plan.dayOfMonth, cur.getFullYear(), cur.getMonth()) ? 1 : 0;
   return Math.max(0, monthDiff + passedThisMonth);
 }

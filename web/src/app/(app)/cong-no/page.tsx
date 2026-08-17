@@ -48,10 +48,12 @@ export default async function DebtLedgerPage({
   const now = new Date();
   const monthStart = startOfMonth(now);
 
-  // Tư vấn viên chỉ thấy công nợ của khách mình phụ trách — đồng bộ với
-  // "Hồ sơ điều trị" (Yêu cầu số 7). Trước đây trang này KHÔNG lọc, nên tư
-  // vấn viên nhìn thấy công nợ của mọi khách hàng, kể cả của đồng nghiệp.
-  const scope: Prisma.CaseRecordWhereInput = user.role === "CONSULTANT" ? { consultantId: user.id } : {};
+  // Tư vấn viên/bác sĩ chỉ thấy công nợ của khách mình phụ trách — đồng bộ với "Hồ sơ
+  // điều trị" (Yêu cầu số 7, xem cách scope y hệt ở ho-so/page.tsx). Trước đây trang này
+  // chỉ lọc CONSULTANT, bỏ sót DOCTOR — nếu admin cấp quyền xem Sổ công nợ cho 1 bác sĩ,
+  // người đó sẽ thấy TOÀN BỘ công nợ trung tâm thay vì chỉ khách mình phụ trách.
+  const scope: Prisma.CaseRecordWhereInput =
+    user.role === "CONSULTANT" ? { consultantId: user.id } : user.role === "DOCTOR" ? { doctorId: user.id } : {};
 
   const [cases, monthDebtPayments] = await Promise.all([
     prisma.caseRecord.findMany({

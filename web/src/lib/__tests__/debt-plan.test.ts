@@ -83,6 +83,15 @@ describe("duePeriods", () => {
     expect(duePeriods(p31, new Date(2026, 1, 27))).toBe(1); // 27/02 chưa tới 28/02
     expect(duePeriods(p31, new Date(2026, 1, 28))).toBe(2); // 28/02 (cuối tháng 2) = kỳ 2
   });
+  it("ngày hẹn trả SỚM HƠN ngày bắt đầu trong cùng tháng → kỳ đầu dời sang tháng sau, không tính thừa", () => {
+    // Lập kế hoạch 17/08, hẹn trả vào ngày 5 hằng tháng — ngày 05/08 đã trôi qua trước khi
+    // kế hoạch tồn tại nên KHÔNG được tính là 1 kỳ đã tới hạn (bug: trước đây tính nhầm).
+    const pEarly = { dayOfMonth: 5, monthlyAmount: 2_000_000, startDate: new Date(2026, 7, 17) };
+    expect(duePeriods(pEarly, new Date(2026, 7, 20))).toBe(0); // 20/08, trước kỳ đầu thật (05/09)
+    expect(duePeriods(pEarly, new Date(2026, 8, 4))).toBe(0); // 04/09, vẫn chưa tới 05/09
+    expect(duePeriods(pEarly, new Date(2026, 8, 5))).toBe(1); // 05/09 = đúng kỳ đầu
+    expect(duePeriods(pEarly, new Date(2026, 9, 5))).toBe(2); // 05/10 = thêm kỳ 2
+  });
 });
 
 describe("expectedPaidByNow", () => {

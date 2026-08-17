@@ -103,12 +103,32 @@ export async function toggleStaffActive(formData: FormData): Promise<void> {
 
 /**
  * Xóa vĩnh viễn một nhân sự (CHỈ quản trị viên, không tự xóa mình).
- * Các bản ghi do người này tạo sẽ được giữ lại (trường người tạo chuyển về trống).
+ * CHỈ cho xóa cứng nếu nhân sự chưa có lịch sử hoạt động nào (tài khoản tạo nhầm/chưa
+ * dùng) — nếu không: Attendance/PayrollEntry bị XÓA VĨNH VIỄN theo (onDelete: Cascade,
+ * mất luôn lịch sử chấm công + lương/hoa hồng đã chi), còn AuditLog/CaseRecord/
+ * CaseService/Payment chỉ mất tên người phụ trách (onDelete: SetNull, không rõ ai đã
+ * làm gì nữa). Nhân sự đã nghỉ việc nhưng còn lịch sử → dùng "Ngừng hoạt động"
+ * (toggleStaffActive) để khóa tài khoản mà vẫn giữ nguyên toàn bộ dữ liệu liên quan.
  */
 export async function deleteStaff(formData: FormData): Promise<void> {
   const me = await requireUser(["ADMIN"]);
   const id = String(formData.get("id") ?? "");
   if (!id || id === me.id) return;
+
+  const [auditCount, caseCount, serviceCount, paymentCount, attendanceCount, payrollCount] = await Promise.all([
+    prisma.auditLog.count({ where: { actorId: id } }),
+    prisma.caseRecord.count({ where: { OR: [{ consultantId: id }, { doctorId: id }] } }),
+    prisma.caseService.count({ where: { OR: [{ doctorId: id }, { nurseId: id }] } }),
+    prisma.payment.count({ where: { receivedById: id } }),
+    prisma.attendance.count({ where: { userId: id } }),
+    prisma.payrollEntry.count({ where: { userId: id } }),
+  ]);
+  if (auditCount + caseCount + serviceCount + paymentCount + attendanceCount + payrollCount > 0) {
+    throw new Error(
+      "Nhân sự này đã có lịch sử hoạt động (hồ sơ, thu tiền, chấm công, lương hoặc nhật ký hệ thống) — xóa cứng sẽ làm mất dữ liệu đó. Hãy dùng nút \"Ngừng hoạt động\" để khóa tài khoản thay vì xóa.",
+    );
+  }
+
   await prisma.$transaction(async (tx) => {
     await tx.shift.deleteMany({ where: { userId: id } });
     await tx.user.delete({ where: { id } });

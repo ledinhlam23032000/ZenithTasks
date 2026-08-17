@@ -4,7 +4,7 @@
 // "1 cái click" xuất đủ cho kế toán/thuế theo đúng yêu cầu chủ dự án.
 
 import { format, startOfMonth, endOfMonth } from "date-fns";
-import { requireUser } from "@/lib/auth";
+import { requireCap } from "@/lib/auth";
 import { getPayroll, STANDARD_DAYS_DEFAULT } from "@/lib/payroll";
 import { getCommissionForMonth } from "@/lib/commission-data";
 import { ROLE_LABELS } from "@/lib/rbac";
@@ -18,7 +18,9 @@ import { vnDateOnly } from "@/lib/dates";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
-  await requireUser(["ADMIN", "MANAGER"]);
+  // Khớp đúng quyền của trang chính /luong (requireCap("mod:luong")) — xem lý do ở
+  // luong/export/route.ts.
+  await requireCap("mod:luong");
   const url = new URL(req.url);
   const m = url.searchParams.get("m");
   const standardDays = Math.max(1, Math.min(31, Number(url.searchParams.get("d")) || STANDARD_DAYS_DEFAULT));

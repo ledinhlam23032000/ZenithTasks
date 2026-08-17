@@ -35,8 +35,12 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
   const filters: Prisma.CustomerWhereInput[] = [];
   if (user.role === "CONSULTANT" || user.role === "DOCTOR") filters.push({ cases: { some: caseScope } });
   if (q) filters.push(isValidLast5(q) ? { phoneLast5: q } : { fullName: { contains: q, mode: "insensitive" } });
-  if (loc === "done") filters.push({ cases: { some: { status: { in: DONE_STATUSES } } } });
-  if (loc === "undone") filters.push({ cases: { none: { status: { in: DONE_STATUSES } } } });
+  // Phải gộp caseScope vào đây (không chỉ lọc theo status) — nếu không, Tư vấn viên/Bác
+  // sĩ lọc tab sẽ tính theo TOÀN BỘ ca của khách (kể cả ca của người khác) trong khi cột
+  // "Trạng thái" mỗi dòng lại chỉ tính theo ca CỦA MÌNH (xem caseScope ở `select` bên dưới)
+  // — mâu thuẫn ngay trên cùng 1 dòng.
+  if (loc === "done") filters.push({ cases: { some: { ...caseScope, status: { in: DONE_STATUSES } } } });
+  if (loc === "undone") filters.push({ cases: { none: { ...caseScope, status: { in: DONE_STATUSES } } } });
   const where: Prisma.CustomerWhereInput = filters.length ? { AND: filters } : {};
 
   const [customers, total] = await Promise.all([

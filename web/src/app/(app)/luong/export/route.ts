@@ -1,5 +1,5 @@
 import { format } from "date-fns";
-import { requireUser } from "@/lib/auth";
+import { requireCap } from "@/lib/auth";
 import { getPayroll, STANDARD_DAYS_DEFAULT } from "@/lib/payroll";
 import { ROLE_LABELS } from "@/lib/rbac";
 import { xlsxResponse, wordResponse, csvResponse, type Cell } from "@/lib/export";
@@ -8,7 +8,11 @@ export const dynamic = "force-dynamic";
 
 /** Xuất bảng lương tháng: ?format=xlsx (mặc định) | doc | csv. */
 export async function GET(req: Request) {
-  await requireUser(["ADMIN", "MANAGER"]);
+  // Khớp đúng quyền của trang chính (requireCap("mod:luong")) thay vì cứng ADMIN/MANAGER
+  // — nếu không, admin lỡ cấp mod:luong cho vai trò khác qua Phân quyền vẫn xem được
+  // trang nhưng bấm "Xuất file" bị chặn nhầm (mọi route export khác trong app đều dùng
+  // requireCap để khớp trang, đây là chỗ duy nhất còn lệch).
+  await requireCap("mod:luong");
   const url = new URL(req.url);
   const m = url.searchParams.get("m");
   const fmt = url.searchParams.get("format") ?? "xlsx";

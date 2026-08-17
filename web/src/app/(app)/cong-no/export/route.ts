@@ -24,9 +24,10 @@ export async function GET(request: Request) {
   const threshold = await getDebtThreshold();
   const now = new Date();
 
-  // Phải khớp phạm vi phân quyền của trang /cong-no: tư vấn viên chỉ xuất
-  // được công nợ khách mình phụ trách (Yêu cầu số 7).
-  const scope: Prisma.CaseRecordWhereInput = user.role === "CONSULTANT" ? { consultantId: user.id } : {};
+  // Phải khớp phạm vi phân quyền của trang /cong-no: tư vấn viên/bác sĩ chỉ xuất được
+  // công nợ khách mình phụ trách (Yêu cầu số 7) — trước đây route này chỉ lọc CONSULTANT.
+  const scope: Prisma.CaseRecordWhereInput =
+    user.role === "CONSULTANT" ? { consultantId: user.id } : user.role === "DOCTOR" ? { doctorId: user.id } : {};
 
   const cases = await prisma.caseRecord.findMany({
     where: scope,

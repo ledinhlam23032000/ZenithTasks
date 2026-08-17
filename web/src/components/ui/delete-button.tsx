@@ -37,8 +37,8 @@ export function DeleteButton({
         await action(fd);
         router.refresh();
         setOpen(false);
-      } catch {
-        setErr("Không xóa được, vui lòng thử lại.");
+      } catch (e) {
+        setErr(e instanceof Error && e.message ? e.message : "Không xóa được, vui lòng thử lại.");
       }
     });
   }
