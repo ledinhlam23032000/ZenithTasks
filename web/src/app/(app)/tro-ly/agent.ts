@@ -12,6 +12,8 @@ import { isMonthClosed } from "@/lib/accounting";
 import { audit, auditRequired } from "@/lib/audit";
 import { savePayroll, saveBulkPayroll } from "../luong/actions";
 import { addPayment, addFollowUp } from "../ho-so/actions";
+import { summarizeCase } from "@/lib/financial-summary";
+import { getFinancialHealthIssues } from "@/lib/financial-health-db";
 import type { Prisma } from "@/generated/prisma/client";
 
 const monthSchema = z.string().regex(/^\d{4}-\d{2}$/);
@@ -20,6 +22,8 @@ const actionNames = [
   "get_business_summary",
   "get_payroll_row",
   "get_debt_summary",
+  "get_lead_priorities",
+  "get_financial_alerts",
   "prepare_payroll_export",
   "save_payroll",
   "save_bulk_payroll",
@@ -58,6 +62,8 @@ const plannerSchema = {
   required: ["reply", "action", "arguments_json", "requires_confirmation", "preview"],
   additionalProperties: false,
 };
+
+const priorityArgs = z.object({ days: z.number().int().min(1).max(90).optional() });
 
 const payrollReadArgs = z.object({
   staffName: z.string().min(1).max(120),
@@ -105,6 +111,8 @@ Công cụ được phép:
 - get_business_summary: đọc tổng quan vận hành.
 - get_payroll_row: xem bảng lương của một nhân sự theo tháng; args {staffName, month?}.
 - get_debt_summary: đọc tổng công nợ hiện tại.
+- get_lead_priorities: xếp khách đang tư vấn/cân nhắc theo khả năng cần gọi lại; args {days?}.
+- get_financial_alerts: đọc các hồ sơ có dấu hiệu lệch tiền, trả vượt hoặc snapshot cũ.
 - prepare_payroll_export: chuẩn bị link xuất bảng lương; args {month, format: xlsx|doc|csv, standardDays?}.
 - save_payroll: sửa lương/hoa hồng/thưởng/điều chỉnh một nhân sự; args {staffName, month, baseSalary?, commission, bonus, adjustment}. Luôn cần ADMIN xác nhận.
 - save_bulk_payroll: sửa nhiều nhân sự; args {month, rows:[{staffName, commission, bonus, adjustment}]}. Luôn cần ADMIN xác nhận.
@@ -159,6 +167,27 @@ async function readAction(action: ActionName, args: unknown): Promise<AgentState
   if (action === "get_debt_summary") {
     const context = await getAssistantContext();
     return { ok: true, answer: `Công nợ hiện tại: ${formatVND(context.debtTotal)} trên ${context.debtCount} hồ sơ.\n\n${context.topDebtors.map((d) => `- ${d.name}: ${formatVND(d.amount)}`).join("\n") || "Chưa có hồ sơ công nợ trong dữ liệu tổng hợp."}` };
+  }
+  if (action === "get_lead_priorities") {
+    const parsed = priorityArgs.safeParse(args);
+    const days = parsed.success ? parsed.data.days ?? 30 : 30;
+    const since = new Date(Date.now() - days * 86_400_000);
+    const cases = await prisma.caseRecord.findMany({
+      where: { createdAt: { gte: since }, consultResult: { in: ["PENDING", "CONSIDERING"] }, status: { in: ["OPEN", "CONSULTED"] } },
+      orderBy: { updatedAt: "desc" }, take: 100,
+      select: { code: true, consultResult: true, createdAt: true, customer: { select: { fullName: true } }, services: { select: { listPrice: true, unitPrice: true, quantity: true, discount: true, finalPrice: true } }, payments: { select: { amount: true } }, voucherAmount: true },
+    });
+    const rows = cases.map((row) => {
+      const f = summarizeCase({ services: row.services, payments: row.payments, voucherAmount: row.voucherAmount });
+      const age = Math.max(0, Math.floor((Date.now() - row.createdAt.getTime()) / 86_400_000));
+      const score = (row.consultResult === "CONSIDERING" ? 55 : 40) + (age <= 3 ? 25 : age <= 7 ? 15 : 5) + (f.total >= 20_000_000 ? 20 : f.total >= 5_000_000 ? 10 : 5);
+      return { ...row, total: f.total, debt: f.debt, score };
+    }).sort((a, b) => b.score - a.score).slice(0, 10);
+    return { ok: true, answer: rows.length ? `Danh sách khách nên ưu tiên gọi lại trong ${days} ngày:\n\n${rows.map((r, i) => `${i + 1}. ${r.customer.fullName} · ${r.code} · điểm ${r.score}/100 · hồ sơ ${formatVND(r.total)} · còn nợ ${formatVND(r.debt)} · ${r.consultResult === "CONSIDERING" ? "đang cân nhắc" : "chưa chốt"}`).join("\n")}` : `Không có khách đang cân nhắc/chưa chốt trong ${days} ngày gần đây.` };
+  }
+  if (action === "get_financial_alerts") {
+    const issues = await getFinancialHealthIssues();
+    return { ok: true, answer: issues.length ? `Có ${issues.length} cảnh báo tài chính:\n\n${issues.slice(0, 15).map((i) => `- ${i.caseCode} · ${i.customerName}: ${i.message}`).join("\n")}` : "Không phát hiện cảnh báo tài chính trong dữ liệu gần đây." };
   }
   if (action === "get_payroll_row") {
     const parsed = payrollReadArgs.safeParse(args);
@@ -266,7 +295,7 @@ export async function runAssistantAgent(_prev: AgentState, formData: FormData): 
   if (action === "none") {
     return { ok: true, answer: `${planned.data.reply}\n\nTôi chưa thực hiện thay đổi nào.` };
   }
-  if (["get_business_summary", "get_debt_summary", "get_payroll_row", "prepare_payroll_export"].includes(action)) {
+  if (["get_business_summary", "get_debt_summary", "get_lead_priorities", "get_financial_alerts", "get_payroll_row", "prepare_payroll_export"].includes(action)) {
     const result = await readAction(action, args);
     await audit(user.id, "ASSISTANT_READ_TOOL", { entity: action, meta: { ok: result.ok } });
     return { ...result, answer: `${planned.data.reply}\n\n${result.answer ?? ""}` };
