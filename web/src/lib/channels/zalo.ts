@@ -87,6 +87,14 @@ async function refreshZaloToken(refreshToken: string): Promise<TokenResponse> {
   return tokenRequest({ refresh_token: refreshToken, app_id: appId(), grant_type: "refresh_token" });
 }
 
+// Khoá TRONG TIẾN TRÌNH theo channelAccountId: nếu 2 lượt gửi tin gần như đồng thời
+// đúng lúc access_token sắp hết hạn, cả 2 đều thấy needsRefresh=true — không khoá lại
+// thì cả 2 CÙNG gọi refreshZaloToken() bằng CÙNG 1 refresh_token cũ; Zalo xoay refresh
+// token mỗi lần dùng nên request tới sau chắc chắn bị từ chối (token đã bị "đốt" bởi
+// request tới trước), khiến tin nhắn của người gửi thứ 2 lỗi dù không đáng phải lỗi.
+// Gộp lại: request tới sau chờ dùng chung kết quả của lượt refresh đang chạy.
+const refreshInFlight = new Map<string, Promise<string>>();
+
 /**
  * Đảm bảo có access_token còn hiệu lực cho 1 ChannelAccount Zalo — tự làm mới +
  * LƯU LẠI (cả refresh_token mới, vì Zalo xoay refresh_token mỗi lần dùng) nếu
@@ -96,22 +104,35 @@ export async function ensureZaloAccessToken(account: ChannelAccount): Promise<st
   const expMs = account.tokenExpiresAt?.getTime() ?? 0;
   const needsRefresh = expMs - REFRESH_MARGIN_MS < Date.now();
   if (!needsRefresh) return decryptSecret(account.accessTokenEnc);
-  if (!account.refreshTokenEnc) return decryptSecret(account.accessTokenEnc);
+  const refreshTokenEnc = account.refreshTokenEnc;
+  if (!refreshTokenEnc) return decryptSecret(account.accessTokenEnc);
 
-  const data = await refreshZaloToken(decryptSecret(account.refreshTokenEnc));
-  const accessToken = data.access_token!;
-  const refreshToken = data.refresh_token ?? decryptSecret(account.refreshTokenEnc);
-  const expiresInSec = Number(data.expires_in ?? 3600) || 3600;
+  const pending = refreshInFlight.get(account.id);
+  if (pending) return pending;
 
-  await prisma.channelAccount.update({
-    where: { id: account.id },
-    data: {
-      accessTokenEnc: encryptSecret(accessToken),
-      refreshTokenEnc: encryptSecret(refreshToken),
-      tokenExpiresAt: new Date(Date.now() + expiresInSec * 1000),
-    },
-  });
-  return accessToken;
+  const task = (async () => {
+    const data = await refreshZaloToken(decryptSecret(refreshTokenEnc));
+    const accessToken = data.access_token!;
+    const refreshToken = data.refresh_token ?? decryptSecret(refreshTokenEnc);
+    const expiresInSec = Number(data.expires_in ?? 3600) || 3600;
+
+    await prisma.channelAccount.update({
+      where: { id: account.id },
+      data: {
+        accessTokenEnc: encryptSecret(accessToken),
+        refreshTokenEnc: encryptSecret(refreshToken),
+        tokenExpiresAt: new Date(Date.now() + expiresInSec * 1000),
+      },
+    });
+    return accessToken;
+  })();
+
+  refreshInFlight.set(account.id, task);
+  try {
+    return await task;
+  } finally {
+    refreshInFlight.delete(account.id);
+  }
 }
 
 type ZaloEnvelope<T> = { error?: number; message?: string; data?: T };

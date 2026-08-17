@@ -48,21 +48,43 @@ async function consultantConflictMessage(
 ): Promise<string | null> {
   const dayStart = new Date(when.getTime() - 12 * 3_600_000);
   const dayEnd = new Date(when.getTime() + 12 * 3_600_000);
-  const others = await prisma.appointment.findMany({
-    where: {
-      consultantId,
-      status: { in: ACTIVE_STATUSES },
-      scheduledAt: { gte: dayStart, lte: dayEnd },
-      ...(excludeId ? { id: { not: excludeId } } : {}),
-    },
-    select: { id: true, scheduledAt: true, guestName: true, customer: { select: { fullName: true } } },
-    take: 50,
-  });
-  const slots: ApptSlot[] = others.map((o) => ({
-    id: o.id,
-    scheduledAt: o.scheduledAt,
-    label: o.customer?.fullName || o.guestName || "khách",
-  }));
+  const [others, followUps] = await Promise.all([
+    prisma.appointment.findMany({
+      where: {
+        consultantId,
+        status: { in: ACTIVE_STATUSES },
+        scheduledAt: { gte: dayStart, lte: dayEnd },
+        ...(excludeId ? { id: { not: excludeId } } : {}),
+      },
+      select: { id: true, scheduledAt: true, guestName: true, customer: { select: { fullName: true } } },
+      take: 50,
+    }),
+    // Lịch tái khám (FollowUp, đặt từ hồ sơ điều trị) cũng chiếm giờ của người phụ trách
+    // y hệt 1 lịch hẹn thật, nhưng không có consultantId riêng — suy ra từ hồ sơ gốc
+    // (case.consultantId/doctorId). Trang /lich-hen đã gộp hiển thị 2 nguồn này (cạm bẫy
+    // #18) nhưng chống trùng lịch trước đây chỉ xét Appointment, bỏ sót FollowUp.
+    prisma.followUp.findMany({
+      where: {
+        status: { in: ACTIVE_STATUSES },
+        scheduledAt: { gte: dayStart, lte: dayEnd },
+        case: { OR: [{ consultantId }, { doctorId: consultantId }] },
+      },
+      select: { id: true, scheduledAt: true, customer: { select: { fullName: true } } },
+      take: 50,
+    }),
+  ]);
+  const slots: ApptSlot[] = [
+    ...others.map((o) => ({
+      id: o.id,
+      scheduledAt: o.scheduledAt,
+      label: o.customer?.fullName || o.guestName || "khách",
+    })),
+    ...followUps.map((f) => ({
+      id: f.id,
+      scheduledAt: f.scheduledAt,
+      label: `${f.customer.fullName} (tái khám)`,
+    })),
+  ];
   const hits = findConflicts(when.getTime(), slots, SLOT_WINDOW_MIN, excludeId);
   if (hits.length === 0) return null;
   const nearest = hits[0];

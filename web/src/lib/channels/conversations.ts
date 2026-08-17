@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { isUniqueViolation } from "@/lib/seq";
 import type { ChannelAccount, ChannelKind, Conversation, Prisma } from "@/generated/prisma/client";
 
 // ============================================================================
@@ -26,7 +27,11 @@ export async function findActiveChannelAccount(kind: ChannelKind, externalId: st
 
 /**
  * Ghi nhận 1 tin nhắn ĐẾN từ khách + tạo/cập nhật hội thoại tương ứng. Chống ghi
- * trùng qua `externalMessageId` (Zalo/Facebook có thể gửi lại cùng 1 sự kiện webhook).
+ * trùng qua `externalMessageId` (Zalo/Facebook có thể gửi lại cùng 1 sự kiện webhook):
+ * `Message.externalId` có ràng buộc UNIQUE ở CSDL (migration message_external_id_unique)
+ * + cả việc tạo hội thoại lẫn tin nhắn chạy trong 1 transaction, nên 2 webhook trùng
+ * đến gần như đồng thời KHÔNG thể cùng lọt qua (trước đây kiểm tra rồi mới ghi, tách
+ * rời 2 bước, 2 request có thể cùng vượt qua bước kiểm tra rồi cùng tạo trùng).
  * Trả `null` nếu tin đã ghi nhận trước đó (bỏ qua, không phải lỗi).
  */
 export async function recordInboundMessage(opts: {
@@ -39,58 +44,61 @@ export async function recordInboundMessage(opts: {
   occurredAt?: Date;
 }): Promise<Conversation | null> {
   const { channelAccount, externalUserId } = opts;
-
-  if (opts.externalMessageId) {
-    const existing = await prisma.message.findFirst({ where: { externalId: opts.externalMessageId }, select: { id: true } });
-    if (existing) return null;
-  }
-
   const occurredAt = opts.occurredAt ?? new Date();
   const preview = (opts.text?.trim() || (opts.attachments ? "[Tệp đính kèm]" : "")).slice(0, 200) || null;
   const slaDueAt = new Date(occurredAt.getTime() + RESPONSE_WINDOW_HOURS[channelAccount.kind] * 3_600_000);
 
-  const conversation = await prisma.conversation.upsert({
-    where: { channelAccountId_externalUserId: { channelAccountId: channelAccount.id, externalUserId } },
-    create: {
-      channelAccountId: channelAccount.id,
-      kind: channelAccount.kind,
-      externalUserId,
-      displayName: opts.profile?.name,
-      avatarUrl: opts.profile?.avatarUrl,
-      lastMessageAt: occurredAt,
-      lastMessagePreview: preview,
-      lastDirection: "IN",
-      unreadCount: 1,
-      status: "OPEN",
-      lastInboundAt: occurredAt,
-      slaDueAt,
-    },
-    update: {
-      ...(opts.profile?.name ? { displayName: opts.profile.name } : {}),
-      ...(opts.profile?.avatarUrl ? { avatarUrl: opts.profile.avatarUrl } : {}),
-      lastMessageAt: occurredAt,
-      lastMessagePreview: preview,
-      lastDirection: "IN",
-      unreadCount: { increment: 1 },
-      status: "OPEN",
-      lastInboundAt: occurredAt,
-      slaDueAt,
-    },
-  });
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const conversation = await tx.conversation.upsert({
+        where: { channelAccountId_externalUserId: { channelAccountId: channelAccount.id, externalUserId } },
+        create: {
+          channelAccountId: channelAccount.id,
+          kind: channelAccount.kind,
+          externalUserId,
+          displayName: opts.profile?.name,
+          avatarUrl: opts.profile?.avatarUrl,
+          lastMessageAt: occurredAt,
+          lastMessagePreview: preview,
+          lastDirection: "IN",
+          unreadCount: 1,
+          status: "OPEN",
+          lastInboundAt: occurredAt,
+          slaDueAt,
+        },
+        update: {
+          ...(opts.profile?.name ? { displayName: opts.profile.name } : {}),
+          ...(opts.profile?.avatarUrl ? { avatarUrl: opts.profile.avatarUrl } : {}),
+          lastMessageAt: occurredAt,
+          lastMessagePreview: preview,
+          lastDirection: "IN",
+          unreadCount: { increment: 1 },
+          status: "OPEN",
+          lastInboundAt: occurredAt,
+          slaDueAt,
+        },
+      });
 
-  await prisma.message.create({
-    data: {
-      conversationId: conversation.id,
-      direction: "IN",
-      status: "RECEIVED",
-      text: opts.text,
-      attachments: opts.attachments,
-      externalId: opts.externalMessageId,
-      createdAt: occurredAt,
-    },
-  });
+      await tx.message.create({
+        data: {
+          conversationId: conversation.id,
+          direction: "IN",
+          status: "RECEIVED",
+          text: opts.text,
+          attachments: opts.attachments,
+          externalId: opts.externalMessageId,
+          createdAt: occurredAt,
+        },
+      });
 
-  return conversation;
+      return conversation;
+    });
+  } catch (e) {
+    // externalId đã tồn tại (webhook gửi lại đúng sự kiện cũ) → bỏ qua toàn bộ giao dịch
+    // (kể cả phần cập nhật hội thoại/SLA), không phải lỗi thật.
+    if (isUniqueViolation(e)) return null;
+    throw e;
+  }
 }
 
 /** Ghi nhận 1 tin nhắn ĐI (nhân viên/AI soạn rồi bấm gửi) — luôn gọi SAU khi đã gọi API gửi thật. */

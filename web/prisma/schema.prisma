@@ -698,7 +698,7 @@ model Message {
   createdAt      DateTime      @default(now())
 
   @@index([conversationId, createdAt])
-  @@index([externalId])
+  @@unique([externalId]) // chống ghi trùng khi webhook gửi lại (xem lib/channels/conversations.ts)
 }
 
 // ============================ LỊCH LÀM VIỆC ============================
