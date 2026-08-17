@@ -11,6 +11,7 @@ import { formatVND } from "@/lib/money";
 import { isMonthClosed } from "@/lib/accounting";
 import { audit, auditRequired } from "@/lib/audit";
 import { savePayroll, saveBulkPayroll } from "../luong/actions";
+import { addPayment, addFollowUp } from "../ho-so/actions";
 import type { Prisma } from "@/generated/prisma/client";
 
 const monthSchema = z.string().regex(/^\d{4}-\d{2}$/);
@@ -22,6 +23,8 @@ const actionNames = [
   "prepare_payroll_export",
   "save_payroll",
   "save_bulk_payroll",
+  "record_payment",
+  "create_follow_up",
   "propose_system_change",
 ] as const;
 
@@ -80,6 +83,8 @@ const bulkRowArgs = z.object({
   adjustment: z.number().int(),
 });
 const bulkPayrollArgs = z.object({ month: monthSchema, rows: z.array(bulkRowArgs).min(1).max(100) });
+const paymentArgs = z.object({ caseCode: z.string().min(1).max(40), amount: z.number().int().positive(), method: z.enum(["CASH", "CARD", "TRANSFER", "EWALLET"]), note: z.string().max(500).optional() });
+const followUpArgs = z.object({ caseCode: z.string().min(1).max(40), scheduledAt: z.string().min(10), note: z.string().max(500).optional() });
 const changeArgs = z.object({ request: z.string().min(5).max(2000) });
 
 const nowMonth = () => {
@@ -103,6 +108,8 @@ Công cụ được phép:
 - prepare_payroll_export: chuẩn bị link xuất bảng lương; args {month, format: xlsx|doc|csv, standardDays?}.
 - save_payroll: sửa lương/hoa hồng/thưởng/điều chỉnh một nhân sự; args {staffName, month, baseSalary?, commission, bonus, adjustment}. Luôn cần ADMIN xác nhận.
 - save_bulk_payroll: sửa nhiều nhân sự; args {month, rows:[{staffName, commission, bonus, adjustment}]}. Luôn cần ADMIN xác nhận.
+- record_payment: ghi nhận khoản thu cho hồ sơ; args {caseCode, amount, method, note}. Luôn xem trước và xác nhận.
+- create_follow_up: tạo lịch chăm sóc/tái khám; args {caseCode, scheduledAt, note}. Luôn xem trước và xác nhận.
 - propose_system_change: ghi đề xuất đổi cơ chế/code thành kế hoạch để duyệt; args {request}.
 Không tự đoán tên người, tháng, số tiền; nếu thiếu thì action=none và hỏi lại. Không gọi tool khác, không viết SQL, không sửa file trực tiếp.`;
 
@@ -111,8 +118,29 @@ async function buildPlannerPrompt(question: string): Promise<string> {
   return `${actionHelp}\n\nBỐI CẢNH SỐ LIỆU HIỆN TẠI:\n${formatAssistantContext(context)}\n\nYÊU CẦU CỦA ADMIN:\n${question}\n\nChọn tối đa một action. Yêu cầu sửa/ghi dữ liệu phải đặt requires_confirmation=true. Nếu là yêu cầu đổi công thức hoặc code, dùng propose_system_change, không dùng save_payroll.`;
 }
 
+function getCaseFinancialTotal(record: { services: Array<{ listPrice: unknown; unitPrice: unknown; quantity: unknown; discount: unknown; finalPrice: unknown }>; payments: Array<{ amount: unknown }>; voucherAmount: unknown }) {
+  const total = record.services.reduce((sum, service) => {
+    const unit = Number(service.unitPrice) || Number(service.listPrice) || 0;
+    const quantity = Number(service.quantity) || 1;
+    const discount = Number(service.discount) || 0;
+    return sum + Math.max(unit * quantity - discount, 0);
+  }, 0) - Math.max(Number(record.voucherAmount) || 0, 0);
+  const paid = record.payments.reduce((sum, payment) => sum + Math.max(Number(payment.amount) || 0, 0), 0);
+  return { total: Math.max(total, 0), paid, debt: Math.max(total - paid, 0) };
+}
+
 function planError(message: string): AgentState {
   return { error: message };
+}
+
+async function findCase(caseCode: string) {
+  const exact = await prisma.caseRecord.findUnique({
+    where: { code: caseCode.trim() },
+    select: { id: true, code: true, customerId: true, customer: { select: { fullName: true } }, services: { select: { listPrice: true, unitPrice: true, quantity: true, discount: true, finalPrice: true } }, payments: { select: { amount: true } }, voucherAmount: true },
+  });
+  if (exact) return { record: exact, choices: [] as string[] };
+  const partial = await prisma.caseRecord.findMany({ where: { code: { contains: caseCode.trim(), mode: "insensitive" } }, take: 5, select: { code: true } });
+  return { record: null, choices: partial.map((row) => row.code) };
 }
 
 async function findStaff(staffName: string) {
@@ -189,6 +217,24 @@ async function validateWrite(action: ActionName, args: unknown, userId: string):
     }
     return { args: { month: parsed.data.month, rows: resolved }, preview: `Sửa hoa hồng/thưởng/điều chỉnh cho ${resolved.length} nhân sự trong tháng ${parsed.data.month}: ${resolved.map((r) => r.resolvedName).join(", ")}.` };
   }
+  if (action === "record_payment") {
+    const parsed = paymentArgs.safeParse(args);
+    if (!parsed.success) return { error: "Cần đủ mã hồ sơ, số tiền và hình thức thanh toán." };
+    const found = await findCase(parsed.data.caseCode);
+    if (!found.record) return { error: found.choices.length ? `Có nhiều mã hồ sơ gần giống: ${found.choices.join(", ")}.` : "Không tìm thấy mã hồ sơ." };
+    const current = getCaseFinancialTotal(found.record);
+    if (parsed.data.amount > current.debt) return { error: `Số tiền ${formatVND(parsed.data.amount)} vượt công nợ còn lại ${formatVND(current.debt)}.` };
+    return { args: { ...parsed.data, caseId: found.record.id }, preview: `Ghi nhận ${formatVND(parsed.data.amount)} cho hồ sơ ${found.record.code} của khách ${found.record.customer.fullName}; hình thức ${parsed.data.method}. Công nợ trước thu ${formatVND(current.debt)}.` };
+  }
+  if (action === "create_follow_up") {
+    const parsed = followUpArgs.safeParse(args);
+    if (!parsed.success) return { error: "Cần đủ mã hồ sơ và thời gian follow-up." };
+    const found = await findCase(parsed.data.caseCode);
+    if (!found.record) return { error: found.choices.length ? `Có mã hồ sơ gần giống: ${found.choices.join(", ")}.` : "Không tìm thấy mã hồ sơ." };
+    const when = new Date(parsed.data.scheduledAt);
+    if (Number.isNaN(when.getTime()) || when.getTime() < Date.now() - 60_000) return { error: "Thời gian follow-up không hợp lệ hoặc đã ở quá khứ." };
+    return { args: { ...parsed.data, caseId: found.record.id, customerId: found.record.customerId }, preview: `Tạo follow-up cho ${found.record.customer.fullName} — hồ sơ ${found.record.code} vào ${when.toLocaleString("vi-VN")}.` };
+  }
   if (action === "propose_system_change") {
     const parsed = changeArgs.safeParse(args);
     if (!parsed.success) return { error: "Cần mô tả rõ cơ chế hoặc chức năng muốn thay đổi." };
@@ -260,6 +306,23 @@ export async function confirmAssistantApproval(_prev: AgentState, formData: Form
       fd.set("month", String(args.month));
       fd.set("rows", JSON.stringify(rows.map((r) => ({ id: r.userId, commission: r.commission, bonus: r.bonus, adjustment: r.adjustment }))));
       const result = await saveBulkPayroll({}, fd);
+      if (result.error) return planError(result.error);
+    } else if (approval.toolName === "record_payment") {
+      const fd = new FormData();
+      fd.set("caseId", String(args.caseId));
+      fd.set("clientNonce", crypto.randomUUID());
+      fd.set("amount", String(args.amount));
+      fd.set("method", String(args.method));
+      fd.set("note", String(args.note ?? ""));
+      const result = await addPayment({}, fd);
+      if (result.error) return planError(result.error);
+    } else if (approval.toolName === "create_follow_up") {
+      const fd = new FormData();
+      fd.set("caseId", String(args.caseId));
+      fd.set("customerId", String(args.customerId));
+      fd.set("scheduledAt", String(args.scheduledAt));
+      fd.set("note", String(args.note ?? ""));
+      const result = await addFollowUp({}, fd);
       if (result.error) return planError(result.error);
     } else if (approval.toolName === "propose_system_change") {
       const request = String(args.request);
