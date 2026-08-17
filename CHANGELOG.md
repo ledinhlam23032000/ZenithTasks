@@ -2,6 +2,30 @@
 
 Tài liệu này ghi các thay đổi đã được đẩy lên nhánh `master`. Commit mới hơn nằm ở phía trên. Phiên bản mô tả đầy đủ hiện tại nằm trong [`VERSION.md`](VERSION.md).
 
+## 2026-08-18 — `2026.08.18-r2`
+
+Commit chuẩn: [`4ba1310`](https://github.com/ledinhlam23032000/ZenithTasks/commit/4ba1310).
+
+### Chứng từ, Thu–chi và Kế toán
+
+- Từ Sổ thu–chi, ADMIN có thể chọn **Lập giấy đề nghị thanh toán trước**, dùng được cho khoản rất nhỏ như gói tăm 3.000đ. Phiếu được tạo PENDING và chưa ghi dòng chi cho đến khi được duyệt và thanh toán.
+- Khi ghi PAID, PaymentRequest tạo đúng một CashTransaction EXPENSE có `paymentRequestId`; Sổ thu–chi hiển thị số phiếu/trạng thái và liên kết ngược tới bản in. Dòng đã liên kết bị khóa sửa/xóa trực tiếp để tránh lệch sổ.
+- Khu vực Kế toán có **Trung tâm chứng từ** để mở/in Đề nghị thanh toán, bảng lương, Sổ thu–chi và các file xuất theo tháng; số lương dùng cùng read-model với bảng lương chính.
+
+### Trợ lý AI ADMIN
+
+- Planner AI được cấp mặc định kho kiến thức bản đồ vận hành của hệ thống, gồm hồ sơ, hộp thư, lương/hoa hồng, Thu–chi, Kế toán, Đề nghị thanh toán, Kho, Nhân sự, Phân quyền và Nhật ký.
+- AI được hướng dẫn phân biệt PaymentRequest với CashTransaction, biết khoản chi nhỏ cũng phải có thể lập chứng từ và phải dùng read tool khi hỏi số liệu cụ thể; thao tác ghi vẫn bắt buộc preview, audit và ADMIN xác nhận.
+- Bộ nhớ dài hạn của nhiệm vụ đã ghi rõ AI ADMIN là workstream bắt buộc, không được bỏ quên khi hoàn tất phần tài chính.
+
+### Kiểm tra
+
+- Prisma validate/generate đạt.
+- TypeScript đạt.
+- Vitest: **45 file, 299/299 test đạt**.
+- Next.js production build đạt.
+- Commit này chưa được áp dụng lên máy vận hành; cần backup và build/recreate Docker trước khi chạy migration nếu migration pending.
+
 ## 2026-08-18 — `2026.08.18-r1`
 
 Commit chuẩn nội dung: [`87c131c`](https://github.com/ledinhlam23032000/ZenithTasks/commit/87c131c).

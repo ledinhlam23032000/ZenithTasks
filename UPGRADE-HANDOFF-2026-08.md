@@ -31,21 +31,30 @@ Logic hoa hồng hiện lấy các Payment theo `paidAt`, phân bổ theo `CaseR
 
 Trợ lý AI có khu vực tải file TXT/CSV/JSON/DOC/DOCX/XLS/XLSX/PDF/ảnh tối đa 15MB, trích xuất text bằng `mammoth`, `xlsx`, `pdf-parse`, lưu tối đa 30 ngày, đưa file context vào planner; có feedback đúng/cần sửa, audit và nhập giọng nói bằng Web Speech API với ô gõ dự phòng. Planner vẫn chỉ dùng whitelist và approval.
 
+### Bổ sung phiên bản 2026.08.18-r2
+
+Từ Sổ thu–chi, ADMIN có thể chọn lập Đề nghị thanh toán trước cho khoản chi nhỏ như gói tăm 3.000đ. Hệ thống tạo PaymentRequest PENDING, chưa tạo dòng CashTransaction. Sau khi ADMIN duyệt và ghi PAID, hệ thống tạo đúng một CashTransaction EXPENSE có liên kết `paymentRequestId`; Sổ thu–chi và trang Đề nghị thanh toán có link đối chiếu. Dòng thu–chi đã liên kết bị khóa sửa/xóa trực tiếp để không lệch chứng từ.
+
+Trang Kế toán có component Trung tâm chứng từ tại `web/src/app/(app)/ke-toan/accounting-document-center.tsx`, cho phép mở nhanh Đề nghị thanh toán, bảng lương, Sổ thu–chi và các route xuất Excel/Word theo tháng.
+
+Planner trong `web/src/app/(app)/tro-ly/agent.ts` hiện nạp `BUSINESS_RULES_KNOWLEDGE` gồm bản đồ module, quy tắc chứng từ và cách xử lý khoản chi nhỏ. Với ADMIN, planner được phép dùng kiến thức này cùng các read tool và snapshot số liệu; câu hỏi về số liệu cụ thể vẫn phải dùng tool hoặc nói rõ chưa có dữ liệu. Preview, audit và ADMIN approval cho thao tác ghi không thay đổi.
+
 ## Kiểm tra đã đạt
 
 - `git diff --check`: đạt.
 - `npx prisma validate`: đạt.
 - `npx prisma generate`: đạt.
 - `./node_modules/.bin/tsc --noEmit`: đạt.
-- `./node_modules/.bin/vitest run`: 43 file, 292 test đạt.
+- `./node_modules/.bin/vitest run`: 45 file, 299 test đạt.
 - `./node_modules/.bin/next build`: đạt; các route mới đã được build.
+- Test mới: metadata khoản chi nhỏ, khóa sửa/xóa CashTransaction đã liên kết và knowledge map AI ADMIN đều đạt.
 
 ## Còn phải làm trước khi cập nhật máy phòng khám
 
-1. Rà soát migration SQL và chạy `prisma migrate deploy` trên môi trường có backup; không reset database.
-2. Cập nhật `VERSION.md`, `CHANGELOG.md`, `ROADMAP.md` và tài liệu hướng dẫn sử dụng các module mới.
-3. Commit/push GitHub, sau đó backup máy phòng khám và cập nhật Windows.
-4. Kiểm tra thực tế bằng tài khoản ADMIN: tạo một đề nghị thanh toán nhỏ, in phiếu, tạo sổ tư vấn thử, tạo bản thỏa thuận nháp, tải file AI và kiểm tra voice.
+1. Backup máy phòng khám trước khi cập nhật; không reset database.
+2. Build/recreate image Docker từ commit mới; nếu `prisma migrate status` báo pending thì chạy `prisma migrate deploy`.
+3. Kiểm tra thực tế bằng tài khoản ADMIN: từ Sổ thu–chi chọn khoản chi nhỏ, mở Đề nghị thanh toán, duyệt, ghi PAID và xác nhận chỉ có một dòng Thu–chi; mở Trung tâm chứng từ; hỏi AI các câu về hoa hồng thực thu, chứng từ và module vận hành.
+4. Sau đó kiểm tra lại đăng nhập, bảng lương, QR, hộp thư, AI file/voice và backup status.
 
 ## Nguyên tắc an toàn
 
