@@ -18,6 +18,7 @@ import { ExportMenu } from "@/components/ui/export-menu";
 import { MultiChart } from "@/components/ui/multi-chart";
 import { PayrollEditButton } from "./payroll-edit";
 import { PayrollBulkEditor } from "./payroll-bulk-edit";
+import { DismissibleBanner } from "@/components/ui/dismissible-banner";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Lương & hoa hồng" };
@@ -91,18 +92,20 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
       />
 
       {missing.length > 0 && (
-        <div className="flex flex-wrap items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
-          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium text-amber-800">
-              {missing.length} nhân sự chưa có ngày công nào trong tháng {format(monthDate, "MM/yyyy")} — kiểm tra lại chấm công trước khi chốt lương.
-            </p>
-            <p className="mt-0.5 text-sm text-amber-700">{missing.map((r) => r.name).join(", ")}</p>
+        <DismissibleBanner bannerKey={`missing-attendance-${monthValue}`} className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+          <div className="flex flex-wrap items-start gap-3">
+            <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium text-amber-800">
+                {missing.length} nhân sự chưa có ngày công nào trong tháng {format(monthDate, "MM/yyyy")} — kiểm tra lại chấm công trước khi chốt lương.
+              </p>
+              <p className="mt-0.5 text-sm text-amber-700">{missing.map((r) => r.name).join(", ")}</p>
+            </div>
+            <Link href={`/cham-cong?m=${monthValue}`} className="shrink-0 rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-sm font-medium text-amber-700 hover:bg-amber-100">
+              Xem chấm công
+            </Link>
           </div>
-          <Link href={`/cham-cong?m=${monthValue}`} className="shrink-0 rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-sm font-medium text-amber-700 hover:bg-amber-100">
-            Xem chấm công
-          </Link>
-        </div>
+        </DismissibleBanner>
       )}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

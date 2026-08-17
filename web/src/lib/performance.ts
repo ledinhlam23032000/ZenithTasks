@@ -5,6 +5,7 @@ import { toNum } from "@/lib/money";
 import { summarizeCase } from "@/lib/financial-summary";
 import { vnDateOnly } from "@/lib/dates";
 import { collectionsByStaff, type StaffCollection } from "@/lib/collections";
+import { debtByStaff } from "@/lib/payroll-pure";
 import type { Role } from "@/generated/prisma/client";
 
 const EMPTY_COLLECTION: StaffCollection = { total: 0, fromNew: 0, fromDebt: 0 };
@@ -89,13 +90,13 @@ export async function getStaffPerformance(monthDate: Date) {
   const dCount = new Map(doctorG.map((g) => [g.doctorId, g._count._all]));
   const days = new Map(attendanceG.map((g) => [g.userId, g._count._all]));
   const care = new Map(careG.map((g) => [g.createdById, g._count._all]));
-  const debtByConsult = new Map<string, number>();
-  const debtByDoctor = new Map<string, number>();
-  for (const c of debtCases) {
-    const debt = summarizeCase({ services: c.services, payments: c.payments, voucherAmount: c.voucherAmount }).debt;
-    if (c.consultantId) debtByConsult.set(c.consultantId, (debtByConsult.get(c.consultantId) ?? 0) + debt);
-    if (c.doctorId) debtByDoctor.set(c.doctorId, (debtByDoctor.get(c.doctorId) ?? 0) + debt);
-  }
+  const debtByStaffMap = debtByStaff(
+    debtCases.map((c) => ({
+      consultantId: c.consultantId,
+      doctorId: c.doctorId,
+      debt: summarizeCase({ services: c.services, payments: c.payments, voucherAmount: c.voucherAmount }).debt,
+    })),
+  );
   const collected = collectionsByStaff(
     monthPayments.map((p) => ({
       amount: toNum(p.amount),
@@ -128,7 +129,7 @@ export async function getStaffPerformance(monthDate: Date) {
       totalRevenue: consultRevenue + doctorRevenue,
       collectedConsult: collected.consultants.get(u.id) ?? EMPTY_COLLECTION,
       collectedDoctor: collected.doctors.get(u.id) ?? EMPTY_COLLECTION,
-      debtOutstanding: (debtByConsult.get(u.id) ?? 0) + (debtByDoctor.get(u.id) ?? 0),
+      debtOutstanding: debtByStaffMap.get(u.id) ?? 0,
     };
   });
 

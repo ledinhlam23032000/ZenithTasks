@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { missingAttendanceStaff, computeBaseActual } from "../payroll-pure";
+import { missingAttendanceStaff, computeBaseActual, debtByStaff } from "../payroll-pure";
 
 describe("missingAttendanceStaff", () => {
   it("trả mảng rỗng khi ai cũng có ngày công", () => {
@@ -19,6 +19,26 @@ describe("missingAttendanceStaff", () => {
   it("không coi ngày công thấp nhưng khác 0 là thiếu", () => {
     const rows = [{ id: "1", daysWorked: 1 }];
     expect(missingAttendanceStaff(rows)).toEqual([]);
+  });
+});
+
+describe("debtByStaff", () => {
+  it("không đếm đôi công nợ khi một người vừa tư vấn vừa là bác sĩ của cùng hồ sơ", () => {
+    const result = debtByStaff([{ consultantId: "doctor-1", doctorId: "doctor-1", debt: 17_500_000 }]);
+    expect(result.get("doctor-1")).toBe(17_500_000);
+  });
+
+  it("vẫn phân bổ cùng công nợ cho hai nhân sự khác nhau theo vai trò phụ trách", () => {
+    const result = debtByStaff([{ consultantId: "consultant-1", doctorId: "doctor-1", debt: 17_500_000 }]);
+    expect(result.get("consultant-1")).toBe(17_500_000);
+    expect(result.get("doctor-1")).toBe(17_500_000);
+  });
+
+  it("bỏ qua công nợ âm hoặc không hữu hạn", () => {
+    expect(debtByStaff([
+      { consultantId: "a", doctorId: "a", debt: -1 },
+      { consultantId: "b", doctorId: null, debt: Number.NaN },
+    ])).toEqual(new Map());
   });
 });
 

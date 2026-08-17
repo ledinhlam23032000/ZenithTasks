@@ -17,3 +17,25 @@ export function computeBaseActual(baseFull: number, daysWorked: number, standard
   if (standardDays <= 0) return 0;
   return Math.round(baseFull * (daysWorked / standardDays));
 }
+
+
+export type StaffDebtAssignment = {
+  consultantId: string | null;
+  doctorId: string | null;
+  debt: number;
+};
+
+/**
+ * Công nợ là thuộc về HỒ SƠ/khách, không phải hai khoản độc lập theo vai trò.
+ * Nếu một người đồng thời là consultantId và doctorId của cùng hồ sơ thì chỉ cộng
+ * một lần cho người đó; hai người khác nhau vẫn nhận cùng số nợ ở góc nhìn phụ trách.
+ */
+export function debtByStaff(assignments: StaffDebtAssignment[]): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const assignment of assignments) {
+    if (!Number.isFinite(assignment.debt) || assignment.debt <= 0) continue;
+    const staffIds = new Set([assignment.consultantId, assignment.doctorId].filter((id): id is string => Boolean(id)));
+    for (const staffId of staffIds) out.set(staffId, (out.get(staffId) ?? 0) + assignment.debt);
+  }
+  return out;
+}

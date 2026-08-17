@@ -4,7 +4,7 @@ import { toNum } from "@/lib/money";
 import { loadCaseFinancials } from "@/lib/financial-summary-db";
 import { vnDateOnly } from "@/lib/dates";
 import { collectionsByStaff, collectionsTotal, type StaffCollection } from "@/lib/collections";
-import { computeBaseActual } from "@/lib/payroll-pure";
+import { computeBaseActual, debtByStaff } from "@/lib/payroll-pure";
 import type { Role } from "@/generated/prisma/client";
 
 export const STANDARD_DAYS_DEFAULT = 26;
@@ -100,13 +100,13 @@ export async function getPayroll(monthDate: Date, standardDays = STANDARD_DAYS_D
   const collected = collectionsByStaff(attributions, gte);
   const collectedAll = collectionsTotal(attributions, gte);
   const debtFinancials = await loadCaseFinancials(debtCases.map((c) => c.id));
-  const debtByConsult = new Map<string, number>();
-  const debtByDoctor = new Map<string, number>();
-  for (const c of debtCases) {
-    const debt = debtFinancials.get(c.id)?.debt ?? 0;
-    if (c.consultantId) debtByConsult.set(c.consultantId, (debtByConsult.get(c.consultantId) ?? 0) + debt);
-    if (c.doctorId) debtByDoctor.set(c.doctorId, (debtByDoctor.get(c.doctorId) ?? 0) + debt);
-  }
+  const debtByStaffMap = debtByStaff(
+    debtCases.map((c) => ({
+      consultantId: c.consultantId,
+      doctorId: c.doctorId,
+      debt: debtFinancials.get(c.id)?.debt ?? 0,
+    })),
+  );
 
   // Ngày công (Attendance đã unique theo user/ngày)
   const days = new Map<string, number>();
@@ -134,7 +134,7 @@ export async function getPayroll(monthDate: Date, standardDays = STANDARD_DAYS_D
     const total = baseActual + commission + bonus + adjustment;
     const collectedConsult = collected.consultants.get(u.id) ?? EMPTY_COLLECTION;
     const collectedDoctor = collected.doctors.get(u.id) ?? EMPTY_COLLECTION;
-    const debtOutstanding = (debtByConsult.get(u.id) ?? 0) + (debtByDoctor.get(u.id) ?? 0);
+    const debtOutstanding = debtByStaffMap.get(u.id) ?? 0;
     return {
       id: u.id, name: u.fullName, code: u.code, role: u.role, daysWorked, baseFull, baseActual,
       commission, bonus, adjustment, total, collectedConsult, collectedDoctor, debtOutstanding,

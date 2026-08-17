@@ -7,6 +7,7 @@ import { securityWarnings } from "@/lib/security-status";
 import { AppShell } from "@/components/layout/app-shell";
 import { ToastProvider } from "@/components/ui/toast";
 import { pushPublicKey } from "@/lib/push";
+import { DismissibleBanner } from "@/components/ui/dismissible-banner";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
@@ -27,28 +28,32 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         {(warnings.length > 0 || weakPassword) && (
           <div className="mb-4 space-y-2">
             {weakPassword && (
-              <div className="flex items-start gap-3 rounded-xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm">
-                <KeyRound className="mt-0.5 h-5 w-5 shrink-0 text-rose-600" />
-                <div>
-                  <p className="font-semibold text-rose-700">Tài khoản của bạn vẫn dùng mật khẩu mặc định</p>
-                  <p className="text-rose-600/90">
-                    Vì lý do an toàn, hãy đổi mật khẩu ngay tại{" "}
-                    <Link href="/tai-khoan" className="underline">
-                      Tài khoản
-                    </Link>
-                    .
-                  </p>
+              <DismissibleBanner bannerKey="weak-password" className="rounded-xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                <div className="flex items-start gap-3">
+                  <KeyRound className="mt-0.5 h-5 w-5 shrink-0 text-rose-600" />
+                  <div>
+                    <p className="font-semibold">Tài khoản của bạn vẫn dùng mật khẩu mặc định</p>
+                    <p className="text-rose-600/90">
+                      Vì lý do an toàn, hãy đổi mật khẩu ngay tại{" "}
+                      <Link href="/tai-khoan" className="underline">
+                        Tài khoản
+                      </Link>
+                      .
+                    </p>
+                  </div>
                 </div>
-              </div>
+              </DismissibleBanner>
             )}
             {warnings.map((w) => (
-              <div key={w.key} className="flex items-start gap-3 rounded-xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm">
-                <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-rose-600" />
-                <div>
-                  <p className="font-semibold text-rose-700">{w.title}</p>
-                  <p className="text-rose-600/90">{w.detail}</p>
+              <DismissibleBanner key={w.key} bannerKey={w.key} className="rounded-xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                <div className="flex items-start gap-3">
+                  <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-rose-600" />
+                  <div>
+                    <p className="font-semibold">{w.title}</p>
+                    <p className="text-rose-600/90">{w.detail}</p>
+                  </div>
                 </div>
-              </div>
+              </DismissibleBanner>
             ))}
           </div>
         )}
