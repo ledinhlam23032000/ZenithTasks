@@ -3,27 +3,10 @@ import { requireCap } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { fmtDateTime } from "@/lib/format";
 import { xlsxResponse, wordResponse, csvResponse, type Cell } from "@/lib/export";
+import { AUDIT_ACTION_LABEL } from "@/lib/status";
 import type { Prisma } from "@/generated/prisma/client";
 
 export const dynamic = "force-dynamic";
-
-const ACTION_LABEL: Record<string, string> = {
-  LOGIN: "Đăng nhập",
-  LOGOUT: "Đăng xuất",
-  CHANGE_PASSWORD: "Đổi mật khẩu",
-  RESET_PASSWORD: "Đặt lại mật khẩu",
-  CREATE_CUSTOMER: "Tạo khách",
-  UPDATE_CUSTOMER: "Sửa khách",
-  DELETE_CUSTOMER: "Xóa khách",
-  DELETE_PAYMENT: "Xóa khoản thu",
-  UPDATE_PAYMENT: "Sửa khoản thu",
-  DELETE_CASE: "Xóa hồ sơ",
-  APPLY_VOUCHER: "Áp voucher",
-  DELETE_CARE: "Xóa tin chăm sóc",
-  REVEAL_PHONE: "Xem SĐT đầy đủ",
-  ENABLE_2FA: "Bật 2 lớp",
-  DISABLE_2FA: "Tắt 2 lớp",
-};
 
 function metaText(meta: unknown): string {
   if (!meta || typeof meta !== "object") return "";
@@ -45,7 +28,7 @@ export async function GET(request: Request) {
   const to = (url.searchParams.get("to") ?? "").trim();
 
   const where: Prisma.AuditLogWhereInput = {};
-  if (action && action in ACTION_LABEL) where.action = action;
+  if (action && action in AUDIT_ACTION_LABEL) where.action = action;
   if (actorId) where.actorId = actorId;
   if (from || to) {
     where.at = {
@@ -65,7 +48,7 @@ export async function GET(request: Request) {
   const rows: Cell[][] = logs.map((l) => [
     fmtDateTime(l.at),
     l.actor?.fullName ?? "",
-    ACTION_LABEL[l.action] ?? l.action,
+    AUDIT_ACTION_LABEL[l.action]?.label ?? l.action,
     l.entity ?? "",
     metaText(l.meta),
     l.ip ?? "",

@@ -4,6 +4,11 @@ import { prisma } from "./db";
 import { getUploadDir } from "./upload-storage";
 import { securityWarnings } from "./security-status";
 import { loadCaseFinancials } from "./financial-summary-db";
+import { AUDIT_ACTION_LABEL, isSensitiveAuditAction } from "./status";
+
+// Danh sách tĩnh (suy ra từ AUDIT_ACTION_LABEL — nguồn duy nhất, xem lib/status.ts) để
+// lọc thẳng trong câu truy vấn Prisma bên dưới.
+const SENSITIVE_AUDIT_ACTIONS = Object.keys(AUDIT_ACTION_LABEL).filter(isSensitiveAuditAction);
 
 // ============================================================================
 // TÌNH TRẠNG HỆ THỐNG (A7) — số liệu cho trang /he-thong (ADMIN).
@@ -89,7 +94,11 @@ export async function getSystemStatus() {
     prisma.$queryRaw<Array<{ size: bigint }>>`SELECT pg_database_size(current_database()) AS size`,
     uploadsUsage(),
     readBackupInfo(),
+    // "Hoạt động NHẠY CẢM gần đây" — trước đây lấy 10 dòng MỚI NHẤT bất kể loại hành
+    // động, nên chấm công/đăng nhập thường nhật có thể đẩy 1 sự kiện thật sự đáng chú ý
+    // (vd REVEAL_PHONE, DELETE_PAYMENT) ra khỏi danh sách hiện, dù tên card nói khác.
     prisma.auditLog.findMany({
+      where: { action: { in: SENSITIVE_AUDIT_ACTIONS } },
       orderBy: { at: "desc" },
       take: 10,
       include: { actor: { select: { fullName: true } } },

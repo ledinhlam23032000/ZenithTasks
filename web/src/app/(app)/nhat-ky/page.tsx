@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { getConsultants } from "@/lib/lookups";
 import { fmtDateTime } from "@/lib/format";
 import { PAGE_SIZE, parsePage, totalPagesOf } from "@/lib/pagination";
+import { AUDIT_ACTION_LABEL } from "@/lib/status";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge, type Tone } from "@/components/ui/badge";
@@ -18,23 +19,7 @@ import type { Prisma } from "@/generated/prisma/client";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Nhật ký hệ thống" };
 
-const ACTION: Record<string, { label: string; tone: Tone }> = {
-  LOGIN: { label: "Đăng nhập", tone: "slate" },
-  LOGOUT: { label: "Đăng xuất", tone: "slate" },
-  CHANGE_PASSWORD: { label: "Đổi mật khẩu", tone: "amber" },
-  RESET_PASSWORD: { label: "Đặt lại mật khẩu", tone: "amber" },
-  CREATE_CUSTOMER: { label: "Tạo khách", tone: "green" },
-  UPDATE_CUSTOMER: { label: "Sửa khách", tone: "blue" },
-  DELETE_CUSTOMER: { label: "Xóa khách", tone: "red" },
-  DELETE_PAYMENT: { label: "Xóa khoản thu", tone: "red" },
-  UPDATE_PAYMENT: { label: "Sửa khoản thu", tone: "amber" },
-  DELETE_CASE: { label: "Xóa hồ sơ", tone: "red" },
-  APPLY_VOUCHER: { label: "Áp voucher", tone: "purple" },
-  DELETE_CARE: { label: "Xóa tin chăm sóc", tone: "red" },
-  REVEAL_PHONE: { label: "Xem SĐT đầy đủ", tone: "amber" },
-  ENABLE_2FA: { label: "Bật 2 lớp", tone: "green" },
-  DISABLE_2FA: { label: "Tắt 2 lớp", tone: "amber" },
-};
+const ACTION = AUDIT_ACTION_LABEL;
 
 function metaText(meta: unknown): string {
   if (!meta || typeof meta !== "object") return "";
