@@ -45,6 +45,7 @@ import { MedicalAlert } from "@/components/ui/medical-alert";
 import { CaseSectionTabs, type CaseTab } from "./case-section-tabs";
 import {
   CaseInfoForm,
+  ConsultationBookForm,
   AddServiceButton,
   AddPaymentButton,
   AddMaterialButton,
@@ -99,6 +100,7 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
         documents: { orderBy: { createdAt: "desc" }, include: { uploadedBy: { select: { fullName: true } } } },
         debtPlan: true,
         revenueAllocations: { orderBy: { createdAt: "asc" }, include: { user: { select: { fullName: true } } } },
+        consultation: true,
       },
     }),
     getActiveServices(),
@@ -220,6 +222,30 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
                 note: record.note,
               }}
             />
+            <div className="mt-6 border-t border-slate-100 pt-6">
+              <ConsultationBookForm
+                caseId={record.id}
+                initial={record.consultation ? {
+                  weightKg: record.consultation.weightKg ? Number(record.consultation.weightKg) : null,
+                  heightCm: record.consultation.heightCm ? Number(record.consultation.heightCm) : null,
+                  bloodType: record.consultation.bloodType,
+                  emergencyName: record.consultation.emergencyName,
+                  emergencyPhone: record.consultation.emergencyPhone,
+                  pulse: record.consultation.pulse,
+                  bloodPressure: record.consultation.bloodPressure,
+                  temperatureC: record.consultation.temperatureC ? Number(record.consultation.temperatureC) : null,
+                  respiratoryRate: record.consultation.respiratoryRate,
+                  spo2: record.consultation.spo2,
+                  screening: (record.consultation.screening && typeof record.consultation.screening === "object" && !Array.isArray(record.consultation.screening) ? record.consultation.screening : {}) as Record<string, boolean>,
+                  patientConfirmed: record.consultation.patientConfirmed,
+                  wants: record.consultation.wants,
+                  currentCondition: record.consultation.currentCondition,
+                  expectedResult: record.consultation.expectedResult,
+                  doctorIndication: record.consultation.doctorIndication,
+                  updatedAt: record.consultation.updatedAt.toISOString(),
+                } : null}
+              />
+            </div>
           </CardContent>
         </Card>
       ),

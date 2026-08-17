@@ -74,7 +74,7 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
             {isAdmin && (
               <PayrollBulkEditor
                 rows={p.rows.map((r) => ({
-                  id: r.id, name: r.name, commission: r.commission, bonus: r.bonus, adjustment: r.adjustment,
+                  id: r.id, name: r.name, commission: r.commission, commissionOverride: r.commissionOverride, bonus: r.bonus, adjustment: r.adjustment,
                   hasEntry: r.hasEntry, prevCommission: r.prevCommission, prevBonus: r.prevBonus, prevAdjustment: r.prevAdjustment,
                 }))}
                 month={monthValue}
@@ -126,7 +126,7 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
           <CardTitle>Bảng lương — {format(monthDate, "MM/yyyy")}</CardTitle>
           <span className="text-xs text-slate-400">
             DS phân bổ = phần doanh thu được quy cho nhân sự, không phải tổng doanh thu hồ sơ; mỗi hồ sơ chỉ tính một lần. Thực thu = tiền thật đã về trong tháng từ hồ sơ mình phụ trách (kể cả khách trả nợ ca cũ) — căn cứ nhập hoa hồng.
-            {isAdmin && " Bấm “Sửa” để nhập lương cứng / hoa hồng / thưởng / điều chỉnh — cột Hoa hồng có gợi ý hệ thống tự tính theo cơ chế lương, tham khảo chứ không tự ghi đè."}
+            {isAdmin && " Bấm “Sửa” để nhập lương cứng / điều chỉnh hoa hồng / thưởng / điều chỉnh. Hoa hồng chính được tự tính theo từng khoản khách đã thực thu; không nhập lại số tự động."}
           </span>
         </CardHeader>
         <CardContent className="overflow-x-auto pt-0">
@@ -182,9 +182,7 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
                   <TD className="text-right tabular-nums">{formatVND(r.baseActual)}</TD>
                   <TD className="text-right tabular-nums text-amber-600">
                     {formatVND(r.commission)}
-                    {suggested > 0 && suggested !== r.commission && (
-                      <span className="block text-[11px] font-normal text-slate-400">gợi ý {formatVND(suggested)}</span>
-                    )}
+                    <span className="block text-[11px] font-normal text-slate-400">tự động {formatVND(r.autoCommission)}{r.commissionOverride > 0 ? ` · ĐC ${formatVND(r.commissionOverride)}` : ""}</span>
                   </TD>
                   <TD className="text-right tabular-nums text-slate-600">{formatVND(r.bonus + r.adjustment)}</TD>
                   <TD className="text-right font-semibold tabular-nums text-slate-900">{formatVND(r.total)}</TD>
@@ -193,7 +191,7 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
                       <PayrollEditButton
                         row={{
                           id: r.id, name: r.name, role: r.role, baseFull: r.baseFull,
-                          commission: r.commission, bonus: r.bonus, adjustment: r.adjustment,
+                          commission: r.commission, commissionOverride: r.commissionOverride, bonus: r.bonus, adjustment: r.adjustment,
                           hasEntry: r.hasEntry, prevCommission: r.prevCommission, prevBonus: r.prevBonus, prevAdjustment: r.prevAdjustment,
                         }}
                         month={monthValue}

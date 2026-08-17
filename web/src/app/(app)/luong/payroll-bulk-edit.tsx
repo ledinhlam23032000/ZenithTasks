@@ -13,6 +13,7 @@ type Row = {
   id: string;
   name: string;
   commission: number;
+  commissionOverride: number;
   bonus: number;
   adjustment: number;
   hasEntry: boolean;
@@ -20,7 +21,7 @@ type Row = {
   prevBonus: number;
   prevAdjustment: number;
 };
-type Values = Record<string, { commission: number; bonus: number; adjustment: number }>;
+type Values = Record<string, { commissionOverride: number; bonus: number; adjustment: number }>;
 
 /** Sửa nhanh hoa hồng/thưởng/điều chỉnh cho cả bảng cùng lúc — lưu 1 lần, không cần mở modal riêng từng người. */
 export function PayrollBulkEditor({ rows, month }: { rows: Row[]; month: string }) {
@@ -34,7 +35,7 @@ export function PayrollBulkEditor({ rows, month }: { rows: Row[]; month: string 
     const init: Values = {};
     for (const r of rows) {
       init[r.id] = {
-        commission: r.hasEntry ? r.commission : r.prevCommission,
+        commissionOverride: r.hasEntry ? r.commissionOverride : 0,
         bonus: r.hasEntry ? r.bonus : r.prevBonus,
         adjustment: r.hasEntry ? r.adjustment : r.prevAdjustment,
       };
@@ -75,7 +76,7 @@ export function PayrollBulkEditor({ rows, month }: { rows: Row[]; month: string 
   return (
     <div className="animate-fade-in rounded-2xl border border-brand-200 bg-brand-50/40 p-4">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm font-medium text-slate-700">Sửa nhanh hoa hồng / thưởng / điều chỉnh — {rows.length} nhân sự</p>
+        <p className="text-sm font-medium text-slate-700">Sửa nhanh điều chỉnh hoa hồng / thưởng / điều chỉnh — {rows.length} nhân sự</p>
         <div className="flex gap-2">
           <Button type="button" variant="secondary" size="sm" onClick={() => setOpen(false)} disabled={pending}>
             Hủy
@@ -90,14 +91,14 @@ export function PayrollBulkEditor({ rows, month }: { rows: Row[]; month: string 
           <thead>
             <tr className="text-left text-xs font-semibold uppercase tracking-wide text-slate-400">
               <th className="pb-2 pr-3">Nhân viên</th>
-              <th className="pb-2 pr-3 text-right">Hoa hồng</th>
+              <th className="pb-2 pr-3 text-right">ĐC hoa hồng</th>
               <th className="pb-2 pr-3 text-right">Thưởng nóng</th>
               <th className="pb-2 text-right">Điều chỉnh</th>
             </tr>
           </thead>
           <tbody>
             {rows.map((r) => {
-              const v = values[r.id] ?? { commission: 0, bonus: 0, adjustment: 0 };
+              const v = values[r.id] ?? { commissionOverride: 0, bonus: 0, adjustment: 0 };
               const carried = !r.hasEntry && (r.prevCommission > 0 || r.prevBonus > 0 || r.prevAdjustment !== 0);
               return (
                 <tr key={r.id} className="border-t border-brand-100/80">
@@ -106,7 +107,7 @@ export function PayrollBulkEditor({ rows, month }: { rows: Row[]; month: string 
                     {carried && <span className="ml-1.5 text-[10px] font-normal text-amber-600">(mốc tháng trước)</span>}
                   </td>
                   <td className="w-36 py-1.5 pr-3">
-                    <MoneyInput value={v.commission} onValueChange={(n) => update(r.id, "commission", n)} />
+                    <MoneyInput value={v.commissionOverride} onValueChange={(n) => update(r.id, "commissionOverride", n)} />
                   </td>
                   <td className="w-36 py-1.5 pr-3">
                     <MoneyInput value={v.bonus} onValueChange={(n) => update(r.id, "bonus", n)} />

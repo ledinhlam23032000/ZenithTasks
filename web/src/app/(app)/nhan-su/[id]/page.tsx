@@ -182,6 +182,9 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
         <Link href="/luong" className={buttonVariants({ variant: "secondary" })}>
           Bảng lương
         </Link>
+        <Link href={`/nhan-su/${u.id}/thoa-thuan`} className={buttonVariants({ variant: "secondary" })}>
+          Thỏa thuận bảo mật / không cạnh tranh
+        </Link>
       </div>
     </div>
   );

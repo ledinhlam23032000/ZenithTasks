@@ -143,6 +143,41 @@ enum AssistantApprovalStatus {
   EXPIRED
 }
 
+enum PaymentRequestType {
+  EXPENSE
+  SALARY
+  COLLABORATOR
+  STAFF_OTHER
+}
+
+enum PaymentRequestStatus {
+  DRAFT
+  PENDING
+  APPROVED
+  REJECTED
+  PAID
+  CANCELLED
+}
+
+enum StaffAgreementType {
+  CONFIDENTIALITY
+  NON_COMPETE
+}
+
+enum StaffAgreementStatus {
+  DRAFT
+  SIGNED
+  EXPIRED
+  REVOKED
+}
+
+enum AssistantFeedbackKind {
+  CORRECTION
+  APPROVAL
+  REJECTION
+  NOTE
+}
+
 enum RevenueAllocationRole {
   CONSULTANT
   DOCTOR
@@ -220,6 +255,14 @@ model User {
   assistantApprovals  AssistantApproval[]
   revenueAllocationsCreated CaseRevenueAllocation[] @relation("RevenueAllocationCreatedBy")
   assignedConversations Conversation[] @relation("ConversationAssignee")
+  staffAgreements StaffAgreement[] @relation("StaffAgreementSubject")
+  staffAgreementsCreated StaffAgreement[] @relation("StaffAgreementCreatedBy")
+  paymentRequestsRequested PaymentRequest[] @relation("PaymentRequestRequester")
+  paymentRequestsApproved PaymentRequest[] @relation("PaymentRequestApprover")
+  paymentRequestsPayee PaymentRequest[] @relation("PaymentRequestPayee")
+  consultationsCreated ConsultationRecord[] @relation("ConsultationCreatedBy")
+  assistantFeedback AssistantFeedback[]
+  assistantFiles AssistantFile[]
 }
 
 // ============================ CHẤM CÔNG & LƯƠNG ============================
@@ -242,7 +285,8 @@ model PayrollEntry {
   userId     String
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   month      String // "YYYY-MM"
-  commission Decimal  @default(0) @db.Decimal(14, 0) // Hoa hồng (nhập tay)
+  commission Decimal  @default(0) @db.Decimal(14, 0) // Giá trị cũ, giữ tương thích lịch sử
+  commissionOverride Decimal? @db.Decimal(14, 0) // Điều chỉnh hoa hồng thủ công ngoài công thức thực thu
   bonus      Decimal  @default(0) @db.Decimal(14, 0) // Thưởng nóng
   adjustment Decimal  @default(0) @db.Decimal(14, 0) // Điều chỉnh (+/-)
   nurseCases Int      @default(0) // (không còn dùng — giữ để tương thích dữ liệu cũ)
@@ -257,6 +301,8 @@ model PayrollEntry {
   paidAt     DateTime?
   cashTxId   String?          @unique
   cashTx     CashTransaction? @relation(fields: [cashTxId], references: [id], onDelete: SetNull)
+  paymentRequestId String? @unique
+  paymentRequest PaymentRequest? @relation("PaymentRequestPayroll", fields: [paymentRequestId], references: [id], onDelete: SetNull)
 
   @@unique([userId, month])
 }
@@ -493,11 +539,7 @@ model CaseRecord {
   documents   CaseDocument[]
   debtPlan    DebtPlan?
   revenueAllocations CaseRevenueAllocation[]
-
-  @@index([status])
-  @@index([createdAt])
-  @@index([consultantId])
-  @@index([doctorId])
+  consultation ConsultationRecord?
 }
 
 model CaseService {
@@ -765,6 +807,8 @@ model CashTransaction {
   // Giao dịch này có phải do trang Kế toán sinh ra khi chi lương / hoa hồng không.
   payrollEntry     PayrollEntry?
   commissionPayout CommissionPayout?
+  paymentRequestId String? @unique
+  paymentRequest PaymentRequest? @relation("PaymentRequestCashTransaction", fields: [paymentRequestId], references: [id], onDelete: SetNull)
 
   @@index([occurredAt])
   @@index([type])
@@ -876,6 +920,128 @@ model AssistantApproval {
   @@index([expiresAt])
 }
 
+// ============================ CHỨNG TỪ & HỒ SƠ BỔ SUNG ============================
+
+model PaymentRequest {
+  id          String               @id @default(cuid())
+  requestNo   String               @unique
+  type        PaymentRequestType
+  status      PaymentRequestStatus @default(DRAFT)
+  requesterId String
+  requester   User                 @relation("PaymentRequestRequester", fields: [requesterId], references: [id])
+  approverId  String?
+  approver    User?                @relation("PaymentRequestApprover", fields: [approverId], references: [id])
+  payeeUserId String?
+  payeeUser   User?               @relation("PaymentRequestPayee", fields: [payeeUserId], references: [id])
+  payeeName   String
+  amount      Decimal              @db.Decimal(14, 0)
+  reason      String
+  details     Json?
+  month       String?
+  requestedAt DateTime             @default(now())
+  approvedAt  DateTime?
+  rejectedAt  DateTime?
+  rejectionReason String?
+  paidAt      DateTime?
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  payrollEntry    PayrollEntry?      @relation("PaymentRequestPayroll")
+  commissionPayout CommissionPayout? @relation("PaymentRequestCommission")
+  cashTransaction CashTransaction?   @relation("PaymentRequestCashTransaction")
+
+  @@index([status, requestedAt])
+  @@index([type, month])
+}
+
+model ConsultationRecord {
+  id                String      @id @default(cuid())
+  caseId            String      @unique
+  case              CaseRecord  @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  weightKg          Decimal?    @db.Decimal(5, 2)
+  heightCm          Decimal?    @db.Decimal(5, 2)
+  bloodType         String?
+  emergencyName     String?
+  emergencyPhone    String?
+  pulse             Int?
+  bloodPressure     String?
+  temperatureC      Decimal?    @db.Decimal(4, 1)
+  respiratoryRate   Int?
+  spo2              Int?
+  screening         Json?
+  patientConfirmed  Boolean     @default(false)
+  patientConfirmedAt DateTime?
+  wants             String?
+  currentCondition String?
+  expectedResult   String?
+  doctorIndication String?
+  serviceSnapshot  Json?
+  createdById      String?
+  createdBy        User?       @relation("ConsultationCreatedBy", fields: [createdById], references: [id])
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+  finalizedAt      DateTime?
+  finalizedById    String?
+
+  @@index([createdAt])
+}
+
+model StaffAgreement {
+  id              String               @id @default(cuid())
+  userId          String
+  user            User                 @relation("StaffAgreementSubject", fields: [userId], references: [id], onDelete: Cascade)
+  type            StaffAgreementType
+  status          StaffAgreementStatus @default(DRAFT)
+  title           String
+  version         Int                  @default(1)
+  contentSnapshot String
+  signedAt        DateTime?
+  effectiveFrom   DateTime?
+  effectiveUntil  DateTime?
+  fileName        String?
+  fileUrl         String?
+  note            String?
+  createdById     String?
+  createdBy       User?                @relation("StaffAgreementCreatedBy", fields: [createdById], references: [id])
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  @@unique([userId, type, version])
+  @@index([userId, type, status])
+}
+
+model AssistantFile {
+  id           String   @id @default(cuid())
+  uploadedById String
+  uploadedBy   User     @relation(fields: [uploadedById], references: [id], onDelete: Cascade)
+  originalName String
+  storedName   String
+  mime         String
+  sizeBytes    Int
+  extractedText String?
+  summary      String?
+  createdAt    DateTime @default(now())
+  expiresAt    DateTime?
+
+  @@index([uploadedById, createdAt])
+}
+
+model AssistantFeedback {
+  id             String                @id @default(cuid())
+  userId         String
+  user           User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind           AssistantFeedbackKind
+  prompt         String
+  originalAnswer String?
+  correctedAnswer String?
+  note           String?
+  context        Json?
+  createdAt      DateTime              @default(now())
+
+  @@index([kind, createdAt])
+  @@index([userId, createdAt])
+}
+
 // Lập kế hoạch nội bộ dạng "task app" (Trợ Lý) — CHỈ ADMIN/MANAGER/SHAREHOLDER dùng được
 // (xem lib/permissions.ts, mod:ke-hoach). Không có khái niệm giao việc cho nhân sự khác —
 // nội bộ 3 vai trò quản trị/quản lý/cổ đông.
@@ -956,6 +1122,8 @@ model CommissionPayout {
   paidAt   DateTime         @default(now())
   cashTxId String?          @unique
   cashTx   CashTransaction? @relation(fields: [cashTxId], references: [id], onDelete: SetNull)
+  paymentRequestId String? @unique
+  paymentRequest PaymentRequest? @relation("PaymentRequestCommission", fields: [paymentRequestId], references: [id], onDelete: SetNull)
 
   @@unique([name, month])
   @@index([month])

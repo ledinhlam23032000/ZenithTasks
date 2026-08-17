@@ -23,6 +23,7 @@ import {
   updateMaterialUsage,
   updateCaseVoucher,
   updateCaseDate,
+  saveConsultationRecord,
 } from "../actions";
 
 type Svc = { id: string; name: string; listPrice: number; defaultPrice: number; category: string | null };
@@ -115,6 +116,73 @@ export function CaseInfoForm({
           {pending && <LoaderCircle className="h-4 w-4 animate-spin" />} Lưu thông tin
         </button>
       </div>
+    </form>
+  );
+}
+
+const screeningItems = [
+  "Huyết áp", "Tim mạch", "Tiểu đường", "Hô hấp", "Bệnh truyền nhiễm", "Tuyến giáp", "Máu khó đông", "Dị ứng thuốc", "Dị ứng thức ăn/cao su", "Thuốc chống đông", "Thuốc nam/bắc/TPCN", "Thuốc lá/rượu bia", "Chất kích thích", "Phẫu thuật trước đây", "Biến chứng gây tê/gây mê", "Mang thai", "Cho con bú", "Kỳ kinh nguyệt",
+] as const;
+
+type ConsultationInitial = {
+  weightKg: number | null;
+  heightCm: number | null;
+  bloodType: string | null;
+  emergencyName: string | null;
+  emergencyPhone: string | null;
+  pulse: number | null;
+  bloodPressure: string | null;
+  temperatureC: number | null;
+  respiratoryRate: number | null;
+  spo2: number | null;
+  screening: Record<string, boolean>;
+  patientConfirmed: boolean;
+  wants: string | null;
+  currentCondition: string | null;
+  expectedResult: string | null;
+  doctorIndication: string | null;
+  updatedAt: string | null;
+};
+
+export function ConsultationBookForm({ caseId, initial }: { caseId: string; initial: ConsultationInitial | null }) {
+  const [state, action, pending] = useFormAction(saveConsultationRecord);
+  const [screening, setScreening] = useState<Record<string, boolean>>(initial?.screening ?? Object.fromEntries(screeningItems.map((key) => [key, false])));
+  const toggleAll = (value: boolean) => setScreening(Object.fromEntries(screeningItems.map((key) => [key, value])));
+  return (
+    <form action={action} className="space-y-5">
+      <input type="hidden" name="caseId" value={caseId} />
+      <input type="hidden" name="screeningJson" value={JSON.stringify(screening)} />
+      <div className="rounded-xl border border-brand-100 bg-brand-50/40 p-3 text-xs text-slate-600">
+        <strong>Sổ tư vấn điện tử:</strong> các thông tin đã nhập được lưu theo hồ sơ. Có thể sửa trong 24 giờ; sau đó chỉ ADMIN sửa bổ sung. Nút dưới chỉ đánh dấu nhanh “không ghi nhận bất thường”, không thay cho đánh giá chuyên môn của bác sĩ.
+      </div>
+      <div>
+        <p className="mb-2 text-sm font-semibold text-slate-800">I. Thông tin hành chính bổ sung</p>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div><Label htmlFor="weightKg">Cân nặng (kg)</Label><Input id="weightKg" name="weightKg" type="number" step="0.1" defaultValue={initial?.weightKg ?? ""} /></div>
+          <div><Label htmlFor="heightCm">Chiều cao (cm)</Label><Input id="heightCm" name="heightCm" type="number" step="0.1" defaultValue={initial?.heightCm ?? ""} /></div>
+          <div><Label htmlFor="bloodType">Nhóm máu</Label><Input id="bloodType" name="bloodType" defaultValue={initial?.bloodType ?? ""} /></div>
+          <div><Label htmlFor="emergencyName">Người liên hệ khi cần</Label><Input id="emergencyName" name="emergencyName" defaultValue={initial?.emergencyName ?? ""} /></div>
+        </div>
+        <div className="mt-3"><Label htmlFor="emergencyPhone">SĐT người liên hệ khi cần</Label><Input id="emergencyPhone" name="emergencyPhone" defaultValue={initial?.emergencyPhone ?? ""} /></div>
+      </div>
+      <div>
+        <p className="mb-2 text-sm font-semibold text-slate-800">II. Dấu hiệu sinh tồn</p>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <div><Label htmlFor="pulse">Mạch/phút</Label><Input id="pulse" name="pulse" type="number" defaultValue={initial?.pulse ?? ""} /></div>
+          <div><Label htmlFor="bloodPressure">Huyết áp</Label><Input id="bloodPressure" name="bloodPressure" placeholder="120/80" defaultValue={initial?.bloodPressure ?? ""} /></div>
+          <div><Label htmlFor="temperatureC">Nhiệt độ °C</Label><Input id="temperatureC" name="temperatureC" type="number" step="0.1" defaultValue={initial?.temperatureC ?? ""} /></div>
+          <div><Label htmlFor="respiratoryRate">Nhịp thở/phút</Label><Input id="respiratoryRate" name="respiratoryRate" type="number" defaultValue={initial?.respiratoryRate ?? ""} /></div>
+          <div><Label htmlFor="spo2">SpO2 %</Label><Input id="spo2" name="spo2" type="number" defaultValue={initial?.spo2 ?? ""} /></div>
+        </div>
+      </div>
+      <div>
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2"><p className="text-sm font-semibold text-slate-800">III. Sàng lọc y tế</p><div className="flex gap-2"><button type="button" onClick={() => toggleAll(false)} className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700">Tích nhanh: Không ghi nhận bất thường</button><button type="button" onClick={() => toggleAll(true)} className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700">Đánh dấu cần xem lại</button></div></div>
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{screeningItems.map((item) => <label key={item} className="flex items-start gap-2 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-xs text-slate-700"><input type="checkbox" checked={screening[item] === true} onChange={(e) => setScreening((prev) => ({ ...prev, [item]: e.target.checked }))} /><span>{item} — có/đáng lưu ý</span></label>)}</div>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2"><div><Label htmlFor="wants">Mong muốn của khách</Label><Textarea id="wants" name="wants" defaultValue={initial?.wants ?? ""} /></div><div><Label htmlFor="currentCondition">Tình trạng hiện tại</Label><Textarea id="currentCondition" name="currentCondition" defaultValue={initial?.currentCondition ?? ""} /></div><div><Label htmlFor="expectedResult">Kết quả dự tính</Label><Textarea id="expectedResult" name="expectedResult" defaultValue={initial?.expectedResult ?? ""} /></div><div><Label htmlFor="doctorIndication">Chỉ định của bác sĩ</Label><Textarea id="doctorIndication" name="doctorIndication" defaultValue={initial?.doctorIndication ?? ""} /></div></div>
+      <label className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900"><input type="checkbox" name="patientConfirmed" defaultChecked={initial?.patientConfirmed ?? false} /> Khách đã xác nhận thông tin sàng lọc là đúng theo mẫu đã cung cấp.</label>
+      {state.error && <p className="text-sm text-rose-600">{state.error}</p>}
+      <div className="flex flex-wrap items-center justify-end gap-3"><Saved nonce={state.nonce} /><a href={`/ho-so/${caseId}/consultation-export`} className="rounded-lg border border-slate-200 px-3.5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">In sổ tư vấn</a><button type="submit" disabled={pending} className={buttonVariants()}>{pending && <LoaderCircle className="h-4 w-4 animate-spin" />} Lưu sổ tư vấn</button></div>
     </form>
   );
 }

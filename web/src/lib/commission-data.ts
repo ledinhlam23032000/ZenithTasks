@@ -1,25 +1,20 @@
 // ============================================================================
-// TÍNH HOA HỒNG NHÂN SỰ — lớp thu thập dữ liệu (DB) cho lib/commission.ts.
-// Gom số liệu cần thiết theo THÁNG rồi đưa vào các hàm toán thuần — module này
-// không tự tính công thức, chỉ truy vấn + phân loại "khách mới/cũ".
-//
-// "Khách CŨ vì [nhân sự] X" = khách này đã có ÍT NHẤT 1 hồ sơ khác, trạng thái
-// SERVICED/COMPLETED, tạo TRƯỚC hồ sơ đang xét, mà X là tư vấn viên HOẶC bác sĩ
-// của hồ sơ đó (X đã từng thực sự phục vụ khách này trước đây — không tính hồ
-// sơ người khác phụ trách). Áp dụng CHUNG cho cả bác sĩ (tiền tư vấn 0%/10%)
-// lẫn tư vấn viên (bậc khách mới/cũ) — xem BAN-GIAO.md mục 7.
+// TÍNH HOA HỒNG THEO TIỀN THỰC THU — lớp thu thập dữ liệu từ DB.
+// Mỗi Payment chỉ được tính căn cứ đúng 1 lần cho doanh thu trung tâm. Khi tính
+// hoa hồng theo vai trò, cùng một khoản có thể tạo ra nhiều "góc nhìn" hợp lệ
+// (bác sĩ, tư vấn viên, điều dưỡng) nhưng tổng thu trung tâm vẫn chỉ đếm 1 lần.
 // ============================================================================
 
 import { startOfMonth, endOfMonth } from "date-fns";
 import { prisma } from "@/lib/db";
 import { toNum } from "@/lib/money";
-import { correctedFinalPrice, summarizeCase } from "@/lib/financial-summary";
+import { correctedFinalPrice } from "@/lib/financial-summary";
 import { computeBaseActual } from "@/lib/payroll-pure";
 import { computeCommissionBreakdown, type CommissionBreakdown } from "@/lib/commission";
 import { DONE_CASE_STATUSES } from "@/lib/status";
-import { STANDARD_DAYS_DEFAULT } from "@/lib/payroll";
+const STANDARD_DAYS_DEFAULT = 26;
 import { vnDateOnly } from "@/lib/dates";
-import type { Role } from "@/generated/prisma/client";
+import type { Role, RevenueAllocationRole } from "@/generated/prisma/client";
 
 export type CommissionCaseDetail = {
   caseId: string;
@@ -36,8 +31,24 @@ export type StaffCommissionResult = {
   userId: string;
   role: Role;
   breakdown: CommissionBreakdown;
-  /** Từng dòng đóng góp vào hoa hồng — dùng cho phụ lục hoa hồng (xem lib/commission-appendix.ts). */
   details: CommissionCaseDetail[];
+};
+
+type UserLite = { id: string; fullName: string; role: Role; baseSalary: unknown };
+type PaymentRow = {
+  amount: unknown;
+  paidAt: Date;
+  case: {
+    id: string;
+    code: string;
+    createdAt: Date;
+    consultantId: string | null;
+    doctorId: string | null;
+    customerId: string;
+    customer: { fullName: string };
+    services: Array<{ id: string; finalPrice: unknown; unitPrice: unknown; listPrice: unknown; quantity: unknown; discount: unknown; doctorId: string | null; nurseId: string | null }>;
+    revenueAllocations: Array<{ userId: string; role: RevenueAllocationRole; shareBps: number }>;
+  };
 };
 
 function roleBaseDefault(role: Role): number {
@@ -46,10 +57,57 @@ function roleBaseDefault(role: Role): number {
   return 0;
 }
 
+function add(map: Map<string, number>, userId: string, amount: number) {
+  if (amount <= 0) return;
+  map.set(userId, (map.get(userId) ?? 0) + amount);
+}
+
+function pushDetail(map: Map<string, CommissionCaseDetail[]>, userId: string, detail: CommissionCaseDetail) {
+  if (detail.base <= 0 && detail.amount <= 0) return;
+  const list = map.get(userId) ?? [];
+  list.push(detail);
+  map.set(userId, list);
+}
+
+function allocationFor(caseRow: PaymentRow["case"], role: RevenueAllocationRole): Array<{ userId: string; shareBps: number }> {
+  const explicit = caseRow.revenueAllocations.filter((a) => a.role === role && a.shareBps > 0);
+  if (explicit.length) return explicit;
+  if (role === "CONSULTANT" && caseRow.consultantId) return [{ userId: caseRow.consultantId, shareBps: 10_000 }];
+  if (role === "DOCTOR" && caseRow.doctorId) return [{ userId: caseRow.doctorId, shareBps: 10_000 }];
+  return [];
+}
+
+function allocatePayment(amount: number, shares: Array<{ userId: string; shareBps: number }>): Array<{ userId: string; amount: number }> {
+  const total = Math.max(0, Math.round(amount));
+  if (!shares.length || total <= 0) return [];
+  const totalBps = shares.reduce((sum, item) => sum + item.shareBps, 0);
+  let assigned = 0;
+  return shares.map((item, index) => {
+    const value = index === shares.length - 1
+      ? Math.max(0, total - assigned)
+      : Math.floor((total * item.shareBps) / totalBps);
+    assigned += value;
+    return { userId: item.userId, amount: value };
+  });
+}
+
+function serviceRevenue(service: PaymentRow["case"]["services"][number]): number {
+  return Math.max(0, Math.round(toNum(correctedFinalPrice(service))));
+}
+
+function roleConsultantIsReturning(
+  customerId: string,
+  staffId: string,
+  beforeDate: Date,
+  historyByCustomer: Map<string, Array<{ staffId: string; createdAt: Date }>>,
+): boolean {
+  return (historyByCustomer.get(customerId) ?? []).some((item) => item.staffId === staffId && item.createdAt < beforeDate);
+}
+
 /**
- * Tính hoa hồng/phụ cấp GỢI Ý cho mọi nhân sự đang hoạt động trong 1 tháng.
- * KHÔNG ghi vào DB — chỉ đọc. Trang Lương hiển thị làm gợi ý; PayrollEntry.commission
- * vẫn là số ĐÃ LƯU (nhập tay hoặc đã chấp nhận gợi ý này), không tự ghi đè.
+ * Tính hoa hồng/phụ cấp gợi ý cho mọi nhân sự đang hoạt động trong tháng.
+ * Căn cứ hoa hồng là Payment.paidAt, không phải tổng giá trị chốt hay công nợ.
+ * PayrollEntry.commissionOverride (nếu có) được cộng riêng ở lớp payroll.
  */
 export async function getCommissionForMonth(
   monthDate: Date,
@@ -60,85 +118,50 @@ export async function getCommissionForMonth(
   const attGte = vnDateOnly(gte);
   const attLte = vnDateOnly(lte);
 
-  const [users, attendance, monthCases, monthServices] = await Promise.all([
+  const [users, attendance, monthPayments, history] = await Promise.all([
     prisma.user.findMany({
       where: { active: true },
       select: { id: true, fullName: true, role: true, baseSalary: true },
     }),
     prisma.attendance.findMany({ where: { date: { gte: attGte, lte: attLte } }, select: { userId: true } }),
+    prisma.payment.findMany({
+      where: { paidAt: { gte, lte } },
+      orderBy: { paidAt: "asc" },
+      select: {
+        amount: true,
+        paidAt: true,
+        case: {
+          select: {
+            id: true,
+            code: true,
+            createdAt: true,
+            consultantId: true,
+            doctorId: true,
+            customerId: true,
+            customer: { select: { fullName: true } },
+            services: { select: { id: true, finalPrice: true, unitPrice: true, listPrice: true, quantity: true, discount: true, doctorId: true, nurseId: true } },
+            revenueAllocations: { select: { userId: true, role: true, shareBps: true } },
+          },
+        },
+      },
+    }),
     prisma.caseRecord.findMany({
-      where: { createdAt: { gte, lte } },
-      select: {
-        id: true,
-        code: true,
-        customerId: true,
-        customer: { select: { fullName: true } },
-        consultantId: true,
-        createdAt: true,
-        voucherAmount: true,
-        services: { select: { listPrice: true, unitPrice: true, quantity: true, discount: true, finalPrice: true } },
-        payments: { select: { amount: true } },
-      },
+      where: { status: { in: DONE_CASE_STATUSES } },
+      select: { customerId: true, consultantId: true, doctorId: true, createdAt: true },
     }),
-    prisma.caseService.findMany({
-      where: { createdAt: { gte, lte }, doctorId: { not: null } },
-      select: {
-        id: true,
-        caseId: true,
-        nurseId: true,
-        doctorId: true,
-        name: true,
-        listPrice: true,
-        unitPrice: true,
-        quantity: true,
-        discount: true,
-        finalPrice: true,
-        createdAt: true,
-        case: { select: { code: true, customer: { select: { fullName: true } } } },
-      },
-    }),
-    // nurseId lọc riêng bên dưới (không thể where OR đơn giản khi cần cả 2 trường độc lập)
   ]);
 
-  const nurseServices = await prisma.caseService.findMany({
-    where: { createdAt: { gte, lte }, nurseId: { not: null } },
-    select: {
-      id: true,
-      caseId: true,
-      nurseId: true,
-      createdAt: true,
-      case: { select: { code: true, customer: { select: { fullName: true } } } },
-    },
-  });
-
-  const usersById = new Map(users.map((u) => [u.id, u]));
+  const usersById = new Map<string, UserLite>(users.map((u) => [u.id, u]));
   const days = new Map<string, number>();
-  for (const a of attendance) days.set(a.userId, (days.get(a.userId) ?? 0) + 1);
-
-  // ---- Khách mới/cũ: gom lịch sử hồ sơ ĐÃ HOÀN TẤT của mọi khách xuất hiện trong tháng ----
-  const customerIds = [...new Set(monthCases.map((c) => c.customerId))];
-  const history = customerIds.length
-    ? await prisma.caseRecord.findMany({
-        where: { customerId: { in: customerIds }, status: { in: DONE_CASE_STATUSES } },
-        select: { customerId: true, consultantId: true, doctorId: true, createdAt: true },
-      })
-    : [];
-  // customerId -> Set(staffId đã từng phục vụ khách này, mốc thời gian sớm nhất không cần thiết
-  // vì ta so trực tiếp createdAt < hồ sơ đang xét bên dưới bằng danh sách đầy đủ.
-  const historyByCustomer = new Map<string, { staffId: string; createdAt: Date }[]>();
-  for (const h of history) {
-    const entries = historyByCustomer.get(h.customerId) ?? [];
-    if (h.consultantId) entries.push({ staffId: h.consultantId, createdAt: h.createdAt });
-    if (h.doctorId) entries.push({ staffId: h.doctorId, createdAt: h.createdAt });
-    historyByCustomer.set(h.customerId, entries);
-  }
-  function isReturningFor(customerId: string, staffId: string, beforeDate: Date): boolean {
-    const entries = historyByCustomer.get(customerId);
-    if (!entries) return false;
-    return entries.some((e) => e.staffId === staffId && e.createdAt < beforeDate);
+  for (const row of attendance) days.set(row.userId, (days.get(row.userId) ?? 0) + 1);
+  const historyByCustomer = new Map<string, Array<{ staffId: string; createdAt: Date }>>();
+  for (const row of history) {
+    const list = historyByCustomer.get(row.customerId) ?? [];
+    if (row.consultantId) list.push({ staffId: row.consultantId, createdAt: row.createdAt });
+    if (row.doctorId) list.push({ staffId: row.doctorId, createdAt: row.createdAt });
+    historyByCustomer.set(row.customerId, list);
   }
 
-  // ---- Gom theo nhân sự ----
   const doctorServiceRevenue = new Map<string, number>();
   const doctorConsultRevenue = new Map<string, number>();
   const nurseCaseCount = new Map<string, number>();
@@ -146,81 +169,62 @@ export async function getCommissionForMonth(
   const consultantNewRevenue = new Map<string, number>();
   const consultantReturningRevenue = new Map<string, number>();
   const detailsByUser = new Map<string, CommissionCaseDetail[]>();
-  function pushDetail(userId: string, d: CommissionCaseDetail) {
-    const arr = detailsByUser.get(userId) ?? [];
-    arr.push(d);
-    detailsByUser.set(userId, arr);
-  }
+  const nurseFeeCases = new Set<string>();
 
-  // 8% dịch vụ — theo TỪNG dòng dịch vụ, người thực hiện = CaseService.doctorId
-  for (const s of monthServices) {
-    if (!s.doctorId) continue;
-    const revenue = correctedFinalPrice(s);
-    doctorServiceRevenue.set(s.doctorId, (doctorServiceRevenue.get(s.doctorId) ?? 0) + revenue);
-    if (revenue > 0) {
-      pushDetail(s.doctorId, {
-        caseId: s.caseId,
-        caseCode: s.case.code,
-        customerName: s.case.customer?.fullName ?? "—",
-        date: s.createdAt,
-        role: "doctor-service",
-        rate: 0.08,
-        base: revenue,
-        amount: Math.round(revenue * 0.08),
-      });
-    }
-  }
+  for (const payment of monthPayments as unknown as PaymentRow[]) {
+    const paid = Math.max(0, Math.round(toNum(payment.amount)));
+    if (!paid) continue;
+    const c = payment.case;
 
-  // 100k/ca điều dưỡng phụ trách
-  for (const s of nurseServices) {
-    if (!s.nurseId) continue;
-    nurseCaseCount.set(s.nurseId, (nurseCaseCount.get(s.nurseId) ?? 0) + 1);
-    pushDetail(s.nurseId, {
-      caseId: s.caseId,
-      caseCode: s.case.code,
-      customerName: s.case.customer?.fullName ?? "—",
-      date: s.createdAt,
-      role: "nurse-service",
-      rate: 0,
-      base: 1,
-      amount: 100_000,
-    });
-  }
-
-  // Tiền tư vấn — theo HỒ SƠ, người tư vấn = CaseRecord.consultantId. Cách áp dụng
-  // phụ thuộc VAI TRÒ của người đó (bác sĩ: 0%/10% · điều dưỡng: 4% mọi trường hợp ·
-  // tư vấn viên: bậc trọn gói khách mới/cũ). Vai trò khác: không có công thức, bỏ qua
-  // (vẫn thưởng/điều chỉnh nhập tay được như cũ).
-  for (const c of monthCases) {
-    if (!c.consultantId) continue;
-    const consultant = usersById.get(c.consultantId);
-    if (!consultant) continue;
-    const total = summarizeCase({ services: c.services, payments: c.payments, voucherAmount: c.voucherAmount }).total;
-    if (total <= 0) continue;
-    const returning = isReturningFor(c.customerId, c.consultantId, c.createdAt);
-
-    if (consultant.role === "DOCTOR") {
-      if (returning) {
-        doctorConsultRevenue.set(c.consultantId, (doctorConsultRevenue.get(c.consultantId) ?? 0) + total);
-        pushDetail(c.consultantId, {
-          caseId: c.id, caseCode: c.code, customerName: c.customer.fullName, date: c.createdAt,
-          role: "doctor-consult", rate: 0.1, base: total, amount: Math.round(total * 0.1),
-        });
+    // 1) Tư vấn: phân bổ theo tỷ lệ phối hợp nếu có, fallback về consultantId.
+    for (const item of allocatePayment(paid, allocationFor(c, "CONSULTANT"))) {
+      const staff = usersById.get(item.userId);
+      if (!staff) continue;
+      const returning = roleConsultantIsReturning(c.customerId, item.userId, c.createdAt, historyByCustomer);
+      if (staff.role === "DOCTOR") {
+        if (returning) {
+          add(doctorConsultRevenue, item.userId, item.amount);
+          pushDetail(detailsByUser, item.userId, { caseId: c.id, caseCode: c.code, customerName: c.customer.fullName, date: payment.paidAt, role: "doctor-consult", rate: 0.1, base: item.amount, amount: Math.round(item.amount * 0.1) });
+        }
+      } else if (staff.role === "NURSE") {
+        add(nurseConsultRevenue, item.userId, item.amount);
+        pushDetail(detailsByUser, item.userId, { caseId: c.id, caseCode: c.code, customerName: c.customer.fullName, date: payment.paidAt, role: "nurse-consult", rate: 0.04, base: item.amount, amount: Math.round(item.amount * 0.04) });
+      } else if (staff.role === "CONSULTANT") {
+        if (returning) add(consultantReturningRevenue, item.userId, item.amount);
+        else add(consultantNewRevenue, item.userId, item.amount);
+        pushDetail(detailsByUser, item.userId, { caseId: c.id, caseCode: c.code, customerName: c.customer.fullName, date: payment.paidAt, role: returning ? "consultant-returning" : "consultant-new", rate: 0, base: item.amount, amount: 0 });
       }
-      // khách mới: 0% — không cộng gì, không cần ghi dòng phụ lục (không có tiền)
-    } else if (consultant.role === "NURSE") {
-      nurseConsultRevenue.set(c.consultantId, (nurseConsultRevenue.get(c.consultantId) ?? 0) + total);
-      pushDetail(c.consultantId, {
-        caseId: c.id, caseCode: c.code, customerName: c.customer.fullName, date: c.createdAt,
-        role: "nurse-consult", rate: 0.04, base: total, amount: Math.round(total * 0.04),
+    }
+
+    // 2) Bác sĩ thực hiện dịch vụ: tiền thanh toán được chia theo tỷ trọng giá trị
+    // các dòng dịch vụ có bác sĩ. Nếu hồ sơ chưa gắn ở dòng, fallback doctorId.
+    const serviceRows = c.services.filter((s) => s.doctorId);
+    const totalService = serviceRows.reduce((sum, s) => sum + serviceRevenue(s), 0);
+    if (totalService > 0) {
+      let assigned = 0;
+      serviceRows.forEach((s, index) => {
+        const line = index === serviceRows.length - 1
+          ? Math.max(0, paid - assigned)
+          : Math.floor((paid * serviceRevenue(s)) / totalService);
+        assigned += line;
+        if (!s.doctorId) return;
+        add(doctorServiceRevenue, s.doctorId, line);
+        pushDetail(detailsByUser, s.doctorId, { caseId: c.id, caseCode: c.code, customerName: c.customer.fullName, date: payment.paidAt, role: "doctor-service", rate: 0.08, base: line, amount: Math.round(line * 0.08) });
       });
-    } else if (consultant.role === "CONSULTANT") {
-      if (returning) consultantReturningRevenue.set(c.consultantId, (consultantReturningRevenue.get(c.consultantId) ?? 0) + total);
-      else consultantNewRevenue.set(c.consultantId, (consultantNewRevenue.get(c.consultantId) ?? 0) + total);
-      pushDetail(c.consultantId, {
-        caseId: c.id, caseCode: c.code, customerName: c.customer.fullName, date: c.createdAt,
-        role: returning ? "consultant-returning" : "consultant-new", rate: 0, base: total, amount: 0, // bậc trọn gói tính SAU khi biết tổng cả tháng — xem ghi chú dưới
-      });
+    } else if (c.doctorId) {
+      add(doctorServiceRevenue, c.doctorId, paid);
+      pushDetail(detailsByUser, c.doctorId, { caseId: c.id, caseCode: c.code, customerName: c.customer.fullName, date: payment.paidAt, role: "doctor-service", rate: 0.08, base: paid, amount: Math.round(paid * 0.08) });
+    }
+
+    // 3) Điều dưỡng: phí cố định 100.000đ cho mỗi dòng dịch vụ phụ trách,
+    // chỉ ghi nhận một lần trong tháng và chỉ khi hồ sơ đã phát sinh tiền thực thu.
+    if (!nurseFeeCases.has(c.id)) {
+      nurseFeeCases.add(c.id);
+      for (const service of c.services) {
+        if (!service.nurseId) continue;
+        add(nurseCaseCount, service.nurseId, 1);
+        pushDetail(detailsByUser, service.nurseId, { caseId: c.id, caseCode: c.code, customerName: c.customer.fullName, date: payment.paidAt, role: "nurse-service", rate: 0, base: 1, amount: 100_000 });
+      }
     }
   }
 
@@ -239,16 +243,9 @@ export async function getCommissionForMonth(
       consultantNewRevenue: consultantNewRevenue.get(u.id) ?? 0,
       consultantReturningRevenue: consultantReturningRevenue.get(u.id) ?? 0,
     });
-    // Bậc tư vấn viên tính TRỌN GÓI trên TỔNG doanh số cả tháng — số tiền mỗi
-    // dòng phụ lục ở trên chưa biết tỉ lệ lúc ghi (phải biết tổng trước), điền
-    // lại đúng tỉ lệ/​số tiền theo tỉ trọng doanh số dòng đó trong tổng bậc.
     const details = (detailsByUser.get(u.id) ?? []).map((d) => {
-      if (d.role === "consultant-new" && breakdown.consultant.newRevenue > 0) {
-        return { ...d, rate: breakdown.consultant.newRate, amount: Math.round(d.base * breakdown.consultant.newRate) };
-      }
-      if (d.role === "consultant-returning" && breakdown.consultant.returningRevenue > 0) {
-        return { ...d, rate: breakdown.consultant.returningRate, amount: Math.round(d.base * breakdown.consultant.returningRate) };
-      }
+      if (d.role === "consultant-new" && breakdown.consultant.newRevenue > 0) return { ...d, rate: breakdown.consultant.newRate, amount: Math.round(d.base * breakdown.consultant.newRate) };
+      if (d.role === "consultant-returning" && breakdown.consultant.returningRevenue > 0) return { ...d, rate: breakdown.consultant.returningRate, amount: Math.round(d.base * breakdown.consultant.returningRate) };
       return d;
     });
     result.set(u.id, { userId: u.id, role: u.role, breakdown, details: details.sort((a, b) => a.date.getTime() - b.date.getTime()) });

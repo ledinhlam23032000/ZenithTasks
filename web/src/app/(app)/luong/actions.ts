@@ -7,8 +7,8 @@ import { auditRequired } from "@/lib/audit";
 import { isMonthClosed } from "@/lib/accounting";
 
 /**
- * Lưu lương cho một nhân sự trong tháng: lương cứng (cố định theo người) +
- * hoa hồng / thưởng nóng / điều chỉnh (nhập tay theo từng tháng).
+ * Lưu lương cho một nhân sự trong tháng: lương cứng + hoa hồng tự động theo
+ * tiền thực thu + điều chỉnh hoa hồng/thưởng nóng/điều chỉnh nhập tay.
  */
 export async function savePayroll(formData: FormData): Promise<void> {
   const user = await requireUser(["ADMIN"]);
@@ -19,7 +19,7 @@ export async function savePayroll(formData: FormData): Promise<void> {
   if (await isMonthClosed(month)) return;
 
   const base = Math.max(0, Math.round(Number(formData.get("baseSalary") ?? 0) || 0));
-  const commission = Math.max(0, Math.round(Number(formData.get("commission") ?? 0) || 0));
+  const commissionOverride = Math.max(0, Math.round(Number(formData.get("commissionOverride") ?? formData.get("commission") ?? 0) || 0));
   const bonus = Math.max(0, Math.round(Number(formData.get("bonus") ?? 0) || 0));
   const adjustment = Math.round(Number(formData.get("adjustment") ?? 0) || 0);
 
@@ -27,8 +27,8 @@ export async function savePayroll(formData: FormData): Promise<void> {
     await tx.user.update({ where: { id }, data: { baseSalary: base } });
     await tx.payrollEntry.upsert({
       where: { userId_month: { userId: id, month } },
-      create: { userId: id, month, commission, bonus, adjustment },
-      update: { commission, bonus, adjustment },
+      create: { userId: id, month, commission: 0, commissionOverride: commissionOverride || null, bonus, adjustment },
+      update: { commissionOverride: commissionOverride || null, bonus, adjustment },
     });
     await auditRequired(tx, user.id, "SAVE_PAYROLL", { entity: "PayrollEntry", entityId: id, meta: { month } });
   });
@@ -38,7 +38,8 @@ export type BulkPayrollState = { ok?: boolean; error?: string };
 
 const bulkRowSchema = z.object({
   id: z.string().min(1),
-  commission: z.number().min(0),
+  commissionOverride: z.number().min(0).optional(),
+  commission: z.number().min(0).optional(),
   bonus: z.number().min(0),
   adjustment: z.number(),
 });
@@ -65,10 +66,11 @@ export async function saveBulkPayroll(_prev: BulkPayrollState, formData: FormDat
 
   await prisma.$transaction(async (tx) => {
     for (const r of parsed.data) {
+      const override = r.commissionOverride ?? r.commission ?? 0;
       await tx.payrollEntry.upsert({
         where: { userId_month: { userId: r.id, month } },
-        create: { userId: r.id, month, commission: r.commission, bonus: r.bonus, adjustment: r.adjustment },
-        update: { commission: r.commission, bonus: r.bonus, adjustment: r.adjustment },
+        create: { userId: r.id, month, commission: 0, commissionOverride: override || null, bonus: r.bonus, adjustment: r.adjustment },
+        update: { commissionOverride: override || null, bonus: r.bonus, adjustment: r.adjustment },
       });
     }
     await auditRequired(tx, user.id, "BULK_SAVE_PAYROLL", { entity: "PayrollEntry", meta: { month, count: parsed.data.length } });

@@ -15,6 +15,7 @@ import { addPayment, addFollowUp } from "../ho-so/actions";
 import { createAppointment } from "../lich-hen/actions";
 import { summarizeCase } from "@/lib/financial-summary";
 import { getFinancialHealthIssues } from "@/lib/financial-health-db";
+import { getAssistantFileContext } from "./file-actions";
 import type { Prisma } from "@/generated/prisma/client";
 
 const monthSchema = z.string().regex(/^\d{4}-\d{2}$/);
@@ -80,13 +81,13 @@ const savePayrollArgs = z.object({
   staffName: z.string().min(1).max(120),
   month: monthSchema,
   baseSalary: z.number().int().min(0).optional(),
-  commission: z.number().int().min(0),
+  commissionOverride: z.number().int().min(0).default(0),
   bonus: z.number().int().min(0),
   adjustment: z.number().int(),
 });
 const bulkRowArgs = z.object({
   staffName: z.string().min(1).max(120),
-  commission: z.number().int().min(0),
+  commissionOverride: z.number().int().min(0).default(0),
   bonus: z.number().int().min(0),
   adjustment: z.number().int(),
 });
@@ -117,17 +118,18 @@ Công cụ được phép:
 - get_lead_priorities: xếp khách đang tư vấn/cân nhắc theo khả năng cần gọi lại; args {days?}.
 - get_financial_alerts: đọc các hồ sơ có dấu hiệu lệch tiền, trả vượt hoặc snapshot cũ.
 - prepare_payroll_export: chuẩn bị link xuất bảng lương; args {month, format: xlsx|doc|csv, standardDays?}.
-- save_payroll: sửa lương/hoa hồng/thưởng/điều chỉnh một nhân sự; args {staffName, month, baseSalary?, commission, bonus, adjustment}. Luôn cần ADMIN xác nhận.
-- save_bulk_payroll: sửa nhiều nhân sự; args {month, rows:[{staffName, commission, bonus, adjustment}]}. Luôn cần ADMIN xác nhận.
+- save_payroll: sửa lương/điều chỉnh hoa hồng ngoài công thức/thưởng/điều chỉnh một nhân sự; args {staffName, month, baseSalary?, commissionOverride, bonus, adjustment}. Hoa hồng tự động theo thực thu không nhập lại. Luôn cần ADMIN xác nhận.
+- save_bulk_payroll: sửa nhiều nhân sự; args {month, rows:[{staffName, commissionOverride, bonus, adjustment}]}. Luôn cần ADMIN xác nhận.
 - record_payment: ghi nhận khoản thu cho hồ sơ; args {caseCode, amount, method, note}. Luôn xem trước và xác nhận.
 - create_follow_up: tạo lịch chăm sóc/tái khám; args {caseCode, scheduledAt, note}. Luôn xem trước và xác nhận.
 - create_appointment: tạo lịch hẹn; args {guestName, phoneLast5?, scheduledAt, type, serviceInterest?, source, sourceDetail?, consultantName?, note?}. Luôn xem trước và xác nhận.
 - propose_system_change: ghi đề xuất đổi cơ chế/code thành kế hoạch để duyệt; args {request}.
 Không tự đoán tên người, tháng, số tiền; nếu thiếu thì action=none và hỏi lại. Không gọi tool khác, không viết SQL, không sửa file trực tiếp.`;
 
-async function buildPlannerPrompt(question: string): Promise<string> {
+async function buildPlannerPrompt(question: string, userId: string): Promise<string> {
   const context = await getAssistantContext();
-  return `${actionHelp}\n\nBỐI CẢNH SỐ LIỆU HIỆN TẠI:\n${formatAssistantContext(context)}\n\nYÊU CẦU CỦA ADMIN:\n${question}\n\nChọn tối đa một action. Yêu cầu sửa/ghi dữ liệu phải đặt requires_confirmation=true. Nếu là yêu cầu đổi công thức hoặc code, dùng propose_system_change, không dùng save_payroll.`;
+  const fileContext = await getAssistantFileContext(userId);
+  return `${actionHelp}\n\nBỐI CẢNH SỐ LIỆU HIỆN TẠI:\n${formatAssistantContext(context)}\n\n${fileContext}\n\nYÊU CẦU CỦA ADMIN:\n${question}\n\nChọn tối đa một action. Yêu cầu sửa/ghi dữ liệu phải đặt requires_confirmation=true. Nếu là yêu cầu đổi công thức hoặc code, dùng propose_system_change, không dùng save_payroll.`;
 }
 
 function getCaseFinancialTotal(record: { services: Array<{ listPrice: unknown; unitPrice: unknown; quantity: unknown; discount: unknown; finalPrice: unknown }>; payments: Array<{ amount: unknown }>; voucherAmount: unknown }) {
@@ -204,7 +206,7 @@ async function readAction(action: ActionName, args: unknown): Promise<AgentState
     if (!row) return planError(`Không có dữ liệu lương của ${found.user.fullName} trong tháng ${month}.`);
     return {
       ok: true,
-      answer: `Bảng lương ${found.user.fullName} — ${month}\n- Ngày công: ${row.daysWorked}/${payroll.standardDays}\n- Lương cứng thực nhận: ${formatVND(row.baseActual)}\n- Thực thu tư vấn: ${formatVND(row.collectedConsult.total)}\n- Thực thu bác sĩ: ${formatVND(row.collectedDoctor.total)}\n- Công nợ khách phụ trách: ${formatVND(row.debtOutstanding)}\n- Hoa hồng đã nhập: ${formatVND(row.commission)}\n- Thưởng/điều chỉnh: ${formatVND(row.bonus + row.adjustment)}\n- Tổng nhận: ${formatVND(row.total)}`,
+      answer: `Bảng lương ${found.user.fullName} — ${month}\n- Ngày công: ${row.daysWorked}/${payroll.standardDays}\n- Lương cứng thực nhận: ${formatVND(row.baseActual)}\n- Thực thu tư vấn: ${formatVND(row.collectedConsult.total)}\n- Thực thu bác sĩ: ${formatVND(row.collectedDoctor.total)}\n- Công nợ khách phụ trách: ${formatVND(row.debtOutstanding)}\n- Hoa hồng theo thực thu + điều chỉnh: ${formatVND(row.commission)} (tự động ${formatVND(row.autoCommission)}; điều chỉnh ${formatVND(row.commissionOverride)})\n- Thưởng/điều chỉnh: ${formatVND(row.bonus + row.adjustment)}\n- Tổng nhận: ${formatVND(row.total)}`,
     };
   }
   if (action === "prepare_payroll_export") {
@@ -236,7 +238,7 @@ async function validateWrite(action: ActionName, args: unknown, userId: string):
     const payroll = await getPayroll(new Date(`${parsed.data.month}-01T00:00:00`));
     const current = payroll.rows.find((r) => r.id === found.user!.id);
     const baseSalary = parsed.data.baseSalary ?? current?.baseFull ?? 0;
-    return { args: { ...parsed.data, userId: found.user.id, baseSalary }, preview: `Sửa lương ${found.user.fullName} tháng ${parsed.data.month}: lương cứng ${formatVND(baseSalary)}, hoa hồng ${formatVND(parsed.data.commission)}, thưởng ${formatVND(parsed.data.bonus)}, điều chỉnh ${formatVND(parsed.data.adjustment)}.` };
+    return { args: { ...parsed.data, userId: found.user.id, baseSalary }, preview: `Sửa lương ${found.user.fullName} tháng ${parsed.data.month}: lương cứng ${formatVND(baseSalary)}, điều chỉnh hoa hồng ngoài công thức ${formatVND(parsed.data.commissionOverride)}, thưởng ${formatVND(parsed.data.bonus)}, điều chỉnh ${formatVND(parsed.data.adjustment)}.` };
   }
   if (action === "save_bulk_payroll") {
     const parsed = bulkPayrollArgs.safeParse(args);
@@ -300,7 +302,7 @@ export async function runAssistantAgent(_prev: AgentState, formData: FormData): 
 
   const planned = await generateStructured<PlannerOutput>({
     system: "Bạn là Agent quản trị của ZenithTasks. Bạn không được tự ý sửa DB. Hãy chọn đúng một công cụ trong danh sách, không bịa ID/tên/tháng/số tiền, và dùng tiếng Việt.",
-    prompt: await buildPlannerPrompt(question),
+    prompt: await buildPlannerPrompt(question, user.id),
     schemaName: "zenith_agent_plan",
     schema: plannerSchema,
     maxTokens: 1200,
@@ -344,7 +346,7 @@ export async function confirmAssistantApproval(_prev: AgentState, formData: Form
       fd.set("id", String(args.userId));
       fd.set("month", String(args.month));
       fd.set("baseSalary", String(args.baseSalary));
-      fd.set("commission", String(args.commission));
+      fd.set("commissionOverride", String(args.commissionOverride ?? 0));
       fd.set("bonus", String(args.bonus));
       fd.set("adjustment", String(args.adjustment));
       await savePayroll(fd);
@@ -352,7 +354,7 @@ export async function confirmAssistantApproval(_prev: AgentState, formData: Form
       const rows = Array.isArray(args.rows) ? args.rows : [];
       const fd = new FormData();
       fd.set("month", String(args.month));
-      fd.set("rows", JSON.stringify(rows.map((r) => ({ id: r.userId, commission: r.commission, bonus: r.bonus, adjustment: r.adjustment }))));
+      fd.set("rows", JSON.stringify(rows.map((r) => ({ id: r.userId, commissionOverride: r.commissionOverride ?? 0, bonus: r.bonus, adjustment: r.adjustment }))));
       const result = await saveBulkPayroll({}, fd);
       if (result.error) return planError(result.error);
     } else if (approval.toolName === "record_payment") {

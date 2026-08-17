@@ -5,6 +5,7 @@ import { loadCaseFinancials } from "@/lib/financial-summary-db";
 import { vnDateOnly } from "@/lib/dates";
 import { collectionsByStaff, collectionsTotal, type StaffCollection } from "@/lib/collections";
 import { computeBaseActual, debtByStaff } from "@/lib/payroll-pure";
+import { getCommissionForMonth } from "@/lib/commission-data";
 import type { Role } from "@/generated/prisma/client";
 
 export const STANDARD_DAYS_DEFAULT = 26;
@@ -26,7 +27,9 @@ export type PayrollRow = {
   daysWorked: number;
   baseFull: number;
   baseActual: number;
-  commission: number; // hoa hồng nhập tay theo tháng
+  commission: number; // hoa hồng tự động theo thực thu + điều chỉnh thủ công
+  autoCommission: number;
+  commissionOverride: number;
   bonus: number;
   adjustment: number;
   total: number;
@@ -99,6 +102,7 @@ export async function getPayroll(monthDate: Date, standardDays = STANDARD_DAYS_D
   }));
   const collected = collectionsByStaff(attributions, gte);
   const collectedAll = collectionsTotal(attributions, gte);
+  const commissionSuggestions = await getCommissionForMonth(monthDate, standardDays);
   const debtFinancials = await loadCaseFinancials(debtCases.map((c) => c.id));
   const debtByStaffMap = debtByStaff(
     debtCases.map((c) => ({
@@ -122,12 +126,14 @@ export async function getPayroll(monthDate: Date, standardDays = STANDARD_DAYS_D
 
     const e = entryMap.get(u.id);
     const hasEntry = !!e;
-    const commission = e ? toNum(e.commission) : 0;
+    const autoCommission = commissionSuggestions.get(u.id)?.breakdown.totalCommission ?? 0;
+    const commissionOverride = e?.commissionOverride == null ? 0 : toNum(e.commissionOverride);
+    const commission = autoCommission + commissionOverride;
     const bonus = e ? toNum(e.bonus) : 0;
     const adjustment = e ? toNum(e.adjustment) : 0;
 
     const pe = prevEntryMap.get(u.id);
-    const prevCommission = pe ? toNum(pe.commission) : 0;
+    const prevCommission = pe?.commissionOverride == null ? (pe ? toNum(pe.commission) : 0) : toNum(pe.commissionOverride);
     const prevBonus = pe ? toNum(pe.bonus) : 0;
     const prevAdjustment = pe ? toNum(pe.adjustment) : 0;
 
@@ -137,7 +143,7 @@ export async function getPayroll(monthDate: Date, standardDays = STANDARD_DAYS_D
     const debtOutstanding = debtByStaffMap.get(u.id) ?? 0;
     return {
       id: u.id, name: u.fullName, code: u.code, role: u.role, daysWorked, baseFull, baseActual,
-      commission, bonus, adjustment, total, collectedConsult, collectedDoctor, debtOutstanding,
+      commission, autoCommission, commissionOverride, bonus, adjustment, total, collectedConsult, collectedDoctor, debtOutstanding,
       hasEntry, prevCommission, prevBonus, prevAdjustment,
       paid: e ? toNum(e.paidAmount) : 0,
       paidAt: e?.paidAt ?? null,

@@ -18,6 +18,7 @@ import {
   COMMISSION_CATEGORY,
 } from "@/lib/accounting";
 import type { PaymentMethod } from "@/generated/prisma/client";
+import { paymentRequestNo } from "@/lib/payment-request";
 
 export type AccState = { ok?: boolean; error?: string };
 
@@ -72,6 +73,23 @@ export async function payStaffSalary(_prev: AccState, formData: FormData): Promi
   const method = payMethod(formData.get("method"));
 
   await prisma.$transaction(async (tx) => {
+    const request = await tx.paymentRequest.create({
+      data: {
+        requestNo: paymentRequestNo(),
+        type: "SALARY",
+        status: "PAID",
+        requesterId: user.id,
+        approverId: user.id,
+        payeeUserId: row.id,
+        payeeName: row.name,
+        amount: row.total,
+        reason: `Thanh toán lương tháng ${format(monthDate(month), "MM/yyyy")}`,
+        month,
+        approvedAt: new Date(),
+        paidAt: new Date(),
+        details: { category: SALARY_CATEGORY, source: "payroll" },
+      },
+    });
     const cashTx = await tx.cashTransaction.create({
       data: {
         type: "EXPENSE",
@@ -82,6 +100,7 @@ export async function payStaffSalary(_prev: AccState, formData: FormData): Promi
         vendor: row.name,
         note: `Lương tháng ${format(monthDate(month), "MM/yyyy")}`,
         createdById: user.id,
+        paymentRequestId: request.id,
       },
     });
     await tx.payrollEntry.upsert({
@@ -89,14 +108,16 @@ export async function payStaffSalary(_prev: AccState, formData: FormData): Promi
       create: {
         userId,
         month,
-        commission: row.commission,
+        commission: 0,
+        commissionOverride: row.commissionOverride || null,
         bonus: row.bonus,
         adjustment: row.adjustment,
         paidAmount: row.total,
         paidAt: new Date(),
         cashTxId: cashTx.id,
+        paymentRequestId: request.id,
       },
-      update: { paidAmount: row.total, paidAt: new Date(), cashTxId: cashTx.id },
+      update: { paidAmount: row.total, paidAt: new Date(), cashTxId: cashTx.id, paymentRequestId: request.id },
     });
     await auditRequired(tx, user.id, "PAY_SALARY", {
       entity: "PayrollEntry",
@@ -125,6 +146,22 @@ export async function payAllSalaries(_prev: AccState, formData: FormData): Promi
 
   await prisma.$transaction(async (tx) => {
     for (const row of pending) {
+      const request = await tx.paymentRequest.create({
+        data: {
+          requestNo: paymentRequestNo(),
+          type: "SALARY",
+          status: "PAID",
+          requesterId: user.id,
+          approverId: user.id,
+          payeeUserId: row.id,
+          payeeName: row.name,
+          amount: row.total,
+          reason: label,
+          month,
+          approvedAt: new Date(),
+          details: { category: SALARY_CATEGORY, source: "payroll" },
+        },
+      });
       const cashTx = await tx.cashTransaction.create({
         data: {
           type: "EXPENSE",
@@ -135,6 +172,7 @@ export async function payAllSalaries(_prev: AccState, formData: FormData): Promi
           vendor: row.name,
           note: label,
           createdById: user.id,
+          paymentRequestId: request.id,
         },
       });
       await tx.payrollEntry.upsert({
@@ -142,14 +180,16 @@ export async function payAllSalaries(_prev: AccState, formData: FormData): Promi
         create: {
           userId: row.id,
           month,
-          commission: row.commission,
+          commission: 0,
+          commissionOverride: row.commissionOverride || null,
           bonus: row.bonus,
           adjustment: row.adjustment,
           paidAmount: row.total,
           paidAt: new Date(),
           cashTxId: cashTx.id,
+          paymentRequestId: request.id,
         },
-        update: { paidAmount: row.total, paidAt: new Date(), cashTxId: cashTx.id },
+        update: { paidAmount: row.total, paidAt: new Date(), cashTxId: cashTx.id, paymentRequestId: request.id },
       });
     }
     await auditRequired(tx, user.id, "PAY_SALARY_ALL", {
@@ -175,9 +215,11 @@ export async function undoStaffSalary(_prev: AccState, formData: FormData): Prom
   await prisma.$transaction(async (tx) => {
     await tx.payrollEntry.update({
       where: { id: entry.id },
-      data: { paidAmount: 0, paidAt: null, cashTxId: null },
+      data: { paidAmount: 0, paidAt: null, cashTxId: null, paymentRequestId: null },
     });
+    const cashTx = await tx.cashTransaction.findUnique({ where: { id: cashTxId }, select: { paymentRequestId: true } });
     await tx.cashTransaction.delete({ where: { id: cashTxId } });
+    if (cashTx?.paymentRequestId) await tx.paymentRequest.update({ where: { id: cashTx.paymentRequestId }, data: { status: "CANCELLED", paidAt: null } });
     await auditRequired(tx, user.id, "UNDO_PAY_SALARY", { entity: "PayrollEntry", entityId: userId, meta: { month } });
   });
   return { ok: true };
@@ -204,6 +246,22 @@ export async function payCtvCommission(_prev: AccState, formData: FormData): Pro
   const method = payMethod(formData.get("method"));
 
   await prisma.$transaction(async (tx) => {
+    const request = await tx.paymentRequest.create({
+      data: {
+        requestNo: paymentRequestNo(),
+        type: "COLLABORATOR",
+        status: "PAID",
+        requesterId: user.id,
+        approverId: user.id,
+        payeeName: name,
+        amount: ctv.amount,
+        reason: `Thanh toán hoa hồng cộng tác viên tháng ${format(monthDate(month), "MM/yyyy")}`,
+        month,
+        approvedAt: new Date(),
+        paidAt: new Date(),
+        details: { category: COMMISSION_CATEGORY, source: "collaborator" },
+      },
+    });
     const cashTx = await tx.cashTransaction.create({
       data: {
         type: "EXPENSE",
@@ -214,10 +272,11 @@ export async function payCtvCommission(_prev: AccState, formData: FormData): Pro
         vendor: name,
         note: `Hoa hồng cộng tác viên tháng ${format(monthDate(month), "MM/yyyy")}`,
         createdById: user.id,
+        paymentRequestId: request.id,
       },
     });
     await tx.commissionPayout.create({
-      data: { name, month, amount: ctv.amount, cashTxId: cashTx.id },
+      data: { name, month, amount: ctv.amount, cashTxId: cashTx.id, paymentRequestId: request.id },
     });
     await auditRequired(tx, user.id, "PAY_COMMISSION", {
       entity: "CommissionPayout",
@@ -240,7 +299,11 @@ export async function undoCtvCommission(_prev: AccState, formData: FormData): Pr
 
   await prisma.$transaction(async (tx) => {
     await tx.commissionPayout.delete({ where: { id: payout.id } });
-    if (payout.cashTxId) await tx.cashTransaction.delete({ where: { id: payout.cashTxId } });
+    if (payout.cashTxId) {
+      const cashTx = await tx.cashTransaction.findUnique({ where: { id: payout.cashTxId }, select: { paymentRequestId: true } });
+      await tx.cashTransaction.delete({ where: { id: payout.cashTxId } });
+      if (cashTx?.paymentRequestId) await tx.paymentRequest.update({ where: { id: cashTx.paymentRequestId }, data: { status: "CANCELLED", paidAt: null } });
+    }
     await auditRequired(tx, user.id, "UNDO_PAY_COMMISSION", { entity: "CommissionPayout", entityId: payout.id, meta: { month, name } });
   });
   return { ok: true };

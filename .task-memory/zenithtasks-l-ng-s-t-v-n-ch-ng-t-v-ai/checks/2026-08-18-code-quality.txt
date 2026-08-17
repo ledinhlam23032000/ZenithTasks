@@ -1,0 +1,5 @@
+2026-08-18
+git diff --check: PASS
+prisma validate: PASS
+vitest: 43 files, 292 tests passed
+next build: PASS; new routes generated: payment requests, consultation export, staff agreements, AI chat changes

@@ -2,10 +2,11 @@
 
 import { useState, useRef, useEffect, useTransition } from "react";
 import Link from "next/link";
-import { Sparkles, LoaderCircle, SendHorizontal, User, Check, ShieldCheck, X, Download } from "lucide-react";
+import { Sparkles, LoaderCircle, SendHorizontal, User, Check, ShieldCheck, X, Download, Mic, Paperclip, ThumbsUp, ThumbsDown } from "lucide-react";
 import { Markdown } from "@/components/ui/markdown";
 import { SUGGESTED_QUESTIONS } from "@/lib/assistant";
 import { runAssistantAgent, confirmAssistantApproval, rejectAssistantApproval, type AgentState } from "./agent";
+import { saveAssistantFeedback, uploadAssistantFile } from "./file-actions";
 
 type Turn = {
   q: string;
@@ -14,6 +15,8 @@ type Turn = {
   approval?: NonNullable<AgentState["approval"]>;
 };
 
+type SpeechRecognitionLike = { lang: string; interimResults: boolean; continuous: boolean; onresult: ((event: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null; onerror: (() => void) | null; start: () => void };
+
 export function AssistantChat({ aiOn, greetName }: { aiOn: boolean; greetName: string }) {
   const [q, setQ] = useState("");
   const [turns, setTurns] = useState<Turn[]>([]);
@@ -21,6 +24,9 @@ export function AssistantChat({ aiOn, greetName }: { aiOn: boolean; greetName: s
   const [pending, start] = useTransition();
   const [actionPending, startAction] = useTransition();
   const [actionIndex, setActionIndex] = useState<number | null>(null);
+  const [filePending, startFile] = useTransition();
+  const [fileMessage, setFileMessage] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -41,6 +47,40 @@ export function AssistantChat({ aiOn, greetName }: { aiOn: boolean; greetName: s
         setQ("");
       }
     });
+  }
+
+  function startVoice() {
+    const browserWindow = window as Window & { SpeechRecognition?: new () => SpeechRecognitionLike; webkitSpeechRecognition?: new () => SpeechRecognitionLike };
+    const Recognition = browserWindow.SpeechRecognition ?? browserWindow.webkitSpeechRecognition;
+    if (!Recognition) { setErr("Trình duyệt này chưa hỗ trợ nhập giọng nói; anh có thể gõ nội dung thay thế."); return; }
+    const recognition = new Recognition();
+    recognition.lang = "vi-VN";
+    recognition.interimResults = false;
+    recognition.continuous = false;
+    recognition.onresult = (event) => { const text = event.results[0]?.[0]?.transcript ?? ""; if (text) setQ((old) => `${old}${old ? " " : ""}${text}`); };
+    recognition.onerror = () => setErr("Không nhận được giọng nói; anh thử lại hoặc gõ nội dung.");
+    recognition.start();
+  }
+
+  function uploadFile(file: File | undefined) {
+    if (!file || filePending) return;
+    setFileMessage(null);
+    const fd = new FormData();
+    fd.set("file", file);
+    startFile(async () => {
+      const result = await uploadAssistantFile({}, fd);
+      if (result.error) setFileMessage(result.error);
+      else setFileMessage(`Đã tải ${result.file?.name ?? file.name}${result.file?.extracted ? " và trích xuất nội dung cho AI." : ". AI đã lưu file nhưng chưa trích xuất được chữ."}`);
+    });
+  }
+
+  function saveFeedback(turn: Turn, kind: "APPROVAL" | "CORRECTION") {
+    const fd = new FormData();
+    fd.set("prompt", turn.q);
+    fd.set("originalAnswer", turn.a);
+    fd.set("kind", kind);
+    fd.set("note", kind === "APPROVAL" ? "Admin xác nhận câu trả lời hữu ích." : "Admin đánh dấu cần rà soát; không dùng lại nguyên văn nếu chưa kiểm chứng.");
+    startAction(async () => { const result = await saveAssistantFeedback({}, fd); if (result.error) setErr(result.error); else { setErr(null); if (kind === "CORRECTION") setQ(`Hãy rà soát lại câu trả lời trước cho yêu cầu: ${turn.q}`); } });
   }
 
   function resolveApproval(index: number, approve: boolean) {
@@ -103,6 +143,7 @@ export function AssistantChat({ aiOn, greetName }: { aiOn: boolean; greetName: s
                   <span className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-violet-500 text-white"><Sparkles className="h-4 w-4" /></span>
                   <div className="max-w-[90%] space-y-2">
                     <div className="rounded-2xl rounded-tl-sm border border-slate-100 bg-slate-50 px-4 py-2.5"><Markdown text={t.a} /></div>
+                    <div className="flex items-center gap-2 pl-1"><span className="text-[11px] text-slate-400">Câu trả lời này có hữu ích không?</span><button type="button" onClick={() => saveFeedback(t, "APPROVAL")} disabled={actionPending} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-emerald-700 hover:bg-emerald-50"><ThumbsUp className="h-3 w-3" /> Đúng</button><button type="button" onClick={() => saveFeedback(t, "CORRECTION")} disabled={actionPending} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-amber-700 hover:bg-amber-50"><ThumbsDown className="h-3 w-3" /> Cần sửa</button></div>
                     {t.exportUrl && <Link href={t.exportUrl} className="inline-flex items-center gap-1.5 rounded-lg bg-brand-50 px-3 py-2 text-xs font-semibold text-brand-700 hover:bg-brand-100"><Download className="h-3.5 w-3.5" /> Tải file đã chuẩn bị</Link>}
                     {t.approval && (
                       <div className="rounded-xl border border-amber-200 bg-amber-50 p-3.5">
@@ -124,11 +165,15 @@ export function AssistantChat({ aiOn, greetName }: { aiOn: boolean; greetName: s
 
       <div className="border-t border-slate-100 px-4 py-3">
         {err && <p className="mb-2 text-sm text-rose-600">{err}</p>}
+        {fileMessage && <p className="mb-2 text-xs text-slate-600">{fileMessage}</p>}
         <div className="mx-auto flex max-w-2xl items-end gap-2">
-          <textarea value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); ask(q); } }} rows={1} disabled={!aiOn || pending || actionPending} placeholder="Ví dụ: sửa hoa hồng tháng này của… (Enter để gửi)" className="max-h-32 min-h-[44px] flex-1 resize-none rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-500/15 disabled:bg-slate-50" />
+          <input ref={fileInputRef} type="file" className="hidden" accept=".txt,.csv,.json,.pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.webp" onChange={(e) => uploadFile(e.target.files?.[0])} />
+          <button type="button" onClick={() => fileInputRef.current?.click()} disabled={filePending || pending || actionPending} className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40" title="Tải file"><Paperclip className="h-5 w-5" /></button>
+          <button type="button" onClick={startVoice} disabled={!aiOn || pending || actionPending} className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40" title="Nhập bằng giọng nói"><Mic className="h-5 w-5" /></button>
+          <textarea value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); ask(q); } }} rows={1} disabled={!aiOn || pending || actionPending} placeholder="Hỏi AI hoặc yêu cầu đọc file… (Enter để gửi)" className="max-h-32 min-h-[44px] flex-1 resize-none rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-500/15 disabled:bg-slate-50" />
           <button type="button" onClick={() => ask(q)} disabled={!aiOn || pending || actionPending || !q.trim()} className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-white transition hover:bg-brand-700 disabled:opacity-40" title="Gửi">{pending ? <LoaderCircle className="h-5 w-5 animate-spin" /> : <SendHorizontal className="h-5 w-5" />}</button>
         </div>
-        <p className="mx-auto mt-2 max-w-2xl text-center text-[11px] text-slate-400">AI chỉ dùng các thao tác được cấp phép. Đọc có thể chạy ngay; sửa lương/dữ liệu luôn hiện xem trước và cần ADMIN xác nhận. Mọi thay đổi được ghi nhật ký.</p>
+        <p className="mx-auto mt-2 max-w-2xl text-center text-[11px] text-slate-400">AI chỉ dùng các thao tác được cấp phép. File được lưu tối đa 30 ngày; đọc có thể chạy ngay; sửa lương/dữ liệu luôn hiện xem trước và cần ADMIN xác nhận. Mọi thay đổi và góp ý được ghi nhật ký.</p>
       </div>
     </div>
   );

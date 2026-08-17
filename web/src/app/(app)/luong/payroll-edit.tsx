@@ -16,6 +16,7 @@ type Row = {
   role: string;
   baseFull: number;
   commission: number;
+  commissionOverride: number;
   bonus: number;
   adjustment: number;
   hasEntry: boolean;
@@ -32,7 +33,7 @@ export function PayrollEditButton({
 }: {
   row: Row;
   month: string;
-  /** Hoa hồng hệ thống TỰ TÍNH theo cơ chế lương (lib/commission.ts) — chỉ gợi ý, không tự ghi đè. */
+  /** Hoa hồng hệ thống TỰ TÍNH theo tiền thực thu — chỉ hiển thị, không ghi đè bằng tay. */
   suggested?: number;
   suggestedNote?: string;
 }) {
@@ -42,10 +43,10 @@ export function PayrollEditButton({
 
   // Chưa có PayrollEntry tháng này → mang số tháng trước sang làm mốc để sửa, thay vì gõ từ 0.
   const carried = !row.hasEntry && (row.prevCommission > 0 || row.prevBonus > 0 || row.prevAdjustment !== 0);
-  const commissionDefault = row.hasEntry ? row.commission : row.prevCommission;
+  const commissionDefault = row.hasEntry ? row.commissionOverride : 0;
   const bonusDefault = row.hasEntry ? row.bonus : row.prevBonus;
   const adjustmentDefault = row.hasEntry ? row.adjustment : row.prevAdjustment;
-  const [commission, setCommission] = useState(commissionDefault);
+  const [commissionOverride, setCommissionOverride] = useState(commissionDefault);
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -78,26 +79,14 @@ export function PayrollEditButton({
               Chưa nhập lương tháng này — đã tự điền số của tháng trước làm mốc, sửa lại nếu cần.
             </p>
           )}
-          {suggested > 0 && (
-            <div className="rounded-lg bg-brand-50 px-3 py-2 text-xs text-brand-700 ring-1 ring-brand-600/10">
-              <div className="flex items-center justify-between gap-2">
-                <span className="inline-flex items-center gap-1">
-                  <Sparkles className="h-3.5 w-3.5" /> Hệ thống tính được <strong>{formatVND(suggested)}</strong>
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setCommission(suggested)}
-                  className="shrink-0 rounded-md bg-brand-600 px-2 py-1 text-[11px] font-medium text-white hover:bg-brand-700"
-                >
-                  Dùng số này
-                </button>
-              </div>
-              {suggestedNote && <p className="mt-1 text-[11px] text-brand-600">{suggestedNote}</p>}
-            </div>
-          )}
+          <div className="rounded-lg bg-brand-50 px-3 py-2 text-xs text-brand-700 ring-1 ring-brand-600/10">
+            <span className="inline-flex items-center gap-1"><Sparkles className="h-3.5 w-3.5" /> Hoa hồng tự động theo thực thu: <strong>{formatVND(suggested)}</strong></span>
+            {suggestedNote && <p className="mt-1 text-[11px] text-brand-600">{suggestedNote}</p>}
+          </div>
           <div>
-            <Label htmlFor="commission">Hoa hồng (tự nhập)</Label>
-            <MoneyInput id="commission" name="commission" value={commission} onValueChange={setCommission} />
+            <Label htmlFor="commissionOverride">Điều chỉnh hoa hồng ngoài công thức</Label>
+            <MoneyInput id="commissionOverride" name="commissionOverride" value={commissionOverride} onValueChange={setCommissionOverride} />
+            <p className="mt-1 text-[11px] text-slate-500">Chỉ nhập khoản cộng thêm đặc biệt; không nhập lại số tự động ở trên.</p>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>

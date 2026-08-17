@@ -122,6 +122,74 @@ const infoSchema = z.object({
   note: z.string().trim().optional(),
 });
 
+const screeningItems = [
+  "Huyết áp", "Tim mạch", "Tiểu đường", "Hô hấp", "Bệnh truyền nhiễm", "Tuyến giáp", "Máu khó đông", "Dị ứng thuốc", "Dị ứng thức ăn/cao su", "Thuốc chống đông", "Thuốc nam/bắc/TPCN", "Thuốc lá/rượu bia", "Chất kích thích", "Phẫu thuật trước đây", "Biến chứng gây tê/gây mê", "Mang thai", "Cho con bú", "Kỳ kinh nguyệt",
+] as const;
+
+const consultationSchema = z.object({
+  caseId: z.string().min(1),
+  weightKg: z.coerce.number().min(0).max(500).optional(),
+  heightCm: z.coerce.number().min(0).max(250).optional(),
+  bloodType: z.string().trim().max(20).optional(),
+  emergencyName: z.string().trim().max(120).optional(),
+  emergencyPhone: z.string().trim().max(40).optional(),
+  pulse: z.coerce.number().int().min(0).max(300).optional(),
+  bloodPressure: z.string().trim().max(30).optional(),
+  temperatureC: z.coerce.number().min(0).max(50).optional(),
+  respiratoryRate: z.coerce.number().int().min(0).max(100).optional(),
+  spo2: z.coerce.number().int().min(0).max(100).optional(),
+  screeningJson: z.string().max(10000).optional(),
+  patientConfirmed: z.coerce.boolean().default(false),
+  wants: z.string().trim().max(3000).optional(),
+  currentCondition: z.string().trim().max(3000).optional(),
+  expectedResult: z.string().trim().max(3000).optional(),
+  doctorIndication: z.string().trim().max(3000).optional(),
+});
+
+export async function saveConsultationRecord(_prev: CaseActionState, formData: FormData): Promise<CaseActionState> {
+  const user = await requireCap("case.clinical");
+  const parsed = consultationSchema.safeParse({
+    caseId: formData.get("caseId"), weightKg: formData.get("weightKg") || undefined, heightCm: formData.get("heightCm") || undefined,
+    bloodType: formData.get("bloodType") || "", emergencyName: formData.get("emergencyName") || "", emergencyPhone: formData.get("emergencyPhone") || "",
+    pulse: formData.get("pulse") || undefined, bloodPressure: formData.get("bloodPressure") || "", temperatureC: formData.get("temperatureC") || undefined,
+    respiratoryRate: formData.get("respiratoryRate") || undefined, spo2: formData.get("spo2") || undefined, screeningJson: formData.get("screeningJson") || "{}",
+    patientConfirmed: formData.get("patientConfirmed") === "on" || formData.get("patientConfirmed") === "true", wants: formData.get("wants") || "",
+    currentCondition: formData.get("currentCondition") || "", expectedResult: formData.get("expectedResult") || "", doctorIndication: formData.get("doctorIndication") || "",
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Sổ tư vấn chưa hợp lệ." };
+  if (!(await hasCaseAccess(user, parsed.data.caseId, "clinical"))) return { error: CASE_ACCESS_MSG };
+  if (await isLockedFor(parsed.data.caseId, user.role)) return { error: LOCKED_MSG };
+
+  let screening: Record<string, boolean> = {};
+  try {
+    const raw = JSON.parse(parsed.data.screeningJson || "{}");
+    if (raw && typeof raw === "object" && !Array.isArray(raw)) screening = Object.fromEntries(screeningItems.map((key) => [key, raw[key] === true]));
+  } catch {
+    return { error: "Bảng sàng lọc không đúng định dạng." };
+  }
+
+  const existing = await prisma.consultationRecord.findUnique({ where: { caseId: parsed.data.caseId }, select: { id: true, updatedAt: true } });
+  const lateEdit = !!existing && Date.now() - existing.updatedAt.getTime() > 24 * 60 * 60 * 1000;
+  if (lateEdit && user.role !== "ADMIN") return { error: "Sổ tư vấn đã quá 24 giờ; chỉ ADMIN được sửa bổ sung." };
+
+  const data = {
+    weightKg: parsed.data.weightKg ?? null, heightCm: parsed.data.heightCm ?? null, bloodType: parsed.data.bloodType || null,
+    emergencyName: parsed.data.emergencyName || null, emergencyPhone: parsed.data.emergencyPhone || null, pulse: parsed.data.pulse ?? null,
+    bloodPressure: parsed.data.bloodPressure || null, temperatureC: parsed.data.temperatureC ?? null, respiratoryRate: parsed.data.respiratoryRate ?? null,
+    spo2: parsed.data.spo2 ?? null, screening, patientConfirmed: parsed.data.patientConfirmed, patientConfirmedAt: parsed.data.patientConfirmed ? new Date() : null,
+    wants: parsed.data.wants || null, currentCondition: parsed.data.currentCondition || null, expectedResult: parsed.data.expectedResult || null,
+    doctorIndication: parsed.data.doctorIndication || null, createdById: user.id, finalizedAt: parsed.data.patientConfirmed ? new Date() : null,
+  };
+  await withCaseLock(parsed.data.caseId, async (tx) => {
+    const saved = existing
+      ? await tx.consultationRecord.update({ where: { id: existing.id }, data })
+      : await tx.consultationRecord.create({ data: { ...data, caseId: parsed.data.caseId } });
+    await auditRequired(tx, user.id, lateEdit ? "LATE_UPDATE_CONSULTATION" : "UPDATE_CONSULTATION", { entity: "ConsultationRecord", entityId: saved.id, meta: { lateEdit, patientConfirmed: parsed.data.patientConfirmed } });
+  });
+  refresh(parsed.data.caseId);
+  return { ok: true, nonce: Date.now() };
+}
+
 export async function updateCaseInfo(_prev: CaseActionState, formData: FormData): Promise<CaseActionState> {
   const user = await requireCap("case.clinical");
   const caseId = String(formData.get("caseId") ?? "");

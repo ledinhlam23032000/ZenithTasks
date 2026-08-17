@@ -97,7 +97,7 @@ export const BUSINESS_RULES_KNOWLEDGE = `
 - Thành tiền cuối cùng của hồ sơ = Tổng trước voucher − Voucher.
 - Đã trả = cộng mọi khoản thu đã ghi nhận cho hồ sơ đó.
 - Còn nợ = Thành tiền cuối cùng − Đã trả (không bao giờ âm; trả dư không tính "nợ âm").
-- Hoa hồng của tư vấn viên/bác sĩ KHÔNG tự động tính — quản lý nhập tay hằng tháng ở bảng Lương.
+- Hoa hồng tự động tính theo tiền khách đã thanh toán thật từng Payment trong kỳ và phân bổ cho đúng người/vai trò; phần điều chỉnh thủ công nhập riêng ở commissionOverride, không nhập lại số tự động.
 
 == HẠNG THÀNH VIÊN & ĐIỂM TÍCH LŨY ==
 - Tính theo TỔNG CHI TIÊU THỰC trọn đời của khách (tiền đã thanh toán thật, không tính phần còn nợ).
@@ -112,10 +112,12 @@ export const BUSINESS_RULES_KNOWLEDGE = `
 
 == LƯƠNG & HOA HỒNG NHÂN SỰ ==
 - Lương cứng = Lương cơ bản × (Số ngày công thực tế ÷ Số ngày công chuẩn, mặc định 26 ngày/tháng).
-- Hoa hồng, thưởng, điều chỉnh: quản lý NHẬP TAY từng tháng cho từng người — không có công thức phần trăm tự động theo vai trò.
-- "Giá trị chốt" (doanh số) là tổng hồ sơ tư vấn/thực hiện trong tháng, GỒM CẢ phần khách còn nợ chưa trả.
-- "Thực thu" là tiền THẬT đã về (theo ngày thu tiền thật, không theo ngày mở hồ sơ) — tách riêng "thu từ ca tháng này" và "thu nợ từ ca các tháng trước". Một khoản thu tính thực thu cho CẢ tư vấn viên lẫn bác sĩ phụ trách hồ sơ đó (không cộng dồn thành 1 số chung).
-- Quản lý nên nhập hoa hồng dựa trên "Thực thu" (tiền thật đã về) chứ không phải "Giá trị chốt" (có thể còn nợ), để không thưởng hoa hồng cho tiền chưa thu được.
+- Hoa hồng tự động tính theo tiền khách đã thanh toán thật từng Payment trong kỳ; khách trả góp đến đâu thì tháng đó tính đến đó.
+- commissionOverride là phần điều chỉnh hoa hồng thủ công ngoài công thức; không nhập lại hoa hồng tự động vì sẽ cộng đôi.
+- "Giá trị chốt" là tổng hồ sơ/dịch vụ, có thể gồm phần còn nợ; không dùng làm căn cứ chi hoa hồng.
+- "Thực thu" là tiền thật theo ngày thanh toán, tách thu ca mới và thu nợ ca cũ. Nếu hồ sơ có phân bổ phối hợp, hệ thống chia theo tỷ lệ cấu hình; doanh thu trung tâm vẫn chỉ đếm mỗi Payment một lần.
+- Bảng lương cuối tháng có thể xuất Excel/Word; giấy đề nghị thanh toán được lập, duyệt và in trước khi ghi sổ chi.
+- Sổ tư vấn điện tử lưu hành chính, sinh hiệu, sàng lọc, mong muốn, hiện trạng, kết quả dự tính và chỉ định; có nút sàng lọc nhanh nhưng không thay cho đánh giá chuyên môn.
 
 == SỔ THU CHI & KẾ TOÁN (LÃI/LỖ) ==
 - Sổ thu chi ghi dòng tiền vận hành hằng ngày (thu/chi tay), KHÔNG hiện doanh thu hay lãi lỗ trực tiếp.
