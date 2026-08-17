@@ -49,6 +49,7 @@ import { logoutAction } from "@/lib/auth-actions";
 import { ChangePasswordModal } from "./change-password";
 import { CommandPalette } from "./command-palette";
 import { RouteProgress } from "./route-progress";
+import { PushNotificationButton } from "@/components/push-notification-button";
 
 const ICONS: Record<string, LucideIcon> = {
   LayoutDashboard,
@@ -89,10 +90,12 @@ export function AppShell({
   user,
   nav,
   children,
+  pushPublicKey,
 }: {
   user: ShellUser;
   nav: NavItemData[];
   children: React.ReactNode;
+  pushPublicKey: string;
 }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -340,6 +343,7 @@ export function AppShell({
           </button>
 
           <div className="ml-auto flex items-center gap-2">
+            <PushNotificationButton publicKey={pushPublicKey} />
             <div ref={menuRef} className="relative">
               <button
                 onClick={() => setMenuOpen((o) => !o)}

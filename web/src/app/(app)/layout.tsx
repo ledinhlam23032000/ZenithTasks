@@ -6,6 +6,7 @@ import { navForUser } from "@/lib/permissions";
 import { securityWarnings } from "@/lib/security-status";
 import { AppShell } from "@/components/layout/app-shell";
 import { ToastProvider } from "@/components/ui/toast";
+import { pushPublicKey } from "@/lib/push";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
@@ -21,6 +22,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <AppShell
         user={{ fullName: user.fullName, roleLabel: ROLE_LABELS[user.role], username: user.username, avatarUrl: user.avatarUrl }}
         nav={nav}
+        pushPublicKey={pushPublicKey()}
       >
         {(warnings.length > 0 || weakPassword) && (
           <div className="mb-4 space-y-2">

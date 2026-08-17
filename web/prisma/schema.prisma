@@ -195,6 +195,7 @@ model User {
   periodsClosed        AccountingPeriod[]
   channelAccounts      ChannelAccount[]
   channelMessagesSent  Message[]
+  pushSubscriptions   PushSubscription[]
 }
 
 // ============================ CHẤM CÔNG & LƯƠNG ============================
@@ -562,6 +563,23 @@ model FollowUp {
   createdAt   DateTime          @default(now())
 
   @@index([scheduledAt])
+}
+
+// ============================ THÔNG BÁO ĐẨY ============================
+// Mỗi thiết bị/trình duyệt đăng ký một endpoint Web Push. Endpoint lưu theo nhân viên,
+// không lưu dữ liệu khách hàng hay nội dung tin nhắn.
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
 }
 
 // ============================ CHĂM SÓC KHÁCH HÀNG ============================

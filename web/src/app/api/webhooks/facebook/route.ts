@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { verifyFacebookChallenge, verifyFacebookSignature, getFacebookUserProfile } from "@/lib/channels/facebook";
 import { findActiveChannelAccount, recordInboundMessage } from "@/lib/channels/conversations";
 import { decryptSecret } from "@/lib/secret-crypto";
+import { sendCarePush } from "@/lib/push";
 import type { Prisma } from "@/generated/prisma/client";
 
 // Webhook Facebook Messenger (Fanpage) — CÔNG KHAI theo thiết kế (Meta gọi vào).
@@ -71,7 +72,7 @@ export async function POST(req: Request) {
         });
         const profile = existing?.displayName ? undefined : await getFacebookUserProfile(decryptSecret(account.accessTokenEnc), psid);
 
-        await recordInboundMessage({
+        const conversation = await recordInboundMessage({
           channelAccount: account,
           externalUserId: psid,
           profile,
@@ -80,6 +81,15 @@ export async function POST(req: Request) {
           externalMessageId: evt.message.mid,
           occurredAt: evt.timestamp ? new Date(evt.timestamp) : undefined,
         });
+
+        if (conversation) {
+          void sendCarePush({
+            title: `[${account.externalName ?? account.label}] ${profile?.name ?? "Khách Facebook"}`,
+            body: evt.message.text?.trim() || (attachments.length ? "Đã gửi tệp đính kèm." : "Có tin nhắn mới."),
+            url: `/cham-soc/hop-thu/${conversation.id}`,
+            tag: `inbox-${conversation.id}`,
+          }).catch((error) => console.warn("[webhook/facebook] Push notification lỗi:", error));
+        }
       }
     }
 

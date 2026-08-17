@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { verifyZaloWebhookMac, parseZaloTimestamp } from "@/lib/channels/zalo";
 import { findActiveChannelAccount, recordInboundMessage } from "@/lib/channels/conversations";
 import type { Prisma } from "@/generated/prisma/client";
+import { sendCarePush } from "@/lib/push";
 
 // Webhook Zalo OA — CÔNG KHAI theo thiết kế (Zalo gọi vào, không có phiên đăng nhập).
 // KHÔNG nằm trong (app) nên proxy.ts không chặn (matcher loại trừ "api"). Bảo mật dựa
@@ -63,24 +64,40 @@ export async function POST(req: Request) {
     const msgId = payload.message?.msg_id;
 
     if (eventName === "user_send_text") {
-      await recordInboundMessage({
+      const conversation = await recordInboundMessage({
         channelAccount: account,
         externalUserId: senderId,
         text: payload.message?.text,
         externalMessageId: msgId,
         occurredAt,
       });
+      if (conversation) {
+        void sendCarePush({
+          title: `[${account.externalName ?? account.label}] Khách Zalo`,
+          body: payload.message?.text?.trim() || "Có tin nhắn mới.",
+          url: `/cham-soc/hop-thu/${conversation.id}`,
+          tag: `inbox-${conversation.id}`,
+        }).catch((error) => console.warn("[webhook/zalo] Push notification lỗi:", error));
+      }
     } else if (eventName === "user_send_image" || eventName === "user_send_file" || eventName === "user_send_sticker") {
       const att = payload.message?.attachments?.[0]?.payload;
       const url = att?.url ?? att?.thumbnail;
       const attachments: Prisma.InputJsonValue | undefined = url ? [{ type: "image", url }] : undefined;
-      await recordInboundMessage({
+      const conversation = await recordInboundMessage({
         channelAccount: account,
         externalUserId: senderId,
         attachments,
         externalMessageId: msgId,
         occurredAt,
       });
+      if (conversation) {
+        void sendCarePush({
+          title: `[${account.externalName ?? account.label}] Khách Zalo`,
+          body: "Đã gửi tệp đính kèm.",
+          url: `/cham-soc/hop-thu/${conversation.id}`,
+          tag: `inbox-${conversation.id}`,
+        }).catch((error) => console.warn("[webhook/zalo] Push notification lỗi:", error));
+      }
     }
     // Các sự kiện khác (user_follow, user_unfollow, oa_send_text…) bỏ qua có chủ đích.
 

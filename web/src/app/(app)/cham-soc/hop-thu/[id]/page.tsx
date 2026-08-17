@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Paperclip, Link2, Link2Off, Search, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Paperclip, Link2, Link2Off, Search, AlertTriangle, ExternalLink, Image as ImageIcon } from "lucide-react";
 import { requireCap } from "@/lib/auth";
 import { isShareholder } from "@/lib/rbac";
 import { prisma } from "@/lib/db";
@@ -58,6 +58,10 @@ export default async function ConversationPage({
   const withinWindow = withinResponseWindow(conversation.kind, lastInbound?.createdAt ?? null);
   const ch = CHANNEL_LABEL[conversation.kind];
   const name = conversation.customer?.fullName ?? conversation.displayName ?? "Người dùng chưa rõ tên";
+  const pageName = conversation.channelAccount.externalName ?? conversation.channelAccount.label;
+  const pageUrl = conversation.kind === "FACEBOOK" && conversation.channelAccount.externalId
+    ? `https://www.facebook.com/profile.php?id=${encodeURIComponent(conversation.channelAccount.externalId)}`
+    : null;
 
   const searchResults =
     canManage && !conversation.customer && qkh
@@ -85,6 +89,12 @@ export default async function ConversationPage({
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-semibold text-slate-900">{name}</span>
               <Badge tone={ch.tone}>{ch.label}</Badge>
+              <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">Page: {pageName}</span>
+              {pageUrl && (
+                <a href={pageUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs font-medium text-brand-600 hover:underline" title="Mở Fanpage">
+                  Mở Page <ExternalLink className="h-3.5 w-3.5" />
+                </a>
+              )}
               {!conversation.channelAccount.active && <Badge tone="red">Kênh đã ngắt</Badge>}
             </div>
             {conversation.customer ? (
@@ -178,19 +188,24 @@ export default async function ConversationPage({
                   <div className={`flex ${out ? "justify-end" : "justify-start"}`}>
                     <div className={`max-w-[80%] rounded-2xl px-3.5 py-2 text-sm sm:max-w-[65%] ${out ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-800"}`}>
                       {m.text && <p className="whitespace-pre-wrap break-words">{m.text}</p>}
-                      {attachments.map((a, ai) =>
-                        a.url ? (
-                          <a
-                            key={ai}
-                            href={a.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className={`mt-1 flex items-center gap-1.5 text-xs underline ${out ? "text-brand-50" : "text-brand-600"}`}
-                          >
+                      {attachments.map((a, ai) => {
+                        if (!a.url) return null;
+                        const isImage = a.type === "image" || /\.(?:png|jpe?g|gif|webp)(?:\?|$)/i.test(a.url);
+                        return isImage ? (
+                          <a key={ai} href={a.url} target="_blank" rel="noopener noreferrer" className="mt-2 block overflow-hidden rounded-xl bg-white/60">
+                            {/* URL ảnh do Facebook/Zalo cấp có thể hết hạn; bấm ảnh để mở bản gốc. */}
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={a.url} alt="Ảnh khách gửi" className="max-h-80 w-full object-contain" loading="lazy" />
+                            <span className={`flex items-center gap-1 px-2 py-1 text-[11px] ${out ? "text-brand-700" : "text-brand-600"}`}>
+                              <ImageIcon className="h-3.5 w-3.5" /> Mở ảnh lớn
+                            </span>
+                          </a>
+                        ) : (
+                          <a key={ai} href={a.url} target="_blank" rel="noopener noreferrer" className={`mt-1 flex items-center gap-1.5 text-xs underline ${out ? "text-brand-50" : "text-brand-600"}`}>
                             <Paperclip className="h-3.5 w-3.5" /> Xem tệp đính kèm
                           </a>
-                        ) : null,
-                      )}
+                        );
+                      })}
                       <div className={`mt-1 flex items-center gap-1.5 text-[11px] ${out ? "text-brand-100" : "text-slate-400"}`}>
                         <span>{fmtTime(m.createdAt)}</span>
                         {out && m.sentBy && <span>· {m.sentBy.fullName}</span>}

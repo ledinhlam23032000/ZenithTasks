@@ -30,7 +30,7 @@ const CHANNEL_LABEL: Record<ChannelKind, { label: string; tone: "blue" | "purple
 export default async function InboxPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; kenh?: string; chuadoc?: string; page?: string }>;
+  searchParams: Promise<{ q?: string; kenh?: string; pageId?: string; chuadoc?: string; page?: string }>;
 }) {
   const user = await requireCap("mod:cham-soc-hop-thu");
   const canManage = !isShareholder(user.role);
@@ -38,11 +38,13 @@ export default async function InboxPage({
   const sp = await searchParams;
   const q = (sp.q ?? "").trim();
   const kenh = (sp.kenh ?? "").trim();
+  const pageId = (sp.pageId ?? "").trim();
   const unreadOnly = sp.chuadoc === "1";
   const page = parsePage(sp.page);
 
   const where: Prisma.ConversationWhereInput = {};
   if (kenh === "ZALO_OA" || kenh === "FACEBOOK") where.kind = kenh;
+  if (pageId) where.channelAccountId = pageId;
   if (unreadOnly) where.unreadCount = { gt: 0 };
   if (q) {
     where.OR = [
@@ -51,7 +53,7 @@ export default async function InboxPage({
     ];
   }
 
-  const [conversations, total, unreadCount, accountCount] = await Promise.all([
+  const [conversations, total, unreadCount, channelAccounts] = await Promise.all([
     prisma.conversation.findMany({
       where,
       orderBy: { lastMessageAt: "desc" },
@@ -59,18 +61,19 @@ export default async function InboxPage({
       skip: (page - 1) * PAGE_SIZE,
       include: {
         customer: { select: { id: true, fullName: true, code: true, phoneLast5: true } },
-        channelAccount: { select: { label: true, active: true } },
+        channelAccount: { select: { id: true, label: true, externalName: true, active: true } },
       },
     }),
     prisma.conversation.count({ where }),
     prisma.conversation.count({ where: { unreadCount: { gt: 0 } } }),
-    prisma.channelAccount.count(),
+    prisma.channelAccount.findMany({ orderBy: [{ kind: "asc" }, { label: "asc" }], select: { id: true, kind: true, label: true, externalName: true, active: true } }),
   ]);
   const totalPages = totalPagesOf(total);
   const makeHref = (p: number) => {
     const params = new URLSearchParams();
     if (q) params.set("q", q);
     if (kenh) params.set("kenh", kenh);
+    if (pageId) params.set("pageId", pageId);
     if (unreadOnly) params.set("chuadoc", "1");
     if (p > 1) params.set("page", String(p));
     const s = params.toString();
@@ -86,7 +89,7 @@ export default async function InboxPage({
       />
       <PageTabs tabs={careTabs(user)} />
 
-      {accountCount === 0 && (
+      {channelAccounts.length === 0 && (
         <Card className="border-amber-200 bg-amber-50/60">
           <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4">
             <div className="flex items-center gap-3">
@@ -133,6 +136,18 @@ export default async function InboxPage({
               <option value="ZALO_OA">Zalo OA</option>
               <option value="FACEBOOK">Facebook</option>
             </select>
+            <select
+              name="pageId"
+              defaultValue={pageId}
+              className="h-10 min-w-[190px] rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-brand-500"
+            >
+              <option value="">Tất cả Page/OA</option>
+              {channelAccounts.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {(a.externalName || a.label) + (a.active ? "" : " (đã ngắt)")}
+                </option>
+              ))}
+            </select>
             <label className="flex h-10 items-center gap-1.5 rounded-lg border border-slate-200 px-3 text-sm text-slate-600">
               <input type="checkbox" name="chuadoc" value="1" defaultChecked={unreadOnly} className="accent-brand-600" />
               Chỉ chưa đọc
@@ -175,6 +190,9 @@ export default async function InboxPage({
                             </>
                           )}
                           <Badge tone={ch.tone}>{ch.label}</Badge>
+                          <span className="max-w-[18rem] truncate rounded-md bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-600" title={c.channelAccount.externalName ?? c.channelAccount.label}>
+                            Page: {c.channelAccount.externalName ?? c.channelAccount.label}
+                          </span>
                           {!c.channelAccount.active && <Badge tone="red">Kênh đã ngắt</Badge>}
                           {unread && <Badge tone="pink">{c.unreadCount} mới</Badge>}
                         </div>
