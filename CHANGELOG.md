@@ -4,7 +4,7 @@ Tài liệu này ghi các thay đổi đã được đẩy lên nhánh `master`.
 
 ## 2026-08-18 — `2026.08.18-r1`
 
-Commit chuẩn nội dung: [`31f7211`](https://github.com/ledinhlam23032000/ZenithTasks/commit/31f7211).
+Commit chuẩn nội dung: [`87c131c`](https://github.com/ledinhlam23032000/ZenithTasks/commit/87c131c).
 
 ### Tài chính, lương và chứng từ
 
@@ -25,12 +25,15 @@ Commit chuẩn nội dung: [`31f7211`](https://github.com/ledinhlam23032000/Zeni
 - Thêm feedback đúng/cần sửa để lưu thành bộ nhớ phản hồi theo tài khoản; thêm nhập câu hỏi bằng giọng nói trên trình duyệt.
 - Giữ nguyên whitelist tool, preview và ADMIN approval; AI không tự sửa code production, tiền, lương hoặc hồ sơ y tế.
 
-### Kiểm tra
+### Kiểm tra và triển khai production
 
 - 45 file test, 296/296 test đạt.
 - Prisma validate, TypeScript và Next.js production build đạt.
 - Đã lưu checkpoint bộ nhớ nhiệm vụ dài trong `.task-memory/` và biên bản tại `UPGRADE-HANDOFF-2026-08.md`.
-- Chưa chạy migration trên máy phòng khám; cần backup trước khi triển khai.
+- Đã tạo backup production tại `F:\\6.Sao lưu hệ thống\\zenith-2026-08-18_0134.zip` trước khi cập nhật.
+- Đã recreate `zenithtasks-app-1` bằng image mới; database vẫn healthy, migration `20260818100000_finance_consultation_hr_ai` đã áp dụng và `prisma migrate status` báo schema up to date.
+- Endpoint `http://localhost:3000/login` trả HTTP 200 sau cập nhật.
+- Sửa `web/Dockerfile` và quy trình CI để dùng `pnpm install --frozen-lockfile`, tương thích với `pnpm-lock.yaml` và các thư viện đọc file mới; vì vậy `Sua-Loi.bat` build image thành công thay vì dừng ở bước cài dependency.
 
 ## 2026-08-17 — `2026.08.17-r2`
 

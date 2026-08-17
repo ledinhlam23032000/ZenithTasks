@@ -1,9 +1,9 @@
 # ZenithTasks — Trạng thái phiên bản hiện tại
 
 > **Phiên bản nội bộ:** `2026.08.18-r1`<br>
-> **Commit chuẩn nội dung:** [`31f7211`](https://github.com/ledinhlam23032000/ZenithTasks/commit/31f7211)<br>
+> **Commit chuẩn nội dung:** [`87c131c`](https://github.com/ledinhlam23032000/ZenithTasks/commit/87c131c)<br>
 > **Ngày cập nhật:** 18/08/2026<br>
-> **Trạng thái:** Đã build/test production; cần backup và chạy migration khi cập nhật máy vận hành.
+> **Trạng thái:** Đã build/test production; đã backup và áp dụng migration trên máy vận hành phòng khám ngày 18/08/2026.
 
 ## Quy tắc đọc tài liệu
 
@@ -37,7 +37,7 @@
 | `20260817140000_assistant_approvals` | Lưu bản xem trước và trạng thái xác nhận thao tác của AI. |
 | `20260817160000_case_revenue_allocations` | Lưu phân bổ doanh thu theo hồ sơ, người, vai trò và tỷ lệ. |
 | `20260817170000_conversation_workflow` | Lưu trạng thái hội thoại, người phụ trách, thời điểm tin đến và hạn SLA. |
-| `20260818100000_finance_consultation_hr_ai` | Thêm hoa hồng điều chỉnh riêng, chứng từ thanh toán, sổ tư vấn điện tử, thỏa thuận nhân sự, file/feedback AI. |
+| `20260818100000_finance_consultation_hr_ai` | Thêm hoa hồng điều chỉnh riêng, chứng từ thanh toán, sổ tư vấn điện tử, thỏa thuận nhân sự, file/feedback AI. **Đã áp dụng trên production ngày 18/08/2026.** |
 
 Migration là **bổ sung dữ liệu, không được tự xóa hoặc reset database**. Khi triển khai production phải dùng `prisma migrate deploy`, không dùng `prisma db push`.
 
