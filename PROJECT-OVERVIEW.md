@@ -208,7 +208,3 @@ Money math (`lib/.../ho-so/actions.ts recalc()`): `totalAmount = Σ finalPrice �
 ---
 
 *Generated as a review package. Author/owner: GĐĐH — BS. Lê Đình Lam · 0941 567 496.*
-
-## Omnichannel customer-care inbox
-
-ZenithTasks now includes a first-party Zalo OA and Facebook Page inbox. New provider events are normalized into a separate inbox domain with OAuth tokens encrypted at rest, signed/idempotent webhooks, assignment queues, response lifecycle, protected attachments, maintenance jobs and audit events. `CareMessage` remains the unchanged legacy/manual log. `OMNICHANNEL_ENABLED=false` is the safe default; real activation still requires the owner to configure provider apps, complete provider review where applicable, and pass one real receive/reply smoke test per channel.

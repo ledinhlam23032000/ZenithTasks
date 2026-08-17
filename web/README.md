@@ -108,7 +108,5 @@ web/
 
 ## Hộp thư chăm sóc đa kênh
 
-- Mã nguồn provider/domain: `src/lib/channels/`; OAuth/webhook/attachment: `src/app/api/channels/`; UI: `src/app/(app)/cham-soc/`.
-- Cờ `OMNICHANNEL_ENABLED` mặc định `false`. ADMIN quản lý kênh ở `/cham-soc/cai-dat`; ADMIN/MANAGER/CARE dùng inbox theo capability `inbox.*`; SHAREHOLDER bị hard-deny nội dung hội thoại.
-- Token OAuth dùng `CHANNEL_TOKEN_ENC_KEY`; route bảo trì dùng `CHANNEL_MAINTENANCE_SECRET`; tệp inbox ở volume riêng ngoài `public/`.
-- Docker tự sinh và giữ hai secret kênh khi để trống. Xem cấu hình provider, callback, scheduler và release gate tại [`DEPLOY.md`](DEPLOY.md#hộp-thư-zalo-oa--facebook-fanpage).
+- Mã nguồn: `src/lib/channels/` (Zalo OA + Facebook), route webhook/OAuth: `src/app/api/webhooks/`, `src/app/api/integrations/zalo/`; UI: `src/app/(app)/cham-soc/hop-thu`, `src/app/(app)/cham-soc/ket-noi`.
+- Chi tiết kiến trúc, biến môi trường và cách kết nối: xem mục "Kênh giao tiếp (Omnichannel)" trong [`BAN-GIAO.md`](BAN-GIAO.md).
