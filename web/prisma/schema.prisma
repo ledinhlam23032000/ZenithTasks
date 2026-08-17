@@ -137,6 +137,13 @@ enum AssistantApprovalStatus {
   EXPIRED
 }
 
+enum RevenueAllocationRole {
+  CONSULTANT
+  DOCTOR
+  NURSE
+  OTHER
+}
+
 // ============================ NHÂN SỰ ============================
 
 model User {
@@ -199,11 +206,13 @@ model User {
   leadsCreated         Lead[]             @relation("LeadCreatedBy")
   documentsUploaded    CaseDocument[]     @relation("DocUploadedBy")
   plansCreated         Plan[]             @relation("PlanCreatedBy")
+  revenueAllocations   CaseRevenueAllocation[]
   periodsClosed        AccountingPeriod[]
   channelAccounts      ChannelAccount[]
   channelMessagesSent  Message[]
   pushSubscriptions   PushSubscription[]
   assistantApprovals  AssistantApproval[]
+  revenueAllocationsCreated CaseRevenueAllocation[] @relation("RevenueAllocationCreatedBy")
 }
 
 // ============================ CHẤM CÔNG & LƯƠNG ============================
@@ -476,6 +485,7 @@ model CaseRecord {
   consents    CaseConsent[]
   documents   CaseDocument[]
   debtPlan    DebtPlan?
+  revenueAllocations CaseRevenueAllocation[]
 
   @@index([status])
   @@index([createdAt])
@@ -812,6 +822,27 @@ model CaseDocument {
   createdAt    DateTime   @default(now())
 
   @@index([caseId])
+}
+
+// Phân bổ doanh số nội bộ cho một hồ sơ giữa các nhân sự phối hợp.
+// shareBps: phần trăm theo điểm cơ bản, 10000 = 100%; tổng phải đúng 10000 khi hồ sơ chốt.
+model CaseRevenueAllocation {
+  id        String                @id @default(cuid())
+  caseId    String
+  case      CaseRecord            @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User                  @relation(fields: [userId], references: [id], onDelete: Restrict)
+  role      RevenueAllocationRole
+  shareBps  Int
+  note      String?
+  createdById String?
+  createdBy User?                 @relation("RevenueAllocationCreatedBy", fields: [createdById], references: [id])
+  createdAt DateTime              @default(now())
+  updatedAt DateTime              @updatedAt
+
+  @@unique([caseId, userId, role])
+  @@index([caseId])
+  @@index([userId])
 }
 
 // Yêu cầu thao tác do Trợ lý AI lập — mutation phải chờ ADMIN xác nhận rõ ràng.

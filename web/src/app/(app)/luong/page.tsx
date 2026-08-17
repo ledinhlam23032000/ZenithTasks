@@ -125,7 +125,7 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
         <CardHeader>
           <CardTitle>Bảng lương — {format(monthDate, "MM/yyyy")}</CardTitle>
           <span className="text-xs text-slate-400">
-            Thực thu = tiền thật đã về trong tháng từ hồ sơ mình phụ trách (kể cả khách trả nợ ca cũ) — căn cứ nhập hoa hồng.
+            DS phân bổ = phần doanh thu được quy cho nhân sự, không phải tổng doanh thu hồ sơ; mỗi hồ sơ chỉ tính một lần. Thực thu = tiền thật đã về trong tháng từ hồ sơ mình phụ trách (kể cả khách trả nợ ca cũ) — căn cứ nhập hoa hồng.
             {isAdmin && " Bấm “Sửa” để nhập lương cứng / hoa hồng / thưởng / điều chỉnh — cột Hoa hồng có gợi ý hệ thống tự tính theo cơ chế lương, tham khảo chứ không tự ghi đè."}
           </span>
         </CardHeader>
@@ -135,7 +135,7 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
               <TR className="hover:bg-transparent">
                 <TH>Nhân viên</TH>
                 <TH className="text-center">Ngày công</TH>
-                <TH className="text-right">DS chốt (TV)</TH>
+                <TH className="text-right">DS phân bổ</TH>
                 <TH className="text-right">Thực thu (TV)</TH>
                 <TH className="text-right">Thực thu (BS)</TH>
                 <TH className="text-right">Nợ KH còn lại</TH>

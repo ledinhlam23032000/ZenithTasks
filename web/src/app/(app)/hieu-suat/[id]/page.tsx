@@ -75,12 +75,12 @@ export default async function StaffPerfDetail({
   const monthDate = Number.isNaN(parsed.getTime()) ? new Date() : parsed;
   const monthValue = format(monthDate, "yyyy-MM");
 
-  const { user, consultCases, doctorCases, daysWorked, careCount, collections, collectedTotal, collectedFromDebt } =
+  const { user, consultCases, doctorCases, attributedRevenue, attributedConsultantRevenue, attributedDoctorRevenue, daysWorked, careCount, collections, collectedTotal, collectedFromDebt } =
     await getStaffDetail(id, monthDate);
   if (!user) notFound();
 
-  const consultRevenue = consultCases.reduce((s, c) => s + toNum(c.totalAmount), 0);
-  const doctorRevenue = doctorCases.reduce((s, c) => s + toNum(c.totalAmount), 0);
+  const consultRevenue = attributedConsultantRevenue;
+  const doctorRevenue = attributedDoctorRevenue;
   const agreed = consultCases.filter((c) => c.consultResult === "AGREED").length;
   const rate = consultCases.length > 0 ? Math.round((agreed / consultCases.length) * 100) : 0;
 
@@ -110,7 +110,7 @@ export default async function StaffPerfDetail({
           icon={<Wallet className="h-5 w-5" />}
           tone="green"
         />
-        <StatCard label="Doanh số tư vấn (chốt)" value={formatVND(consultRevenue)} sub="Giá trị hồ sơ, gồm cả nợ chưa thu" icon={<Wallet className="h-5 w-5" />} tone="blue" />
+        <StatCard label="Doanh số được phân bổ" value={formatVND(attributedRevenue)} sub="Doanh thu hồ sơ chỉ tính một lần; đây là phần của nhân sự" icon={<Wallet className="h-5 w-5" />} tone="blue" />
         <StatCard label="Tỉ lệ chốt tư vấn" value={`${rate}%`} sub={`${agreed}/${consultCases.length} ca`} icon={<Target className="h-5 w-5" />} tone="amber" />
         <StatCard label="Ngày công · Tin CSKH" value={`${daysWorked} · ${careCount}`} icon={<CalendarCheck className="h-5 w-5" />} tone="brand" />
       </div>
@@ -167,7 +167,9 @@ export default async function StaffPerfDetail({
           </CardTitle>
         </CardHeader>
         <CardContent className="overflow-x-auto pt-0">
-          <CaseList cases={consultCases as CaseRow[]} />
+                      <CaseList cases={consultCases as CaseRow[]} />
+            <p className="mt-3 text-xs text-slate-400">Danh sách vai trò có thể giao nhau khi kiêm nhiệm; tổng DS ở thẻ trên đã khử trùng hồ sơ.</p>
+
         </CardContent>
       </Card>
 
@@ -178,7 +180,9 @@ export default async function StaffPerfDetail({
           </CardTitle>
         </CardHeader>
         <CardContent className="overflow-x-auto pt-0">
-          <CaseList cases={doctorCases as CaseRow[]} />
+                      <CaseList cases={doctorCases as CaseRow[]} />
+            <p className="mt-3 text-xs text-slate-400">Danh sách vai trò có thể giao nhau khi kiêm nhiệm; tổng DS ở thẻ trên đã khử trùng hồ sơ.</p>
+
         </CardContent>
       </Card>
     </div>

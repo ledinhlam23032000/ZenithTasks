@@ -6,6 +6,7 @@ import { summarizeCase } from "@/lib/financial-summary";
 import { vnDateOnly } from "@/lib/dates";
 import { collectionsByStaff, type StaffCollection } from "@/lib/collections";
 import { debtByStaff } from "@/lib/payroll-pure";
+import { summarizeStaffRevenue, type CaseRevenueInput } from "@/lib/revenue-attribution";
 import type { Role } from "@/generated/prisma/client";
 
 const EMPTY_COLLECTION: StaffCollection = { total: 0, fromNew: 0, fromDebt: 0 };
@@ -59,11 +60,13 @@ export async function getStaffPerformance(monthDate: Date) {
     prisma.caseRecord.findMany({
       where: { createdAt: { gte, lte } },
       select: {
+        id: true,
         consultantId: true,
         doctorId: true,
         voucherAmount: true,
         services: { select: { listPrice: true, unitPrice: true, quantity: true, discount: true, finalPrice: true } },
         payments: { select: { amount: true } },
+        revenueAllocations: { select: { userId: true, role: true, shareBps: true } },
       },
     }),
     prisma.caseRecord.findMany({
@@ -79,13 +82,13 @@ export async function getStaffPerformance(monthDate: Date) {
   ]);
 
   const cCount = new Map(consultG.map((g) => [g.consultantId, g._count._all]));
-  const cRev = new Map<string | null, number>();
-  const dRev = new Map<string | null, number>();
-  for (const c of revenueCases) {
-    const revenue = summarizeCase({ services: c.services, payments: c.payments, voucherAmount: c.voucherAmount }).total;
-    if (c.consultantId) cRev.set(c.consultantId, (cRev.get(c.consultantId) ?? 0) + revenue);
-    if (c.doctorId) dRev.set(c.doctorId, (dRev.get(c.doctorId) ?? 0) + revenue);
-  }
+  const attributed = summarizeStaffRevenue(revenueCases.map((c): CaseRevenueInput => ({
+    caseId: c.id,
+    totalRevenue: summarizeCase({ services: c.services, payments: c.payments, voucherAmount: c.voucherAmount }).total,
+    consultantId: c.consultantId,
+    doctorId: c.doctorId,
+    allocations: c.revenueAllocations.map((a) => ({ userId: a.userId, role: a.role, shareBps: a.shareBps })),
+  })));
   const cAgreed = new Map(consultAgreedG.map((g) => [g.consultantId, g._count._all]));
   const dCount = new Map(doctorG.map((g) => [g.doctorId, g._count._all]));
   const days = new Map(attendanceG.map((g) => [g.userId, g._count._all]));
@@ -111,8 +114,9 @@ export async function getStaffPerformance(monthDate: Date) {
   const rows: StaffPerfRow[] = users.map((u) => {
     const consultCases = cCount.get(u.id) ?? 0;
     const consultAgreed = cAgreed.get(u.id) ?? 0;
-    const consultRevenue = cRev.get(u.id) ?? 0;
-    const doctorRevenue = dRev.get(u.id) ?? 0;
+    const revenue = attributed.get(u.id);
+    const consultRevenue = revenue?.consultantRevenue ?? 0;
+    const doctorRevenue = revenue?.doctorRevenue ?? 0;
     return {
       id: u.id,
       name: u.fullName,
@@ -126,7 +130,7 @@ export async function getStaffPerformance(monthDate: Date) {
       consultRevenue,
       doctorCases: dCount.get(u.id) ?? 0,
       doctorRevenue,
-      totalRevenue: consultRevenue + doctorRevenue,
+      totalRevenue: revenue?.totalRevenue ?? 0,
       collectedConsult: collected.consultants.get(u.id) ?? EMPTY_COLLECTION,
       collectedDoctor: collected.doctors.get(u.id) ?? EMPTY_COLLECTION,
       debtOutstanding: debtByStaffMap.get(u.id) ?? 0,
@@ -145,6 +149,7 @@ export async function getStaffDetail(userId: string, monthDate: Date) {
   const inc = {
     customer: { select: { id: true, fullName: true, code: true } },
     services: { select: { listPrice: true, unitPrice: true, quantity: true, discount: true, finalPrice: true } },
+    revenueAllocations: { select: { userId: true, role: true, shareBps: true } },
   };
 
   const [user, consultCases, doctorCases, daysWorked, careCount, collectedPayments] = await Promise.all([
@@ -189,10 +194,24 @@ export async function getStaffDetail(userId: string, monthDate: Date) {
       totalAmount: summarizeCase({ services: c.services, payments: [], voucherAmount: c.voucherAmount }).total,
     }));
 
+  const consultCasesWithTotals = withCurrentTotals(consultCases);
+  const doctorCasesWithTotals = withCurrentTotals(doctorCases);
+  const uniqueCases = [...new Map([...consultCasesWithTotals, ...doctorCasesWithTotals].map((c) => [c.id, c])).values()];
+  const attributed = summarizeStaffRevenue(uniqueCases.map((c): CaseRevenueInput => ({
+    caseId: c.id,
+    totalRevenue: toNum(c.totalAmount),
+    consultantId: c.consultantId,
+    doctorId: c.doctorId,
+    allocations: c.revenueAllocations.map((a) => ({ userId: a.userId, role: a.role, shareBps: a.shareBps })),
+  }))).get(userId);
+
   return {
     user,
-    consultCases: withCurrentTotals(consultCases),
-    doctorCases: withCurrentTotals(doctorCases),
+    consultCases: consultCasesWithTotals,
+    doctorCases: doctorCasesWithTotals,
+    attributedRevenue: attributed?.totalRevenue ?? 0,
+    attributedConsultantRevenue: attributed?.consultantRevenue ?? 0,
+    attributedDoctorRevenue: attributed?.doctorRevenue ?? 0,
     daysWorked,
     careCount,
     collections,

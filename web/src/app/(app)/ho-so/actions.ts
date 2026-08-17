@@ -14,6 +14,7 @@ import { bomNeeds, type BomLine } from "@/lib/service-bom";
 import { isAllowedDocMime, docExt, safeStoredName, sniffImageExt, isDocumentBufferValid } from "@/lib/upload";
 import { getUploadDir, getUploadStorageError } from "@/lib/upload-storage";
 import { canAccessCase, type CaseAccess, type CaseAccessUser } from "@/lib/case-access";
+import { validateAllocations, type AllocationRole } from "@/lib/revenue-attribution";
 import type { Prisma } from "@/generated/prisma/client";
 
 // Client dùng được cho cả prisma thường lẫn trong $transaction.
@@ -155,6 +156,57 @@ export async function updateCaseInfo(_prev: CaseActionState, formData: FormData)
     });
     await auditRequired(tx, user.id, "UPDATE_CASE_INFO", { entity: "CaseRecord", entityId: d.caseId, meta: { status: d.status, consultResult: d.consultResult } });
   });
+  return { ok: true, nonce: Date.now() };
+}
+
+const revenueAllocationSchema = z.object({
+  caseId: z.string().min(1),
+  allocations: z.array(z.object({
+    userId: z.string().min(1),
+    role: z.enum(["CONSULTANT", "DOCTOR", "NURSE", "OTHER"]),
+    shareBps: z.coerce.number().int().positive().max(10_000),
+    note: z.string().trim().max(500).optional(),
+  })).min(1),
+});
+
+/** Lưu người phối hợp và tỷ lệ DS; chỉ ADMIN, luôn thay thế toàn bộ cấu hình cũ atomically. */
+export async function saveCaseRevenueAllocations(_prev: CaseActionState, formData: FormData): Promise<CaseActionState> {
+  const me = await requireUser(["ADMIN"]);
+  const caseId = String(formData.get("caseId") ?? "");
+  let raw: unknown;
+  try {
+    raw = JSON.parse(String(formData.get("allocations") ?? "[]"));
+  } catch {
+    return { error: "Danh sách phân bổ không đúng định dạng." };
+  }
+  const parsed = revenueAllocationSchema.safeParse({ caseId, allocations: raw });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu phân bổ không hợp lệ." };
+  const validation = validateAllocations(parsed.data.allocations, true);
+  if (!validation.ok) return { error: validation.error };
+
+  let failure: string | undefined;
+  await withCaseLock(caseId, async (tx) => {
+    const record = await tx.caseRecord.findUnique({ where: { id: caseId }, select: { id: true, locked: true } });
+    if (!record) { failure = "Không tìm thấy hồ sơ."; return; }
+    const users = await tx.user.findMany({ where: { id: { in: parsed.data.allocations.map((a) => a.userId) }, active: true }, select: { id: true } });
+    if (users.length !== new Set(parsed.data.allocations.map((a) => a.userId)).size) { failure = "Có nhân sự không tồn tại hoặc đã ngừng hoạt động."; return; }
+    const before = await tx.caseRevenueAllocation.findMany({ where: { caseId }, orderBy: { createdAt: "asc" } });
+    await tx.caseRevenueAllocation.deleteMany({ where: { caseId } });
+    await tx.caseRevenueAllocation.createMany({
+      data: parsed.data.allocations.map((a) => ({ caseId, userId: a.userId, role: a.role as AllocationRole, shareBps: a.shareBps, note: a.note || null, createdById: me.id })),
+    });
+    await auditRequired(tx, me.id, "UPDATE_REVENUE_ALLOCATION", {
+      entity: "CaseRecord",
+      entityId: caseId,
+      meta: {
+        before: before.map((a) => ({ userId: a.userId, role: a.role, shareBps: a.shareBps })),
+        after: parsed.data.allocations,
+        totalShareBps: validation.totalShareBps,
+      },
+    });
+  });
+  if (failure) return { error: failure };
+  refresh(caseId);
   return { ok: true, nonce: Date.now() };
 }
 

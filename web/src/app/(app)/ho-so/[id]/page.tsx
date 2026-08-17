@@ -75,6 +75,7 @@ import { DebtPlanCard } from "./debt-plan-widgets";
 import { debtPlanStatus } from "@/lib/debt-plan";
 import { photoSrc } from "@/lib/media";
 import { PaymentQrButton } from "./payment-qr-button";
+import { RevenueAllocationEditor } from "./revenue-allocation-editor";
 
 export const dynamic = "force-dynamic";
 
@@ -97,6 +98,7 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
         consents: { orderBy: { signedAt: "desc" }, include: { createdBy: { select: { fullName: true } } } },
         documents: { orderBy: { createdAt: "desc" }, include: { uploadedBy: { select: { fullName: true } } } },
         debtPlan: true,
+        revenueAllocations: { orderBy: { createdAt: "asc" }, include: { user: { select: { fullName: true } } } },
       },
     }),
     getActiveServices(),
@@ -145,6 +147,7 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
   };
   const commissionAmount = toNum(record.commissionAmount);
   const canVoidPayment = userCan(user, "payment.manage") && !lockedForMe;
+  const allocationPeople = [...new Map([...consultants, ...doctors, ...nurses].map((person) => [person.id, person])).values()];
 
   // ----- Hẹn nợ (trả góp) — tính lịch + trạng thái để hiển thị (lib/debt-plan.ts) -----
   const dp = record.debtPlan;
@@ -167,6 +170,30 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
   }
 
   const rawTabs: (CaseTab | false)[] = [
+    {
+      key: "phan-bo-doanh-so",
+      label: "Phối hợp DS",
+      icon: <Wallet className="h-4 w-4" />,
+      content: (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><Wallet className="h-4 w-4 text-brand-500" /> Phối hợp &amp; phân bổ doanh số</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {isAdmin ? (
+              <RevenueAllocationEditor
+                caseId={record.id}
+                people={allocationPeople}
+                totalRevenue={total}
+                initial={record.revenueAllocations.map((allocation) => ({ userId: allocation.userId, role: allocation.role, shareBps: allocation.shareBps, note: allocation.note }))}
+              />
+            ) : (
+              <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">Chỉ ADMIN được sửa phân bổ doanh số. Tổng doanh thu của hồ sơ là <b>{formatVND(total)}</b>; số liệu nhân sự chỉ lấy phần được phân bổ.</div>
+            )}
+          </CardContent>
+        </Card>
+      ),
+    },
     canClinical && {
       key: "tu-van",
       label: "Tư vấn",
