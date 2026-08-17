@@ -13,13 +13,18 @@ jobs:
         working-directory: web
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-          cache: npm
-          cache-dependency-path: web/package-lock.json
-      - run: npm ci
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Sinh Prisma Client
+        run: pnpm exec prisma generate
       - name: Kiểm tra kiểu (TypeScript)
-        run: npx tsc --noEmit
+        run: pnpm exec tsc --noEmit
       - name: Chạy kiểm thử
-        run: npm test
+        run: pnpm test
