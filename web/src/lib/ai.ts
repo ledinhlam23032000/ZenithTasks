@@ -31,6 +31,10 @@ export type AiResult = { ok: true; text: string } | { ok: false; error: string }
 
 export type AiProvider = "openai" | "anthropic";
 
+export type JsonSchema = Record<string, unknown>;
+
+export type StructuredAiResult<T> = { ok: true; data: T } | { ok: false; error: string };
+
 export type AiConfig = {
   provider: AiProvider;
   apiKey: string;
@@ -97,6 +101,24 @@ export function aiConfigured(): boolean {
 }
 
 /** Gọi AI để sinh nội dung. Trả về văn bản hoặc lỗi thân thiện (tiếng Việt). */
+export async function generateStructured<T>(opts: {
+  system: string;
+  prompt: string;
+  schemaName: string;
+  schema: JsonSchema;
+  maxTokens?: number;
+}): Promise<StructuredAiResult<T>> {
+  const cfg = resolveAiConfig();
+  if (!cfg) return { ok: false, error: "Chưa cấu hình AI (đặt AI_API_KEY hoặc ANTHROPIC_API_KEY)." };
+  const maxTokens = opts.maxTokens ?? 1200;
+  try {
+    if (cfg.provider === "openai") return await callOpenAiStructured<T>(cfg, opts, maxTokens);
+    return await callAnthropicStructured<T>(cfg, opts, maxTokens);
+  } catch {
+    return { ok: false, error: "Không gọi được dịch vụ AI (kiểm tra mạng hoặc API key)." };
+  }
+}
+
 export async function generateMessage(opts: {
   system: string;
   prompt: string;
@@ -118,6 +140,66 @@ export async function generateMessage(opts: {
 function aiError(status: number, body: string): AiResult {
   if (status === 401 || status === 403) return { ok: false, error: "API key AI không hợp lệ." };
   return { ok: false, error: `Lỗi dịch vụ AI (${status}). ${body.slice(0, 160)}` };
+}
+
+async function callOpenAiStructured<T>(cfg: AiConfig, opts: { system: string; prompt: string; schemaName: string; schema: JsonSchema }, maxTokens: number): Promise<StructuredAiResult<T>> {
+  const res = await fetch(`${cfg.baseUrl}/chat/completions`, {
+    method: "POST",
+    headers: { authorization: `Bearer ${cfg.apiKey}`, "content-type": "application/json" },
+    body: JSON.stringify({
+      model: cfg.model,
+      max_tokens: maxTokens,
+      messages: [
+        { role: "system", content: opts.system },
+        { role: "user", content: opts.prompt },
+      ],
+      response_format: {
+        type: "json_schema",
+        json_schema: { name: opts.schemaName, strict: true, schema: opts.schema },
+      },
+    }),
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    return { ok: false, error: res.status === 401 || res.status === 403 ? "API key AI không hợp lệ." : `Lỗi dịch vụ AI (${res.status}). ${body.slice(0, 160)}` };
+  }
+  const data = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
+  const text = (data.choices?.[0]?.message?.content ?? "").trim();
+  try {
+    return text ? { ok: true, data: JSON.parse(text) as T } : { ok: false, error: "AI không trả về kế hoạch hợp lệ." };
+  } catch {
+    return { ok: false, error: "AI trả về dữ liệu không đúng định dạng." };
+  }
+}
+
+async function callAnthropicStructured<T>(cfg: AiConfig, opts: { system: string; prompt: string; schemaName: string; schema: JsonSchema }, maxTokens: number): Promise<StructuredAiResult<T>> {
+  const schemaText = JSON.stringify(opts.schema);
+  const res = await fetch(`${cfg.baseUrl}/v1/messages`, {
+    method: "POST",
+    headers: {
+      "x-api-key": cfg.apiKey,
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      model: cfg.model,
+      max_tokens: maxTokens,
+      system: `${opts.system}\n\nReturn ONLY valid JSON matching this schema, with no markdown fences:\n${schemaText}`,
+      messages: [{ role: "user", content: opts.prompt }],
+    }),
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    return { ok: false, error: res.status === 401 || res.status === 403 ? "API key AI không hợp lệ." : `Lỗi dịch vụ AI (${res.status}). ${body.slice(0, 160)}` };
+  }
+  const data = (await res.json()) as { content?: Array<{ type: string; text?: string }> };
+  const text = (data.content ?? []).filter((b) => b.type === "text" && b.text).map((b) => b.text as string).join("\\n").trim();
+  try {
+    const clean = text.replace(/^```(?:json)?\\s*/i, "").replace(/\\s*```$/i, "").trim();
+    return clean ? { ok: true, data: JSON.parse(clean) as T } : { ok: false, error: "AI không trả về kế hoạch hợp lệ." };
+  } catch {
+    return { ok: false, error: "AI trả về dữ liệu không đúng định dạng." };
+  }
 }
 
 // ----- Chuẩn OpenAI (DeepSeek / Qwen / Gemini / OpenAI / Groq / tự host...) -----

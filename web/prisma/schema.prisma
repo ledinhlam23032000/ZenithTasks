@@ -130,6 +130,13 @@ enum PlanTaskStatus {
   DONE // Hoàn thành
 }
 
+enum AssistantApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EXPIRED
+}
+
 // ============================ NHÂN SỰ ============================
 
 model User {
@@ -196,6 +203,7 @@ model User {
   channelAccounts      ChannelAccount[]
   channelMessagesSent  Message[]
   pushSubscriptions   PushSubscription[]
+  assistantApprovals  AssistantApproval[]
 }
 
 // ============================ CHẤM CÔNG & LƯƠNG ============================
@@ -804,6 +812,23 @@ model CaseDocument {
   createdAt    DateTime   @default(now())
 
   @@index([caseId])
+}
+
+// Yêu cầu thao tác do Trợ lý AI lập — mutation phải chờ ADMIN xác nhận rõ ràng.
+model AssistantApproval {
+  id          String                  @id @default(cuid())
+  userId      String
+  user        User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  toolName    String
+  arguments   Json
+  preview     Json
+  status      AssistantApprovalStatus @default(PENDING)
+  expiresAt   DateTime
+  createdAt   DateTime                @default(now())
+  resolvedAt  DateTime?
+
+  @@index([userId, status])
+  @@index([expiresAt])
 }
 
 // Lập kế hoạch nội bộ dạng "task app" (Trợ Lý) — CHỈ ADMIN/MANAGER/SHAREHOLDER dùng được
