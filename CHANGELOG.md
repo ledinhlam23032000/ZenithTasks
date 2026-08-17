@@ -51,6 +51,7 @@ Tài liệu này ghi các thay đổi đã được đẩy lên nhánh `master`.
 | [`585e5c6`](https://github.com/ledinhlam23032000/ZenithTasks/commit/585e5c6) | AI tạo lịch hẹn |
 | [`87fb972`](https://github.com/ledinhlam23032000/ZenithTasks/commit/87fb972) | Timeline khách hàng 360° |
 | [`5c67b0c`](https://github.com/ledinhlam23032000/ZenithTasks/commit/5c67b0c) | Mẫu trả lời nhanh |
+| [`e993fc5`](https://github.com/ledinhlam23032000/ZenithTasks/commit/e993fc5) | Công bố VERSION, CHANGELOG và cập nhật tài liệu bàn giao |
 
 ## Quy tắc ghi changelog cho các phiên sau
 

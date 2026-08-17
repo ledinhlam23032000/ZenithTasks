@@ -1,7 +1,7 @@
 # ZenithTasks — Trạng thái phiên bản hiện tại
 
 > **Phiên bản nội bộ:** `2026.08.17-r2`  
-> **Commit chuẩn hiện tại:** [`5c67b0c`](https://github.com/ledinhlam23032000/ZenithTasks/commit/5c67b0c)  
+> **Commit chuẩn hiện tại:** [`e993fc5`](https://github.com/ledinhlam23032000/ZenithTasks/commit/e993fc5)<br>
 > **Ngày cập nhật:** 17/08/2026  
 > **Trạng thái:** Sẵn sàng build production; cần chạy migration khi cập nhật máy vận hành.
 

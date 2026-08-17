@@ -1,6 +1,6 @@
 # Ứng dụng quản trị — Trung tâm Phẫu thuật Tạo hình Thẩm mỹ (BVĐK Hồng Phúc)
 
-> **Phiên bản chuẩn hiện tại:** [`2026.08.17-r2`](VERSION.md) · **Commit:** [`5c67b0c`](https://github.com/ledinhlam23032000/ZenithTasks/commit/5c67b0c) · **Ngày:** 17/08/2026<br>
+> **Phiên bản chuẩn hiện tại:** [`2026.08.17-r2`](VERSION.md) · **Commit:** [`e993fc5`](https://github.com/ledinhlam23032000/ZenithTasks/commit/e993fc5) · **Ngày:** 17/08/2026<br>
 > Muốn biết bản mới nhất có gì, đọc [`VERSION.md`](VERSION.md). Muốn xem lịch sử thay đổi, đọc [`CHANGELOG.md`](CHANGELOG.md).
 
 Ứng dụng web **nội bộ** quản lý phòng khám thẩm mỹ: tiếp nhận khách, lịch hẹn, hồ sơ điều trị
