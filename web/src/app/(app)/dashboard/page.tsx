@@ -8,6 +8,7 @@ import {
   Target,
   UserPlus,
   MessageCircleHeart,
+  MessageCircle,
   ArrowRight,
   BarChart3,
   ListTodo,
@@ -67,7 +68,7 @@ export default async function DashboardPage() {
       {work && <WorkSummary sections={work.sections} total={work.total} />}
 
       {/* KPI hôm nay */}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <Link href="/lich-hen" className="block transition hover:-translate-y-0.5">
           <StatCard
             label="Lịch hẹn hôm nay"
@@ -102,6 +103,15 @@ export default async function DashboardPage() {
             sub="Lịch hôm nay bị hủy"
             icon={<XCircle className="h-5 w-5" />}
             tone="red"
+          />
+        </Link>
+        <Link href="/cham-soc/hop-thu?chuadoc=1" className="block transition hover:-translate-y-0.5">
+          <StatCard
+            label="Tin chưa đọc"
+            value={d.unreadConversations}
+            sub="Facebook + Zalo cần phản hồi"
+            icon={<MessageCircle className="h-5 w-5" />}
+            tone="pink"
           />
         </Link>
       </div>

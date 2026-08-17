@@ -38,6 +38,7 @@ export async function getAdminDashboard() {
     newCustomersMonth,
     newCustomersLast,
     todaySchedule,
+    unreadConversations,
   ] = await Promise.all([
     prisma.appointment.findMany({
       where: { scheduledAt: today },
@@ -82,6 +83,7 @@ export async function getAdminDashboard() {
       take: 14,
       include: { customer: { select: { id: true, fullName: true, phoneLast5: true } } },
     }),
+    prisma.conversation.aggregate({ _sum: { unreadCount: true } }),
   ]);
 
   // Đếm lịch hôm nay theo trạng thái
@@ -182,6 +184,7 @@ export async function getAdminDashboard() {
     consultants: consultantRows,
     recentCare,
     todaySchedule,
+    unreadConversations: unreadConversations._sum.unreadCount ?? 0,
     revenueSeries,
   };
 }
