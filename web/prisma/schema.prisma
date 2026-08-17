@@ -108,8 +108,14 @@ enum CareChannel {
 }
 
 enum CareDirection {
-  OUT // Gửi tới khách
-  IN // Khách phản hồi
+  IN
+  OUT
+}
+
+enum ConversationStatus {
+  OPEN
+  IN_PROGRESS
+  DONE
 }
 
 // Kênh nhắn tin 2 chiều thật (khác CareChannel — chỉ là nhật ký ghi tay).
@@ -213,6 +219,7 @@ model User {
   pushSubscriptions   PushSubscription[]
   assistantApprovals  AssistantApproval[]
   revenueAllocationsCreated CaseRevenueAllocation[] @relation("RevenueAllocationCreatedBy")
+  assignedConversations Conversation[] @relation("ConversationAssignee")
 }
 
 // ============================ CHẤM CÔNG & LƯƠNG ============================
@@ -659,6 +666,11 @@ model Conversation {
   lastMessagePreview String?
   lastDirection      CareDirection?
   unreadCount        Int            @default(0)
+  status             ConversationStatus @default(OPEN)
+  assignedToId       String?
+  assignedTo         User?          @relation("ConversationAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  slaDueAt           DateTime?
+  lastInboundAt      DateTime?
   createdAt          DateTime       @default(now())
   updatedAt          DateTime       @updatedAt
 
@@ -667,6 +679,8 @@ model Conversation {
   @@unique([channelAccountId, externalUserId])
   @@index([lastMessageAt])
   @@index([customerId])
+  @@index([assignedToId, status])
+  @@index([lastInboundAt])
 }
 
 model Message {

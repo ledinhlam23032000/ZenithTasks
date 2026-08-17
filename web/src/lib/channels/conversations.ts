@@ -47,6 +47,7 @@ export async function recordInboundMessage(opts: {
 
   const occurredAt = opts.occurredAt ?? new Date();
   const preview = (opts.text?.trim() || (opts.attachments ? "[Tệp đính kèm]" : "")).slice(0, 200) || null;
+  const slaDueAt = new Date(occurredAt.getTime() + RESPONSE_WINDOW_HOURS[channelAccount.kind] * 3_600_000);
 
   const conversation = await prisma.conversation.upsert({
     where: { channelAccountId_externalUserId: { channelAccountId: channelAccount.id, externalUserId } },
@@ -60,6 +61,9 @@ export async function recordInboundMessage(opts: {
       lastMessagePreview: preview,
       lastDirection: "IN",
       unreadCount: 1,
+      status: "OPEN",
+      lastInboundAt: occurredAt,
+      slaDueAt,
     },
     update: {
       ...(opts.profile?.name ? { displayName: opts.profile.name } : {}),
@@ -68,6 +72,9 @@ export async function recordInboundMessage(opts: {
       lastMessagePreview: preview,
       lastDirection: "IN",
       unreadCount: { increment: 1 },
+      status: "OPEN",
+      lastInboundAt: occurredAt,
+      slaDueAt,
     },
   });
 
@@ -112,6 +119,8 @@ export async function recordOutboundMessage(opts: {
         lastMessageAt: new Date(),
         lastMessagePreview: text.slice(0, 200),
         lastDirection: "OUT",
+        status: "IN_PROGRESS",
+        slaDueAt: null,
       },
     }),
   ]);

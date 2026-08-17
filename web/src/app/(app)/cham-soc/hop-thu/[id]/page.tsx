@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { ContactButtons } from "@/components/ui/contact-buttons";
 import { buttonVariants } from "@/components/ui/button";
-import { markConversationRead, linkConversationToCustomer, unlinkConversationCustomer } from "../actions";
+import { markConversationRead, linkConversationToCustomer, unlinkConversationCustomer, updateConversationWorkflow } from "../actions";
 import { revealPhone } from "@/app/(app)/khach-hang/actions";
 import { withinResponseWindow, RESPONSE_WINDOW_HOURS } from "@/lib/channels/conversations";
 import { aiConfigured } from "@/lib/ai";
@@ -26,6 +26,8 @@ const CHANNEL_LABEL: Record<ChannelKind, { label: string; tone: "blue" | "purple
   ZALO_OA: { label: "Zalo OA", tone: "blue" },
   FACEBOOK: { label: "Facebook", tone: "purple" },
 };
+
+const STATUS_LABEL = { OPEN: "Chưa xử lý", IN_PROGRESS: "Đang xử lý", DONE: "Đã hoàn tất" } as const;
 
 const MESSAGE_LIMIT = 200;
 
@@ -47,10 +49,12 @@ export default async function ConversationPage({
     include: {
       channelAccount: true,
       customer: { select: { id: true, fullName: true, code: true, phoneLast5: true } },
+      assignedTo: { select: { id: true, fullName: true } },
       messages: { orderBy: { createdAt: "desc" }, take: MESSAGE_LIMIT, include: { sentBy: { select: { fullName: true } } } },
     },
   });
   if (!conversation) notFound();
+  const workflowStaff = canManage ? await prisma.user.findMany({ where: { active: true, role: { in: ["ADMIN", "MANAGER", "CARE", "CONSULTANT", "RECEPTION"] } }, select: { id: true, fullName: true }, orderBy: { fullName: "asc" } }) : [];
 
   if (conversation.unreadCount > 0 && canManage) await markConversationRead(conversation.id);
 
@@ -133,6 +137,7 @@ export default async function ConversationPage({
           <Card><CardContent className="space-y-4 p-4">
             <div><p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Nguồn hội thoại</p><div className="mt-2 flex items-center gap-2.5"><span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-violet-50 text-violet-600"><MessageCircle className="h-4 w-4" /></span><div className="min-w-0"><p className="truncate text-sm font-semibold text-slate-800">{pageName}</p><p className="text-xs text-slate-400">{ch.label} · {conversation.channelAccount.active ? "Đang kết nối" : "Đã ngắt"}</p></div></div>{pageUrl && <a href={pageUrl} target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-brand-600 hover:underline">Mở trang Fanpage <ExternalLink className="h-3 w-3" /></a>}</div>
             <div className="border-t border-slate-100 pt-4"><div className="flex items-center gap-2"><UserRound className="h-4 w-4 text-slate-400" /><p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Hồ sơ khách</p></div>{conversation.customer ? <><Link href={`/khach-hang/${conversation.customer.id}`} className="mt-2 block rounded-xl bg-slate-50 p-3 hover:bg-brand-50"><p className="text-sm font-semibold text-slate-800">{conversation.customer.fullName}</p><p className="mt-0.5 text-xs text-slate-400">{conversation.customer.code} · {maskPhone(conversation.customer.phoneLast5)}</p></Link>{canManage && <div className="mt-2"><ContactButtons reveal={revealPhone.bind(null, conversation.customer.id)} last5={conversation.customer.phoneLast5} /></div>}</> : <p className="mt-2 rounded-xl bg-amber-50 p-3 text-xs text-amber-800">Chưa gắn với hồ sơ khách. Hãy tìm theo tên hoặc 5 số cuối để quản lý lịch sử và công nợ.</p>}</div>
+            {canManage && <div className="border-t border-slate-100 pt-4"><p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Phân công &amp; SLA</p><form action={updateConversationWorkflow} className="mt-2 space-y-2"><select name="assignedToId" defaultValue={conversation.assignedToId ?? ""} className="h-9 w-full rounded-lg border border-slate-200 px-2 text-sm outline-none focus:border-brand-500"><option value="">Chưa phân công</option>{workflowStaff.map((staff) => <option key={staff.id} value={staff.id}>{staff.fullName}</option>)}</select><select name="status" defaultValue={conversation.status} className="h-9 w-full rounded-lg border border-slate-200 px-2 text-sm outline-none focus:border-brand-500">{Object.entries(STATUS_LABEL).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select><input type="hidden" name="conversationId" value={conversation.id} /><button type="submit" className={buttonVariants({ size: "sm" })}>Lưu phân công</button></form>{conversation.slaDueAt && conversation.status !== "DONE" && <p className="mt-2 text-xs text-amber-700">Hạn phản hồi dự kiến: {conversation.slaDueAt.toLocaleString("vi-VN")}</p>}{conversation.assignedTo && <p className="mt-1 text-xs text-slate-400">Đang giao cho: {conversation.assignedTo.fullName}</p>}</div>}
           </CardContent></Card>
 
           {canManage && !conversation.customer && <Card><CardContent className="p-4"><p className="text-sm font-semibold text-slate-800">Gắn hồ sơ khách</p><form action={`/cham-soc/hop-thu/${conversation.id}`} className="mt-2 flex gap-2"><div className="relative min-w-0 flex-1"><Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input name="qkh" defaultValue={qkh} placeholder="Tên hoặc 5 số cuối" className="h-9 w-full rounded-lg border border-slate-200 pl-8 pr-2 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20" /></div><button className={buttonVariants({ variant: "secondary", size: "sm" })}>Tìm</button></form>{qkh && <ul className="mt-2 space-y-1.5">{searchResults.length === 0 && <li className="text-xs text-slate-400">Không tìm thấy khách phù hợp.</li>}{searchResults.map((c) => <li key={c.id} className="flex items-center justify-between gap-2 rounded-lg border border-slate-100 px-2.5 py-2 text-xs"><span className="min-w-0 truncate">{c.fullName}<span className="text-slate-400"> · {c.code} · {maskPhone(c.phoneLast5)}</span></span><form action={linkConversationToCustomer}><input type="hidden" name="conversationId" value={conversation.id} /><input type="hidden" name="customerId" value={c.id} /><button type="submit" className="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 font-semibold text-brand-600 hover:bg-brand-50"><Link2 className="h-3.5 w-3.5" /> Gắn</button></form></li>)}</ul>}</CardContent></Card>}

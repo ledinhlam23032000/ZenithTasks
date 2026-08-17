@@ -80,6 +80,35 @@ export async function linkConversationToCustomer(formData: FormData): Promise<vo
   revalidatePath(`/cham-soc/hop-thu/${parsed.data.conversationId}`);
 }
 
+const conversationWorkflowSchema = z.object({
+  conversationId: z.string().min(1),
+  assignedToId: z.string().optional(),
+  status: z.enum(["OPEN", "IN_PROGRESS", "DONE"]).optional(),
+});
+
+export async function updateConversationWorkflow(formData: FormData): Promise<void> {
+  const user = await requireUser([...CARE_WRITE_ROLES]);
+  const parsed = conversationWorkflowSchema.safeParse({
+    conversationId: formData.get("conversationId") ?? "",
+    assignedToId: String(formData.get("assignedToId") ?? "").trim(),
+    status: String(formData.get("status") ?? "").trim() || undefined,
+  });
+  if (!parsed.success) return;
+  const assignedToId = parsed.data.assignedToId || null;
+  if (assignedToId) {
+    const assignee = await prisma.user.findFirst({ where: { id: assignedToId, active: true }, select: { id: true } });
+    if (!assignee) return;
+  }
+  await prisma.$transaction(async (tx) => {
+    const before = await tx.conversation.findUnique({ where: { id: parsed.data.conversationId }, select: { assignedToId: true, status: true } });
+    if (!before) return;
+    const changed = await tx.conversation.update({ where: { id: parsed.data.conversationId }, data: { assignedToId, ...(parsed.data.status ? { status: parsed.data.status } : {}) } });
+    await auditRequired(tx, user.id, "UPDATE_CONVERSATION_WORKFLOW", { entity: "Conversation", entityId: changed.id, meta: { before, after: { assignedToId: changed.assignedToId, status: changed.status } } });
+  });
+  revalidatePath(`/cham-soc/hop-thu/${parsed.data.conversationId}`);
+  revalidatePath("/cham-soc/hop-thu");
+}
+
 export async function unlinkConversationCustomer(formData: FormData): Promise<void> {
   const user = await requireUser([...CARE_WRITE_ROLES]);
   const id = String(formData.get("conversationId") ?? "");
