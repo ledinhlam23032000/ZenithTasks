@@ -7,6 +7,13 @@ import { buttonVariants } from "@/components/ui/button";
 import { useFormAction } from "@/lib/use-form-action";
 import { sendChannelReply, draftChannelReply } from "../actions";
 
+const QUICK_REPLIES = [
+  { label: "Chào khách mới", text: "Chào anh/chị, cảm ơn anh/chị đã quan tâm đến Trung tâm Phẫu thuật Tạo hình Thẩm mỹ Hồng Phúc. Anh/chị đang quan tâm dịch vụ nào để em hỗ trợ nhanh hơn ạ?" },
+  { label: "Xin số điện thoại", text: "Anh/chị cho em xin số điện thoại hoặc 5 số cuối để em kiểm tra và tư vấn chính xác hơn ạ." },
+  { label: "Mời đến tư vấn", text: "Anh/chị có thể sắp xếp thời gian đến phòng khám để bác sĩ thăm khám và tư vấn trực tiếp phù hợp với tình trạng của mình ạ." },
+  { label: "Xác nhận lịch", text: "Em đã ghi nhận thông tin. Nhân viên sẽ liên hệ xác nhận lại thời gian và hướng dẫn anh/chị trước khi đến ạ." },
+];
+
 const AI_PURPOSES: { key: string; label: string }[] = [
   { key: "", label: "Trả lời tiếp câu chuyện" },
   { key: "hoi-them-thong-tin", label: "Hỏi thêm thông tin cần thiết" },
@@ -62,6 +69,15 @@ export function MessageComposer({ conversationId, aiEnabled, disabled, disabledR
           </button>
         </div>
       )}
+
+      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-100 bg-slate-50/70 px-2.5 py-2">
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Trả lời nhanh</span>
+        <select aria-label="Chọn mẫu trả lời nhanh" defaultValue="" onChange={(event) => { const reply = QUICK_REPLIES.find((item) => item.label === event.target.value); if (reply) setText(reply.text); event.currentTarget.value = ""; }} className="h-8 min-w-[10rem] rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-700 outline-none focus:border-brand-500">
+          <option value="">Chọn mẫu…</option>
+          {QUICK_REPLIES.map((item) => <option key={item.label} value={item.label}>{item.label}</option>)}
+        </select>
+        <span className="text-[11px] text-slate-400">Mẫu sẽ điền vào ô soạn để anh/chị chỉnh trước khi gửi.</span>
+      </div>
 
       {aiOpen && aiEnabled && (
         <div className="space-y-2 rounded-xl border border-accent-200 bg-accent-50/50 p-3">
