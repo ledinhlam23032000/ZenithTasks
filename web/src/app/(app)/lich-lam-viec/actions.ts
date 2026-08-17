@@ -30,7 +30,11 @@ export async function createShift(_prev: ShiftFormState, formData: FormData): Pr
   const d = parsed.data;
   if (d.endTime <= d.startTime) return { error: "Giờ kết thúc phải sau giờ bắt đầu." };
 
-  const date = new Date(`${d.date}T00:00:00`);
+  // Shift.date là cột @db.Date — PHẢI chốt mốc UTC-midnight (giống vnDateOnly/dateOnly ở
+  // cham-cong/actions.ts), KHÔNG parse "T00:00:00" thiếu "Z": nếu máy chủ đang đặt đúng
+  // giờ VN (UTC+7), chuỗi đó bị hiểu là 00:00 giờ VN = 17h ngày hôm trước (UTC) — ghi
+  // xuống cột DATE sẽ lùi mất 1 ngày so với ngày người dùng chọn.
+  const date = new Date(`${d.date}T00:00:00.000Z`);
   if (Number.isNaN(date.getTime())) return { error: "Ngày không hợp lệ." };
 
   await prisma.shift.create({

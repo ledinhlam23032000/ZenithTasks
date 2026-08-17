@@ -4,6 +4,9 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
+import { toNum } from "@/lib/money";
+import { weightedAvgCost } from "@/lib/inventory-cost";
+import { auditRequired } from "@/lib/audit";
 
 export type CatalogState = { ok?: boolean; error?: string };
 const ROLES = ["ADMIN", "MANAGER"] as const;
@@ -106,19 +109,44 @@ export async function deleteMaterial(formData: FormData): Promise<void> {
   revalidatePath("/danh-muc");
 }
 
-/** Nhập kho: cộng tồn kho + ghi nhật ký nhập. */
+/** Nhập kho: cộng tồn kho + cập nhật giá vốn bình quân + ghi nhật ký nhập. */
 export async function stockIn(formData: FormData): Promise<void> {
   const user = await requireUser([...ROLES]);
   const id = String(formData.get("id") ?? "");
   const qty = Number(formData.get("quantity") ?? 0) || 0;
+  const unitCost = Number(formData.get("unitCost") ?? 0) || 0; // đơn giá nhập (VND/đơn vị), tùy chọn
   const note = String(formData.get("note") ?? "").trim();
-  if (!id || qty <= 0) return;
-  await prisma.$transaction([
-    prisma.material.update({ where: { id }, data: { stock: { increment: qty } } }),
-    prisma.stockMovement.create({
-      data: { materialId: id, type: "IN", quantity: qty, note: note || null, createdById: user.id },
-    }),
-  ]);
+  if (!id || !Number.isFinite(qty) || qty <= 0 || !Number.isFinite(unitCost) || unitCost < 0) return;
+  await prisma.$transaction(async (tx) => {
+    // Khóa đúng dòng vật tư trước khi đọc tồn kho để hai phiếu nhập đồng thời
+    // không cùng đọc một số dư cũ rồi ghi đè giá vốn/tồn kho của nhau.
+    const rows = await tx.$queryRaw<Array<{ stock: unknown; avgCost: unknown }>>`
+      SELECT "stock", "avgCost" FROM "Material" WHERE "id" = ${id} FOR UPDATE
+    `;
+    const m = rows[0];
+    if (!m) throw new Error("Vật tư không còn tồn tại. Phiếu nhập chưa được ghi nhận.");
+    const newAvg = weightedAvgCost({
+      oldStock: toNum(m.stock),
+      oldAvg: toNum(m.avgCost),
+      inQty: qty,
+      inUnitCost: unitCost,
+    });
+    await tx.material.update({ where: { id }, data: { stock: { increment: qty }, avgCost: newAvg } });
+    await tx.stockMovement.create({
+      data: {
+        materialId: id,
+        type: "IN",
+        quantity: qty,
+        unitCost: unitCost > 0 ? unitCost : null,
+        note: note || null,
+        createdById: user.id,
+      },
+    });
+    await auditRequired(tx, user.id, "STOCK_IN", {
+      entity: "StockMovement",
+      meta: { materialId: id, quantity: qty, unitCost: unitCost > 0 ? unitCost : null },
+    });
+  });
   revalidatePath("/danh-muc");
   revalidatePath("/kho");
 }
@@ -151,4 +179,45 @@ export async function updateMaterial(_prev: CatalogState, formData: FormData): P
     })
     .catch(() => {});
   return { ok: true };
+}
+
+// ============================================================================
+// ĐỊNH MỨC VẬT TƯ THEO DỊCH VỤ (BOM — B5 giai đoạn 2)
+// ============================================================================
+
+const bomSchema = z.object({
+  serviceId: z.string().min(1, "Thiếu dịch vụ."),
+  materialId: z.string().min(1, "Vui lòng chọn vật tư."),
+  quantity: z.coerce.number().positive("Định mức phải lớn hơn 0."),
+});
+
+/** Thêm/cập nhật một dòng định mức vật tư cho dịch vụ (upsert theo [serviceId, materialId]). */
+export async function addServiceMaterial(_prev: CatalogState, formData: FormData): Promise<CatalogState> {
+  await requireUser([...ROLES]);
+  const parsed = bomSchema.safeParse({
+    serviceId: formData.get("serviceId") ?? "",
+    materialId: formData.get("materialId") ?? "",
+    quantity: formData.get("quantity") ?? 0,
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu không hợp lệ." };
+  const d = parsed.data;
+  // Chốt vật tư còn tồn tại trong danh mục (tránh FK lỗi nếu vừa bị xóa).
+  const mat = await prisma.material.findUnique({ where: { id: d.materialId }, select: { id: true } });
+  if (!mat) return { error: "Vật tư không còn trong danh mục." };
+  await prisma.serviceMaterial.upsert({
+    where: { serviceId_materialId: { serviceId: d.serviceId, materialId: d.materialId } },
+    create: { serviceId: d.serviceId, materialId: d.materialId, quantity: d.quantity },
+    update: { quantity: d.quantity },
+  });
+  revalidatePath("/danh-muc");
+  return { ok: true };
+}
+
+/** Xóa một dòng định mức khỏi dịch vụ. */
+export async function removeServiceMaterial(formData: FormData): Promise<void> {
+  await requireUser([...ROLES]);
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+  await prisma.serviceMaterial.delete({ where: { id } }).catch(() => {});
+  revalidatePath("/danh-muc");
 }

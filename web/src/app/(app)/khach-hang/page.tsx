@@ -5,29 +5,35 @@ import { userCan } from "@/lib/permissions";
 import { prisma } from "@/lib/db";
 import { isValidLast5, maskPhone } from "@/lib/phone";
 import { fmtDate } from "@/lib/format";
-import { GENDER_LABEL, SOURCE_LABEL } from "@/lib/status";
+import { GENDER_LABEL, SOURCE_LABEL, DONE_CASE_STATUSES } from "@/lib/status";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { Table, THead, TH, TR, TD } from "@/components/ui/table";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Pagination } from "@/components/ui/pagination";
 import { buttonVariants } from "@/components/ui/button";
 import { NewCustomerButton } from "../tiep-nhan/new-customer";
-import type { Prisma, CaseStatus } from "@/generated/prisma/client";
+import { PAGE_SIZE, parsePage, totalPagesOf } from "@/lib/pagination";
+import type { Prisma } from "@/generated/prisma/client";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Hồ sơ khách hàng" };
 
-const DONE_STATUSES: CaseStatus[] = ["SERVICED", "COMPLETED"];
+const DONE_STATUSES = DONE_CASE_STATUSES;
 
-export default async function CustomersPage({ searchParams }: { searchParams: Promise<{ q?: string; loc?: string }> }) {
+export default async function CustomersPage({ searchParams }: { searchParams: Promise<{ q?: string; loc?: string; page?: string }> }) {
   const user = await requireCap("mod:khach-hang");
   const sp = await searchParams;
   const q = (sp.q ?? "").trim();
   const loc = sp.loc === "done" || sp.loc === "undone" ? sp.loc : "all";
+  const page = parsePage(sp.page);
 
+  const caseScope: Prisma.CaseRecordWhereInput =
+    user.role === "CONSULTANT" ? { consultantId: user.id } : user.role === "DOCTOR" ? { doctorId: user.id } : {};
   const filters: Prisma.CustomerWhereInput[] = [];
+  if (user.role === "CONSULTANT" || user.role === "DOCTOR") filters.push({ cases: { some: caseScope } });
   if (q) filters.push(isValidLast5(q) ? { phoneLast5: q } : { fullName: { contains: q, mode: "insensitive" } });
   if (loc === "done") filters.push({ cases: { some: { status: { in: DONE_STATUSES } } } });
   if (loc === "undone") filters.push({ cases: { none: { status: { in: DONE_STATUSES } } } });
@@ -37,7 +43,8 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
     prisma.customer.findMany({
       where,
       orderBy: { createdAt: "desc" },
-      take: 60,
+      take: PAGE_SIZE,
+      skip: (page - 1) * PAGE_SIZE,
       select: {
         id: true,
         code: true,
@@ -46,14 +53,14 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
         phoneLast5: true,
         source: true,
         createdAt: true,
-        _count: { select: { cases: true } },
-        cases: { select: { status: true } },
+        cases: { where: caseScope, select: { status: true } },
       },
     }),
     prisma.customer.count({ where }),
   ]);
 
   const canCreate = ["ADMIN", "RECEPTION"].includes(user.role);
+  const totalPages = totalPagesOf(total);
 
   const tabs = [
     { key: "all", label: "Tất cả" },
@@ -61,6 +68,21 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
     { key: "done", label: "Đã làm dịch vụ" },
   ];
   const qs = (k: string) => `/khach-hang?loc=${k}${q ? `&q=${encodeURIComponent(q)}` : ""}`;
+  const makeHref = (p: number) => {
+    const params = new URLSearchParams();
+    if (loc !== "all") params.set("loc", loc);
+    if (q) params.set("q", q);
+    if (p > 1) params.set("page", String(p));
+    const s = params.toString();
+    return `/khach-hang${s ? `?${s}` : ""}`;
+  };
+  const customerRows = customers.map((customer) => {
+    const statuses = customer.cases.map((item) => item.status);
+    const done = statuses.some((status) => DONE_STATUSES.includes(status));
+    const allCancelled = statuses.length > 0 && statuses.every((status) => status === "CANCELLED");
+    const displayStatus: "done" | "cancelled" | "undone" = done ? "done" : allCancelled ? "cancelled" : "undone";
+    return { ...customer, displayStatus };
+  });
 
   return (
     <div className="space-y-6">
@@ -120,6 +142,35 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
           {customers.length === 0 ? (
             <EmptyState icon={<Users className="h-6 w-6" />} title="Không có khách hàng phù hợp" description="Thử từ khóa khác hoặc lập hồ sơ mới." />
           ) : (
+            <>
+            <div className="divide-y divide-slate-100 sm:hidden">
+              {customerRows.map((customer) => (
+                <Link key={customer.id} href={`/khach-hang/${customer.id}`} className="block py-4 active:bg-slate-50">
+                  <div className="flex items-start gap-3">
+                    <Avatar name={customer.fullName} className="h-10 w-10" />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="truncate font-semibold text-slate-900">{customer.fullName}</p>
+                          <p className="mt-0.5 inline-flex items-center gap-1 font-mono text-xs text-slate-500">
+                            <ShieldCheck className="h-3 w-3 text-brand-400" /> {maskPhone(customer.phoneLast5)}
+                          </p>
+                        </div>
+                        <CustomerStatus status={customer.displayStatus} />
+                      </div>
+                      <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-slate-500">
+                        <span>Nguồn: <b className="font-medium text-slate-700">{SOURCE_LABEL[customer.source]}</b></span>
+                        <span>Lượt khám: <b className="font-medium text-slate-700">{customer.cases.length}</b></span>
+                        <span>{customer.gender ? GENDER_LABEL[customer.gender] : "Chưa có giới tính"}</span>
+                        <span>Tạo {fmtDate(customer.createdAt)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+
+            <div className="hidden sm:block">
             <Table>
               <THead>
                 <TR className="hover:bg-transparent">
@@ -133,12 +184,7 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
                 </TR>
               </THead>
               <tbody>
-                {customers.map((c) => {
-                  const statuses = c.cases.map((x) => x.status);
-                  const done = statuses.some((s) => DONE_STATUSES.includes(s));
-                  const hasCase = statuses.length > 0;
-                  const allCancelled = hasCase && statuses.every((s) => s === "CANCELLED");
-                  return (
+                {customerRows.map((c) => (
                     <TR key={c.id}>
                       <TD>
                         <Link href={`/khach-hang/${c.id}`} className="flex items-center gap-2.5">
@@ -147,13 +193,7 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
                         </Link>
                       </TD>
                       <TD>
-                        {done ? (
-                          <Badge tone="green" dot>Đã làm dịch vụ</Badge>
-                        ) : allCancelled ? (
-                          <Badge tone="slate" dot>Đã hủy</Badge>
-                        ) : (
-                          <Badge tone="amber" dot>Chưa làm</Badge>
-                        )}
+                        <CustomerStatus status={c.displayStatus} />
                       </TD>
                       <TD className="font-mono text-xs text-slate-500">
                         <span className="inline-flex items-center gap-1">
@@ -162,16 +202,24 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
                       </TD>
                       <TD className="text-slate-600">{c.gender ? GENDER_LABEL[c.gender] : "—"}</TD>
                       <TD className="text-slate-600">{SOURCE_LABEL[c.source]}</TD>
-                      <TD className="text-center font-medium text-slate-700">{c._count.cases}</TD>
+                      <TD className="text-center font-medium text-slate-700">{c.cases.length}</TD>
                       <TD className="text-slate-500">{fmtDate(c.createdAt)}</TD>
                     </TR>
-                  );
-                })}
+                ))}
               </tbody>
             </Table>
+            </div>
+            </>
           )}
         </CardContent>
+        <Pagination page={page} totalPages={totalPages} makeHref={makeHref} />
       </Card>
     </div>
   );
+}
+
+function CustomerStatus({ status }: { status: "done" | "cancelled" | "undone" }) {
+  if (status === "done") return <Badge tone="green" dot>Đã làm</Badge>;
+  if (status === "cancelled") return <Badge tone="slate" dot>Đã hủy</Badge>;
+  return <Badge tone="amber" dot>Chưa làm</Badge>;
 }

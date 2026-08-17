@@ -11,22 +11,25 @@
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
+    "db:bootstrap-admin": "tsx scripts/bootstrap-admin.ts",
+    "db:check-integrity": "tsx scripts/check-financial-integrity.ts",
     "db:reset": "prisma migrate reset --force && npm run db:seed",
     "db:studio": "prisma studio",
     "rotate:phone": "tsx prisma/rotate-phone-key.ts",
+    "backup": "node scripts/backup.mjs",
     "test": "vitest run"
   },
   "dependencies": {
-    "@prisma/adapter-pg": "^7.8.0",
-    "@prisma/client": "^7.8.0",
+    "@prisma/adapter-pg": "7.9.1",
+    "@prisma/client": "7.9.1",
     "bcryptjs": "^3.0.3",
     "clsx": "^2.1.1",
     "date-fns": "^4.4.0",
     "jose": "^6.2.3",
     "lucide-react": "^1.18.0",
-    "next": "16.2.9",
+    "next": "16.3.0",
     "pg": "^8.21.0",
-    "prisma": "^7.8.0",
+    "prisma": "7.9.1",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "recharts": "^3.8.1",
@@ -41,10 +44,21 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.2.9",
+    "eslint-config-next": "16.3.0",
     "tailwindcss": "^4",
     "tsx": "^4.22.4",
     "typescript": "^5",
-    "vitest": "^2.1.9"
+    "vitest": "4.1.10"
+  },
+  "overrides": {
+    "minimatch@3.1.5": {
+      "brace-expansion": "1.1.18"
+    },
+    "minimatch@10.2.5": {
+      "brace-expansion": "5.0.9"
+    },
+    "@eslint/eslintrc": {
+      "js-yaml": "4.3.1"
+    }
   }
 }

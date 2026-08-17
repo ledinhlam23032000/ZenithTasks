@@ -1,14 +1,14 @@
 "use client";
 
-import { useState } from "react";
-import { Plus, Pencil, LoaderCircle, ShieldCheck } from "lucide-react";
+import { useState, useRef, type FormEvent } from "react";
+import { Plus, Pencil, LoaderCircle, ShieldCheck, AlertTriangle } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input, Label, Select, Textarea, FieldHint } from "@/components/ui/field";
 import { Combobox, type ComboOption } from "@/components/ui/combobox";
 import { APPT_TYPE, SOURCE_LABEL } from "@/lib/status";
 import { useFormAction } from "@/lib/use-form-action";
-import { createAppointment, updateAppointment } from "./actions";
+import { createAppointment, updateAppointment, createAppointmentForced, updateAppointmentForced } from "./actions";
 
 type ServiceOpt = { id: string; name: string };
 type ConsultantOpt = { id: string; fullName: string };
@@ -105,9 +105,29 @@ function AppointmentForm({
     isEdit ? updateAppointment : createAppointment,
     onSuccess,
   );
+  // Action "ghi đè" (bỏ qua kiểm tra trùng lịch) — dùng action server RIÊNG thay vì truyền
+  // cờ qua FormData, vì Next/React lược bỏ field thêm bằng fd.set khi gọi server action.
+  const [, actionForced, pendingForced] = useFormAction(
+    isEdit ? updateAppointmentForced : createAppointmentForced,
+    onSuccess,
+  );
+  const formRef = useRef<HTMLFormElement>(null);
+  const busy = pending || pendingForced;
+
+  // Dùng onSubmit + preventDefault (KHÔNG dùng prop `action`) để React 19 KHÔNG tự reset
+  // form sau mỗi lần gửi — nhờ vậy khi gặp cảnh báo trùng lịch, dữ liệu đã nhập vẫn còn để
+  // bấm "Vẫn đặt lịch này" gửi lại đầy đủ.
+  function handleSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    action(new FormData(e.currentTarget));
+  }
+  // Ghi đè trùng lịch: đọc lại form HIỆN TẠI (đã giữ nguyên dữ liệu) → gọi action forced.
+  function overrideSubmit() {
+    if (formRef.current) actionForced(new FormData(formRef.current));
+  }
 
   return (
-    <form action={action} className="space-y-4">
+    <form ref={formRef} onSubmit={handleSubmit} className="space-y-4">
       {isEdit && <input type="hidden" name="id" value={appointment.id} />}
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
@@ -194,16 +214,37 @@ function AppointmentForm({
       </div>
 
       {state.error && (
-        <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-600 ring-1 ring-rose-600/10">{state.error}</p>
+        <p
+          className={
+            state.conflict
+              ? "flex items-start gap-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 ring-1 ring-amber-500/20"
+              : "rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-600 ring-1 ring-rose-600/10"
+          }
+        >
+          {state.conflict && <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />}
+          {state.error}
+        </p>
       )}
 
-      <div className="flex justify-end gap-2 pt-1">
+      <div className="flex flex-wrap justify-end gap-2 pt-1">
         <Button type="button" variant="secondary" onClick={onSuccess}>
           Hủy
         </Button>
-        <button type="submit" disabled={pending} className={buttonVariants()}>
-          {pending && <LoaderCircle className="h-4 w-4 animate-spin" />}
-          {pending ? "Đang lưu…" : isEdit ? "Lưu thay đổi" : "Lưu lịch hẹn"}
+        {/* Chưa trùng: nút submit thường (qua form action). Đã có cảnh báo trùng: chuyển thành
+            type=button gọi thẳng overrideSubmit (force=1) — vì React 19 lược bỏ input ẩn force
+            khi submit qua form action. */}
+        <button
+          type={state.conflict ? "button" : "submit"}
+          onClick={state.conflict ? overrideSubmit : undefined}
+          disabled={busy}
+          className={
+            state.conflict
+              ? "inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-100 px-3.5 py-2 text-sm font-medium text-amber-900 hover:bg-amber-200 disabled:opacity-60"
+              : buttonVariants()
+          }
+        >
+          {busy && <LoaderCircle className="h-4 w-4 animate-spin" />}
+          {busy ? "Đang lưu…" : state.conflict ? "Vẫn đặt lịch này" : isEdit ? "Lưu thay đổi" : "Lưu lịch hẹn"}
         </button>
       </div>
     </form>

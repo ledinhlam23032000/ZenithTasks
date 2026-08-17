@@ -17,7 +17,8 @@ Core business needs it covers:
 2. Reception: look up customer by **last 5 phone digits**, open/append a treatment record (Tiếp nhận).
 3. Customer + treatment records merged into one (Hồ sơ khách hàng): services, discounts, voucher, payments, debt.
 4. Materials usage, before/after photos, follow-ups.
-5. Customer care log (Chăm sóc KH) + optional AI message drafting (Claude API).
+5. Customer care log (Chăm sóc KH) + optional AI message drafting (Claude API) + unified inbox for
+   Zalo OA and Facebook Messenger (`/cham-soc/hop-thu`, admin connects channels at `/cham-soc/ket-noi`).
 6. Reports & analytics, staff performance, collaborators (Báo cáo, Hiệu suất nhân sự, Cộng tác viên).
 7. Strict access control; **customer phone numbers are AES-256 encrypted** and only ADMIN/MANAGER can reveal the full number.
 
@@ -28,7 +29,7 @@ Core business needs it covers:
 - **PostgreSQL** + **Prisma 7** (driver adapter `@prisma/adapter-pg`)
 - Auth: **JWT** (`jose`) in an httpOnly cookie + **bcryptjs** (cost 12); optional **TOTP 2FA** (hand-rolled, RFC 6238)
 - Charts: **recharts**. Tests: **vitest**. CI: GitHub Actions.
-- Deploy: **Docker Compose** (app + Postgres). ~60k LOC TS/TSX, 19 Prisma models, 18 migrations.
+- Deploy: **Docker Compose** (app + Postgres). ~21k LOC TS/TSX hand-written (excl. generated Prisma client), 25 Prisma models, 25 migrations (figures verified, not estimated).
 
 > ⚠️ **This Next.js has breaking changes vs older versions** (App Router, async `params`/`searchParams`,
 > server actions). See `web/AGENTS.md`. Don't assume older Next.js APIs.
@@ -43,7 +44,7 @@ cd web
 cp .env.example .env          # set DATABASE_URL, AUTH_SECRET, PHONE_ENC_KEY
 npm install
 npm run db:deploy             # apply migrations  (or db:migrate in dev)
-npm run db:seed               # demo data (admin / 123456)
+npm run db:seed               # demo data (QA only; DEMO_PASSWORD from environment)
 npm run dev                   # http://localhost:3000
 ```
 
@@ -133,6 +134,7 @@ npx vitest run               # unit tests (lib/__tests__)
 | `dashboard.ts` / `reports.ts` / `performance.ts` | Aggregations for Tổng quan / Báo cáo / Hiệu suất + CTV |
 | `payroll.ts` | Salary by attendance days + manual commission/bonus |
 | `finance.ts` | Cashbook income/expense categories |
+| `accounting.ts` | Monthly P&L joining revenue + cashbook + payroll; month close guard (no double counting) |
 | `loyalty.ts` | Membership tiers + points from lifetime spend |
 | `audit.ts` | Fire-and-forget audit log writer |
 | `ai.ts` | Claude API call for drafting care messages (optional, needs key) |
@@ -149,6 +151,8 @@ npx vitest run               # unit tests (lib/__tests__)
   `CaseService` (listPrice giá niêm yết + unitPrice giá ưu đãi + discount + finalPrice), `Payment`, `MaterialUsage`.
 - **Catalog/Inventory**: `Service` (listPrice + defaultPrice), `Material`, `StockMovement`.
 - **Ops**: `CashTransaction` (cashbook), `AuditLog`.
+- **Accounting**: `AccountingPeriod` (closed month + snapshot of the month's figures), `CommissionPayout`
+  (collaborator commission paid, unique per name+month). `PayrollEntry` carries `paidAmount/paidAt/cashTxId`.
 
 Money math (`lib/.../ho-so/actions.ts recalc()`): `totalAmount = Σ finalPrice − voucher (net)`;
 `debt = net − paid`. Commission is **entered manually** (no % auto-calc).
@@ -165,7 +169,10 @@ Money math (`lib/.../ho-so/actions.ts recalc()`): `totalAmount = Σ finalPrice �
 - **bao-cao** — analytics: revenue, close rate, P&L, top services, consultant/doctor performance, sources; multi-type charts; export.
 - **hieu-suat** + **cong-tac-vien** — staff performance & collaborator performance (drill into individual cases; charts; export).
 - **luong** — payroll (base by attendance + manual commission/bonus) with performance column.
-- **thu-chi** — operational cashbook (income/expense). Revenue & P&L live in Báo cáo (not here).
+- **thu-chi** — operational cashbook (income/expense). Revenue & P&L live in Báo cáo / Kế toán (not here).
+- **ke-toan** — accounting: one monthly P&L statement joining service revenue + cashbook + payroll;
+  cash reconciliation by payment method; one-click salary & collaborator-commission payout (posts to the
+  cashbook and marks the payroll row paid); receivables; month close/reopen (locks the month); Excel/Word export.
 - **cham-cong** — attendance (admin can edit past days), **lich-lam-viec** — shift schedule.
 - **danh-muc** — service & material catalog (two-tier pricing + search), **kho** — inventory with low-stock/expiry alerts.
 - **nhan-su** — staff management (HR profiles, role change, permission editor, reset password, 2FA disable).
@@ -183,9 +190,8 @@ Money math (`lib/.../ho-so/actions.ts recalc()`): `totalAmount = Σ finalPrice �
   honeypot + rate-limit on public booking, audit log for sensitive actions.
 
 > 🔒 **SECURITY NOTE for the reviewer**: keep this package private.
-> - `web/docker-entrypoint.sh` ships a **demo fallback `PHONE_ENC_KEY`** (used only if none is set via `.env`).
->   For real production it must be replaced and data re-encrypted (`prisma/rotate-phone-key.ts`).
-> - The seed creates a default admin **`admin` / `123456`** — change immediately in production.
+> - `web/docker-entrypoint.sh` never uses a fixed `PHONE_ENC_KEY` fallback. It reads the secret from the environment or the protected runtime volume, and stops if existing encrypted data has no key.
+> - The seed is QA-only and requires an explicit `DEMO_PASSWORD` (minimum 12 characters); it has no default production credential.
 > - No real customer data is in this package (data lives only in the clinic's database).
 
 ---

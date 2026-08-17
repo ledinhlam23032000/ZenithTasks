@@ -34,7 +34,7 @@ try {
   }
 
   # 2) Sao chep thu muc anh (truoc/sau, avatar...)
-  cmd /c "docker compose -f ""$Compose"" cp app:/app/public/uploads ""$tmp\uploads""" 2>$null
+  cmd /c "docker compose -f ""$Compose"" cp app:/app/private/uploads ""$tmp\uploads""" 2>$null
 
   # 3) Sao luu khoa runtime + tep dinh kem inbox. Day la du lieu NHAY CAM:
   #    ban backup phai nam tren o dia/Google Drive chi chu du an truy cap.

@@ -44,6 +44,14 @@ enum CustomerSource {
   OTHER
 }
 
+// Trạng thái khách tham khảo (lead) — phễu trước khi thành khách.
+enum LeadStatus {
+  NEW // Mới (chưa liên hệ)
+  CONTACTED // Đã liên hệ / đang tư vấn
+  CONVERTED // Đã chuyển thành khách / đã đến
+  LOST // Không quan tâm nữa
+}
+
 enum AppointmentType {
   NEW // Khách mới
   FOLLOW_UP // Tái khám
@@ -104,64 +112,22 @@ enum CareDirection {
   IN // Khách phản hồi
 }
 
-enum ChannelProvider {
-  ZALO_OA
-  FACEBOOK_PAGE
+// Kênh nhắn tin 2 chiều thật (khác CareChannel — chỉ là nhật ký ghi tay).
+enum ChannelKind {
+  ZALO_OA // Zalo Official Account
+  FACEBOOK // Facebook Messenger (Fanpage)
 }
 
-enum ChannelAccountStatus {
-  CONNECTED
-  DEGRADED
-  REAUTH_REQUIRED
-  DISCONNECTED
+enum MessageStatus {
+  RECEIVED // Tin đến từ khách (luôn thành công)
+  SENT // Tin gửi đi, đã được nền tảng xác nhận nhận
+  FAILED // Gửi thất bại (hết hạn token, ngoài khung giờ phản hồi, lỗi API…)
 }
 
-enum ConversationStatus {
-  OPEN
-  SNOOZED
-  CLOSED
-}
-
-enum InboxDirection {
-  IN
-  OUT
-}
-
-enum InboxMessageType {
-  TEXT
-  IMAGE
-  FILE
-  STICKER
-  UNSUPPORTED
-}
-
-enum InboxMessageStatus {
-  RECEIVED
-  PENDING
-  SENT
-  DELIVERED
-  READ
-  FAILED
-}
-
-enum ConversationEventType {
-  ASSIGNED
-  STATUS_CHANGED
-  INTERNAL_NOTE
-  CUSTOMER_LINKED
-  SEND_RETRIED
-}
-
-enum WebhookReceiptStatus {
-  RECEIVED
-  PROCESSED
-  FAILED
-}
-
-enum AttachmentStatus {
-  PENDING
-  READY
-  FAILED
+enum PlanTaskStatus {
+  TODO // Chưa làm
+  IN_PROGRESS // Đang làm
+  DONE // Hoàn thành
 }
 
 // ============================ NHÂN SỰ ============================
@@ -196,37 +162,39 @@ model User {
   // Xác thực 2 lớp (TOTP). Mặc định tắt — không ảnh hưởng đăng nhập hiện tại.
   totpSecret     String?
   totpEnabled    Boolean   @default(false)
+  mustChangePassword Boolean @default(false)
   baseSalary     Decimal   @default(0) @db.Decimal(14, 0) // Lương cơ bản theo tháng
   active         Boolean   @default(true)
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
-  customersCreated         Customer[]             @relation("CustomerCreatedBy")
-  appointmentsCreated      Appointment[]          @relation("ApptCreatedBy")
-  appointmentsAssigned     Appointment[]          @relation("ApptConsultant")
-  casesCreated             CaseRecord[]           @relation("CaseCreatedBy")
-  casesConsulted           CaseRecord[]           @relation("CaseConsultant")
-  casesAsDoctor            CaseRecord[]           @relation("CaseDoctor")
-  caseServices             CaseService[]          @relation("CaseServiceDoctor")
-  payments                 Payment[]
-  materialUsages           MaterialUsage[]
-  photos                   Photo[]
-  careMessages             CareMessage[]
-  followUpsCreated         FollowUp[]
-  auditLogs                AuditLog[]
-  shifts                   Shift[]
-  stockMovements           StockMovement[]
-  attendances              Attendance[]
-  payrollEntries           PayrollEntry[]
-  cashTransactions         CashTransaction[]
-  channelAccountsConnected ChannelAccount[]       @relation("ChannelConnectedBy")
-  channelContactsLinked    ChannelContact[]       @relation("ChannelContactLinkedBy")
-  conversationsAssigned    Conversation[]         @relation("ConversationAssignee")
-  conversationsAssignedBy  Conversation[]         @relation("ConversationAssignedBy")
-  inboxMessagesSent        InboxMessage[]         @relation("InboxMessageSentBy")
-  conversationEvents       ConversationEvent[]    @relation("ConversationEventActor")
-  conversationPresence     ConversationPresence[]
-  oauthAttempts            OAuthAttempt[]
+  customersCreated     Customer[]         @relation("CustomerCreatedBy")
+  appointmentsCreated  Appointment[]      @relation("ApptCreatedBy")
+  appointmentsAssigned Appointment[]      @relation("ApptConsultant")
+  casesCreated         CaseRecord[]       @relation("CaseCreatedBy")
+  casesConsulted       CaseRecord[]       @relation("CaseConsultant")
+  casesAsDoctor        CaseRecord[]       @relation("CaseDoctor")
+  caseServices         CaseService[]      @relation("CaseServiceDoctor")
+  caseServicesNursed   CaseService[]      @relation("CaseServiceNurse")
+  payments             Payment[]
+  materialUsages       MaterialUsage[]
+  photos               Photo[]
+  careMessages         CareMessage[]
+  followUpsCreated     FollowUp[]
+  auditLogs            AuditLog[]
+  shifts               Shift[]
+  stockMovements       StockMovement[]
+  attendances          Attendance[]
+  payrollEntries       PayrollEntry[]
+  cashTransactions     CashTransaction[]
+  consentsRecorded     CaseConsent[]
+  debtPlans            DebtPlan[]         @relation("DebtPlanCreatedBy")
+  leadsCreated         Lead[]             @relation("LeadCreatedBy")
+  documentsUploaded    CaseDocument[]     @relation("DocUploadedBy")
+  plansCreated         Plan[]             @relation("PlanCreatedBy")
+  periodsClosed        AccountingPeriod[]
+  channelAccounts      ChannelAccount[]
+  channelMessagesSent  Message[]
 }
 
 // ============================ CHẤM CÔNG & LƯƠNG ============================
@@ -256,44 +224,98 @@ model PayrollEntry {
   note       String?
   updatedAt  DateTime @updatedAt
 
+  // ----- Kế toán: theo dõi đã CHI lương hay chưa -----
+  // Khi bấm "Ghi sổ chi lương" ở trang Kế toán, hệ thống tạo 1 giao dịch CHI
+  // (hạng mục SALARY) trong sổ thu chi rồi gắn vào đây. Xóa giao dịch đó ở sổ
+  // thu chi sẽ tự bỏ đánh dấu (onDelete: SetNull) → không bao giờ lệch sổ.
+  paidAmount Decimal          @default(0) @db.Decimal(14, 0)
+  paidAt     DateTime?
+  cashTxId   String?          @unique
+  cashTx     CashTransaction? @relation(fields: [cashTxId], references: [id], onDelete: SetNull)
+
   @@unique([userId, month])
 }
 
 // ============================ KHÁCH HÀNG ============================
 
 model Customer {
-  id           String         @id @default(cuid())
-  code         String         @unique // Mã khách hàng, ví dụ KH000123
-  fullName     String
-  gender       Gender?
-  dob          DateTime?
+  id                   String         @id @default(cuid())
+  code                 String         @unique // Mã khách hàng, ví dụ KH000123
+  fullName             String
+  gender               Gender?
+  dob                  DateTime?
   // Số điện thoại được mã hoá AES-256-GCM, KHÔNG bao giờ trả về cho nhân viên.
-  phoneEnc     String
+  phoneEnc             String
   // 5 số cuối để tra cứu & hiển thị (theo yêu cầu số 7).
-  phoneLast5   String
+  phoneLast5           String
   // Băm SĐT đã chuẩn hoá để chống trùng hồ sơ.
-  phoneHash    String
+  phoneHash            String
   // Token cổng khách hàng (link riêng để khách tự xem lịch sử/ảnh). Null = chưa bật.
-  portalToken  String?        @unique
-  source       CustomerSource @default(OTHER)
-  sourceDetail String? // Tên CTV / chiến dịch / nguồn cụ thể
-  address      String?
-  note         String?
-  createdById  String?
-  createdBy    User?          @relation("CustomerCreatedBy", fields: [createdById], references: [id])
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
+  portalToken          String?        @unique
+  // Hạn dùng của link cổng khách (D3 gđ2). Null = không hết hạn (link cũ trước khi có tính năng).
+  portalTokenExpiresAt DateTime?
+  source               CustomerSource @default(OTHER)
+  sourceDetail         String? // Tên CTV / chiến dịch / nguồn cụ thể
+  address              String?
+  note                 String?
+  // ----- An toàn y khoa (B6 giai đoạn 1) — bác sĩ xem trước khi làm dịch vụ -----
+  allergies            String? // Dị ứng (thuốc/mỹ phẩm/thức ăn…)
+  medicalHistory       String? // Tiền sử bệnh + thuốc đang dùng
+  contraindications    String? // Chống chỉ định / lưu ý đặc biệt
+  createdById          String?
+  createdBy            User?          @relation("CustomerCreatedBy", fields: [createdById], references: [id])
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
 
-  appointments    Appointment[]
-  cases           CaseRecord[]
-  photos          Photo[]
-  careMessages    CareMessage[]
-  followUps       FollowUp[]
-  channelContacts ChannelContact[]
+  appointments  Appointment[]
+  cases         CaseRecord[]
+  photos        Photo[]
+  careMessages  CareMessage[]
+  followUps     FollowUp[]
+  npsResponses  NpsResponse[]
+  conversations Conversation[]
 
   @@index([phoneLast5])
   @@index([phoneHash])
   @@index([fullName])
+}
+
+// Đánh giá trải nghiệm của khách (NPS 0–10) — khách tự gửi từ cổng khách (D3 gđ2).
+model NpsResponse {
+  id         String   @id @default(cuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  score      Int // 0..10
+  comment    String?
+  createdAt  DateTime @default(now())
+
+  @@index([customerId])
+  @@index([createdAt])
+}
+
+// ============================ KHÁCH THAM KHẢO (LEADS) ============================
+
+// Khách từ nhiều nguồn giới thiệu tới THAM KHẢO dịch vụ nhưng CHƯA hẹn, CHƯA đến.
+// Là phễu trước Customer/Appointment. Khi khách đồng ý → "chuyển thành khách" (CONVERTED).
+model Lead {
+  id              String         @id @default(cuid())
+  fullName        String
+  // SĐT (tuỳ chọn) — mã hoá như Customer để chuyển đổi liền mạch + bảo mật.
+  phoneEnc        String?
+  phoneLast5      String?
+  phoneHash       String?
+  source          CustomerSource @default(OTHER)
+  sourceDetail    String? // người giới thiệu / chiến dịch cụ thể
+  serviceInterest String? // dịch vụ khách quan tâm
+  note            String?
+  status          LeadStatus     @default(NEW)
+  createdById     String?
+  createdBy       User?          @relation("LeadCreatedBy", fields: [createdById], references: [id])
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([status])
+  @@index([phoneLast5])
 }
 
 // ============================ LỊCH HẸN ============================
@@ -303,6 +325,9 @@ model Appointment {
   customerId      String?
   customer        Customer?         @relation(fields: [customerId], references: [id])
   guestName       String? // Tên khách khi đặt lịch mà chưa lập hồ sơ
+  // SĐT đầy đủ (mã hoá, tuỳ chọn) — CHỈ đặt lịch công khai điền (dat-lich/actions.ts) mới
+  // có; tạo lịch nội bộ chỉ thu 5 số cuối (như trước) nên trường này null với lịch đó.
+  phoneEnc        String?
   phoneLast5      String?
   type            AppointmentType   @default(NEW)
   status          AppointmentStatus @default(BOOKED)
@@ -311,6 +336,7 @@ model Appointment {
   source          CustomerSource    @default(OTHER)
   sourceDetail    String?
   note            String?
+  publicNonce     String? @unique
   createdById     String?
   createdBy       User?             @relation("ApptCreatedBy", fields: [createdById], references: [id])
   consultantId    String?
@@ -328,29 +354,51 @@ model Appointment {
 // ============================ DANH MỤC ============================
 
 model Service {
-  id           String        @id @default(cuid())
+  id           String            @id @default(cuid())
   name         String
   category     String?
-  listPrice    Decimal       @default(0) @db.Decimal(14, 0) // Giá niêm yết (giá gốc)
-  defaultPrice Decimal       @default(0) @db.Decimal(14, 0) // Giá ưu đãi (thực thu mặc định)
-  active       Boolean       @default(true)
-  createdAt    DateTime      @default(now())
+  listPrice    Decimal           @default(0) @db.Decimal(14, 0) // Giá niêm yết (giá gốc)
+  defaultPrice Decimal           @default(0) @db.Decimal(14, 0) // Giá ưu đãi (thực thu mặc định)
+  active       Boolean           @default(true)
+  createdAt    DateTime          @default(now())
   caseServices CaseService[]
+  // Định mức vật tư tiêu hao mặc định cho dịch vụ này (BOM) — B5 giai đoạn 2.
+  materials    ServiceMaterial[]
 }
 
 model Material {
-  id         String          @id @default(cuid())
-  name       String
-  unit       String          @default("cái")
-  sku        String?
-  minStock   Decimal         @default(0) @db.Decimal(12, 2) // Mức tồn tối thiểu (cảnh báo khi tồn ≤ mức này)
-  lotNo      String? // Số lô của đợt nhập hiện tại
-  expiryDate DateTime? // Hạn dùng của đợt hiện tại
-  active     Boolean         @default(true)
-  stock      Decimal         @default(0) @db.Decimal(12, 2) // Tồn kho hiện tại
-  createdAt  DateTime        @default(now())
-  usages     MaterialUsage[]
-  movements  StockMovement[]
+  id               String            @id @default(cuid())
+  name             String
+  unit             String            @default("cái")
+  sku              String?
+  minStock         Decimal           @default(0) @db.Decimal(12, 2) // Mức tồn tối thiểu (cảnh báo khi tồn ≤ mức này)
+  lotNo            String? // Số lô của đợt nhập hiện tại
+  expiryDate       DateTime? // Hạn dùng của đợt hiện tại
+  active           Boolean           @default(true)
+  stock            Decimal           @default(0) @db.Decimal(12, 2) // Tồn kho hiện tại
+  avgCost          Decimal           @default(0) @db.Decimal(12, 2) // Giá vốn bình quân gia quyền (VND/đơn vị)
+  createdAt        DateTime          @default(now())
+  usages           MaterialUsage[]
+  movements        StockMovement[]
+  // Dịch vụ nào dùng vật tư này theo định mức (BOM) — B5 giai đoạn 2.
+  serviceMaterials ServiceMaterial[]
+}
+
+// Định mức vật tư theo dịch vụ (BOM — Bill Of Materials) — B5 giai đoạn 2.
+// Mỗi dòng = 1 dịch vụ tiêu hao mặc định `quantity` đơn vị của 1 vật tư cho MỖI lần làm.
+// Khi thêm dịch vụ vào hồ sơ, nhân viên bấm "Trừ vật tư theo định mức" để hệ thống tự
+// ghi nhận vật tư đã dùng (× số lượng dịch vụ) + trừ kho — tránh quên ghi vật tư.
+model ServiceMaterial {
+  id         String   @id @default(cuid())
+  serviceId  String
+  service    Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  materialId String
+  material   Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  quantity   Decimal  @default(1) @db.Decimal(10, 2) // Định mức tiêu hao / 1 lần dịch vụ
+  createdAt  DateTime @default(now())
+
+  @@unique([serviceId, materialId])
+  @@index([serviceId])
 }
 
 enum StockType {
@@ -365,6 +413,7 @@ model StockMovement {
   material    Material  @relation(fields: [materialId], references: [id], onDelete: Cascade)
   type        StockType
   quantity    Decimal   @db.Decimal(12, 2)
+  unitCost    Decimal?  @db.Decimal(12, 2) // Đơn giá tại thời điểm GD (nhập = giá mua; xuất = giá vốn bình quân)
   note        String?
   createdById String?
   createdBy   User?     @relation(fields: [createdById], references: [id])
@@ -415,6 +464,9 @@ model CaseRecord {
   photos      Photo[]
   followUps   FollowUp[]
   appointment Appointment?
+  consents    CaseConsent[]
+  documents   CaseDocument[]
+  debtPlan    DebtPlan?
 
   @@index([status])
   @@index([createdAt])
@@ -436,9 +488,18 @@ model CaseService {
   finalPrice  Decimal    @default(0) @db.Decimal(14, 0)
   doctorId    String?
   doctor      User?      @relation("CaseServiceDoctor", fields: [doctorId], references: [id])
+  // Điều dưỡng phụ trách dòng dịch vụ này (căn cứ tính "Tiền dịch vụ phụ" 100k/ca —
+  // xem lib/commission.ts). Khác doctorId: KHÔNG tự sao chép từ CaseRecord lúc tạo,
+  // phải chọn tay vì 1 hồ sơ không có "điều dưỡng phụ trách" mặc định như bác sĩ.
+  nurseId     String?
+  nurse       User?      @relation("CaseServiceNurse", fields: [nurseId], references: [id])
   performedAt DateTime?
   note        String?
+  // Đã trừ vật tư theo định mức (BOM) cho dòng dịch vụ này chưa — tránh trừ kho 2 lần (B5 gđ2).
+  bomApplied  Boolean    @default(false)
   createdAt   DateTime   @default(now())
+
+  materialUsages MaterialUsage[]
 }
 
 model Payment {
@@ -460,6 +521,8 @@ model MaterialUsage {
   case          CaseRecord @relation(fields: [caseId], references: [id], onDelete: Cascade)
   materialId    String?
   material      Material?  @relation(fields: [materialId], references: [id])
+  caseServiceId String?
+  caseService   CaseService? @relation(fields: [caseServiceId], references: [id], onDelete: SetNull)
   name          String // Tên vật tư (snapshot)
   unit          String     @default("cái")
   quantity      Decimal    @default(1) @db.Decimal(10, 2)
@@ -518,221 +581,74 @@ model CareMessage {
   @@index([createdAt])
 }
 
+// ============================ KÊNH GIAO TIẾP (OMNICHANNEL) ============================
+// Hộp thư hợp nhất cho Zalo OA + Facebook Messenger — KHÁC với CareMessage (nhật ký ghi
+// tay, gắn sẵn 1 Customer). Ở đây tin có thể đến TRƯỚC khi biết là khách nào (chưa liên
+// kết hồ sơ) nên Conversation tách khỏi Customer (customerId nullable, liên kết thủ công
+// hoặc — với Zalo — tự động nếu khách đồng ý chia sẻ SĐT qua webhook). Xem `lib/channels/`.
+
+// 1 kết nối kênh (1 Zalo OA hoặc 1 Facebook Page) — token lưu MÃ HOÁ (xem lib/secret-crypto.ts).
 model ChannelAccount {
-  id                    String               @id @default(cuid())
-  provider              ChannelProvider
-  externalAccountId     String
-  displayName           String
-  avatarUrl             String?
-  status                ChannelAccountStatus @default(DISCONNECTED)
-  accessTokenEnc        String?
-  refreshTokenEnc       String?
-  tokenExpiresAt        DateTime?
-  responseTargetMinutes Int?
-  connectedById         String?
-  connectedBy           User?                @relation("ChannelConnectedBy", fields: [connectedById], references: [id], onDelete: SetNull)
-  connectedAt           DateTime             @default(now())
-  disconnectedAt        DateTime?
-  lastWebhookAt         DateTime?
-  lastHealthCheckAt     DateTime?
-  lastMaintenanceAt     DateTime?
-  lastError             String?
-  createdAt             DateTime             @default(now())
-  updatedAt             DateTime             @updatedAt
+  id               String      @id @default(cuid())
+  kind             ChannelKind
+  label            String // Tên hiển thị nội bộ, vd "Zalo OA phòng khám"
+  externalId       String // oa_id (Zalo) hoặc Page ID (Facebook)
+  externalName     String? // Tên OA/Page lấy từ API lúc kết nối (chỉ để hiển thị)
+  accessTokenEnc   String // Mã hoá AES-256-GCM (PHONE_ENC_KEY)
+  refreshTokenEnc  String? // Chỉ Zalo OA có refresh_token
+  tokenExpiresAt   DateTime? // Hạn access_token (Zalo ~1h — tự làm mới trước khi gửi tin)
+  active           Boolean     @default(true)
+  connectedById    String?
+  connectedBy      User?       @relation(fields: [connectedById], references: [id])
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
 
-  contacts    ChannelContact[]
-  threads     ChannelThread[]
-  messages    InboxMessage[]
-  receipts    WebhookReceipt[]
-  attachments InboxAttachment[]
+  conversations Conversation[]
 
-  @@unique([provider, externalAccountId])
-  @@index([status])
+  @@unique([kind, externalId])
 }
 
-model ChannelContact {
+// 1 luồng hội thoại với 1 người dùng bên ngoài (1 Zalo user hoặc 1 Facebook PSID).
+model Conversation {
   id                 String         @id @default(cuid())
   channelAccountId   String
   channelAccount     ChannelAccount @relation(fields: [channelAccountId], references: [id], onDelete: Cascade)
-  externalUserId     String
-  displayName        String?
-  avatarUrl          String?
+  kind               ChannelKind // Denormalize từ channelAccount — lọc/hiển thị nhanh không cần join
+  externalUserId     String // Zalo: sender.id theo OA. Facebook: PSID theo Page.
+  displayName        String? // Tên lấy từ hồ sơ Zalo/Facebook của người nhắn (best-effort)
+  avatarUrl          String? // Ảnh đại diện (URL ngoài — KHÔNG tải về máy chủ)
   customerId         String?
-  customer           Customer?      @relation(fields: [customerId], references: [id], onDelete: SetNull)
-  linkedById         String?
-  linkedBy           User?          @relation("ChannelContactLinkedBy", fields: [linkedById], references: [id], onDelete: SetNull)
-  linkedAt           DateTime?
-  lastSeenAt         DateTime?
-  consentWithdrawnAt DateTime?
-  createdAt          DateTime       @default(now())
-  updatedAt          DateTime       @updatedAt
-
-  threads ChannelThread[]
-
-  @@unique([channelAccountId, externalUserId])
-  @@index([customerId])
-  @@index([lastSeenAt])
-}
-
-model ChannelThread {
-  id                 String         @id @default(cuid())
-  channelAccountId   String
-  channelAccount     ChannelAccount @relation(fields: [channelAccountId], references: [id], onDelete: Cascade)
-  channelContactId   String
-  channelContact     ChannelContact @relation(fields: [channelContactId], references: [id], onDelete: Cascade)
-  externalThreadId   String
+  customer           Customer?      @relation(fields: [customerId], references: [id])
+  lastMessageAt      DateTime       @default(now())
   lastMessagePreview String?
-  lastMessageAt      DateTime?
-  lastInboundAt      DateTime?
-  lastOutboundAt     DateTime?
+  lastDirection      CareDirection?
   unreadCount        Int            @default(0)
   createdAt          DateTime       @default(now())
   updatedAt          DateTime       @updatedAt
 
-  conversations Conversation[]
+  messages Message[]
 
-  @@unique([channelAccountId, externalThreadId])
-  @@index([channelContactId])
+  @@unique([channelAccountId, externalUserId])
   @@index([lastMessageAt])
+  @@index([customerId])
 }
 
-model Conversation {
-  id              String             @id @default(cuid())
-  threadId        String
-  thread          ChannelThread      @relation(fields: [threadId], references: [id], onDelete: Cascade)
-  status          ConversationStatus @default(OPEN)
-  assigneeId      String?
-  assignee        User?              @relation("ConversationAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
-  assignedAt      DateTime?
-  assignedById    String?
-  assignedBy      User?              @relation("ConversationAssignedBy", fields: [assignedById], references: [id], onDelete: SetNull)
-  priority        Int                @default(0)
-  tags            String[]           @default([])
-  openedAt        DateTime           @default(now())
-  firstResponseAt DateTime?
-  snoozedUntil    DateTime?
-  closedAt        DateTime?
-  version         Int                @default(0)
-  createdAt       DateTime           @default(now())
-  updatedAt       DateTime           @updatedAt
-
-  messages InboxMessage[]
-  events   ConversationEvent[]
-  presence ConversationPresence[]
-
-  @@index([status, assigneeId])
-  @@index([openedAt])
-}
-
-model InboxMessage {
-  id                       String             @id @default(cuid())
-  channelAccountId         String
-  channelAccount           ChannelAccount     @relation(fields: [channelAccountId], references: [id], onDelete: Cascade)
-  conversationId           String
-  conversation             Conversation       @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  providerMessageId        String?
-  clientNonce              String?            @unique
-  direction                InboxDirection
-  type                     InboxMessageType
-  status                   InboxMessageStatus
-  content                  String?
-  replyToProviderMessageId String?
-  providerTimestamp        DateTime?
-  sentById                 String?
-  sentBy                   User?              @relation("InboxMessageSentBy", fields: [sentById], references: [id], onDelete: SetNull)
-  providerErrorCode        String?
-  providerErrorMessage     String?
-  createdAt                DateTime           @default(now())
-  updatedAt                DateTime           @updatedAt
-
-  attachments InboxAttachment[]
-
-  @@unique([channelAccountId, providerMessageId])
-  @@index([conversationId, createdAt])
-  @@index([status])
-}
-
-model ConversationEvent {
-  id             String                @id @default(cuid())
+model Message {
+  id             String        @id @default(cuid())
   conversationId String
-  conversation   Conversation          @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  type           ConversationEventType
-  actorId        String?
-  actor          User?                 @relation("ConversationEventActor", fields: [actorId], references: [id], onDelete: SetNull)
-  data           Json?
-  createdAt      DateTime              @default(now())
+  conversation   Conversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  direction      CareDirection
+  status         MessageStatus @default(RECEIVED)
+  text           String?
+  attachments    Json? // [{ type: "image"|"file", url }] — tham chiếu URL ngoài của nền tảng
+  externalId     String? // msg_id (Zalo) / mid (Facebook) — chống ghi trùng khi webhook gửi lại
+  errorMessage   String? // Lý do gửi thất bại (hiển thị cho nhân viên)
+  sentById       String? // Nhân viên bấm gửi (null = tin đến từ khách hoặc AI hệ thống)
+  sentBy         User?         @relation(fields: [sentById], references: [id])
+  createdAt      DateTime      @default(now())
 
   @@index([conversationId, createdAt])
-}
-
-model ConversationPresence {
-  id             String       @id @default(cuid())
-  conversationId String
-  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  userId         String
-  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  isTyping       Boolean      @default(false)
-  heartbeatAt    DateTime
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-
-  @@unique([conversationId, userId])
-  @@index([heartbeatAt])
-}
-
-model WebhookReceipt {
-  id                String               @id @default(cuid())
-  provider          ChannelProvider
-  externalAccountId String
-  channelAccountId  String?
-  channelAccount    ChannelAccount?      @relation(fields: [channelAccountId], references: [id], onDelete: SetNull)
-  eventKey          String
-  status            WebhookReceiptStatus @default(RECEIVED)
-  sanitizedPayload  Json?
-  payloadExpiresAt  DateTime?
-  errorCode         String?
-  errorMessage      String?
-  receivedAt        DateTime             @default(now())
-  processedAt       DateTime?
-
-  @@unique([provider, externalAccountId, eventKey])
-  @@index([payloadExpiresAt])
-  @@index([status, receivedAt])
-}
-
-model OAuthAttempt {
-  id          String          @id @default(cuid())
-  provider    ChannelProvider
-  stateHash   String          @unique
-  verifierEnc String?
-  actorId     String
-  actor       User            @relation(fields: [actorId], references: [id], onDelete: Cascade)
-  expiresAt   DateTime
-  usedAt      DateTime?
-  createdAt   DateTime        @default(now())
-
-  @@index([expiresAt])
-}
-
-model InboxAttachment {
-  id                   String           @id @default(cuid())
-  channelAccountId     String
-  channelAccount       ChannelAccount   @relation(fields: [channelAccountId], references: [id], onDelete: Cascade)
-  messageId            String
-  message              InboxMessage     @relation(fields: [messageId], references: [id], onDelete: Cascade)
-  providerAttachmentId String?
-  providerUrlEnc       String?
-  originalName         String?
-  storagePath          String?
-  mimeType             String?
-  sizeBytes            Int?
-  status               AttachmentStatus @default(PENDING)
-  errorMessage         String?
-  createdAt            DateTime         @default(now())
-  updatedAt            DateTime         @updatedAt
-
-  @@index([status, createdAt])
-  @@index([messageId])
+  @@index([externalId])
 }
 
 // ============================ LỊCH LÀM VIỆC ============================
@@ -766,6 +682,16 @@ model AuditLog {
   @@index([at])
 }
 
+model RateLimitBucket {
+  key         String   @id
+  count       Int      @default(0)
+  firstAt     DateTime
+  lockedUntil DateTime?
+  updatedAt   DateTime @updatedAt
+
+  @@index([updatedAt])
+}
+
 // ============================ SỔ THU CHI (DÒNG TIỀN) ============================
 
 enum CashType {
@@ -786,8 +712,165 @@ model CashTransaction {
   createdBy   User?         @relation(fields: [createdById], references: [id])
   createdAt   DateTime      @default(now())
 
+  // Giao dịch này có phải do trang Kế toán sinh ra khi chi lương / hoa hồng không.
+  payrollEntry     PayrollEntry?
+  commissionPayout CommissionPayout?
+
   @@index([occurredAt])
   @@index([type])
+}
+
+// ============================ PHIẾU ĐỒNG Ý (CONSENT) — B6 gđ2 ============================
+
+// Mẫu phiếu (đồng ý phẫu thuật, cam kết, mẫu hồ sơ y khoa…) — quản trị soạn sẵn nội dung.
+model ConsentTemplate {
+  id        String        @id @default(cuid())
+  title     String // Tên phiếu, vd "Phiếu đồng ý phẫu thuật thẩm mỹ"
+  body      String // Nội dung phiếu (văn bản). Có thể chứa {{tên}}, {{ngày}}, {{dịch vụ}}.
+  active    Boolean       @default(true)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  consents  CaseConsent[]
+}
+
+// Phiếu đồng ý đã ghi nhận cho một hồ sơ điều trị. Lưu SNAPSHOT nội dung tại thời điểm ký
+// (mẫu có thể đổi sau). "Ký" ở đây là ghi nhận khách đã đồng ý/ký giấy — in ra cho khách ký tay.
+model CaseConsent {
+  id           String           @id @default(cuid())
+  caseId       String
+  case         CaseRecord       @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  templateId   String?
+  template     ConsentTemplate? @relation(fields: [templateId], references: [id])
+  title        String // snapshot tên phiếu
+  body         String // snapshot nội dung
+  signerName   String // người ký (khách hoặc người giám hộ)
+  relationship String? // quan hệ với khách nếu người giám hộ ký (vd "Mẹ", "Vợ")
+  signedAt     DateTime         @default(now())
+  note         String?
+  createdById  String?
+  createdBy    User?            @relation(fields: [createdById], references: [id])
+  createdAt    DateTime         @default(now())
+
+  @@index([caseId])
+}
+
+// Kế hoạch trả nợ (hẹn nợ) cho 1 hồ sơ công nợ — mỗi tháng vào "ngày X" trả "Y đồng"
+// tới khi hết nợ. Mỗi hồ sơ chỉ có 1 kế hoạch (caseId unique). Tính lịch/trạng thái
+// bằng hàm thuần `lib/debt-plan.ts`; KHÔNG sinh từng dòng kỳ (suy ra từ tham số).
+model DebtPlan {
+  id            String     @id @default(cuid())
+  caseId        String     @unique
+  case          CaseRecord @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  dayOfMonth    Int // ngày trả hàng tháng (1..28)
+  monthlyAmount Decimal    @db.Decimal(14, 0) // số tiền trả mỗi tháng (VND)
+  startDate     DateTime // mốc kỳ trả đầu tiên
+  note          String?
+  createdById   String?
+  createdBy     User?      @relation("DebtPlanCreatedBy", fields: [createdById], references: [id])
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+}
+
+// Giấy tờ hành chính tải lên cho 1 hồ sơ (D - phiếu đồng ý đã ký, giấy tờ, PDF/ảnh/Word…).
+// Thay cho việc gõ tay nội dung: nhân viên tải file đã soạn/đã ký lên rồi bấm "Xem".
+model CaseDocument {
+  id           String     @id @default(cuid())
+  caseId       String
+  case         CaseRecord @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  title        String // tiêu đề giấy tờ (vd "Phiếu đồng ý phẫu thuật")
+  fileName     String // tên tệp gốc để hiển thị
+  url          String // đường dẫn phục vụ qua /media/<tệp>
+  mime         String
+  uploadedById String?
+  uploadedBy   User?      @relation("DocUploadedBy", fields: [uploadedById], references: [id])
+  createdAt    DateTime   @default(now())
+
+  @@index([caseId])
+}
+
+// Lập kế hoạch nội bộ dạng "task app" (Trợ Lý) — CHỈ ADMIN/MANAGER/SHAREHOLDER dùng được
+// (xem lib/permissions.ts, mod:ke-hoach). Không có khái niệm giao việc cho nhân sự khác —
+// nội bộ 3 vai trò quản trị/quản lý/cổ đông.
+model Plan {
+  id          String   @id @default(cuid())
+  title       String
+  note        String? // mô tả/ghi chú tổng quan của cả kế hoạch
+  aiGenerated Boolean  @default(false) // true nếu tạo qua "Lập kế hoạch bằng AI" — hiện badge
+  createdById String?
+  createdBy   User?    @relation("PlanCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tasks PlanTask[]
+
+  @@index([createdAt])
+}
+
+// Nhiệm vụ chính VÀ nhiệm vụ phụ dùng CHUNG 1 model, tự tham chiếu qua parentId:
+// parentId null = nhiệm vụ chính; khác null = nhiệm vụ phụ. Schema KHÔNG tự giới hạn độ sâu —
+// tầng server action chủ động chặn tạo nhiệm vụ phụ dưới 1 nhiệm vụ phụ khác (chỉ hỗ trợ 2 cấp).
+model PlanTask {
+  id        String         @id @default(cuid())
+  planId    String
+  plan      Plan           @relation(fields: [planId], references: [id], onDelete: Cascade)
+  parentId  String?
+  parent    PlanTask?      @relation("PlanSubtasks", fields: [parentId], references: [id], onDelete: Cascade)
+  subtasks  PlanTask[]     @relation("PlanSubtasks")
+  title     String
+  note      String? // ghi chú chi tiết (nhiệm vụ chính hay phụ đều dùng field này)
+  status    PlanTaskStatus @default(TODO)
+  order     Int            @default(0) // thứ tự thủ công TRONG CÙNG 1 cấp (cùng planId + cùng parentId)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  @@index([planId])
+  @@index([parentId])
+}
+
+// Cấu hình đơn giản dạng khoá–giá trị, dùng chung toàn hệ thống (mọi máy thấy như nhau).
+// Hiện dùng cho: ngưỡng cảnh báo công nợ ("debt.threshold"). Thêm cấu hình mới → thêm khoá.
+model AppSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+// ============================ KẾ TOÁN ============================
+
+// Kỳ kế toán đã CHỐT SỔ. Có bản ghi cho tháng "YYYY-MM" = tháng đó đã khóa:
+// không thêm/sửa/xóa giao dịch thu chi, không sửa lương, không ghi sổ chi lương
+// của tháng đó nữa (Quản trị viên có thể mở lại). Các con số được CHỤP LẠI tại
+// thời điểm chốt để báo cáo cũ không đổi theo dữ liệu phát sinh sau này.
+model AccountingPeriod {
+  id               String   @id @default(cuid())
+  month            String   @unique // "YYYY-MM"
+  serviceRevenue   Decimal  @default(0) @db.Decimal(14, 0) // Doanh thu dịch vụ (thực thu)
+  otherIncome      Decimal  @default(0) @db.Decimal(14, 0) // Thu khác (sổ thu chi)
+  operatingExpense Decimal  @default(0) @db.Decimal(14, 0) // Chi vận hành (KHÔNG gồm lương/hoa hồng)
+  salaryExpense    Decimal  @default(0) @db.Decimal(14, 0) // Chi lương nhân viên (bảng lương)
+  ctvCommission    Decimal  @default(0) @db.Decimal(14, 0) // Hoa hồng cộng tác viên
+  profit           Decimal  @default(0) @db.Decimal(14, 0) // Lãi/Lỗ
+  note             String?
+  closedAt         DateTime @default(now())
+  closedById       String?
+  closedBy         User?    @relation(fields: [closedById], references: [id])
+
+  @@index([month])
+}
+
+// Chi hoa hồng cộng tác viên theo tháng (mỗi CTV 1 lần/tháng). Số tiền phải trả
+// được cộng từ CaseRecord.commissionAmount của khách do CTV đó giới thiệu.
+model CommissionPayout {
+  id       String           @id @default(cuid())
+  name     String // Tên CTV — khớp Customer.sourceDetail
+  month    String // "YYYY-MM"
+  amount   Decimal          @db.Decimal(14, 0)
+  paidAt   DateTime         @default(now())
+  cashTxId String?          @unique
+  cashTx   CashTransaction? @relation(fields: [cashTxId], references: [id], onDelete: SetNull)
+
+  @@unique([name, month])
+  @@index([month])
 }
 
 // Hồ sơ Cộng tác viên (đối tác giới thiệu khách). Khớp với khách qua TÊN

@@ -21,6 +21,9 @@ export type SessionPayload = {
   uid: string;
   role: Role;
   name: string;
+  /** Compatibility flag for older sessions; new bootstrap accounts use mustChangePassword. */
+  weakPw?: boolean;
+  mustChangePassword?: boolean;
 };
 
 export type SafeUser = {
@@ -33,6 +36,7 @@ export type SafeUser = {
   avatarUrl: string | null;
   permissions: unknown;
   active: boolean;
+  mustChangePassword: boolean;
 };
 
 export async function hashPassword(plain: string): Promise<string> {
@@ -77,6 +81,8 @@ export const getSession = cache(async (): Promise<SessionPayload | null> => {
       uid: payload.uid as string,
       role: payload.role as Role,
       name: payload.name as string,
+      weakPw: payload.weakPw as boolean | undefined,
+      mustChangePassword: payload.mustChangePassword as boolean | undefined,
     };
   } catch {
     return null;
@@ -99,6 +105,7 @@ export const getCurrentUser = cache(async (): Promise<SafeUser | null> => {
       avatarUrl: true,
       permissions: true,
       active: true,
+      mustChangePassword: true,
     },
   });
   if (!user || !user.active) return null;

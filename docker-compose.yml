@@ -1,7 +1,7 @@
 # Trung tâm Phẫu thuật Tạo hình Thẩm mỹ — BVĐK Hồng Phúc
 # Chạy toàn bộ hệ thống (web + PostgreSQL) bằng 1 lệnh:
 #   docker compose up --build
-# Sau đó mở http://localhost:3000  (đăng nhập lần đầu: admin / 123456 — ĐỔI NGAY)
+# Sau đó mở http://localhost:3000  (lần đầu hãy cấu hình BOOTSTRAP_ADMIN_* trong .env)
 #
 # 🔐 BẢO MẬT: AUTH_SECRET được tạo NGẪU NHIÊN tự động và lưu trong volume an toàn
 #    (không nằm trong mã nguồn). Muốn tự đặt khoá riêng, tạo file .env cạnh file này
@@ -24,7 +24,10 @@ services:
       retries: 12
 
   app:
-    build: ./web
+    build:
+      context: ./web
+      args:
+        BUILD_COMMIT: "${ZENITH_BUILD_COMMIT:-unknown}"
     restart: unless-stopped
     depends_on:
       db:
@@ -35,37 +38,47 @@ services:
       # Muốn tự đặt: khai báo trong file .env cạnh docker-compose.yml.
       AUTH_SECRET: "${AUTH_SECRET:-}"
       PHONE_ENC_KEY: "${PHONE_ENC_KEY:-}"
-      CHANNEL_TOKEN_ENC_KEY: "${CHANNEL_TOKEN_ENC_KEY:-}"
-      CHANNEL_MAINTENANCE_SECRET: "${CHANNEL_MAINTENANCE_SECRET:-}"
-      INBOX_ATTACHMENT_ROOT: "/app/private/inbox"
-      OMNICHANNEL_ENABLED: "${OMNICHANNEL_ENABLED:-false}"
-      PUBLIC_APP_URL: "${PUBLIC_APP_URL:-}"
-      ZALO_APP_ID: "${ZALO_APP_ID:-}"
-      ZALO_APP_SECRET: "${ZALO_APP_SECRET:-}"
-      ZALO_OA_SECRET: "${ZALO_OA_SECRET:-}"
-      META_APP_ID: "${META_APP_ID:-}"
-      META_APP_SECRET: "${META_APP_SECRET:-}"
-      META_PAGE_ID: "${META_PAGE_ID:-}"
-      META_WEBHOOK_VERIFY_TOKEN: "${META_WEBHOOK_VERIFY_TOKEN:-}"
-      META_GRAPH_VERSION: "${META_GRAPH_VERSION:-v24.0}"
+      UPLOAD_DIR: "${UPLOAD_DIR:-/app/private/uploads}"
+      ALLOW_DEMO_SEED: "${ALLOW_DEMO_SEED:-false}"
+      # Chỉ dùng khi ALLOW_DEMO_SEED=true trong QA cô lập; không dùng production.
+      DEMO_PASSWORD: "${DEMO_PASSWORD:-}"
+      BOOTSTRAP_ADMIN_USERNAME: "${BOOTSTRAP_ADMIN_USERNAME:-}"
+      BOOTSTRAP_ADMIN_NAME: "${BOOTSTRAP_ADMIN_NAME:-}"
+      BOOTSTRAP_ADMIN_PASSWORD: "${BOOTSTRAP_ADMIN_PASSWORD:-}"
+      TRUSTED_PROXY: "${TRUSTED_PROXY:-false}"
       APP_NAME: "${APP_NAME:-Trung tâm Phẫu thuật Tạo hình Thẩm mỹ — BVĐK Hồng Phúc}"
       TZ: "Asia/Ho_Chi_Minh"
       # Khi chạy qua tên miền/Cloudflare Tunnel, điền tên miền vào đây (ngăn cách bằng dấu phẩy)
       # để đảm bảo các thao tác lưu/xóa hoạt động sau proxy.
       APP_ORIGINS: "${APP_ORIGINS:-trungtamphauthuattaohinhvathammybenhviendakhoahongphuc.xyz,www.trungtamphauthuattaohinhvathammybenhviendakhoahongphuc.xyz}"
-      # AI soạn/nhắn tin (Claude). Tạo key ở console.anthropic.com rồi điền vào .env.
+      # AI soạn tin chăm sóc — TRUNG LẬP NHÀ CUNG CẤP (DeepSeek/Qwen/Gemini/OpenAI/Claude/tự host).
+      # Điền AI_API_KEY + AI_BASE_URL + AI_MODEL trong .env (xem khối "AI" trong .env.example).
       # Để trống = tính năng AI tự ẩn.
+      AI_API_KEY: "${AI_API_KEY:-}"
+      AI_BASE_URL: "${AI_BASE_URL:-}"
+      AI_MODEL: "${AI_MODEL:-}"
+      AI_PROVIDER: "${AI_PROVIDER:-}"
+      # Tương thích ngược cách cũ (chỉ Claude):
       ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:-}"
       ANTHROPIC_MODEL: "${ANTHROPIC_MODEL:-}"
+      # Kênh giao tiếp: Zalo OA + Facebook Messenger — TUỲ CHỌN, để trống thì trang
+      # /cham-soc/hop-thu vẫn chạy nhưng không nhận/gửi tin thật. Xem khối "Kênh giao
+      # tiếp" trong .env.example — hướng dẫn lấy từng giá trị có ngay trong app tại
+      # /cham-soc/ket-noi (đăng nhập ADMIN).
+      ZALO_APP_ID: "${ZALO_APP_ID:-}"
+      ZALO_APP_SECRET: "${ZALO_APP_SECRET:-}"
+      ZALO_OA_SECRET_KEY: "${ZALO_OA_SECRET_KEY:-}"
+      FB_APP_SECRET: "${FB_APP_SECRET:-}"
+      FB_VERIFY_TOKEN: "${FB_VERIFY_TOKEN:-}"
+      FB_APP_ID: "${FB_APP_ID:-}"
+      FB_GRAPH_API_VERSION: "${FB_GRAPH_API_VERSION:-}"
     ports:
       - "3000:3000"
     volumes:
-      - zenith_uploads:/app/public/uploads
+      - zenith_uploads:/app/private/uploads
       - zenith_secrets:/app/.runtime
-      - zenith_inbox_attachments:/app/private/inbox
 
 volumes:
   zenith_db:
   zenith_uploads:
   zenith_secrets:
-  zenith_inbox_attachments:

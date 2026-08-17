@@ -47,7 +47,7 @@ Lệnh này tự cài Docker, tải mã nguồn, dựng app + HTTPS. Lần đầ
 ## Bước 4 — Mở app
 Vào: `https://trungtamphauthuattaohinhvathammybenhviendakhoahongphuc.xyz`
 (Lần đầu chờ thêm 1–2 phút để Caddy lấy chứng chỉ HTTPS.)
-Đăng nhập: **admin / 123456** → **đổi mật khẩu ngay**.
+Tài khoản lần đầu: cấu hình `BOOTSTRAP_ADMIN_USERNAME`, `BOOTSTRAP_ADMIN_NAME`, `BOOTSTRAP_ADMIN_PASSWORD` trong file `.env` trước khi chạy; không dùng mật khẩu demo.
 
 ---
 

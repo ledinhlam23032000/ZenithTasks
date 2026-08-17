@@ -120,7 +120,7 @@ export function CaseInfoForm({
 }
 
 // ===== Thêm dịch vụ =====
-export function AddServiceButton({ caseId, services }: { caseId: string; services: Svc[] }) {
+export function AddServiceButton({ caseId, services, nurses }: { caseId: string; services: Svc[]; nurses: Person[] }) {
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -128,13 +128,13 @@ export function AddServiceButton({ caseId, services }: { caseId: string; service
         <Plus className="h-4 w-4" /> Thêm dịch vụ
       </Button>
       <Modal open={open} onClose={() => setOpen(false)} title="Thêm dịch vụ vào hồ sơ" size="lg">
-        <ServiceForm caseId={caseId} services={services} onDone={() => setOpen(false)} />
+        <ServiceForm caseId={caseId} services={services} nurses={nurses} onDone={() => setOpen(false)} />
       </Modal>
     </>
   );
 }
 
-function ServiceForm({ caseId, services, onDone }: { caseId: string; services: Svc[]; onDone: () => void }) {
+function ServiceForm({ caseId, services, nurses, onDone }: { caseId: string; services: Svc[]; nurses: Person[]; onDone: () => void }) {
   const [state, action, pending] = useFormAction(addCaseService, onDone);
   const [name, setName] = useState("");
   const [serviceId, setServiceId] = useState("");
@@ -142,9 +142,14 @@ function ServiceForm({ caseId, services, onDone }: { caseId: string; services: S
   const [price, setPrice] = useState(0);
   const [qty, setQty] = useState(1);
   const [discount, setDiscount] = useState(0);
+  const [nurseId, setNurseId] = useState("");
 
   const finalPrice = Math.max(price * qty - discount, 0);
   const savings = Math.max((listPrice - price) * qty + discount, 0);
+  const nurseOpts: ComboOption[] = [
+    { value: "", label: "— Chưa phân công —" },
+    ...nurses.map((n) => ({ value: n.id, label: n.fullName })),
+  ];
 
   return (
     <form action={action} className="space-y-4">
@@ -195,6 +200,12 @@ function ServiceForm({ caseId, services, onDone }: { caseId: string; services: S
           <Label htmlFor="discount">Giảm thêm (VND)</Label>
           <MoneyInput id="discount" name="discount" value={discount} onValueChange={setDiscount} />
         </div>
+      </div>
+      <div>
+        <Label>Điều dưỡng phụ trách</Label>
+        <input type="hidden" name="nurseId" value={nurseId} />
+        <Combobox value={nurseId} onChange={setNurseId} options={nurseOpts} placeholder="— Chưa phân công —" />
+        <p className="mt-1 text-xs text-slate-400">Căn cứ tính tiền dịch vụ phụ (100k/ca) cho điều dưỡng.</p>
       </div>
       <div className="space-y-1 rounded-lg bg-brand-50 px-4 py-2.5">
         {savings > 0 && (
@@ -269,6 +280,8 @@ export function AddMaterialButton({ caseId, materials }: { caseId: string; mater
   const [state, action, pending] = useFormAction(addMaterial, () => setOpen(false));
   const [name, setName] = useState("");
   const [unit, setUnit] = useState("cái");
+  // materialId = vật tư trong danh mục kho (để TRỪ TỒN). Rỗng = nhập tay, không trừ kho.
+  const [materialId, setMaterialId] = useState("");
   return (
     <>
       <Button size="sm" variant="subtle" onClick={() => setOpen(true)}>
@@ -279,10 +292,12 @@ export function AddMaterialButton({ caseId, materials }: { caseId: string; mater
           <input type="hidden" name="caseId" value={caseId} />
           <input type="hidden" name="name" value={name} />
           <input type="hidden" name="unit" value={unit} />
+          <input type="hidden" name="materialId" value={materialId} />
           <div>
             <Label>Chọn vật tư (gõ để tìm)</Label>
             <Combobox
               onChange={(v) => {
+                setMaterialId(v);
                 const m = materials.find((x) => x.id === v);
                 if (m) {
                   setName(m.name);
@@ -295,6 +310,11 @@ export function AddMaterialButton({ caseId, materials }: { caseId: string; mater
                 ...materials.map((m) => ({ value: m.id, label: m.name, hint: m.unit })),
               ]}
             />
+            {materialId ? (
+              <p className="mt-1 text-xs text-emerald-600">Sẽ tự trừ tồn kho khi lưu.</p>
+            ) : (
+              <p className="mt-1 text-xs text-slate-400">Nhập tay (không có trong kho) sẽ không trừ tồn.</p>
+            )}
           </div>
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="sm:col-span-2">
@@ -441,9 +461,11 @@ export function AddFollowUpButton({ caseId, customerId, defaultDateTime }: { cas
 export function EditCaseServiceButton({
   caseId,
   service,
+  nurses,
 }: {
   caseId: string;
-  service: { id: string; name: string; listPrice: number; unitPrice: number; quantity: number; discount: number };
+  service: { id: string; name: string; listPrice: number; unitPrice: number; quantity: number; discount: number; nurseId: string | null };
+  nurses: Person[];
 }) {
   const [open, setOpen] = useState(false);
   const [state, action, pending] = useFormAction(updateCaseService, () => setOpen(false));
@@ -452,8 +474,13 @@ export function EditCaseServiceButton({
   const [price, setPrice] = useState(service.unitPrice);
   const [qty, setQty] = useState(service.quantity);
   const [discount, setDiscount] = useState(service.discount);
+  const [nurseId, setNurseId] = useState(service.nurseId ?? "");
   const finalPrice = Math.max(price * qty - discount, 0);
   const savings = Math.max((listPrice - price) * qty + discount, 0);
+  const nurseOpts: ComboOption[] = [
+    { value: "", label: "— Chưa phân công —" },
+    ...nurses.map((n) => ({ value: n.id, label: n.fullName })),
+  ];
   return (
     <>
       <button onClick={() => setOpen(true)} className="rounded-md p-1.5 text-slate-300 hover:bg-brand-50 hover:text-brand-600" aria-label="Sửa" title="Sửa">
@@ -486,6 +513,11 @@ export function EditCaseServiceButton({
               <Label>Giảm thêm (VND)</Label>
               <MoneyInput name="discount" value={discount} onValueChange={setDiscount} />
             </div>
+          </div>
+          <div>
+            <Label>Điều dưỡng phụ trách</Label>
+            <input type="hidden" name="nurseId" value={nurseId} />
+            <Combobox value={nurseId} onChange={setNurseId} options={nurseOpts} placeholder="— Chưa phân công —" />
           </div>
           <div className="space-y-1 rounded-lg bg-brand-50 px-4 py-2.5">
             {savings > 0 && (

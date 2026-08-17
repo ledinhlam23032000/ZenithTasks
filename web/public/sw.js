@@ -1,7 +1,7 @@
 // Service worker tối giản cho PWA Zenith Clinic.
 // Chiến lược: ưu tiên mạng (network-first), chỉ dùng cache khi mất mạng —
 // để KHÔNG bao giờ hiển thị dữ liệu cũ khi đang online.
-const CACHE = "zenith-v1";
+const CACHE = "hong-phuc-mobile-v2";
 const PRECACHE = ["/icons/icon-192.png", "/icons/icon-512.png", "/icons/apple-touch-icon.png"];
 
 self.addEventListener("install", (event) => {

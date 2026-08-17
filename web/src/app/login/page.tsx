@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { ShieldCheck, CalendarClock, TrendingUp } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth";
 import { LoginForm } from "./login-form";
+import { InstallAppButton } from "@/components/install-app";
 
 export const metadata = { title: "Đăng nhập" };
 
@@ -11,7 +12,7 @@ export default async function LoginPage() {
   if (user) redirect("/dashboard");
 
   return (
-    <div className="grid min-h-screen lg:grid-cols-2">
+    <div className="grid min-h-[100dvh] lg:grid-cols-2">
       {/* Bảng thương hiệu */}
       <div className="relative hidden flex-col justify-between overflow-hidden bg-brand-gradient p-12 text-white lg:flex">
         <div className="absolute -right-24 -top-24 h-96 w-96 rounded-full bg-white/10 blur-2xl" />
@@ -45,7 +46,7 @@ export default async function LoginPage() {
       </div>
 
       {/* Form đăng nhập */}
-      <div className="flex items-center justify-center p-6 sm:p-12">
+      <div className="flex items-center justify-center px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[max(1.5rem,env(safe-area-inset-top))] sm:p-12">
         <div className="w-full max-w-sm">
           <div className="mb-8 lg:hidden">
             <p className="text-xl font-bold text-brand-700">Trung tâm Phẫu thuật Tạo hình Thẩm mỹ</p>
@@ -57,6 +58,10 @@ export default async function LoginPage() {
 
           <div className="mt-7">
             <LoginForm />
+          </div>
+
+          <div className="mt-4 lg:hidden">
+            <InstallAppButton />
           </div>
 
           <div className="mt-6 rounded-xl bg-slate-50 p-3 text-xs leading-relaxed text-slate-500 ring-1 ring-slate-100">

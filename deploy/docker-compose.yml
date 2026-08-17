@@ -31,13 +31,37 @@ services:
       # Để trống = container tự sinh/đọc khoá an toàn trong volume (không lộ trong Git).
       AUTH_SECRET: "${AUTH_SECRET:-}"
       PHONE_ENC_KEY: "${PHONE_ENC_KEY:-}"
+      UPLOAD_DIR: "${UPLOAD_DIR:-/app/private/uploads}"
+      ALLOW_DEMO_SEED: "${ALLOW_DEMO_SEED:-false}"
+      # Chỉ dùng khi ALLOW_DEMO_SEED=true trong QA cô lập; không dùng production.
+      DEMO_PASSWORD: "${DEMO_PASSWORD:-}"
+      BOOTSTRAP_ADMIN_USERNAME: "${BOOTSTRAP_ADMIN_USERNAME:-}"
+      BOOTSTRAP_ADMIN_NAME: "${BOOTSTRAP_ADMIN_NAME:-}"
+      BOOTSTRAP_ADMIN_PASSWORD: "${BOOTSTRAP_ADMIN_PASSWORD:-}"
+      TRUSTED_PROXY: "${TRUSTED_PROXY:-false}"
       APP_NAME: "Trung tâm Phẫu thuật Tạo hình Thẩm mỹ — BVĐK Hồng Phúc"
       TZ: "Asia/Ho_Chi_Minh"
       APP_ORIGINS: "${APP_ORIGINS:-trungtamphauthuattaohinhvathammybenhviendakhoahongphuc.xyz,www.trungtamphauthuattaohinhvathammybenhviendakhoahongphuc.xyz}"
+      # AI soạn tin — trung lập nhà cung cấp (xem khối "AI" trong web/.env.example).
+      AI_API_KEY: "${AI_API_KEY:-}"
+      AI_BASE_URL: "${AI_BASE_URL:-}"
+      AI_MODEL: "${AI_MODEL:-}"
+      AI_PROVIDER: "${AI_PROVIDER:-}"
+      # Tương thích ngược cách cũ (chỉ Claude):
       ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:-}"
       ANTHROPIC_MODEL: "${ANTHROPIC_MODEL:-}"
+      # Kênh giao tiếp: Zalo OA + Facebook Messenger — tuỳ chọn (xem khối "Kênh giao
+      # tiếp" trong web/.env.example; hướng dẫn lấy giá trị có ngay trong app tại
+      # /cham-soc/ket-noi).
+      ZALO_APP_ID: "${ZALO_APP_ID:-}"
+      ZALO_APP_SECRET: "${ZALO_APP_SECRET:-}"
+      ZALO_OA_SECRET_KEY: "${ZALO_OA_SECRET_KEY:-}"
+      FB_APP_SECRET: "${FB_APP_SECRET:-}"
+      FB_VERIFY_TOKEN: "${FB_VERIFY_TOKEN:-}"
+      FB_APP_ID: "${FB_APP_ID:-}"
+      FB_GRAPH_API_VERSION: "${FB_GRAPH_API_VERSION:-}"
     volumes:
-      - zenith_uploads:/app/public/uploads
+      - zenith_uploads:/app/private/uploads
       - zenith_secrets:/app/.runtime
 
   caddy:

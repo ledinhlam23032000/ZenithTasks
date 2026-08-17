@@ -27,7 +27,7 @@ export function EditCareButton({ message }: { message: EditableCareMessage }) {
         onClick={() => setOpen(true)}
         aria-label="Sửa tin chăm sóc"
         title="Sửa"
-        className="rounded-md p-1.5 text-slate-300 hover:bg-brand-50 hover:text-brand-600"
+        className="inline-flex h-10 w-10 items-center justify-center rounded-md text-slate-300 hover:bg-brand-50 hover:text-brand-600"
       >
         <Pencil className="h-3.5 w-3.5" />
       </button>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Pencil, LoaderCircle, ShieldCheck } from "lucide-react";
+import { Pencil, LoaderCircle, ShieldCheck, ShieldAlert } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input, Label, Select, Textarea, FieldHint } from "@/components/ui/field";
@@ -19,6 +19,9 @@ export type EditableCustomer = {
   sourceDetail: string | null;
   address: string | null;
   note: string | null;
+  allergies: string | null;
+  medicalHistory: string | null;
+  contraindications: string | null;
   phoneLast5: string;
 };
 
@@ -96,6 +99,28 @@ function EditForm({ customer, onDone }: { customer: EditableCustomer; onDone: ()
       <div>
         <Label htmlFor="e-note">Ghi chú</Label>
         <Textarea id="e-note" name="note" defaultValue={customer.note ?? ""} />
+      </div>
+
+      <div className="rounded-xl border border-rose-200 bg-rose-50/40 p-3">
+        <p className="mb-2 inline-flex items-center gap-1.5 text-sm font-semibold text-rose-700">
+          <ShieldAlert className="h-4 w-4" /> An toàn y khoa
+        </p>
+        <div className="space-y-3">
+          <div>
+            <Label htmlFor="e-allergies">Dị ứng</Label>
+            <Textarea id="e-allergies" name="allergies" rows={2} defaultValue={customer.allergies ?? ""} placeholder="VD: dị ứng lidocaine, hải sản…" />
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <Label htmlFor="e-history">Tiền sử bệnh / thuốc đang dùng</Label>
+              <Textarea id="e-history" name="medicalHistory" rows={2} defaultValue={customer.medicalHistory ?? ""} placeholder="VD: tăng huyết áp, đang dùng thuốc chống đông…" />
+            </div>
+            <div>
+              <Label htmlFor="e-contra">Chống chỉ định / lưu ý</Label>
+              <Textarea id="e-contra" name="contraindications" rows={2} defaultValue={customer.contraindications ?? ""} placeholder="VD: đang mang thai, sẹo lồi…" />
+            </div>
+          </div>
+        </div>
       </div>
 
       {state.error && <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-600 ring-1 ring-rose-600/10">{state.error}</p>}

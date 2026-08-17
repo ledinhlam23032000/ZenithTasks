@@ -58,14 +58,19 @@ if (-not (Test-Path -LiteralPath $RepoDir)) {
     Write-Host '[1/4] Dong bo ma nguon voi GitHub master...' -ForegroundColor Yellow
     Invoke-Checked 'git' @('-C', $RepoDir, 'fetch', 'origin', $Branch, '--prune')
 
-    $hasMaster = @(& git -C $RepoDir branch --format='%(refname:short)') -contains $Branch
-    if ($hasMaster) {
+    $hasBranch = @(& git -C $RepoDir branch --format='%(refname:short)') -contains $Branch
+    if ($hasBranch) {
         Invoke-Checked 'git' @('-C', $RepoDir, 'switch', $Branch)
     } else {
         Invoke-Checked 'git' @('-C', $RepoDir, 'switch', '-c', $Branch, '--track', "origin/$Branch")
     }
 
     Invoke-Checked 'git' @('-C', $RepoDir, 'pull', '--ff-only', 'origin', $Branch)
+}
+
+$BuildCommit = (& git -C $RepoDir rev-parse HEAD).Trim()
+if (-not $BuildCommit) {
+    throw "Khong xac dinh duoc commit hien tai cua $RepoDir."
 }
 
 Write-Host '[2/4] Kiem tra Docker Desktop...' -ForegroundColor Yellow
@@ -76,7 +81,19 @@ if ($LASTEXITCODE -ne 0) {
 
 Set-Location -LiteralPath $RepoDir
 Write-Host '[3/4] Build va khoi dong Docker (migration se tu dong ap dung)...' -ForegroundColor Yellow
-Invoke-Checked 'docker' @('compose', 'up', '-d', '--build', '--force-recreate')
+$runningCommit = (& docker inspect 'zenithtasks-app-1' --format '{{.Config.Labels}}' 2>$null | Out-String).Trim()
+if ($runningCommit -like "*org.opencontainers.image.revision:$BuildCommit*") {
+    Write-Host "    Image da chay dung commit $BuildCommit; bo qua build lai." -ForegroundColor DarkGray
+    Invoke-Checked 'docker' @('compose', 'up', '-d')
+} else {
+    Write-Host "    Can build image cho commit $BuildCommit..." -ForegroundColor Yellow
+    $env:ZENITH_BUILD_COMMIT = $BuildCommit
+    try {
+        Invoke-Checked 'docker' @('compose', 'up', '-d', '--build', '--force-recreate')
+    } finally {
+        Remove-Item Env:ZENITH_BUILD_COMMIT -ErrorAction SilentlyContinue
+    }
+}
 
 Write-Host '[4/4] Cho ung dung san sang...' -ForegroundColor Yellow
 $ready = $false

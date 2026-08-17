@@ -23,7 +23,11 @@ function pick<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-const DEMO_PASSWORD = "123456";
+// Seed chỉ dành cho môi trường QA cô lập. Không có mật khẩu mặc định trong source.
+const DEMO_PASSWORD = process.env.DEMO_PASSWORD ?? "";
+if (DEMO_PASSWORD.length < 12) {
+  throw new Error("DEMO_PASSWORD phải được cấp từ môi trường QA và có ít nhất 12 ký tự.");
+}
 
 async function main() {
   console.log("🌱 Bắt đầu nạp dữ liệu mẫu...");
@@ -61,7 +65,7 @@ async function main() {
   const users: Record<string, string> = {};
   for (const u of usersData) {
     const created = await prisma.user.create({
-      data: { ...u, passwordHash: pw, phone: "0900000000" },
+      data: { ...u, passwordHash: pw, phone: "0900000000", mustChangePassword: true },
     });
     users[u.username] = created.id;
   }
@@ -106,7 +110,11 @@ async function main() {
 
   // ---- KHÁCH HÀNG ----
   const firstNames = ["Nguyễn", "Trần", "Lê", "Phạm", "Hoàng", "Huỳnh", "Vũ", "Đặng", "Bùi", "Đỗ", "Hồ", "Ngô", "Dương", "Lý"];
-  const midLast = ["Thị Mai", "Thị Hương", "Ngọc Anh", "Thu Hà", "Khánh Linh", "Phương Thảo", "Minh Châu", "Thuý Vân", "Hải Yến", "Bích Ngọc", "Quỳnh Như", "Diễm My", "Thanh Tâm", "Kim Chi"];
+  // Tách riêng tên đệm+tên theo giới tính (khớp quy ước tiếng Việt) — GIỚI TÍNH chọn trước,
+  // TÊN chọn theo đúng giới tính đó (trước đây random độc lập → sinh dữ liệu sai kiểu
+  // "Lê Thị Hương — Nam", trông thiếu chỉn chu khi demo).
+  const midLastFemale = ["Thị Mai", "Thị Hương", "Ngọc Anh", "Thu Hà", "Khánh Linh", "Phương Thảo", "Minh Châu", "Thuý Vân", "Hải Yến", "Bích Ngọc", "Quỳnh Như", "Diễm My", "Thanh Tâm", "Kim Chi"];
+  const midLastMale = ["Văn Hùng", "Minh Tuấn", "Anh Khoa", "Đình Phúc", "Quang Huy", "Thành Đạt", "Hữu Nghĩa", "Việt Anh", "Xuân Trường", "Công Danh", "Bảo Long", "Đức Thịnh"];
   const sources = ["MARKETING", "COLLABORATOR", "WALK_IN", "REFERRAL", "HOTLINE", "FACEBOOK", "ZALO", "TIKTOK"] as const;
   const sourceDetails: Record<string, string[]> = {
     MARKETING: ["Chiến dịch Hè 2026", "Google Ads", "Quảng cáo Facebook"],
@@ -121,7 +129,10 @@ async function main() {
 
   const customers: Customer[] = [];
   for (let i = 0; i < 16; i++) {
-    const fullName = `${pick(firstNames)} ${pick(midLast)}`;
+    // Đa số khách nữ (khớp thực tế phòng khám thẩm mỹ) — chọn GIỚI TÍNH trước rồi mới
+    // chọn tên đúng giới tính đó, không random độc lập (xem chú thích ở khai báo danh sách).
+    const gender: "FEMALE" | "MALE" = Math.random() > 0.2 ? "FEMALE" : "MALE";
+    const fullName = `${pick(firstNames)} ${pick(gender === "FEMALE" ? midLastFemale : midLastMale)}`;
     // SĐT giả: 09xxxxxxxx
     const phone = "09" + Math.floor(10000000 + Math.random() * 89999999).toString();
     const src = pick([...sources]);
@@ -129,7 +140,7 @@ async function main() {
       data: {
         code: `KH${String(i + 1).padStart(5, "0")}`,
         fullName,
-        gender: Math.random() > 0.2 ? "FEMALE" : "MALE",
+        gender,
         dob: new Date(1985 + Math.floor(Math.random() * 20), Math.floor(Math.random() * 12), 1 + Math.floor(Math.random() * 27)),
         phoneEnc: encryptPhone(phone),
         phoneLast5: phoneLast5(phone),
@@ -258,7 +269,10 @@ async function main() {
         consultResult: result,
         chiefComplaint: `Khách quan tâm ${chosen[0].name.toLowerCase()}`,
         totalAmount: agreed ? total : 0,
-        discountAmount: caseServicesData.reduce((a, s) => a + s.discount, 0),
+        // CHỈ tính khi thực sự có dịch vụ được tạo (agreed) — nếu không, discountAmount
+        // "mồ côi" (không khớp dịch vụ nào) làm thẻ Tài chính tự mâu thuẫn: "giảm giá X"
+        // trong khi "Chưa có dịch vụ" (đã gặp ở ca DECLINED/CONSIDERING trước khi sửa).
+        discountAmount: agreed ? caseServicesData.reduce((a, s) => a + s.discount, 0) : 0,
         paidAmount: paid,
         debtAmount: debt,
         createdById: consultantId,
@@ -361,7 +375,7 @@ async function main() {
   }
   console.log(`  ✓ ${shiftCount} ca làm việc`);
 
-  console.log("\n✅ Hoàn tất! Tài khoản demo (mật khẩu chung: " + DEMO_PASSWORD + "):");
+  console.log("\n✅ Hoàn tất dữ liệu QA. Tài khoản demo phải đổi mật khẩu ngay khi đăng nhập:");
   for (const u of usersData) console.log(`   • ${u.username.padEnd(10)} — ${u.fullName} (${u.role})`);
 }
 

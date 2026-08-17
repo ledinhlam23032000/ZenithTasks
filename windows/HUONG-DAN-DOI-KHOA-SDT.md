@@ -1,9 +1,21 @@
 # Đổi khoá mã hoá số điện thoại (PHONE_ENC_KEY)
 
-> ⚠️ Đây là thao tác kỹ thuật, **ảnh hưởng toàn bộ SĐT khách**. Nên làm khi vắng khách,
-> **sao lưu trước** (chạy `Sao-Luu.bat`), và có người rành kỹ thuật hỗ trợ.
+> ⚠️ Đây là thao tác kỹ thuật, **ảnh hưởng toàn bộ SĐT khách**. Nên làm khi vắng khách.
 
 Vì sao đổi: khoá mặc định ban đầu mang tính "demo". Đổi sang khoá riêng giúp bảo mật cao hơn.
+
+## ⭐ CÁCH DỄ NHẤT — bấm 1 file (khuyên dùng)
+
+Nhấp đúp **`windows\Doi-Khoa-SDT.bat`** → gõ `DONGY` → Enter. Script tự làm hết: sao lưu →
+tạo khoá mới → mã hoá lại **toàn bộ** SĐT (khách hàng + khách tham khảo) → cập nhật `.env` →
+khởi động lại. Nếu có lỗi nó **tự dừng và GIỮ NGUYÊN khoá cũ** (không mất dữ liệu). Khoá mới được
+lưu ra file `PHONE_ENC_KEY-<ngày giờ>.txt` ở thư mục gốc — **hãy cất giữ nơi an toàn rồi xoá khỏi máy chủ**.
+
+Xong thì kiểm tra: mở 1 hồ sơ khách → bấm "Liên hệ"/"Hiện số" → phải ra đúng số; banner đỏ biến mất.
+
+---
+
+## CÁCH THỦ CÔNG (nếu muốn tự kiểm soát từng bước)
 
 ## Các bước (chạy trên MÁY CHỦ, trong thư mục `ZenithTasks`)
 

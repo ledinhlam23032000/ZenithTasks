@@ -46,10 +46,12 @@ async function main() {
   const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
   const prisma = new PrismaClient({ adapter });
 
-  const customers = await prisma.customer.findMany({ select: { id: true, phoneEnc: true } });
-  console.log(`Bắt đầu mã hoá lại ${customers.length} số điện thoại...`);
   let ok = 0;
   let fail = 0;
+
+  // 1) Khách hàng (Customer) — luôn có SĐT.
+  const customers = await prisma.customer.findMany({ select: { id: true, phoneEnc: true } });
+  console.log(`Bắt đầu mã hoá lại ${customers.length} số điện thoại khách hàng...`);
   for (const c of customers) {
     try {
       const phone = decrypt(c.phoneEnc, oldK); // chuỗi số đã chuẩn hoá lúc lưu
@@ -63,9 +65,32 @@ async function main() {
       console.error("  ✗ Không giải mã được khách:", c.id);
     }
   }
+
+  // 2) Khách tham khảo (Lead) — SĐT là tuỳ chọn, chỉ xử lý bản ghi CÓ phoneEnc.
+  const leads = await prisma.lead.findMany({ where: { phoneEnc: { not: null } }, select: { id: true, phoneEnc: true } });
+  console.log(`Bắt đầu mã hoá lại ${leads.length} số điện thoại khách tham khảo...`);
+  for (const l of leads) {
+    try {
+      const phone = decrypt(l.phoneEnc as string, oldK);
+      await prisma.lead.update({
+        where: { id: l.id },
+        data: { phoneEnc: encrypt(phone, newK), phoneHash: hmac(phone, newK) },
+      });
+      ok++;
+    } catch {
+      fail++;
+      console.error("  ✗ Không giải mã được khách tham khảo:", l.id);
+    }
+  }
+
   console.log(`Hoàn tất: ${ok} thành công, ${fail} lỗi.`);
-  if (fail === 0) console.log("→ Bây giờ đặt PHONE_ENC_KEY = NEW_PHONE_ENC_KEY trong .env rồi khởi động lại.");
   await prisma.$disconnect();
+  if (fail > 0) {
+    // Thoát mã lỗi để script tự động KHÔNG đổi PHONE_ENC_KEY khi còn bản ghi giải mã hỏng.
+    console.error("→ CÓ LỖI: KHÔNG đổi PHONE_ENC_KEY. Giữ nguyên khoá cũ và kiểm tra lại.");
+    process.exit(2);
+  }
+  console.log("→ Bây giờ đặt PHONE_ENC_KEY = NEW_PHONE_ENC_KEY trong .env rồi khởi động lại.");
 }
 
 main().catch((e) => {

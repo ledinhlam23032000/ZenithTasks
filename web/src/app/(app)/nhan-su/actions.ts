@@ -5,6 +5,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireUser, hashPassword } from "@/lib/auth";
 import { diffFromDesired, ALL_PERM_KEYS } from "@/lib/permissions";
+import { auditRequired } from "@/lib/audit";
 import type { Role } from "@/generated/prisma/client";
 
 export type StaffFormState = { ok?: boolean; error?: string };
@@ -17,7 +18,7 @@ const schema = z.object({
     .min(3, "Tên đăng nhập tối thiểu 3 ký tự.")
     .regex(/^[a-z0-9_.]+$/i, "Tên đăng nhập chỉ gồm chữ, số, dấu chấm hoặc gạch dưới."),
   role: z.enum(["ADMIN", "MANAGER", "TELESALE", "RECEPTION", "CONSULTANT", "DOCTOR", "NURSE", "CARE", "SHAREHOLDER"]),
-  password: z.string().min(8, "Mật khẩu tối thiểu 8 ký tự."),
+  password: z.string().min(12, "Mật khẩu tối thiểu 12 ký tự."),
   phone: z.string().trim().optional(),
 });
 
@@ -108,11 +109,11 @@ export async function deleteStaff(formData: FormData): Promise<void> {
   const me = await requireUser(["ADMIN"]);
   const id = String(formData.get("id") ?? "");
   if (!id || id === me.id) return;
-  await prisma.$transaction([
-    prisma.shift.deleteMany({ where: { userId: id } }),
-    prisma.auditLog.deleteMany({ where: { actorId: id } }),
-    prisma.user.delete({ where: { id } }),
-  ]);
+  await prisma.$transaction(async (tx) => {
+    await tx.shift.deleteMany({ where: { userId: id } });
+    await tx.user.delete({ where: { id } });
+    await auditRequired(tx, me.id, "DELETE_STAFF", { entity: "User", entityId: id });
+  });
   revalidatePath("/nhan-su");
 }
 

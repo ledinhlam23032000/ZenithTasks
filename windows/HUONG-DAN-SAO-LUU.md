@@ -34,5 +34,5 @@ $C = "$env:USERPROFILE\ZenithTasks\docker-compose.yml"
 # 1) Nạp lại cơ sở dữ liệu
 Get-Content db.sql | docker compose -f $C exec -T db psql -U zenith -d zenith_clinic
 # 2) Đưa ảnh trở lại
-docker compose -f $C cp uploads app:/app/public/uploads
+docker compose -f $C cp uploads app:/app/private/uploads
 ```

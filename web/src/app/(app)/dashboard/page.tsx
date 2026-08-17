@@ -10,11 +10,16 @@ import {
   MessageCircleHeart,
   ArrowRight,
   BarChart3,
+  ListTodo,
+  CheckCircle2,
+  ChevronRight,
 } from "lucide-react";
 import { requireCap } from "@/lib/auth";
 import { isManagerial, ROLE_LABELS } from "@/lib/rbac";
+import { userCan } from "@/lib/permissions";
 import { getAdminDashboard, getStaffSnapshot } from "@/lib/dashboard";
-import { fmtRelative, fmtTime } from "@/lib/format";
+import { getWorkqueue, type WorkSection } from "@/lib/workqueue";
+import { fmtRelative, fmtTime, shortName } from "@/lib/format";
 import { maskPhone } from "@/lib/phone";
 import { formatVND, formatVNDShort } from "@/lib/money";
 import { PageHeader } from "@/components/ui/page-header";
@@ -34,12 +39,17 @@ export const metadata = { title: "Tổng quan" };
 export default async function DashboardPage() {
   const user = await requireCap("mod:dashboard");
   const greeting = getGreeting();
+  const canViewWorkqueue = userCan(user, "mod:viec-hom-nay");
 
   if (!isManagerial(user.role)) {
-    return <StaffDashboard user={user} greeting={greeting} />;
+    const work = canViewWorkqueue ? await getWorkqueue() : null;
+    return <StaffDashboard user={user} greeting={greeting} work={work} />;
   }
 
-  const d = await getAdminDashboard();
+  const [d, work] = await Promise.all([
+    getAdminDashboard(),
+    canViewWorkqueue ? getWorkqueue() : Promise.resolve(null),
+  ]);
   const maxConsultRev = Math.max(1, ...d.consultants.map((c) => c.revenue));
   const statusBars = Object.entries(d.today.byStatus)
     .map(([k, v]) => ({ label: APPT_STATUS[k as keyof typeof APPT_STATUS]?.label ?? k, value: v }))
@@ -53,6 +63,8 @@ export default async function DashboardPage() {
         description="Bức tranh toàn cảnh hoạt động phòng khám hôm nay và tháng này."
         icon={<TrendingUp className="h-5 w-5" />}
       />
+
+      {work && <WorkSummary sections={work.sections} total={work.total} />}
 
       {/* KPI hôm nay */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -127,7 +139,7 @@ export default async function DashboardPage() {
 
       {/* Biểu đồ: doanh thu 6 tháng + cơ cấu lịch hôm nay */}
       <div className="grid gap-6 lg:grid-cols-5">
-        <Card className="lg:col-span-3">
+        <Card className="min-w-0 lg:col-span-3">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <BarChart3 className="h-4 w-4 text-brand-500" /> Doanh thu
@@ -145,7 +157,7 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="lg:col-span-2">
+        <Card className="min-w-0 lg:col-span-2">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <CalendarClock className="h-4 w-4 text-brand-500" /> Cơ cấu lịch hôm nay
@@ -177,7 +189,7 @@ export default async function DashboardPage() {
                 const last5 = a.customer?.phoneLast5 ?? a.phoneLast5;
                 const st = APPT_STATUS[a.status];
                 return (
-                  <li key={a.id} className="flex items-center gap-3 rounded-xl border border-slate-100 px-3 py-2">
+                  <li key={a.id} className="min-w-0 flex items-center gap-3 rounded-xl border border-slate-100 px-3 py-2">
                     <span className="w-12 shrink-0 text-sm font-semibold text-slate-700">{fmtTime(a.scheduledAt)}</span>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium text-slate-800">{name}</p>
@@ -280,9 +292,11 @@ export default async function DashboardPage() {
 async function StaffDashboard({
   user,
   greeting,
+  work,
 }: {
   user: { id: string; fullName: string; role: import("@/generated/prisma/client").Role };
   greeting: string;
+  work: { sections: WorkSection[]; total: number } | null;
 }) {
   const s = await getStaffSnapshot(user.id, user.role);
 
@@ -300,6 +314,8 @@ async function StaffDashboard({
         description={`Vai trò của bạn: ${ROLE_LABELS[user.role]}. Chúc một ngày làm việc hiệu quả!`}
         icon={<TrendingUp className="h-5 w-5" />}
       />
+
+      {work && <WorkSummary sections={work.sections} total={work.total} />}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Lịch hẹn hôm nay" value={s.todayAppts} icon={<CalendarClock className="h-5 w-5" />} tone="blue" />
@@ -347,15 +363,61 @@ async function StaffDashboard({
   );
 }
 
+const WORK_TONES: Record<string, string> = {
+  red: "bg-rose-50 text-rose-700 ring-rose-200",
+  amber: "bg-amber-50 text-amber-700 ring-amber-200",
+  purple: "bg-violet-50 text-violet-700 ring-violet-200",
+  blue: "bg-blue-50 text-blue-700 ring-blue-200",
+  pink: "bg-pink-50 text-pink-700 ring-pink-200",
+  green: "bg-emerald-50 text-emerald-700 ring-emerald-200",
+};
+
+function WorkSummary({ sections, total }: { sections: WorkSection[]; total: number }) {
+  const active = sections.filter((section) => section.count > 0).slice(0, 4);
+
+  // -mx/px phải khớp ĐÚNG padding ngang của <main> (app-shell.tsx: px-3 sm:px-6 lg:px-8) để
+  // bleed hết viền mà không tràn quá — trước đây base dùng -mx-4/px-4 (giả định 16px) trong
+  // khi main chỉ có px-3 (12px) → tràn ngang 8px trên di động.
+  return (
+    <section className="-mx-3 border-y border-slate-200 bg-white px-3 py-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8" aria-label="Công việc cần xử lý">
+      <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
+        <div className="flex min-w-56 items-center gap-3">
+          <span className={`inline-flex h-10 w-10 items-center justify-center rounded-lg ${total > 0 ? "bg-brand-50 text-brand-600" : "bg-emerald-50 text-emerald-600"}`}>
+            {total > 0 ? <ListTodo className="h-5 w-5" /> : <CheckCircle2 className="h-5 w-5" />}
+          </span>
+          <div>
+            <p className="text-sm font-semibold text-slate-900">{total > 0 ? `${total} việc cần xử lý` : "Không có việc tồn đọng"}</p>
+            <p className="text-xs text-slate-500">Ưu tiên công việc trong ngày</p>
+          </div>
+        </div>
+
+        {active.length > 0 && (
+          <div className="flex min-w-0 flex-1 gap-2 overflow-x-auto pb-1 xl:pb-0">
+            {active.map((section) => (
+              <Link
+                key={section.key}
+                href="/viec-hom-nay"
+                className={`inline-flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium ring-1 ring-inset transition hover:brightness-95 ${WORK_TONES[section.tone] ?? WORK_TONES.blue}`}
+              >
+                <span className="text-base font-bold tabular-nums">{section.count}</span>
+                {section.label}
+              </Link>
+            ))}
+          </div>
+        )}
+
+        <Link href="/viec-hom-nay" className="inline-flex shrink-0 items-center gap-1 text-sm font-semibold text-brand-600 hover:text-brand-700">
+          Xem danh sách <ChevronRight className="h-4 w-4" />
+        </Link>
+      </div>
+    </section>
+  );
+}
+
 function getGreeting(): string {
   const h = new Date().getHours();
   if (h < 11) return "Chào buổi sáng";
   if (h < 14) return "Chào buổi trưa";
   if (h < 18) return "Chào buổi chiều";
   return "Chào buổi tối";
-}
-
-function shortName(full: string): string {
-  const parts = full.trim().split(/\s+/);
-  return parts[parts.length - 1];
 }

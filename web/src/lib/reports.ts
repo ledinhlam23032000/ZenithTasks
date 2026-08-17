@@ -2,28 +2,20 @@ import { startOfDay, subDays, subMonths, subYears, startOfYear, startOfWeek, sta
 import { vi } from "date-fns/locale";
 import { prisma } from "@/lib/db";
 import { toNum } from "@/lib/money";
+import { loadCaseFinancials } from "@/lib/financial-summary-db";
+import { summarizeCase, correctedFinalPrice } from "@/lib/financial-summary";
 import { monthRange, lastMonthRange, growthPct } from "@/lib/dates";
-import { REVENUE_TRANSFER_CODES } from "@/lib/finance";
+import { getMonthlyAccounting } from "@/lib/accounting";
 
-/** Lãi/Lỗ tháng hiện tại: doanh thu dịch vụ (từ hồ sơ) + thu khác − tổng chi (sổ thu chi). */
-export async function getMonthlyPnl() {
-  const m = monthRange();
-  const [payAgg, cash] = await Promise.all([
-    prisma.payment.aggregate({ where: { paidAt: m }, _sum: { amount: true } }),
-    prisma.cashTransaction.findMany({ where: { occurredAt: m }, select: { type: true, amount: true, category: true } }),
-  ]);
-  const serviceRevenue = toNum(payAgg._sum.amount);
-  let otherIncome = 0;
-  let totalExpense = 0;
-  for (const t of cash) {
-    const a = toNum(t.amount);
-    if (t.type === "INCOME") {
-      if (!REVENUE_TRANSFER_CODES.includes(t.category)) otherIncome += a; // bỏ "ứng từ doanh thu" để khỏi tính trùng
-    } else {
-      totalExpense += a;
-    }
-  }
-  return { serviceRevenue, otherIncome, totalExpense, profit: serviceRevenue + otherIncome - totalExpense };
+/**
+ * Lãi/Lỗ của 1 tháng bất kỳ. Dùng CHUNG một phép tính với trang Kế toán
+ * (`getMonthlyAccounting` → toán thuần ở `lib/pnl.ts`) để hai trang không bao giờ
+ * ra số khác nhau: doanh thu thực thu + thu khác − chi vận hành − lương − hoa hồng CTV.
+ * (Trước đây hàm này KHÔNG trừ lương nên Lãi/Lỗ bị thổi phồng.)
+ */
+export async function getMonthlyPnl(monthDate = new Date(), canSeeInvestment = true) {
+  const a = await getMonthlyAccounting(monthDate, undefined, canSeeInvestment);
+  return a.pnl;
 }
 
 export type SalesPoint = { label: string; value: number };
@@ -37,14 +29,21 @@ export async function getSalesSeries() {
   const since = startOfYear(subYears(now, 4)); // bao trùm cả 3 mốc
   const cases = await prisma.caseRecord.findMany({
     where: { createdAt: { gte: since } },
-    select: { createdAt: true, totalAmount: true },
+    select: {
+      id: true,
+      createdAt: true,
+      voucherAmount: true,
+      services: { select: { listPrice: true, unitPrice: true, quantity: true, discount: true, finalPrice: true } },
+      payments: { select: { amount: true } },
+    },
   });
+  const financials = await loadCaseFinancials(cases.map((c) => c.id));
 
   function build(keys: { key: string; label: string }[], keyOf: (d: Date) => string): SalesPoint[] {
     const m = new Map(keys.map((k) => [k.key, 0]));
     for (const c of cases) {
       const k = keyOf(c.createdAt);
-      if (m.has(k)) m.set(k, (m.get(k) ?? 0) + toNum(c.totalAmount));
+      if (m.has(k)) m.set(k, (m.get(k) ?? 0) + (financials.get(c.id)?.total ?? 0));
     }
     return keys.map((k) => ({ label: k.label, value: m.get(k.key) ?? 0 }));
   }
@@ -77,7 +76,7 @@ export async function getSalesSeries() {
   for (const c of cases) {
     if (c.createdAt >= mStart && c.createdAt <= mEnd) {
       const wi = Math.floor((getDate(c.createdAt) - 1) / 7);
-      if (weeksOfMonth[wi]) weeksOfMonth[wi].value += toNum(c.totalAmount);
+      if (weeksOfMonth[wi]) weeksOfMonth[wi].value += financials.get(c.id)?.total ?? 0;
     }
   }
 
@@ -92,43 +91,54 @@ export async function getSalesSeries() {
 
 export type Reports = Awaited<ReturnType<typeof getReports>>;
 
-export async function getReports() {
+/** Báo cáo của 1 tháng bất kỳ (mặc định tháng hiện tại). "Tháng trước" luôn là tháng liền trước `monthDate`. */
+export async function getReports(monthDate = new Date()) {
   const now = new Date();
-  const month = monthRange(now);
-  const last = lastMonthRange(now);
+  const isCurrentMonth = format(monthDate, "yyyy-MM") === format(now, "yyyy-MM");
+  const month = monthRange(monthDate);
+  const last = lastMonthRange(monthDate);
   const since14 = startOfDay(subDays(now, 13));
 
-  const [payments14, revThis, revLast, topServicesRaw, sourceRaw, debtAgg, topDebtors, doctorGroups, doctors, casesThis, casesLast] =
+  const [payments14, revThis, revLast, topServicesRaw, sourceRaw, debtCases, doctorCases, doctors, casesThis, casesLast, agreedThis] =
     await Promise.all([
-      prisma.payment.findMany({ where: { paidAt: { gte: since14 } }, select: { amount: true, paidAt: true } }),
+      // Biểu đồ "14 ngày gần nhất" chỉ có ý nghĩa khi xem tháng hiện tại — tháng quá khứ thì bỏ trống.
+      isCurrentMonth
+        ? prisma.payment.findMany({ where: { paidAt: { gte: since14 } }, select: { amount: true, paidAt: true } })
+        : Promise.resolve([]),
       prisma.payment.aggregate({ where: { paidAt: month }, _sum: { amount: true } }),
       prisma.payment.aggregate({ where: { paidAt: last }, _sum: { amount: true } }),
-      prisma.caseService.groupBy({
-        by: ["name"],
+      // findMany (không groupBy _sum finalPrice thẳng) vì hồ sơ cũ có thể lưu
+      // finalPrice=0 dù còn listPrice — phải cộng qua correctedFinalPrice() ở
+      // dưới để khớp với cách summarizeCase() tính tổng ở mọi trang khác.
+      prisma.caseService.findMany({
         where: { case: { createdAt: month } },
-        _count: { _all: true },
-        _sum: { finalPrice: true },
+        select: { name: true, listPrice: true, unitPrice: true, quantity: true, discount: true, finalPrice: true },
       }),
-      prisma.customer.groupBy({ by: ["source"], _count: { _all: true } }),
-      prisma.caseRecord.aggregate({ _sum: { debtAmount: true } }),
+      // Nguồn khách PHẢI lọc theo tháng (khách tạo trong tháng) — trước đây đếm toàn bộ lịch sử, sai khi xem theo tháng.
+      prisma.customer.groupBy({ by: ["source"], where: { createdAt: month }, _count: { _all: true } }),
       prisma.caseRecord.findMany({
-        where: { debtAmount: { gt: 0 } },
-        orderBy: { debtAmount: "desc" },
-        take: 6,
-        include: { customer: { select: { id: true, fullName: true, code: true, phoneLast5: true } } },
+        where: {},
+        select: {
+          id: true,
+          customer: { select: { id: true, fullName: true, code: true, phoneLast5: true } },
+        },
       }),
-      prisma.caseRecord.groupBy({
-        by: ["doctorId"],
+      prisma.caseRecord.findMany({
         where: { createdAt: month, doctorId: { not: null }, consultResult: "AGREED" },
-        _count: { _all: true },
-        _sum: { totalAmount: true },
+        select: {
+          doctorId: true,
+          voucherAmount: true,
+          services: { select: { listPrice: true, unitPrice: true, quantity: true, discount: true, finalPrice: true } },
+          payments: { select: { amount: true } },
+        },
       }),
       prisma.user.findMany({ where: { role: "DOCTOR" }, select: { id: true, fullName: true } }),
       prisma.caseRecord.count({ where: { createdAt: month } }),
       prisma.caseRecord.count({ where: { createdAt: last } }),
+      prisma.caseRecord.count({ where: { createdAt: month, consultResult: "AGREED" } }),
     ]);
 
-  // Doanh thu 14 ngày
+  // Doanh thu 14 ngày (chỉ tháng hiện tại)
   const buckets = new Map<string, number>();
   for (let i = 13; i >= 0; i--) {
     buckets.set(format(subDays(now, i), "yyyy-MM-dd"), 0);
@@ -141,30 +151,56 @@ export async function getReports() {
 
   const nameMap = new Map(doctors.map((d) => [d.id, d.fullName]));
 
+  const debtFinancials = await loadCaseFinancials(debtCases.map((c) => c.id));
+  const debtRows = debtCases
+    .map((c) => ({ ...c, debt: debtFinancials.get(c.id)?.debt ?? 0 }))
+    .filter((c) => c.debt > 0)
+    .sort((a, b) => b.debt - a.debt);
+  const doctorStats = new Map<string, { cases: number; revenue: number }>();
+  for (const c of doctorCases) {
+    if (!c.doctorId) continue;
+    const financial = summarizeCase({ services: c.services, payments: c.payments, voucherAmount: c.voucherAmount });
+    const current = doctorStats.get(c.doctorId) ?? { cases: 0, revenue: 0 };
+    current.cases += 1;
+    current.revenue += financial.total;
+    doctorStats.set(c.doctorId, current);
+  }
+  const doctorGroups = [...doctorStats.entries()].map(([doctorId, stats]) => ({ doctorId, cases: stats.cases, revenue: stats.revenue }));
+
   const revenueThisMonth = toNum(revThis._sum.amount);
   const revenueLastMonth = toNum(revLast._sum.amount);
 
+  const topServiceStats = new Map<string, { count: number; revenue: number }>();
+  for (const s of topServicesRaw) {
+    const cur = topServiceStats.get(s.name) ?? { count: 0, revenue: 0 };
+    cur.count += 1;
+    cur.revenue += correctedFinalPrice(s);
+    topServiceStats.set(s.name, cur);
+  }
+
   return {
+    isCurrentMonth,
     revenueSeries,
     revenue: { thisMonth: revenueThisMonth, lastMonth: revenueLastMonth, growth: growthPct(revenueThisMonth, revenueLastMonth) },
     cases: { thisMonth: casesThis, lastMonth: casesLast, growth: growthPct(casesThis, casesLast) },
-    topServices: topServicesRaw
-      .map((s) => ({ name: s.name, count: s._count._all, revenue: toNum(s._sum.finalPrice) }))
+    consultRate: { total: casesThis, agreed: agreedThis, rate: casesThis > 0 ? Math.round((agreedThis / casesThis) * 100) : 0 },
+    topServices: [...topServiceStats.entries()]
+      .map(([name, stats]) => ({ name, count: stats.count, revenue: stats.revenue }))
       .sort((a, b) => b.count - a.count || b.revenue - a.revenue) // xếp theo SỐ LƯỢT, rồi doanh thu
       .slice(0, 8),
     sources: sourceRaw.map((s) => ({ source: s.source, count: s._count._all })).sort((a, b) => b.count - a.count),
-    outstandingDebt: toNum(debtAgg._sum.debtAmount),
-    topDebtors: topDebtors.map((c) => ({
+    outstandingDebt: debtRows.reduce((s, c) => s + c.debt, 0),
+    topDebtors: debtRows.slice(0, 6).map((c) => ({
       id: c.id,
       customer: c.customer,
-      debt: toNum(c.debtAmount),
+      debt: c.debt,
     })),
     doctors: doctorGroups
       .map((g) => ({
         id: g.doctorId as string,
         name: nameMap.get(g.doctorId as string) ?? "—",
-        cases: g._count._all,
-        revenue: toNum(g._sum.totalAmount),
+        cases: g.cases,
+        revenue: g.revenue,
       }))
       .sort((a, b) => b.revenue - a.revenue),
   };

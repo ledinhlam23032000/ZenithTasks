@@ -4,13 +4,15 @@ import { requireCap } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { formatVND, toNum } from "@/lib/money";
 import { PageHeader } from "@/components/ui/page-header";
+import { PageTabs } from "@/components/ui/page-tabs";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, THead, TH, TR, TD } from "@/components/ui/table";
 import { buttonVariants } from "@/components/ui/button";
 import { DeleteButton } from "@/components/ui/delete-button";
 import { isShareholder } from "@/lib/rbac";
-import { NewServiceButton, NewMaterialButton, EditServiceButton, EditMaterialButton } from "./catalog-forms";
+import { catalogTabs } from "@/lib/nav-tabs";
+import { NewServiceButton, NewMaterialButton, EditServiceButton, EditMaterialButton, ServiceBomButton } from "./catalog-forms";
 import { toggleService, toggleMaterial, deleteService, deleteMaterial, stockIn } from "./actions";
 import type { Prisma } from "@/generated/prisma/client";
 
@@ -27,9 +29,16 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
     : {};
   const matWhere: Prisma.MaterialWhereInput = q ? { name: { contains: q, mode: "insensitive" } } : {};
 
-  const [services, materials] = await Promise.all([
-    prisma.service.findMany({ where: svcWhere, orderBy: [{ active: "desc" }, { category: "asc" }, { name: "asc" }] }),
+  const [services, materials, pickMaterials] = await Promise.all([
+    prisma.service.findMany({
+      where: svcWhere,
+      orderBy: [{ active: "desc" }, { category: "asc" }, { name: "asc" }],
+      // Định mức vật tư (BOM) của từng dịch vụ — để hiện/sửa ngay trên dòng dịch vụ.
+      include: { materials: { include: { material: { select: { name: true, unit: true } } }, orderBy: { createdAt: "asc" } } },
+    }),
     prisma.material.findMany({ where: matWhere, orderBy: [{ active: "desc" }, { name: "asc" }] }),
+    // Vật tư đang dùng — để chọn khi khai báo định mức (không phụ thuộc ô tìm kiếm).
+    prisma.material.findMany({ where: { active: true }, select: { id: true, name: true, unit: true }, orderBy: { name: "asc" } }),
   ]);
 
   return (
@@ -39,6 +48,8 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
         description="Cấu hình các dịch vụ và vật tư sử dụng trong hồ sơ điều trị."
         icon={<ListChecks className="h-5 w-5" />}
       />
+
+      <PageTabs tabs={catalogTabs(user)} />
 
       <form action="/danh-muc" className="flex items-center gap-2">
         <div className="relative flex-1">
@@ -93,6 +104,20 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
                     <TD className="text-right">
                       {canManage && (
                       <div className="flex items-center justify-end gap-1">
+                        <ServiceBomButton
+                          service={{
+                            id: s.id,
+                            name: s.name,
+                            lines: s.materials.map((sm) => ({
+                              id: sm.id,
+                              materialId: sm.materialId,
+                              name: sm.material.name,
+                              unit: sm.material.unit,
+                              quantity: toNum(sm.quantity),
+                            })),
+                          }}
+                          materials={pickMaterials}
+                        />
                         <EditServiceButton
                           service={{
                             id: s.id,
@@ -173,7 +198,16 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
                             min={1}
                             step="any"
                             placeholder="SL"
-                            className="w-16 rounded-md border border-slate-200 px-1.5 py-1 text-right text-xs focus:border-brand-400 focus:outline-none"
+                            className="w-14 rounded-md border border-slate-200 px-1.5 py-1 text-right text-xs focus:border-brand-400 focus:outline-none"
+                          />
+                          <input
+                            name="unitCost"
+                            type="number"
+                            min={0}
+                            step="any"
+                            placeholder="Giá vốn"
+                            title="Đơn giá nhập (VND/đơn vị). Để trống nếu không cập nhật giá vốn."
+                            className="w-20 rounded-md border border-slate-200 px-1.5 py-1 text-right text-xs focus:border-brand-400 focus:outline-none"
                           />
                           <button
                             className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-100"

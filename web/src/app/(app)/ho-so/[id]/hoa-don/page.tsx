@@ -1,16 +1,16 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, FileWarning } from "lucide-react";
 import { requireCap } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { toNum, formatVND } from "@/lib/money";
-import { summarizeCase } from "@/lib/financial-summary";
-import { canAccessCase } from "@/lib/case-access";
+import { summarizeCase, correctedFinalPrice } from "@/lib/financial-summary";
 import { maskPhone } from "@/lib/phone";
 import { fmtDate, fmtDateTime } from "@/lib/format";
 import { PAYMENT_LABEL } from "@/lib/status";
 import { Table, THead, TH, TR, TD } from "@/components/ui/table";
 import { PrintButton } from "@/components/ui/print-button";
+import { canAccessCase } from "@/lib/case-access";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Hóa đơn" };
@@ -30,12 +30,23 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
   if (!record) notFound();
   if (!canAccessCase(user, record, "read")) notFound();
 
-  const financial = summarizeCase({
-    services: record.services,
-    payments: record.payments,
-    voucherAmount: record.voucherAmount,
-    snapshot: record,
-  });
+  // Hồ sơ chưa có dịch vụ nào thì không có gì để in hóa đơn (tránh in ra tờ toàn số 0).
+  if (record.services.length === 0) {
+    return (
+      <div className="mx-auto max-w-[820px] space-y-5">
+        <Link href={`/ho-so/${record.id}`} className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700">
+          <ArrowLeft className="h-4 w-4" /> Quay lại hồ sơ
+        </Link>
+        <div className="flex flex-col items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-8 text-center">
+          <FileWarning className="h-10 w-10 text-amber-500" />
+          <p className="font-semibold text-amber-800">Hồ sơ chưa có dịch vụ nào</p>
+          <p className="text-sm text-amber-700/90">Vui lòng thêm dịch vụ vào hồ sơ trước khi in hóa đơn.</p>
+        </div>
+      </div>
+    );
+  }
+
+  const financial = summarizeCase({ services: record.services, payments: record.payments, voucherAmount: record.voucherAmount, snapshot: record });
   const grossTotal = financial.gross;
   const voucher = financial.voucher;
   const totalSavings = grossTotal - financial.subtotal + voucher;
@@ -104,7 +115,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
                     {list > unit ? <span className="line-through">{formatVND(list)}</span> : formatVND(list)}
                   </TD>
                   <TD className="text-right">{formatVND(unit)}</TD>
-                  <TD className="text-right font-semibold text-slate-800">{formatVND(Math.max(unit * s.quantity - toNum(s.discount), 0))}</TD>
+                  <TD className="text-right font-semibold text-slate-800">{formatVND(correctedFinalPrice(s))}</TD>
                 </TR>
               );
             })}

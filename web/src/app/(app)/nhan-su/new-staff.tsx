@@ -49,7 +49,7 @@ function StaffForm({ onDone }: { onDone: () => void }) {
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <Label htmlFor="password">Mật khẩu *</Label>
-          <Input id="password" name="password" type="text" placeholder="Tối thiểu 8 ký tự" required />
+          <Input id="password" name="password" type="text" placeholder="Tối thiểu 12 ký tự" required />
         </div>
         <div>
           <Label htmlFor="phone">SĐT nội bộ</Label>

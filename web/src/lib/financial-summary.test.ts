@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { summarizeCase, validatePaymentAmount, validateServicePrice } from "./financial-summary";
+import { summarizeCase, validatePaymentAmount, validateServicePrice, correctedFinalPrice } from "./financial-summary";
 
 describe("summarizeCase", () => {
   it("sums services and payments from child records instead of a stale snapshot", () => {
@@ -15,6 +15,33 @@ describe("summarizeCase", () => {
 
     expect(summary.total).toBe(30_000_000);
     expect(summary.paid).toBe(30_000_000);
+    expect(summary.debt).toBe(0);
+    expect(summary.anomalies).toContain("STALE_SNAPSHOT");
+  });
+
+  it("uses the legacy listed price when an imported service has no unit price", () => {
+    const summary = summarizeCase({
+      services: [{ listPrice: 10_000_000, unitPrice: 0, quantity: 1, discount: 0 }],
+      payments: [{ amount: 10_000_000 }],
+      voucherAmount: 0,
+    });
+
+    expect(summary.total).toBe(10_000_000);
+    expect(summary.paid).toBe(10_000_000);
+    expect(summary.debt).toBe(0);
+  });
+
+  it("sums every payment entry instead of showing only the latest payment", () => {
+    const summary = summarizeCase({
+      services: [{ listPrice: 15_000_000, unitPrice: 15_000_000, quantity: 1, discount: 0 }],
+      payments: [{ amount: 10_000_000 }, { amount: 5_000_000 }],
+      voucherAmount: 0,
+      // Mô phỏng snapshot cũ bị ghi đè bằng khoản thu gần nhất.
+      snapshot: { totalAmount: 15_000_000, paidAmount: 5_000_000, debtAmount: 10_000_000 },
+    });
+
+    expect(summary.total).toBe(15_000_000);
+    expect(summary.paid).toBe(15_000_000);
     expect(summary.debt).toBe(0);
     expect(summary.anomalies).toContain("STALE_SNAPSHOT");
   });
@@ -62,5 +89,21 @@ describe("summarizeCase", () => {
       ok: false,
       error: "Mức giảm không được lớn hơn giá trị dịch vụ.",
     });
+  });
+});
+
+describe("correctedFinalPrice", () => {
+  it("uses unitPrice*quantity minus discount for a normal line", () => {
+    expect(correctedFinalPrice({ listPrice: 10_000_000, unitPrice: 8_000_000, quantity: 2, discount: 1_000_000 })).toBe(15_000_000);
+  });
+
+  it("falls back to the legacy listed price when unitPrice/finalPrice are both zero", () => {
+    expect(correctedFinalPrice({ listPrice: 5_000_000, unitPrice: 0, quantity: 1, discount: 0, finalPrice: 0 })).toBe(5_000_000);
+  });
+
+  it("matches per-line what summarizeCase adds to the case total, so invoices never show 0đ lines under a non-zero total", () => {
+    const service = { listPrice: 5_000_000, unitPrice: 0, quantity: 2, discount: 0, finalPrice: 0 };
+    const summary = summarizeCase({ services: [service], payments: [], voucherAmount: 0 });
+    expect(correctedFinalPrice(service)).toBe(summary.subtotal);
   });
 });

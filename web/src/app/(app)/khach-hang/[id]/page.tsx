@@ -16,10 +16,12 @@ import {
   FilePlus2,
   Crown,
   Share2,
+  AlertTriangle,
 } from "lucide-react";
 import { differenceInYears, format } from "date-fns";
 import { requireCap } from "@/lib/auth";
 import { userCan } from "@/lib/permissions";
+import { isShareholder } from "@/lib/rbac";
 import { tierFor, pointsFor, nextTier } from "@/lib/loyalty";
 import { prisma } from "@/lib/db";
 import { maskPhone } from "@/lib/phone";
@@ -41,6 +43,7 @@ import { StatCard } from "@/components/ui/stat-card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { buttonVariants } from "@/components/ui/button";
 import { DeleteButton } from "@/components/ui/delete-button";
+import { FollowUpArriveButton } from "@/components/ui/follow-up-arrive-button";
 import { receiveCustomer } from "../../tiep-nhan/actions";
 import { deleteCustomer } from "../actions";
 import { deleteCareMessage } from "../../cham-soc/actions";
@@ -49,31 +52,44 @@ import { AdminPhone } from "./admin-phone";
 import { PortalLink } from "./portal-link";
 import { CareComposer } from "../../cham-soc/care-composer";
 import { PhotoGallery } from "@/components/ui/photo-gallery";
-import { getCustomerCareTimeline } from "../../cham-soc/inbox-queries";
 import { summarizeCase } from "@/lib/financial-summary";
+import { PhotoCompareButton } from "@/components/ui/photo-compare";
+import { MedicalAlert } from "@/components/ui/medical-alert";
+import type { Prisma } from "@/generated/prisma/client";
 
 export const dynamic = "force-dynamic";
 
 export default async function CustomerDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireCap("mod:khach-hang");
   const { id } = await params;
+  const caseScope: Prisma.CaseRecordWhereInput =
+    user.role === "CONSULTANT" ? { consultantId: user.id } : user.role === "DOCTOR" ? { doctorId: user.id } : {};
+  const scopedClinical = user.role === "CONSULTANT" || user.role === "DOCTOR";
+  const canViewClinical = userCan(user, "case.clinical");
 
   const customer = await prisma.customer.findUnique({
     where: { id },
     include: {
       cases: {
+        where: caseScope,
         orderBy: { createdAt: "desc" },
         include: {
-          services: { select: { name: true, listPrice: true, unitPrice: true, quantity: true, discount: true } },
+          services: { select: { name: true, listPrice: true, unitPrice: true, quantity: true, discount: true, finalPrice: true } },
           payments: { select: { amount: true } },
           consultant: { select: { fullName: true } },
           doctor: { select: { fullName: true } },
         },
       },
-      photos: { orderBy: { takenAt: "desc" } },
+      photos: scopedClinical
+        ? { where: { case: caseScope }, orderBy: { takenAt: "desc" } }
+        : canViewClinical
+          ? { orderBy: { takenAt: "desc" } }
+          : { where: { id: "__hidden__" }, orderBy: { takenAt: "desc" } },
       careMessages: { orderBy: { createdAt: "desc" }, take: 30, include: { createdBy: { select: { fullName: true } } } },
       appointments: { orderBy: { scheduledAt: "desc" }, take: 8 },
-      followUps: { orderBy: { scheduledAt: "desc" }, take: 8 },
+      followUps: scopedClinical
+        ? { where: { case: caseScope }, orderBy: { scheduledAt: "desc" }, take: 8 }
+        : { orderBy: { scheduledAt: "desc" }, take: 8 },
       createdBy: { select: { fullName: true } },
     },
   });
@@ -81,6 +97,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
   if (!customer) notFound();
 
   const canSeePhone = userCan(user, "phone.full");
+  const canConfirmFollowUp = !isShareholder(user.role);
 
   const caseFinancials = new Map(
     customer.cases.map((c) => [
@@ -101,7 +118,6 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
   const canReceive = ["ADMIN", "RECEPTION", "CONSULTANT", "DOCTOR", "MANAGER"].includes(user.role);
   const canCare = ["ADMIN", "MANAGER", "CARE"].includes(user.role);
   const canEdit = ["ADMIN", "MANAGER", "RECEPTION", "TELESALE"].includes(user.role);
-  const inboxTimeline = canCare ? (await getCustomerCareTimeline(customer.id)).filter((item) => item.source === "INBOX").slice(0, 30) : [];
 
   return (
     <div className="space-y-6">
@@ -154,6 +170,9 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
                   sourceDetail: customer.sourceDetail,
                   address: customer.address,
                   note: customer.note,
+                  allergies: customer.allergies,
+                  medicalHistory: customer.medicalHistory,
+                  contraindications: customer.contraindications,
                   phoneLast5: customer.phoneLast5,
                 }}
               />
@@ -178,6 +197,14 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
           </div>
         </CardContent>
       </Card>
+
+      {canViewClinical && (
+        <MedicalAlert
+          allergies={customer.allergies}
+          medicalHistory={customer.medicalHistory}
+          contraindications={customer.contraindications}
+        />
+      )}
 
       <div className="grid gap-4 sm:grid-cols-3">
         <StatCard label="Số lượt khám" value={customer.cases.length} icon={<FolderHeart className="h-5 w-5" />} tone="brand" />
@@ -250,6 +277,13 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
                             <span className="font-semibold text-slate-800">{c.code}</span>
                             <Badge tone={CASE_STATUS[c.status].tone}>{CASE_STATUS[c.status].label}</Badge>
                             <Badge tone={CONSULT_RESULT[c.consultResult].tone}>{CONSULT_RESULT[c.consultResult].label}</Badge>
+                            {(caseFinancials.get(c.id)?.anomalies.length ?? 0) > 0 && (
+                              <span title="Số liệu tài chính hồ sơ này cần đối soát — mở hồ sơ để xem chi tiết.">
+                                <Badge tone="amber">
+                                  <AlertTriangle className="h-3 w-3" /> Cần đối soát
+                                </Badge>
+                              </span>
+                            )}
                           </div>
                           <span className="text-xs text-slate-400">{fmtDate(c.createdAt)}</span>
                         </div>
@@ -276,9 +310,10 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
               <CardTitle className="flex items-center gap-2">
                 <Images className="h-4 w-4 text-brand-500" /> Ảnh trước - sau
               </CardTitle>
+              {canViewClinical && <PhotoCompareButton photos={customer.photos} />}
             </CardHeader>
             <CardContent className="pt-0">
-              {customer.photos.length === 0 ? (
+              {!canViewClinical || customer.photos.length === 0 ? (
                 <EmptyState title="Chưa có ảnh" description="Ảnh trước/sau và cận lâm sàng được bác sĩ cập nhật trong hồ sơ điều trị." />
               ) : (
                 <PhotoGallery photos={customer.photos} cols={4} />
@@ -331,16 +366,6 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
                   })}
                 </ul>
               )}
-              {inboxTimeline.length > 0 && <div className="border-t border-slate-100 pt-4">
-                <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Tin nhắn Zalo/Facebook đã liên kết</p>
-                <ul className="space-y-3">
-                  {inboxTimeline.map((message) => <li key={`inbox-${message.id}`} className="border-l-2 border-brand-100 pl-3">
-                    <div className="flex items-center gap-2"><Badge tone="brand">Hộp thư</Badge><span className="text-xs text-slate-400">{message.direction === "IN" ? "Khách gửi" : "ZenithTasks gửi"}</span></div>
-                    <p className="mt-1 text-sm text-slate-700">{message.content}</p>
-                    <p className="mt-0.5 text-xs text-slate-400">{fmtRelative(message.at)}</p>
-                  </li>)}
-                </ul>
-              </div>}
             </CardContent>
           </Card>
 
@@ -355,14 +380,24 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
                 <p className="text-sm text-slate-400">Chưa có lịch hẹn.</p>
               ) : (
                 <ul className="space-y-2 text-sm">
-                  {customer.followUps.map((f) => (
-                    <li key={f.id} className="flex items-center justify-between gap-2">
-                      <span className="inline-flex items-center gap-2 text-slate-600">
-                        <Stethoscope className="h-4 w-4 text-violet-500" /> Tái khám
-                      </span>
-                      <span className="text-slate-500">{fmtDateTime(f.scheduledAt)}</span>
-                    </li>
-                  ))}
+                  {customer.followUps.map((f) => {
+                    const arrived = f.status !== "BOOKED" && f.status !== "CONFIRMED";
+                    return (
+                      <li key={f.id} className="flex items-center justify-between gap-2">
+                        <span className="inline-flex items-center gap-2 text-slate-600">
+                          <Stethoscope className="h-4 w-4 text-violet-500" /> Tái khám
+                        </span>
+                        <span className="flex items-center gap-2">
+                          {arrived ? (
+                            <Badge tone={APPT_STATUS[f.status].tone}>{APPT_STATUS[f.status].label}</Badge>
+                          ) : (
+                            canConfirmFollowUp && <FollowUpArriveButton id={f.id} caseId={f.caseId} />
+                          )}
+                          <span className="text-slate-500">{fmtDateTime(f.scheduledAt)}</span>
+                        </span>
+                      </li>
+                    );
+                  })}
                   {customer.appointments.map((a) => (
                     <li key={a.id} className="flex items-center justify-between gap-2">
                       <span className="inline-flex items-center gap-2 text-slate-600">

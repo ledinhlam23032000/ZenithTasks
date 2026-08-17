@@ -1,26 +1,29 @@
+import { prisma } from "./db";
+
 /**
- * Giới hạn số lần đăng nhập sai để chống dò mật khẩu (brute-force).
- * Lưu trong bộ nhớ tiến trình — phù hợp khi chạy 1 container (mô hình của trung tâm).
- * Khoá tạm theo cặp IP + tên đăng nhập, và theo IP để chặn dò nhiều tài khoản.
+ * Durable rate limiting for login, public booking and customer-portal writes.
+ *
+ * The old implementation kept counters only in one Node.js process, so a
+ * restart or a second app instance reset the protection. Buckets are now held
+ * in PostgreSQL and updated under row locks. If a deployment is still running
+ * before the migration, the small in-process fallback keeps the app usable
+ * while the entrypoint retries migrations.
  */
 
 type Bucket = { count: number; firstAt: number; lockedUntil: number };
+const fallback = new Map<string, Bucket>();
+const WINDOW_MS = 15 * 60 * 1000;
+const LOCK_MS = 15 * 60 * 1000;
 
-const buckets = new Map<string, Bucket>();
+type Decision = { ok: boolean; retryAfterSec?: number };
 
-const WINDOW_MS = 15 * 60 * 1000; // cửa sổ đếm: 15 phút
-const LOCK_MS = 15 * 60 * 1000; // thời gian khoá khi vượt ngưỡng: 15 phút
-
-/** Kiểm tra một khoá có đang bị tạm khoá không. */
-function isLocked(key: string, max: number): { ok: boolean; retryAfterSec?: number } {
+function fallbackInspect(key: string, max: number): Decision {
   const now = Date.now();
-  const b = buckets.get(key);
+  const b = fallback.get(key);
   if (!b) return { ok: true };
-  if (b.lockedUntil > now) {
-    return { ok: false, retryAfterSec: Math.ceil((b.lockedUntil - now) / 1000) };
-  }
+  if (b.lockedUntil > now) return { ok: false, retryAfterSec: Math.ceil((b.lockedUntil - now) / 1000) };
   if (now - b.firstAt > WINDOW_MS) {
-    buckets.delete(key);
+    fallback.delete(key);
     return { ok: true };
   }
   if (b.count >= max) {
@@ -30,52 +33,107 @@ function isLocked(key: string, max: number): { ok: boolean; retryAfterSec?: numb
   return { ok: true };
 }
 
-/**
- * Kiểm tra trước khi xác thực. Trả về { ok:false, retryAfterSec } nếu đang bị khoá.
- * Ngưỡng: 6 lần sai cho 1 (IP + tài khoản); 30 lần sai cho mỗi IP.
- */
-export function checkLoginAllowed(ip: string, username: string): { ok: boolean; retryAfterSec?: number } {
-  const a = isLocked(`u:${ip}:${username}`, 6);
-  if (!a.ok) return a;
-  return isLocked(`ip:${ip}`, 30);
-}
-
-/** Ghi nhận một lần đăng nhập sai. */
-export function registerLoginFailure(ip: string, username: string): void {
-  for (const key of [`u:${ip}:${username}`, `ip:${ip}`]) {
-    const now = Date.now();
-    let b = buckets.get(key);
-    if (!b || now - b.firstAt > WINDOW_MS) b = { count: 0, firstAt: now, lockedUntil: 0 };
-    b.count += 1;
-    buckets.set(key, b);
-  }
-  // Dọn rác nhẹ nhàng để Map không phình mãi.
-  if (buckets.size > 5000) {
-    const now = Date.now();
-    for (const [k, v] of buckets) {
-      if (v.lockedUntil < now && now - v.firstAt > WINDOW_MS) buckets.delete(k);
-    }
-  }
-}
-
-/** Xoá bộ đếm khi đăng nhập thành công. */
-export function clearLoginFailures(ip: string, username: string): void {
-  buckets.delete(`u:${ip}:${username}`);
-  buckets.delete(`ip:${ip}`);
-}
-
-// ---- Bộ đếm chung (vd: chống spam đặt lịch online) ----
-const hits = new Map<string, { n: number; first: number }>();
-
-/** Tăng bộ đếm cho 1 khoá; trả về TRUE nếu đã VƯỢT giới hạn trong cửa sổ. */
-export function bump(key: string, max: number, windowMs = 15 * 60 * 1000): boolean {
+function fallbackIncrement(key: string): number {
   const now = Date.now();
-  let b = hits.get(key);
-  if (!b || now - b.first > windowMs) b = { n: 0, first: now };
-  b.n += 1;
-  hits.set(key, b);
-  if (hits.size > 5000) {
-    for (const [k, v] of hits) if (now - v.first > windowMs) hits.delete(k);
+  const old = fallback.get(key);
+  const b = !old || now - old.firstAt > WINDOW_MS
+    ? { count: 1, firstAt: now, lockedUntil: 0 }
+    : { ...old, count: old.count + 1 };
+  fallback.set(key, b);
+  if (fallback.size > 5000) {
+    for (const [k, v] of fallback) if (now - v.firstAt > WINDOW_MS && v.lockedUntil < now) fallback.delete(k);
   }
-  return b.n > max;
+  return b.count;
+}
+
+async function inspect(key: string, max: number): Promise<Decision> {
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const rows = await tx.$queryRaw<Array<{ count: number; firstAt: Date; lockedUntil: Date | null }>>`
+        SELECT "count", "firstAt", "lockedUntil"
+        FROM "RateLimitBucket"
+        WHERE "key" = ${key}
+        FOR UPDATE
+      `;
+      const row = rows[0];
+      if (!row) return { ok: true };
+      const now = Date.now();
+      if (row.lockedUntil && row.lockedUntil.getTime() > now) {
+        return { ok: false, retryAfterSec: Math.ceil((row.lockedUntil.getTime() - now) / 1000) };
+      }
+      if (now - row.firstAt.getTime() > WINDOW_MS) {
+        await tx.$executeRaw`DELETE FROM "RateLimitBucket" WHERE "key" = ${key}`;
+        return { ok: true };
+      }
+      if (row.count >= max) {
+        const lockedUntil = new Date(now + LOCK_MS);
+        await tx.$executeRaw`UPDATE "RateLimitBucket" SET "lockedUntil" = ${lockedUntil}, "updatedAt" = NOW() WHERE "key" = ${key}`;
+        return { ok: false, retryAfterSec: Math.ceil(LOCK_MS / 1000) };
+      }
+      return { ok: true };
+    });
+  } catch {
+    return fallbackInspect(key, max);
+  }
+}
+
+async function increment(key: string): Promise<number> {
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const now = new Date();
+      await tx.$executeRaw`
+        INSERT INTO "RateLimitBucket" ("key", "count", "firstAt", "lockedUntil", "updatedAt")
+        VALUES (${key}, 1, ${now}, NULL, ${now})
+        ON CONFLICT ("key") DO UPDATE SET
+          "count" = CASE
+            WHEN "firstAt" < ${new Date(now.getTime() - WINDOW_MS)} THEN 1
+            ELSE "count" + 1
+          END,
+          "firstAt" = CASE
+            WHEN "firstAt" < ${new Date(now.getTime() - WINDOW_MS)} THEN ${now}
+            ELSE "firstAt"
+          END,
+          "lockedUntil" = NULL,
+          "updatedAt" = ${now}
+      `;
+      const rows = await tx.$queryRaw<Array<{ count: number }>>`
+        SELECT "count" FROM "RateLimitBucket" WHERE "key" = ${key}
+      `;
+      return Number(rows[0]?.count ?? 1);
+    });
+  } catch {
+    return fallbackIncrement(key);
+  }
+}
+
+/** Check a login key before verifying credentials. */
+export async function checkLoginAllowed(ip: string, username: string): Promise<Decision> {
+  const account = await inspect(`login:user:${ip}:${username}`, 6);
+  if (!account.ok) return account;
+  return inspect(`login:ip:${ip}`, 30);
+}
+
+/** Record one failed login against both the account and source IP. */
+export async function registerLoginFailure(ip: string, username: string): Promise<void> {
+  await Promise.all([
+    increment(`login:user:${ip}:${username}`),
+    increment(`login:ip:${ip}`),
+  ]);
+}
+
+export async function clearLoginFailures(ip: string, username: string): Promise<void> {
+  try {
+    await prisma.$executeRaw`
+      DELETE FROM "RateLimitBucket"
+      WHERE "key" IN (${`login:user:${ip}:${username}`}, ${`login:ip:${ip}`})
+    `;
+  } catch {
+    fallback.delete(`login:user:${ip}:${username}`);
+    fallback.delete(`login:ip:${ip}`);
+  }
+}
+
+/** Increment a general-purpose bucket; returns TRUE after the limit is passed. */
+export async function bump(key: string, max: number): Promise<boolean> {
+  return (await increment(`general:${key}`)) > max;
 }

@@ -6,18 +6,20 @@ import { getStaffPerformance } from "@/lib/performance";
 import { ROLE_LABELS } from "@/lib/rbac";
 import { formatVND } from "@/lib/money";
 import { PageHeader } from "@/components/ui/page-header";
+import { PageTabs } from "@/components/ui/page-tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { Table, THead, TH, TR, TD } from "@/components/ui/table";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ExportMenu } from "@/components/ui/export-menu";
+import { performanceTabs } from "@/lib/nav-tabs";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Hiệu suất nhân sự" };
 
 export default async function StaffPerfPage({ searchParams }: { searchParams: Promise<{ m?: string }> }) {
-  await requireCap("mod:hieu-suat");
+  const user = await requireCap("mod:hieu-suat");
   const sp = await searchParams;
   const parsed = sp.m ? new Date(`${sp.m}-01T00:00:00`) : new Date();
   const monthDate = Number.isNaN(parsed.getTime()) ? new Date() : parsed;
@@ -29,7 +31,7 @@ export default async function StaffPerfPage({ searchParams }: { searchParams: Pr
     <div className="space-y-6">
       <PageHeader
         title="Hiệu suất nhân sự"
-        description="Doanh số tư vấn / mổ, tỉ lệ chốt, ngày công và mức độ chăm chỉ của từng người. Bấm vào một người để xem chi tiết từng ca."
+        description="Doanh số chốt, thực thu (tiền thật về, gồm thu nợ ca cũ), tỉ lệ chốt, ngày công của từng người. Bấm vào một người để xem chi tiết từng ca."
         icon={<Activity className="h-5 w-5" />}
         actions={
           <div className="flex flex-wrap items-center gap-2">
@@ -41,6 +43,8 @@ export default async function StaffPerfPage({ searchParams }: { searchParams: Pr
           </div>
         }
       />
+
+      <PageTabs tabs={performanceTabs(user)} />
 
       <Card>
         <CardContent className="overflow-x-auto pt-5">
@@ -55,8 +59,11 @@ export default async function StaffPerfPage({ searchParams }: { searchParams: Pr
                   <TH className="text-center">Ca tư vấn</TH>
                   <TH className="text-center">Chốt</TH>
                   <TH className="text-right">DS tư vấn</TH>
+                  <TH className="text-right">Thực thu TV</TH>
                   <TH className="text-center">Ca mổ</TH>
                   <TH className="text-right">DS mổ</TH>
+                  <TH className="text-right">Thực thu BS</TH>
+                  <TH className="text-right">Nợ KH còn lại</TH>
                   <TH className="text-center">Tin CSKH</TH>
                   <TH />
                 </TR>
@@ -83,8 +90,21 @@ export default async function StaffPerfPage({ searchParams }: { searchParams: Pr
                       )}
                     </TD>
                     <TD className="text-right font-semibold tabular-nums text-slate-800">{formatVND(r.consultRevenue)}</TD>
+                    <TD className="text-right tabular-nums">
+                      <span className="font-medium text-emerald-700">{formatVND(r.collectedConsult.total)}</span>
+                      {r.collectedConsult.fromDebt > 0 && (
+                        <span className="block text-[11px] text-slate-400">nợ cũ {formatVND(r.collectedConsult.fromDebt)}</span>
+                      )}
+                    </TD>
                     <TD className="text-center tabular-nums">{r.doctorCases}</TD>
                     <TD className="text-right tabular-nums text-slate-700">{formatVND(r.doctorRevenue)}</TD>
+                    <TD className="text-right tabular-nums">
+                      <span className="font-medium text-emerald-700">{formatVND(r.collectedDoctor.total)}</span>
+                      {r.collectedDoctor.fromDebt > 0 && (
+                        <span className="block text-[11px] text-slate-400">nợ cũ {formatVND(r.collectedDoctor.fromDebt)}</span>
+                      )}
+                    </TD>
+                    <TD className="text-right tabular-nums text-rose-600">{r.debtOutstanding > 0 ? formatVND(r.debtOutstanding) : "—"}</TD>
                     <TD className="text-center tabular-nums text-slate-700">{r.careCount}</TD>
                     <TD className="text-right">
                       <Link href={`/hieu-suat/${r.id}?m=${monthValue}`} className="inline-flex items-center gap-0.5 text-xs font-medium text-brand-600 hover:underline">

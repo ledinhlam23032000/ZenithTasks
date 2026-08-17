@@ -101,7 +101,7 @@ export function PhotoGallery({
       </div>
 
       {open && cur && (
-        <div className="fixed inset-0 z-50 flex flex-col bg-slate-900/90 backdrop-blur-sm" onClick={() => setIdx(null)}>
+        <div className="animate-fade-in fixed inset-0 z-50 flex flex-col bg-slate-900/90 backdrop-blur-sm" onClick={() => setIdx(null)}>
           <div className="flex items-center justify-between gap-3 px-4 py-3 text-white" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-2 text-sm">
               <PhotoTypeLabel type={cur.type} index={cur.followUpIndex} />

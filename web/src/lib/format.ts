@@ -25,3 +25,9 @@ export function fmtRelative(d: Date | string | number): string {
 export function toDatetimeLocal(d: Date | string | number): string {
   return format(new Date(d), "yyyy-MM-dd'T'HH:mm");
 }
+
+/** Tên gọi ngắn (từ cuối họ tên) — dùng cho lời chào cá nhân hoá. */
+export function shortName(full: string): string {
+  const parts = full.trim().split(/\s+/);
+  return parts[parts.length - 1];
+}

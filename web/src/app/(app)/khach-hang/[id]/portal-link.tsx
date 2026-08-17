@@ -6,7 +6,11 @@ import { buttonVariants } from "@/components/ui/button";
 import { genPortalLink, revokePortalLink } from "../actions";
 
 export function PortalLink({ customerId, token }: { customerId: string; token: string | null }) {
-  const origin = useSyncExternalStore(() => () => undefined, () => window.location.origin, () => "");
+  const origin = useSyncExternalStore(
+    () => () => {},
+    () => window.location.origin,
+    () => "",
+  );
   const [copied, setCopied] = useState(false);
   const url = token ? `${origin}/khach/${token}` : "";
 

@@ -17,7 +17,7 @@ const TABS: [keyof RevenueSeries, string][] = [
 export function RevenueChart({ series }: { series: RevenueSeries }) {
   const [tab, setTab] = useState<keyof RevenueSeries>("month");
   return (
-    <div>
+    <div className="min-w-0">
       <div className="mb-4 inline-flex rounded-lg bg-slate-100 p-0.5">
         {TABS.map(([k, label]) => (
           <button

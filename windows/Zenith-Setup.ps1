@@ -20,6 +20,6 @@ docker compose up -d --build
 $ok=$false
 for($i=0;$i -lt 80;$i++){try{Invoke-WebRequest 'http://localhost:3000' -UseBasicParsing -TimeoutSec 3|Out-Null;$ok=$true;break}catch{Start-Sleep 3}}
 Write-Host ''
-if($ok){Start-Process 'http://localhost:3000';Write-Host '================ THANH CONG ================' -ForegroundColor Green;Write-Host ' Mo: http://localhost:3000' -ForegroundColor Green;Write-Host ' Dang nhap: admin / 123456' -ForegroundColor Green;Write-Host ' May khac cung mang: http://<IP-may-nay>:3000' -ForegroundColor Green}else{Write-Host 'Dang khoi dong, mo http://localhost:3000 sau 1-2 phut.' -ForegroundColor Yellow}
+if($ok){Start-Process 'http://localhost:3000';Write-Host '================ THANH CONG ================' -ForegroundColor Green;Write-Host ' Mo: http://localhost:3000' -ForegroundColor Green;Write-Host ' Tai khoan lan dau: cau hinh BOOTSTRAP_ADMIN_* trong .env; khong dung mat khau demo.' -ForegroundColor Yellow;Write-Host ' May khac cung mang: http://<IP-may-nay>:3000' -ForegroundColor Green}else{Write-Host 'Dang khoi dong, mo http://localhost:3000 sau 1-2 phut.' -ForegroundColor Yellow}
 Write-Host 'De DUNG app: mo thu muc ZenithTasks roi chay  docker compose down' -ForegroundColor DarkGray
 Read-Host 'Nhan Enter de dong cua so'

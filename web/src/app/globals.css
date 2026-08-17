@@ -47,13 +47,17 @@
   }
   html {
     -webkit-text-size-adjust: 100%;
+    min-height: 100%;
+    background-color: #f5f7fa;
   }
   body {
+    min-height: 100dvh;
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
+    -webkit-tap-highlight-color: transparent;
   }
   ::selection {
     background-color: var(--color-brand-200);
@@ -79,6 +83,53 @@
   }
 }
 
+/* ===== Trải nghiệm như app trên điện thoại ===== */
+@media (max-width: 639px) {
+  /* iOS tự phóng trang nếu trường nhập nhỏ hơn 16px. */
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+
+  button,
+  a {
+    touch-action: manipulation;
+  }
+
+  .mobile-safe-top {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .mobile-content {
+    min-width: 0;
+  }
+
+  .mobile-content > * {
+    min-width: 0;
+  }
+
+  .app-table-scroll {
+    margin-inline: -0.25rem;
+    width: calc(100% + 0.5rem);
+    padding-inline: 0.25rem;
+    scroll-behavior: smooth;
+    scrollbar-width: none;
+  }
+
+  .app-table-scroll::-webkit-scrollbar {
+    display: none;
+  }
+
+  .app-table-scroll table:has(th:nth-child(4)) {
+    min-width: 44rem;
+  }
+
+  .app-table-scroll table:has(th:nth-child(7)) {
+    min-width: 58rem;
+  }
+}
+
 @layer utilities {
   .bg-brand-gradient {
     background-image: linear-gradient(135deg, var(--color-brand-600), var(--color-brand-800) 60%, #5a0f0f);
@@ -94,6 +145,53 @@
   @keyframes shimmer {
     to {
       background-position: -200% 0;
+    }
+  }
+
+  /* Hiệu ứng vào cho modal/menu/toast/bottom-sheet — chỉ hiệu ứng LÚC XUẤT HIỆN (mount),
+     không làm hiệu ứng lúc biến mất để tránh phải quản lý thêm state "đang đóng" ở từng nơi dùng. */
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes scale-in {
+    from { opacity: 0; transform: scale(0.96); }
+    to { opacity: 1; transform: scale(1); }
+  }
+  @keyframes slide-up-in {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes menu-in {
+    from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  @keyframes toast-in {
+    from { opacity: 0; transform: translateY(8px) scale(0.95); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  .animate-fade-in {
+    animation: fade-in 0.15s ease-out both;
+  }
+  .animate-scale-in {
+    animation: scale-in 0.18s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .animate-slide-up-in {
+    animation: slide-up-in 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .animate-menu-in {
+    animation: menu-in 0.15s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .animate-toast-in {
+    animation: toast-in 0.2s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .animate-fade-in,
+    .animate-scale-in,
+    .animate-slide-up-in,
+    .animate-menu-in,
+    .animate-toast-in {
+      animation: none;
     }
   }
 }

@@ -68,3 +68,14 @@ export function maskPhone(last5: string | null | undefined): string {
 export function isValidLast5(q: string): boolean {
   return /^\d{5}$/.test(q.trim());
 }
+
+/**
+ * Redact phone-shaped digit sequences before accepting free text into a field
+ * that may be visible in reports or appointment history. The real number is
+ * stored only in the encrypted phone field.
+ */
+export function redactPhoneLikeText(raw: string | null | undefined): string {
+  return String(raw ?? "")
+    .replace(/(^|[^0-9])0[0-9](?:[ .-]?[0-9]){8,9}([^0-9]|$)/g, "$1[SĐT đã ẩn]$2")
+    .replace(/(^|[^0-9])84(?:[ .-]?[0-9]){9,10}([^0-9]|$)/g, "$1[SĐT đã ẩn]$2");
+}

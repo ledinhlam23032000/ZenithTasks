@@ -1,14 +1,22 @@
-import { Boxes, PackageX, AlertTriangle, CalendarClock } from "lucide-react";
+import { Boxes, PackageX, AlertTriangle, CalendarClock, Wallet } from "lucide-react";
+import { subDays } from "date-fns";
 import { requireCap } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { toNum } from "@/lib/money";
+import { toNum, formatVND, formatVNDShort } from "@/lib/money";
+import { stockValue, totalStockValue } from "@/lib/inventory-cost";
 import { fmtDate, fmtDateTime } from "@/lib/format";
 import { PageHeader } from "@/components/ui/page-header";
+import { PageTabs } from "@/components/ui/page-tabs";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { StatCard } from "@/components/ui/stat-card";
 import { Badge } from "@/components/ui/badge";
 import { Table, THead, TH, TR, TD } from "@/components/ui/table";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Pagination } from "@/components/ui/pagination";
+import { ExportMenu } from "@/components/ui/export-menu";
+import { catalogTabs } from "@/lib/nav-tabs";
+import { PAGE_SIZE, parsePage, totalPagesOf } from "@/lib/pagination";
+import { StockInBatchButton } from "./stock-in-batch";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Kho vật tư" };
@@ -19,16 +27,28 @@ const MOVE = {
   ADJUST: { label: "Điều chỉnh", tone: "amber" as const },
 };
 
-export default async function KhoPage() {
-  await requireCap("mod:kho");
-  const [materials, movements] = await Promise.all([
+export default async function KhoPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
+  const user = await requireCap("mod:kho");
+  const canStockIn = user.role === "ADMIN" || user.role === "MANAGER";
+  const sp = await searchParams;
+  const page = parsePage(sp.page);
+  const [materials, movements, movementsTotal, outMoves] = await Promise.all([
     prisma.material.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
     prisma.stockMovement.findMany({
       orderBy: { createdAt: "desc" },
-      take: 60,
+      take: PAGE_SIZE,
+      skip: (page - 1) * PAGE_SIZE,
       include: { material: { select: { name: true, unit: true } }, createdBy: { select: { fullName: true } } },
     }),
+    prisma.stockMovement.count(),
+    // Giá vốn vật tư đã xuất dùng trong 30 ngày (COGS vật tư) — chỉ tính dòng có đơn giá.
+    prisma.stockMovement.findMany({
+      where: { type: "OUT", unitCost: { not: null }, createdAt: { gte: subDays(new Date(), 30) } },
+      select: { quantity: true, unitCost: true },
+    }),
   ]);
+  const movementsTotalPages = totalPagesOf(movementsTotal);
+  const makeMovementsHref = (p: number) => (p > 1 ? `/kho?page=${p}` : "/kho");
 
   const now = new Date();
   const soon = new Date(now.getTime() + 30 * 86400000); // 30 ngày tới
@@ -55,16 +75,35 @@ export default async function KhoPage() {
     return s.expired || s.expiringSoon;
   }).length;
 
+  // Giá vốn tồn kho + COGS vật tư 30 ngày.
+  const totalValue = totalStockValue(materials.map((m) => ({ stock: toNum(m.stock), avgCost: toNum(m.avgCost) })));
+  const cogs30 = outMoves.reduce((s, mv) => s + toNum(mv.quantity) * toNum(mv.unitCost), 0);
+
   return (
     <div className="space-y-6">
       <PageHeader
         title="Kho vật tư"
         description="Theo dõi tồn kho, mức tối thiểu, hạn dùng và lịch sử nhập/xuất."
         icon={<Boxes className="h-5 w-5" />}
+        actions={
+          <div className="flex items-center gap-2">
+            <ExportMenu excelHref="/kho/export?format=xlsx" wordHref="/kho/export?format=doc" csvHref="/kho/export?format=csv" />
+            {canStockIn && <StockInBatchButton materials={materials.map((m) => ({ id: m.id, name: m.name, unit: m.unit }))} />}
+          </div>
+        }
       />
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <PageTabs tabs={catalogTabs(user)} />
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Số mặt hàng" value={materials.length} icon={<Boxes className="h-5 w-5" />} tone="brand" />
+        <StatCard
+          label="Giá trị tồn kho"
+          value={formatVNDShort(totalValue)}
+          sub={cogs30 > 0 ? `Giá vốn đã xuất 30 ngày: ${formatVNDShort(cogs30)}` : "Theo giá vốn bình quân"}
+          icon={<Wallet className="h-5 w-5" />}
+          tone="green"
+        />
         <StatCard label="Cần nhập (tồn thấp)" value={lowCount} icon={<PackageX className="h-5 w-5" />} tone={lowCount > 0 ? "red" : "slate"} />
         <StatCard label="Cảnh báo hạn dùng" value={expCount} icon={<CalendarClock className="h-5 w-5" />} tone={expCount > 0 ? "amber" : "slate"} />
       </div>
@@ -109,18 +148,31 @@ export default async function KhoPage() {
                   <TR className="hover:bg-transparent">
                     <TH>Vật tư</TH>
                     <TH className="text-right">Tồn / Tối thiểu</TH>
+                    <TH className="text-right">Giá vốn tồn</TH>
                     <TH>Hạn dùng (lô)</TH>
                   </TR>
                 </THead>
                 <tbody>
                   {materials.map((m) => {
                     const s = status(m);
+                    const avg = toNum(m.avgCost);
+                    const val = stockValue(s.stock, avg);
                     return (
                       <TR key={m.id}>
                         <TD className="font-medium text-slate-800">{m.name}</TD>
                         <TD className={`text-right font-semibold tabular-nums ${s.low ? "text-rose-500" : "text-slate-800"}`}>
                           {s.stock} {m.unit}
                           {s.min > 0 && <span className="font-normal text-slate-400"> / {s.min}</span>}
+                        </TD>
+                        <TD className="text-right tabular-nums">
+                          {avg > 0 ? (
+                            <>
+                              <div className="text-slate-700">{formatVNDShort(val)}</div>
+                              <div className="text-xs text-slate-400">{formatVND(avg)}/{m.unit}</div>
+                            </>
+                          ) : (
+                            <span className="text-slate-300">—</span>
+                          )}
                         </TD>
                         <TD>
                           {m.expiryDate ? (
@@ -182,6 +234,7 @@ export default async function KhoPage() {
               </Table>
             )}
           </CardContent>
+          <Pagination page={page} totalPages={movementsTotalPages} makeHref={makeMovementsHref} />
         </Card>
       </div>
     </div>

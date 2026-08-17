@@ -1,18 +1,21 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useActionState, useState, useTransition } from "react";
 import { ShieldCheck, LoaderCircle, CheckCircle2 } from "lucide-react";
 import { Input, Label } from "@/components/ui/field";
 import { buttonVariants } from "@/components/ui/button";
-import { useFormAction } from "@/lib/use-form-action";
 import { start2FA, enable2FA, disable2FA, type TwoFAState } from "@/lib/account-actions";
 
 export function TwoFactor({ enabled }: { enabled: boolean }) {
-  const [on, setOn] = useState(enabled);
   const [setup, setSetup] = useState<{ secret: string; otpauth: string } | null>(null);
   const [starting, startTransition] = useTransition();
-  const [enableState, enableAction, enabling] = useFormAction<TwoFAState>(enable2FA, () => { setOn(true); setSetup(null); });
-  const [disableState, disableAction, disabling] = useFormAction<TwoFAState>(disable2FA, () => setOn(false));
+  const [enableState, enableAction, enabling] = useActionState<TwoFAState, FormData>(enable2FA, {});
+  const [disableState, disableAction, disabling] = useActionState<TwoFAState, FormData>(disable2FA, {});
+
+  // Suy trạng thái bật/tắt NGAY trong lúc render (tránh setState trong effect):
+  // tắt thành công → false; còn lại = đang bật sẵn HOẶC vừa bật thành công.
+  // Khi on=true, nhánh đầu render trước nên giá trị `setup` không còn ảnh hưởng.
+  const on = disableState.ok ? false : enabled || !!enableState.ok;
 
   if (on) {
     return (

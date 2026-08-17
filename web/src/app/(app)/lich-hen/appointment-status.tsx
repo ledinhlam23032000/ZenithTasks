@@ -1,7 +1,9 @@
 "use client";
 
-import { useRef } from "react";
+import { useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { APPT_STATUS } from "@/lib/status";
+import { useToast } from "@/components/ui/toast";
 import { updateAppointmentStatus } from "./actions";
 import type { AppointmentStatus } from "@/generated/prisma/client";
 
@@ -16,23 +18,39 @@ const toneClass: Record<string, string> = {
 };
 
 export function AppointmentStatusControl({ id, status }: { id: string; status: AppointmentStatus }) {
-  const formRef = useRef<HTMLFormElement>(null);
+  const [pending, startTransition] = useTransition();
+  const router = useRouter();
+  const toast = useToast();
   const tone = APPT_STATUS[status].tone;
+
+  function onChange(next: string) {
+    const fd = new FormData();
+    fd.append("id", id);
+    fd.append("status", next);
+    startTransition(async () => {
+      try {
+        await updateAppointmentStatus(fd);
+        toast("Đã lưu");
+        router.refresh();
+      } catch {
+        toast("Lỗi mạng, thử lại", "error");
+      }
+    });
+  }
+
   return (
-    <form ref={formRef} action={updateAppointmentStatus}>
-      <input type="hidden" name="id" value={id} />
-      <select
-        name="status"
-        defaultValue={status}
-        onChange={() => formRef.current?.requestSubmit()}
-        className={`cursor-pointer rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset outline-none ${toneClass[tone]}`}
-      >
-        {Object.entries(APPT_STATUS).map(([k, v]) => (
-          <option key={k} value={k} className="bg-white text-slate-700">
-            {v.label}
-          </option>
-        ))}
-      </select>
-    </form>
+    <select
+      name="status"
+      defaultValue={status}
+      disabled={pending}
+      onChange={(e) => onChange(e.target.value)}
+      className={`cursor-pointer rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset outline-none disabled:opacity-60 ${toneClass[tone]}`}
+    >
+      {Object.entries(APPT_STATUS).map(([k, v]) => (
+        <option key={k} value={k} className="bg-white text-slate-700">
+          {v.label}
+        </option>
+      ))}
+    </select>
   );
 }

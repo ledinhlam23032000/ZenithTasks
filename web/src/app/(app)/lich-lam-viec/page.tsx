@@ -1,7 +1,5 @@
 import Link from "next/link";
 import {
-  startOfDay,
-  endOfDay,
   addDays,
   addMonths,
   startOfMonth,
@@ -18,7 +16,10 @@ import { CalendarDays, Clock, Trash2, ChevronLeft, ChevronRight } from "lucide-r
 import { requireCap } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { isManagerial, ROLE_SHORT } from "@/lib/rbac";
+import { vnDateOnly } from "@/lib/dates";
 import { PageHeader } from "@/components/ui/page-header";
+import { PageTabs } from "@/components/ui/page-tabs";
+import { attendanceTabs } from "@/lib/nav-tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
@@ -50,18 +51,25 @@ export default async function SchedulePage({
   const sp = await searchParams;
   const view = sp.view === "thang" ? "thang" : "tuan";
 
-  const monthRef = sp.month ? new Date(`${sp.month}-01T00:00:00`) : new Date();
-  const month = Number.isNaN(monthRef.getTime()) ? new Date() : monthRef;
+  // vnDateOnly() chốt đúng "hôm nay/tháng này" theo giờ VN dù TZ máy chủ có
+  // lệch hay không (đồng bộ với /cham-cong — 2 trang gộp chung 1 mục menu).
+  const monthRef = sp.month ? new Date(`${sp.month}-01T00:00:00`) : vnDateOnly();
+  const month = Number.isNaN(monthRef.getTime()) ? vnDateOnly() : monthRef;
   const monthKey = format(month, "yyyy-MM");
 
+  // Shift.date là cột @db.Date — mọi mốc gte/lte PHẢI bọc vnDateOnly() (UTC-midnight
+  // theo lịch VN) trước khi so, nếu không ngày cuối của khoảng trước sẽ lẫn vào khoảng
+  // sau (Postgres/Prisma cắt tham số về đúng NGÀY theo giờ UTC của phiên khi so với cột
+  // DATE — xem giải thích đầy đủ ở cham-cong/page.tsx).
   let from: Date;
   let to: Date;
   if (view === "thang") {
-    from = startOfWeek(startOfMonth(month), { weekStartsOn: 1 });
-    to = endOfWeek(endOfMonth(month), { weekStartsOn: 1 });
+    from = vnDateOnly(startOfWeek(startOfMonth(month), { weekStartsOn: 1 }));
+    to = vnDateOnly(endOfWeek(endOfMonth(month), { weekStartsOn: 1 }));
   } else {
-    from = startOfDay(new Date());
-    to = endOfDay(addDays(new Date(), 6));
+    const today = vnDateOnly();
+    from = today;
+    to = vnDateOnly(addDays(today, 6));
   }
 
   const [shifts, staff] = await Promise.all([
@@ -114,8 +122,10 @@ export default async function SchedulePage({
         title="Lịch làm việc"
         description={managerial ? "Lịch làm việc của toàn bộ nhân viên." : "Lịch làm việc của bạn."}
         icon={<CalendarDays className="h-5 w-5" />}
-        actions={managerial ? <NewShiftButton staff={staff} defaultDate={format(new Date(), "yyyy-MM-dd")} /> : undefined}
+        actions={managerial ? <NewShiftButton staff={staff} defaultDate={format(vnDateOnly(), "yyyy-MM-dd")} /> : undefined}
       />
+
+      <PageTabs tabs={attendanceTabs(user)} />
 
       {/* Thanh chuyển Tuần / Tháng */}
       <Card>

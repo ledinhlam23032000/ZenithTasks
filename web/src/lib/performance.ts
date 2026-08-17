@@ -2,7 +2,12 @@ import { startOfMonth, endOfMonth, subMonths, subYears, startOfYear, startOfWeek
 import { vi } from "date-fns/locale";
 import { prisma } from "@/lib/db";
 import { toNum } from "@/lib/money";
+import { summarizeCase } from "@/lib/financial-summary";
+import { vnDateOnly } from "@/lib/dates";
+import { collectionsByStaff, type StaffCollection } from "@/lib/collections";
 import type { Role } from "@/generated/prisma/client";
+
+const EMPTY_COLLECTION: StaffCollection = { total: 0, fromNew: 0, fromDebt: 0 };
 
 export type TrendPoint = { label: string; value: number };
 export type RangeSeries = { thisWeek: TrendPoint[]; weeksOfMonth: TrendPoint[]; m12: TrendPoint[]; y5: TrendPoint[] };
@@ -25,28 +30,82 @@ export type StaffPerfRow = {
   doctorCases: number;
   doctorRevenue: number;
   totalRevenue: number; // doanh số phụ trách (tư vấn + mổ, có thể trùng nếu kiêm)
+  collectedConsult: StaffCollection; // thực thu trong tháng theo vai trò tư vấn (gồm thu nợ ca cũ)
+  collectedDoctor: StaffCollection; // thực thu trong tháng theo vai trò bác sĩ
+  debtOutstanding: number; // khách của mình (tư vấn/bác sĩ) còn nợ cộng dồn tới hiện tại — đồng bộ với lib/payroll.ts
 };
 
 export async function getStaffPerformance(monthDate: Date) {
   const gte = startOfMonth(monthDate);
   const lte = endOfMonth(monthDate);
+  // Attendance.date là cột @db.Date — mốc riêng bằng vnDateOnly(), KHÔNG dùng chung
+  // gte/lte (giờ LOCAL) ở trên, tránh ngày cuối tháng trước lẫn vào tháng sau khi so
+  // với cột DATE (xem giải thích đầy đủ ở cham-cong/page.tsx).
+  const attGte = vnDateOnly(gte);
+  const attLte = vnDateOnly(lte);
 
-  const [users, consultG, consultAgreedG, doctorG, attendanceG, careG] = await Promise.all([
+  const [users, consultG, consultAgreedG, doctorG, attendanceG, careG, monthPayments, revenueCases, debtCases] = await Promise.all([
     prisma.user.findMany({ where: { active: true }, select: { id: true, fullName: true, role: true, avatarUrl: true }, orderBy: [{ role: "asc" }, { fullName: "asc" }] }),
-    prisma.caseRecord.groupBy({ by: ["consultantId"], where: { createdAt: { gte, lte }, consultantId: { not: null } }, _count: { _all: true }, _sum: { totalAmount: true } }),
+    prisma.caseRecord.groupBy({ by: ["consultantId"], where: { createdAt: { gte, lte }, consultantId: { not: null } }, _count: { _all: true } }),
     prisma.caseRecord.groupBy({ by: ["consultantId"], where: { createdAt: { gte, lte }, consultResult: "AGREED", consultantId: { not: null } }, _count: { _all: true } }),
-    prisma.caseRecord.groupBy({ by: ["doctorId"], where: { createdAt: { gte, lte }, doctorId: { not: null } }, _count: { _all: true }, _sum: { totalAmount: true } }),
-    prisma.attendance.groupBy({ by: ["userId"], where: { date: { gte, lte } }, _count: { _all: true } }),
+    prisma.caseRecord.groupBy({ by: ["doctorId"], where: { createdAt: { gte, lte }, doctorId: { not: null } }, _count: { _all: true } }),
+    prisma.attendance.groupBy({ by: ["userId"], where: { date: { gte: attGte, lte: attLte } }, _count: { _all: true } }),
     prisma.careMessage.groupBy({ by: ["createdById"], where: { createdAt: { gte, lte }, createdById: { not: null } }, _count: { _all: true } }),
+    prisma.payment.findMany({
+      where: { paidAt: { gte, lte } },
+      select: { amount: true, paidAt: true, case: { select: { createdAt: true, consultantId: true, doctorId: true } } },
+    }),
+    prisma.caseRecord.findMany({
+      where: { createdAt: { gte, lte } },
+      select: {
+        consultantId: true,
+        doctorId: true,
+        voucherAmount: true,
+        services: { select: { listPrice: true, unitPrice: true, quantity: true, discount: true, finalPrice: true } },
+        payments: { select: { amount: true } },
+      },
+    }),
+    prisma.caseRecord.findMany({
+      where: {},
+      select: {
+        consultantId: true,
+        doctorId: true,
+        voucherAmount: true,
+        services: { select: { listPrice: true, unitPrice: true, quantity: true, discount: true, finalPrice: true } },
+        payments: { select: { amount: true } },
+      },
+    }),
   ]);
 
   const cCount = new Map(consultG.map((g) => [g.consultantId, g._count._all]));
-  const cRev = new Map(consultG.map((g) => [g.consultantId, toNum(g._sum.totalAmount)]));
+  const cRev = new Map<string | null, number>();
+  const dRev = new Map<string | null, number>();
+  for (const c of revenueCases) {
+    const revenue = summarizeCase({ services: c.services, payments: c.payments, voucherAmount: c.voucherAmount }).total;
+    if (c.consultantId) cRev.set(c.consultantId, (cRev.get(c.consultantId) ?? 0) + revenue);
+    if (c.doctorId) dRev.set(c.doctorId, (dRev.get(c.doctorId) ?? 0) + revenue);
+  }
   const cAgreed = new Map(consultAgreedG.map((g) => [g.consultantId, g._count._all]));
   const dCount = new Map(doctorG.map((g) => [g.doctorId, g._count._all]));
-  const dRev = new Map(doctorG.map((g) => [g.doctorId, toNum(g._sum.totalAmount)]));
   const days = new Map(attendanceG.map((g) => [g.userId, g._count._all]));
   const care = new Map(careG.map((g) => [g.createdById, g._count._all]));
+  const debtByConsult = new Map<string, number>();
+  const debtByDoctor = new Map<string, number>();
+  for (const c of debtCases) {
+    const debt = summarizeCase({ services: c.services, payments: c.payments, voucherAmount: c.voucherAmount }).debt;
+    if (c.consultantId) debtByConsult.set(c.consultantId, (debtByConsult.get(c.consultantId) ?? 0) + debt);
+    if (c.doctorId) debtByDoctor.set(c.doctorId, (debtByDoctor.get(c.doctorId) ?? 0) + debt);
+  }
+  const collected = collectionsByStaff(
+    monthPayments.map((p) => ({
+      amount: toNum(p.amount),
+      paidAt: p.paidAt,
+      caseCreatedAt: p.case.createdAt,
+      consultantId: p.case.consultantId,
+      doctorId: p.case.doctorId,
+    })),
+    gte,
+  );
 
   const rows: StaffPerfRow[] = users.map((u) => {
     const consultCases = cCount.get(u.id) ?? 0;
@@ -67,6 +126,9 @@ export async function getStaffPerformance(monthDate: Date) {
       doctorCases: dCount.get(u.id) ?? 0,
       doctorRevenue,
       totalRevenue: consultRevenue + doctorRevenue,
+      collectedConsult: collected.consultants.get(u.id) ?? EMPTY_COLLECTION,
+      collectedDoctor: collected.doctors.get(u.id) ?? EMPTY_COLLECTION,
+      debtOutstanding: (debtByConsult.get(u.id) ?? 0) + (debtByDoctor.get(u.id) ?? 0),
     };
   });
 
@@ -76,17 +138,66 @@ export async function getStaffPerformance(monthDate: Date) {
 export async function getStaffDetail(userId: string, monthDate: Date) {
   const gte = startOfMonth(monthDate);
   const lte = endOfMonth(monthDate);
-  const inc = { customer: { select: { id: true, fullName: true, code: true } } };
+  // Attendance.date là cột @db.Date — mốc riêng, xem giải thích ở getStaffPerformance().
+  const attGte = vnDateOnly(gte);
+  const attLte = vnDateOnly(lte);
+  const inc = {
+    customer: { select: { id: true, fullName: true, code: true } },
+    services: { select: { listPrice: true, unitPrice: true, quantity: true, discount: true, finalPrice: true } },
+  };
 
-  const [user, consultCases, doctorCases, daysWorked, careCount] = await Promise.all([
+  const [user, consultCases, doctorCases, daysWorked, careCount, collectedPayments] = await Promise.all([
     prisma.user.findUnique({ where: { id: userId }, select: { id: true, fullName: true, role: true, code: true, avatarUrl: true } }),
     prisma.caseRecord.findMany({ where: { consultantId: userId, createdAt: { gte, lte } }, include: inc, orderBy: { createdAt: "desc" } }),
     prisma.caseRecord.findMany({ where: { doctorId: userId, createdAt: { gte, lte } }, include: inc, orderBy: { createdAt: "desc" } }),
-    prisma.attendance.count({ where: { userId, date: { gte, lte } } }),
+    prisma.attendance.count({ where: { userId, date: { gte: attGte, lte: attLte } } }),
     prisma.careMessage.count({ where: { createdById: userId, createdAt: { gte, lte } } }),
+    // Từng khoản tiền thật đã về trong tháng từ hồ sơ mình phụ trách (tư vấn hoặc mổ)
+    prisma.payment.findMany({
+      where: { paidAt: { gte, lte }, case: { OR: [{ consultantId: userId }, { doctorId: userId }] } },
+      select: {
+        id: true, amount: true, paidAt: true, method: true,
+        case: {
+          select: {
+            id: true, code: true, createdAt: true, consultantId: true, doctorId: true,
+            customer: { select: { id: true, fullName: true, code: true } },
+          },
+        },
+      },
+      orderBy: { paidAt: "desc" },
+    }),
   ]);
 
-  return { user, consultCases, doctorCases, daysWorked, careCount };
+  const collections = collectedPayments.map((p) => ({
+    id: p.id,
+    amount: toNum(p.amount),
+    paidAt: p.paidAt,
+    method: p.method,
+    caseId: p.case.id,
+    caseCode: p.case.code,
+    customer: p.case.customer,
+    isDebtCollection: p.case.createdAt < gte, // ca tạo trước tháng này → khoản này là thu nợ cũ
+    asConsultant: p.case.consultantId === userId,
+    asDoctor: p.case.doctorId === userId,
+  }));
+  const collectedTotal = collections.reduce((s, c) => s + c.amount, 0);
+  const collectedFromDebt = collections.filter((c) => c.isDebtCollection).reduce((s, c) => s + c.amount, 0);
+  const withCurrentTotals = (cases: typeof consultCases) =>
+    cases.map((c) => ({
+      ...c,
+      totalAmount: summarizeCase({ services: c.services, payments: [], voucherAmount: c.voucherAmount }).total,
+    }));
+
+  return {
+    user,
+    consultCases: withCurrentTotals(consultCases),
+    doctorCases: withCurrentTotals(doctorCases),
+    daysWorked,
+    careCount,
+    collections,
+    collectedTotal,
+    collectedFromDebt,
+  };
 }
 
 // ============================================================================
@@ -106,7 +217,13 @@ export async function getCollaborators(gte: Date, lte: Date): Promise<Collaborat
   const [cases, profiles] = await Promise.all([
     prisma.caseRecord.findMany({
       where: { createdAt: { gte, lte }, customer: { source: "COLLABORATOR" } },
-      select: { totalAmount: true, commissionAmount: true, customerId: true, customer: { select: { sourceDetail: true } } },
+      select: {
+        commissionAmount: true,
+        customerId: true,
+        customer: { select: { sourceDetail: true } },
+        voucherAmount: true,
+        services: { select: { listPrice: true, unitPrice: true, quantity: true, discount: true, finalPrice: true } },
+      },
     }),
     prisma.collaborator.findMany({ where: { active: true }, select: { name: true } }),
   ]);
@@ -116,7 +233,7 @@ export async function getCollaborators(gte: Date, lte: Date): Promise<Collaborat
     const e = map.get(name) ?? { customers: new Set<string>(), cases: 0, revenue: 0, commission: 0 };
     e.customers.add(c.customerId);
     e.cases += 1;
-    e.revenue += toNum(c.totalAmount);
+    e.revenue += summarizeCase({ services: c.services, payments: [], voucherAmount: c.voucherAmount }).total;
     e.commission += toNum(c.commissionAmount);
     map.set(name, e);
   }
@@ -143,14 +260,21 @@ export async function getCollaboratorDetail(name: string, gte: Date, lte: Date) 
     prisma.collaborator.findUnique({ where: { name } }),
     prisma.caseRecord.findMany({
       where: { createdAt: { gte, lte }, customer: { source: "COLLABORATOR", sourceDetail: name } },
-      include: { customer: { select: { id: true, fullName: true, code: true } } },
+      include: {
+        customer: { select: { id: true, fullName: true, code: true } },
+        services: { select: { listPrice: true, unitPrice: true, quantity: true, discount: true, finalPrice: true } },
+      },
       orderBy: { createdAt: "desc" },
     }),
   ]);
   const customers = new Set(cases.map((c) => c.customerId));
-  const revenue = cases.reduce((s, c) => s + toNum(c.totalAmount), 0);
+  const currentCases = cases.map((c) => ({
+    ...c,
+    totalAmount: summarizeCase({ services: c.services, payments: [], voucherAmount: c.voucherAmount }).total,
+  }));
+  const revenue = currentCases.reduce((s, c) => s + toNum(c.totalAmount), 0);
   const commission = cases.reduce((s, c) => s + toNum(c.commissionAmount), 0);
-  return { name, profile, cases, customers: customers.size, revenue, commission };
+  return { name, profile, cases: currentCases, customers: customers.size, revenue, commission };
 }
 
 /**
@@ -165,14 +289,19 @@ export async function getCollaboratorSeries(name?: string): Promise<RangeSeries>
       createdAt: { gte: since },
       customer: name ? { source: "COLLABORATOR", sourceDetail: name } : { source: "COLLABORATOR" },
     },
-    select: { createdAt: true, totalAmount: true },
+    select: {
+      id: true,
+      createdAt: true,
+      voucherAmount: true,
+      services: { select: { listPrice: true, unitPrice: true, quantity: true, discount: true, finalPrice: true } },
+    },
   });
 
   const build = (keys: { key: string; label: string }[], keyOf: (d: Date) => string): TrendPoint[] => {
     const m = new Map(keys.map((k) => [k.key, 0]));
     for (const c of cases) {
       const k = keyOf(c.createdAt);
-      if (m.has(k)) m.set(k, (m.get(k) ?? 0) + toNum(c.totalAmount));
+      if (m.has(k)) m.set(k, (m.get(k) ?? 0) + summarizeCase({ services: c.services, payments: [], voucherAmount: c.voucherAmount }).total);
     }
     return keys.map((k) => ({ label: k.label, value: m.get(k.key) ?? 0 }));
   };
@@ -198,7 +327,7 @@ export async function getCollaboratorSeries(name?: string): Promise<RangeSeries>
   for (const c of cases) {
     if (c.createdAt >= mStart && c.createdAt <= mEnd) {
       const wi = Math.floor((getDate(c.createdAt) - 1) / 7);
-      if (weeksOfMonth[wi]) weeksOfMonth[wi].value += toNum(c.totalAmount);
+      if (weeksOfMonth[wi]) weeksOfMonth[wi].value += summarizeCase({ services: c.services, payments: [], voucherAmount: c.voucherAmount }).total;
     }
   }
 

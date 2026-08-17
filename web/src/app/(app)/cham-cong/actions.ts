@@ -5,7 +5,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { vnDateOnly } from "@/lib/dates";
-import { audit } from "@/lib/audit";
+import { auditRequired } from "@/lib/audit";
 
 export type AttState = { ok?: boolean; error?: string };
 
@@ -13,10 +13,13 @@ export type AttState = { ok?: boolean; error?: string };
 export async function checkIn(): Promise<void> {
   const user = await requireUser();
   const date = vnDateOnly();
-  await prisma.attendance.upsert({
-    where: { userId_date: { userId: user.id, date } },
-    create: { userId: user.id, date, checkInAt: new Date() },
-    update: {},
+  await prisma.$transaction(async (tx) => {
+    await tx.attendance.upsert({
+      where: { userId_date: { userId: user.id, date } },
+      create: { userId: user.id, date, checkInAt: new Date() },
+      update: {},
+    });
+    await auditRequired(tx, user.id, "CHECK_IN", { entity: "Attendance", meta: { date: date.toISOString() } });
   });
   revalidatePath("/cham-cong");
   revalidatePath("/dashboard");
@@ -26,16 +29,26 @@ export async function checkIn(): Promise<void> {
 export async function checkOut(): Promise<void> {
   const user = await requireUser();
   const date = vnDateOnly();
-  const a = await prisma.attendance.findUnique({ where: { userId_date: { userId: user.id, date } } });
-  if (a) await prisma.attendance.update({ where: { id: a.id }, data: { checkOutAt: new Date() } });
+  await prisma.$transaction(async (tx) => {
+    const a = await tx.attendance.findUnique({ where: { userId_date: { userId: user.id, date } } });
+    if (a) {
+      await tx.attendance.update({ where: { id: a.id }, data: { checkOutAt: new Date() } });
+      await auditRequired(tx, user.id, "CHECK_OUT", { entity: "Attendance", entityId: a.id, meta: { date: date.toISOString() } });
+    }
+  });
   revalidatePath("/cham-cong");
 }
 
 /** Quản trị xóa một bản ghi chấm công (sửa sai). */
 export async function deleteAttendance(formData: FormData): Promise<void> {
-  await requireUser(["ADMIN", "MANAGER"]);
+  const user = await requireUser(["ADMIN", "MANAGER"]);
   const id = String(formData.get("id") ?? "");
-  if (id) await prisma.attendance.delete({ where: { id } }).catch(() => {});
+  if (id) {
+    await prisma.$transaction(async (tx) => {
+      const deleted = await tx.attendance.deleteMany({ where: { id } });
+      if (deleted.count > 0) await auditRequired(tx, user.id, "DELETE_ATTENDANCE", { entity: "Attendance", entityId: id });
+    });
+  }
   revalidatePath("/cham-cong");
 }
 
@@ -85,11 +98,13 @@ export async function upsertAttendance(_prev: AttState, formData: FormData): Pro
   const target = await prisma.user.findUnique({ where: { id: d.userId }, select: { id: true } });
   if (!target) return { error: "Không tìm thấy nhân viên." };
 
-  await prisma.attendance.upsert({
-    where: { userId_date: { userId: d.userId, date } },
-    create: { userId: d.userId, date, checkInAt, checkOutAt, note: d.note || null },
-    update: { checkInAt, checkOutAt, note: d.note || null },
+  await prisma.$transaction(async (tx) => {
+    const attendance = await tx.attendance.upsert({
+      where: { userId_date: { userId: d.userId, date } },
+      create: { userId: d.userId, date, checkInAt, checkOutAt, note: d.note || null },
+      update: { checkInAt, checkOutAt, note: d.note || null },
+    });
+    await auditRequired(tx, me.id, "EDIT_ATTENDANCE", { entity: "Attendance", entityId: attendance.id, meta: { userId: d.userId, date: d.date } });
   });
-  await audit(me.id, "EDIT_ATTENDANCE", { entity: "Attendance", meta: { userId: d.userId, date: d.date } });
   return { ok: true };
 }

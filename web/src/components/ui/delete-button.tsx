@@ -47,7 +47,7 @@ export function DeleteButton({
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={(e) => { e.stopPropagation(); setOpen(true); }}
         aria-label={label || "Xóa"}
         className={
           className ??

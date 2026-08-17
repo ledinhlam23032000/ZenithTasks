@@ -9,6 +9,8 @@ import { isManagerial, ROLE_LABELS } from "@/lib/rbac";
 import { vnDateOnly } from "@/lib/dates";
 import { fmtTime } from "@/lib/format";
 import { PageHeader } from "@/components/ui/page-header";
+import { PageTabs } from "@/components/ui/page-tabs";
+import { attendanceTabs } from "@/lib/nav-tabs";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { StatCard } from "@/components/ui/stat-card";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +18,7 @@ import { Table, THead, TH, TR, TD } from "@/components/ui/table";
 import { Avatar } from "@/components/ui/avatar";
 import { EmptyState } from "@/components/ui/empty-state";
 import { DeleteButton } from "@/components/ui/delete-button";
+import { ExportMenu } from "@/components/ui/export-menu";
 import { CheckInWidget } from "./check-in-widget";
 import { deleteAttendance } from "./actions";
 import {
@@ -47,11 +50,22 @@ export default async function ChamCongPage({
 }) {
   const user = await requireCap("mod:cham-cong");
   const sp = await searchParams;
-  const parsed = sp.m ? new Date(`${sp.m}-01T00:00:00`) : new Date();
-  const monthDate = Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+  // Mặc định lấy "tháng hiện tại" theo giờ VN qua vnDateOnly() — KHÔNG dùng
+  // new Date() trực tiếp: hàm này tự chốt đúng ngày VN theo giờ tuyệt đối
+  // (UTC+7) bất kể máy chủ có đang đặt đúng TZ Asia/Ho_Chi_Minh hay không,
+  // tránh trang hiện nhầm sang tháng kế tiếp khi múi giờ máy chủ bị lệch.
+  const parsed = sp.m ? new Date(`${sp.m}-01T00:00:00`) : vnDateOnly();
+  const monthDate = Number.isNaN(parsed.getTime()) ? vnDateOnly() : parsed;
   const monthValue = format(monthDate, "yyyy-MM");
-  const gte = startOfMonth(monthDate);
-  const lte = endOfMonth(monthDate);
+  // QUAN TRỌNG: gte/lte so với cột Attendance.date (@db.Date) — startOfMonth/endOfMonth
+  // tính theo giờ LOCAL của máy chủ rồi quy ra tuyệt đối; với giờ VN (UTC+7), "đầu
+  // tháng 8 giờ VN" = 17h ngày 31/7 (UTC). Khi so với cột DATE, Postgres/Prisma cắt
+  // tham số về đúng NGÀY theo giờ UTC của phiên (không phụ thuộc code), biến mốc trên
+  // thành "31/7" — vô tình khớp luôn ngày cuối tháng trước vào tháng sau (đã xác nhận
+  // thực tế: chấm công 31/7 hiện lẫn trong danh sách tháng 8). Bọc lại bằng vnDateOnly()
+  // để chốt đúng mốc UTC-midnight theo lịch VN, tránh hẳn kiểu cắt lệch này.
+  const gte = vnDateOnly(startOfMonth(monthDate));
+  const lte = vnDateOnly(endOfMonth(monthDate));
   const today = vnDateOnly();
   const managerial = isManagerial(user.role);
 
@@ -132,10 +146,19 @@ export default async function ChamCongPage({
                 Xem
               </button>
             </form>
+            {managerial && (
+              <ExportMenu
+                excelHref={`/cham-cong/export?format=xlsx&m=${monthValue}`}
+                wordHref={`/cham-cong/export?format=doc&m=${monthValue}`}
+                csvHref={`/cham-cong/export?format=csv&m=${monthValue}`}
+              />
+            )}
             {managerial && <AddAttendanceButton staff={staffList} />}
           </div>
         }
       />
+
+      <PageTabs tabs={attendanceTabs(user)} />
 
       <div className="grid gap-4 sm:grid-cols-2">
         <CheckInWidget

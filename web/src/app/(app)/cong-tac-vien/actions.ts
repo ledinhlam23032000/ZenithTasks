@@ -51,9 +51,24 @@ export async function updateCollaborator(_prev: CtvState, formData: FormData): P
   const d = parsed.data;
   const dup = await prisma.collaborator.findFirst({ where: { name: d.name, NOT: { id } }, select: { id: true } });
   if (dup) return { error: "Tên cộng tác viên đã tồn tại." };
-  await prisma.collaborator
-    .update({ where: { id }, data: { name: d.name, phone: d.phone || null, bankAccount: d.bankAccount || null, bankName: d.bankName || null, bankHolder: d.bankHolder || null, note: d.note || null } })
-    .catch(() => {});
+
+  const current = await prisma.collaborator.findUnique({ where: { id }, select: { name: true } });
+  if (!current) return { error: "Không tìm thấy cộng tác viên." };
+
+  // Đổi tên CTV: phải cập nhật luôn "Chi tiết nguồn" của các khách đã gắn CTV này
+  // (hiệu suất CTV được gộp theo TÊN) — làm trong 1 giao dịch để không lệch dữ liệu.
+  await prisma.$transaction(async (tx) => {
+    if (current.name !== d.name) {
+      await tx.customer.updateMany({
+        where: { source: "COLLABORATOR", sourceDetail: current.name },
+        data: { sourceDetail: d.name },
+      });
+    }
+    await tx.collaborator.update({
+      where: { id },
+      data: { name: d.name, phone: d.phone || null, bankAccount: d.bankAccount || null, bankName: d.bankName || null, bankHolder: d.bankHolder || null, note: d.note || null },
+    });
+  });
   return { ok: true };
 }
 

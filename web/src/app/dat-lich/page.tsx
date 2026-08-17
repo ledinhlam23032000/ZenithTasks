@@ -8,10 +8,12 @@ export const metadata = { title: "Đặt lịch hẹn" };
 export default async function PublicBookingPage() {
   const services = await getActiveServices();
   // Mặc định: 9h sáng ngày mai
-  const tomorrow = new Date();
+  const now = new Date();
+  const tomorrow = new Date(now);
   tomorrow.setDate(tomorrow.getDate() + 1);
   tomorrow.setHours(9, 0, 0, 0);
   const def = toDatetimeLocal(tomorrow);
+  const today = toDatetimeLocal(now).slice(0, 10);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-brand-50/60 to-slate-50 px-4 py-10">
@@ -24,7 +26,7 @@ export default async function PublicBookingPage() {
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-7">
           <h1 className="mb-1 text-lg font-semibold text-slate-900">Đặt lịch hẹn</h1>
           <p className="mb-5 text-sm text-slate-500">Để lại thông tin, trung tâm sẽ liên hệ xác nhận lịch cho Quý khách.</p>
-          <BookingForm services={services.map((s) => ({ id: s.id, name: s.name }))} defaultDateTime={def} />
+          <BookingForm services={services.map((s) => ({ id: s.id, name: s.name }))} defaultDateTime={def} minDate={today} />
         </div>
 
         <p className="mt-4 text-center text-xs text-slate-400">Hỗ trợ: 0941 567 496</p>

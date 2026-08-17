@@ -9,18 +9,13 @@ if not exist "%SCRIPT%" (
   exit /b 1
 )
 
->"%TEMP%\zenith-admin-check.txt" 2>&1 reg query "HKU\S-1-5-19"
-if %errorlevel% NEQ 0 (
-  echo Xin quyen Quan tri - bam YES o cua so sap hien ra...
-  powershell -NoProfile -Command "Start-Process -FilePath '%~f0' -Verb RunAs"
-  exit /b
-)
-
 powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT%"
-if errorlevel 1 (
+set "EXIT_CODE=%errorlevel%"
+if not "%EXIT_CODE%"=="0" (
   echo.
   echo Cap nhat hoac khoi dong that bai. Xem loi o phia tren.
 )
 echo.
 echo Co the dong cua so nay. Ung dung van chay trong Docker.
 pause
+exit /b %EXIT_CODE%
