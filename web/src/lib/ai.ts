@@ -161,12 +161,42 @@ async function callOpenAiStructured<T>(cfg: AiConfig, opts: { system: string; pr
   });
   if (!res.ok) {
     const body = await res.text().catch(() => "");
+    // Một số OpenAI-compatible provider (đặc biệt model giá rẻ/self-hosted)
+    // không hỗ trợ response_format dù vẫn hỗ trợ trả JSON trong prompt.
+    if (res.status === 400 && /response_format|json_schema|structured|unavailable|invalid_request/i.test(body)) {
+      return callOpenAiJsonFallback<T>(cfg, opts, maxTokens);
+    }
     return { ok: false, error: res.status === 401 || res.status === 403 ? "API key AI không hợp lệ." : `Lỗi dịch vụ AI (${res.status}). ${body.slice(0, 160)}` };
   }
   const data = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
-  const text = (data.choices?.[0]?.message?.content ?? "").trim();
+  return parseStructuredText<T>((data.choices?.[0]?.message?.content ?? "").trim());
+}
+
+async function callOpenAiJsonFallback<T>(cfg: AiConfig, opts: { system: string; prompt: string; schemaName: string; schema: JsonSchema }, maxTokens: number): Promise<StructuredAiResult<T>> {
+  const res = await fetch(`${cfg.baseUrl}/chat/completions`, {
+    method: "POST",
+    headers: { authorization: `Bearer ${cfg.apiKey}`, "content-type": "application/json" },
+    body: JSON.stringify({
+      model: cfg.model,
+      max_tokens: maxTokens,
+      messages: [
+        { role: "system", content: `${opts.system} Return ONLY valid JSON, no markdown fences. The JSON must follow this schema: ${JSON.stringify(opts.schema)}` },
+        { role: "user", content: opts.prompt },
+      ],
+    }),
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    return { ok: false, error: res.status === 401 || res.status === 403 ? "API key AI không hợp lệ." : `Lỗi dịch vụ AI (${res.status}). ${body.slice(0, 160)}` };
+  }
+  const data = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
+  return parseStructuredText<T>((data.choices?.[0]?.message?.content ?? "").trim());
+}
+
+function parseStructuredText<T>(text: string): StructuredAiResult<T> {
   try {
-    return text ? { ok: true, data: JSON.parse(text) as T } : { ok: false, error: "AI không trả về kế hoạch hợp lệ." };
+    const clean = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+    return clean ? { ok: true, data: JSON.parse(clean) as T } : { ok: false, error: "AI không trả về kế hoạch hợp lệ." };
   } catch {
     return { ok: false, error: "AI trả về dữ liệu không đúng định dạng." };
   }
@@ -194,12 +224,7 @@ async function callAnthropicStructured<T>(cfg: AiConfig, opts: { system: string;
   }
   const data = (await res.json()) as { content?: Array<{ type: string; text?: string }> };
   const text = (data.content ?? []).filter((b) => b.type === "text" && b.text).map((b) => b.text as string).join("\\n").trim();
-  try {
-    const clean = text.replace(/^```(?:json)?\\s*/i, "").replace(/\\s*```$/i, "").trim();
-    return clean ? { ok: true, data: JSON.parse(clean) as T } : { ok: false, error: "AI không trả về kế hoạch hợp lệ." };
-  } catch {
-    return { ok: false, error: "AI trả về dữ liệu không đúng định dạng." };
-  }
+  return parseStructuredText<T>(text);
 }
 
 // ----- Chuẩn OpenAI (DeepSeek / Qwen / Gemini / OpenAI / Groq / tự host...) -----
