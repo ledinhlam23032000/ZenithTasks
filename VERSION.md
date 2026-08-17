@@ -1,9 +1,9 @@
 # ZenithTasks — Trạng thái phiên bản hiện tại
 
-> **Phiên bản nội bộ:** `2026.08.17-r2`  
-> **Commit chuẩn hiện tại:** [`e993fc5`](https://github.com/ledinhlam23032000/ZenithTasks/commit/e993fc5)<br>
-> **Ngày cập nhật:** 17/08/2026  
-> **Trạng thái:** Sẵn sàng build production; cần chạy migration khi cập nhật máy vận hành.
+> **Phiên bản nội bộ:** `2026.08.18-r1`<br>
+> **Commit chuẩn nội dung:** [`31f7211`](https://github.com/ledinhlam23032000/ZenithTasks/commit/31f7211)<br>
+> **Ngày cập nhật:** 18/08/2026<br>
+> **Trạng thái:** Đã build/test production; cần backup và chạy migration khi cập nhật máy vận hành.
 
 ## Quy tắc đọc tài liệu
 
@@ -24,10 +24,10 @@
 | Phân bổ doanh thu | `web/src/lib/revenue-attribution.ts`; một nhân sự kiêm hai vai trò không bị đếm đôi; hồ sơ phối hợp có thể chia tỷ lệ đủ 100% tại tab `Phối hợp DS`. |
 | Hộp thư đa kênh | Facebook Messenger và Zalo OA qua webhook; hiển thị Page/OA, hội thoại, ảnh/tệp, trả lời, mẫu trả lời nhanh, phân công, trạng thái và SLA. |
 | Thông báo | Web Push cho thiết bị đã bật thông báo; webhook tin đến cập nhật hội thoại và gửi thông báo nền. |
-| Trợ lý AI | Đọc dữ liệu, xuất bảng, ưu tiên khách, cảnh báo tài chính, chuẩn bị sửa lương, ghi nhận thanh toán, tạo follow-up và tạo lịch hẹn; thao tác ghi cần bản xem trước và xác nhận. Có fallback khi provider không hỗ trợ JSON Schema. |
+| Trợ lý AI | Đọc dữ liệu, xuất bảng, ưu tiên khách, cảnh báo tài chính, chuẩn bị sửa lương, ghi nhận thanh toán, tạo follow-up và tạo lịch hẹn; có upload/đọc TXT, CSV, JSON, Word, Excel, PDF, feedback correction và nhập giọng nói; thao tác ghi cần bản xem trước và xác nhận. |
 | Dashboard và phân tích | Trung tâm điều hành hôm nay, tin chưa đọc, cảnh báo tài chính, phễu, RFM, nguy cơ rời bỏ, LTV và ROI marketing. |
 | Kho và vận hành | Giá vốn, tồn kho, BOM vật tư, nhập nhiều dòng, cảnh báo hạn dùng, việc hôm nay, đầu ca lễ tân và sao lưu tự động. |
-| Bảo mật và audit | Phân quyền theo module/hành động, audit thao tác nhạy cảm, mã hóa số điện thoại, bảo vệ ảnh bằng phiên hoặc vé ký, CSP và backup status. |
+| Bảo mật và audit | Phân quyền theo module/hành động, audit thao tác nhạy cảm, mã hóa số điện thoại, bảo vệ ảnh bằng phiên hoặc vé ký, CSP và backup status; chứng từ tiền/lương chỉ ADMIN ghi sổ, sổ tư vấn khóa sửa sau 24 giờ, thỏa thuận nhân sự lưu version/snapshot. |
 
 ## Các migration gần đây cần biết
 
@@ -37,12 +37,13 @@
 | `20260817140000_assistant_approvals` | Lưu bản xem trước và trạng thái xác nhận thao tác của AI. |
 | `20260817160000_case_revenue_allocations` | Lưu phân bổ doanh thu theo hồ sơ, người, vai trò và tỷ lệ. |
 | `20260817170000_conversation_workflow` | Lưu trạng thái hội thoại, người phụ trách, thời điểm tin đến và hạn SLA. |
+| `20260818100000_finance_consultation_hr_ai` | Thêm hoa hồng điều chỉnh riêng, chứng từ thanh toán, sổ tư vấn điện tử, thỏa thuận nhân sự, file/feedback AI. |
 
 Migration là **bổ sung dữ liệu, không được tự xóa hoặc reset database**. Khi triển khai production phải dùng `prisma migrate deploy`, không dùng `prisma db push`.
 
 ## Kiểm tra chất lượng gần nhất
 
-Commit chuẩn đã được kiểm tra bằng Prisma generate, TypeScript, Vitest và Next production build. Lần kiểm tra cuối có **44 file test và 296/296 test đạt**. Khi sửa nghiệp vụ tiền, lương, công nợ, phân quyền hoặc webhook, phải bổ sung test hồi quy trước khi commit.
+Commit chuẩn đã được kiểm tra bằng Prisma generate, TypeScript, Vitest và Next production build. Lần kiểm tra cuối có **45 file test và 296/296 test đạt**, TypeScript, Prisma validate và Next production build đạt. Khi sửa nghiệp vụ tiền, lương, công nợ, phân quyền hoặc webhook, phải bổ sung test hồi quy trước khi commit.
 
 ## Quy trình cập nhật máy vận hành
 

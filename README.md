@@ -1,15 +1,16 @@
 # Ứng dụng quản trị — Trung tâm Phẫu thuật Tạo hình Thẩm mỹ (BVĐK Hồng Phúc)
 
-> **Phiên bản chuẩn hiện tại:** [`2026.08.17-r2`](VERSION.md) · **Commit:** [`e993fc5`](https://github.com/ledinhlam23032000/ZenithTasks/commit/e993fc5) · **Ngày:** 17/08/2026<br>
+> **Phiên bản chuẩn hiện tại:** [`2026.08.18-r1`](VERSION.md) · **Commit nội dung:** [`31f7211`](https://github.com/ledinhlam23032000/ZenithTasks/commit/31f7211) · **Ngày:** 18/08/2026<br>
 > Muốn biết bản mới nhất có gì, đọc [`VERSION.md`](VERSION.md). Muốn xem lịch sử thay đổi, đọc [`CHANGELOG.md`](CHANGELOG.md).
 
 Ứng dụng web **nội bộ** quản lý phòng khám thẩm mỹ: tiếp nhận khách, lịch hẹn, hồ sơ điều trị
-(dịch vụ · vật tư · thanh toán · ảnh trước/sau/tái khám/cận lâm sàng), chăm sóc khách, báo cáo
-doanh thu & lãi/lỗ, nhân sự, chấm công, lương/hoa hồng, kho, sổ thu chi, cộng tác viên, hiệu suất.
+(dịch vụ · vật tư · thanh toán · ảnh trước/sau/tái khám/cận lâm sàng), sổ tư vấn điện tử, chăm sóc khách, báo cáo
+doanh thu & lãi/lỗ, nhân sự, thỏa thuận bảo mật/không cạnh tranh, chấm công, lương/hoa hồng, chứng từ thanh toán, kho, sổ thu chi, cộng tác viên, hiệu suất.
+
 Có **cổng khách hàng** (link riêng) và **đặt lịch online**.
 
 > Toàn bộ ứng dụng nằm trong thư mục **`web/`**. Stack: Next.js 16 + React 19 + TypeScript +
-> Tailwind v4 + PostgreSQL/Prisma 7, chạy bằng Docker.
+> Tailwind v4 + PostgreSQL/Prisma 7, chạy bằng Docker. Trợ lý AI hỗ trợ upload/đọc file, feedback và nhập giọng nói có kiểm duyệt.
 
 ---
 

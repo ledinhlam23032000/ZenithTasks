@@ -38,6 +38,8 @@ phần "Đánh giá" trong lịch sử hội thoại + `web/DU-AN.md`.
 | B5 | **Kho theo chuẩn y tế** | ✅ Xong | ✅ Giá vốn bình quân + giá trị tồn kho + COGS (Đợt 4). ✅ Cảnh báo FEFO/hạn dùng (B1). ✅ Định mức vật tư theo dịch vụ (BOM) + nút tự trừ kho (Đợt 6). ✅ Phiếu nhập kho nhiều dòng (Đợt 10). |
 | B6 | **Hồ sơ y khoa chuẩn** | ✅ Xong | ✅ Tiền sử/dị ứng/chống chỉ định + cảnh báo an toàn (Đợt 8). ✅ Phiếu đồng ý (consent) + mẫu phiếu + ghi nhận trên hồ sơ + in cho khách ký (Đợt 11). |
 | B7 | **Khách tham khảo (leads)** | ✅ Xong | Khách từ nguồn giới thiệu tới tham khảo, chưa hẹn/chưa đến → trang `/khach-tham-khao`: theo dõi phễu (mới/đã liên hệ/đã chuyển/tỉ lệ chuyển đổi) + chuyển 1 bấm thành khách hàng (Đợt 16). |
+| B8 | **Chứng từ thanh toán & lương thực thu** | ✅ Code + test | Hoa hồng theo từng Payment thực thu, tách `commissionOverride`; `/ke-toan/de-nghi-thanh-toan` lập/duyệt/in/ghi sổ chứng từ và liên kết chi lương/CTV. Còn smoke test trên máy phòng khám sau backup/migration. |
+| B9 | **Sổ tư vấn điện tử & hồ sơ thỏa thuận HR** | ✅ Code + test | Sổ tư vấn có 18 câu sàng lọc, chỉnh sửa 24 giờ, ADMIN sửa muộn có audit và in; hồ sơ bảo mật/không cạnh tranh có version/snapshot/trạng thái ký/thời hạn. Cần rà soát pháp lý mẫu trước khi ký thật. |
 
 ## NHÓM C — PHÂN TÍCH & RA QUYẾT ĐỊNH (BI)
 
@@ -52,11 +54,12 @@ phần "Đánh giá" trong lịch sử hội thoại + `web/DU-AN.md`.
 
 | Mã | Hạng mục | Trạng thái | Ghi chú |
 |----|----------|-----------|---------|
-| D1 | **AI trợ lý vận hành** | ✅ Agent có tool + approval | ✅ AI soạn tin và hỏi đáp; ✅ Agent `/tro-ly` đọc dữ liệu thật qua tool whitelist; ✅ đọc lương/công nợ, xuất file, ưu tiên khách, cảnh báo tài chính; ✅ chuẩn bị sửa lương, ghi nhận thanh toán, tạo follow-up và lịch hẹn; ✅ mọi thao tác ghi cần bản xem trước và ADMIN xác nhận; ✅ fallback khi provider không hỗ trợ JSON Schema. ⏳ Còn: mở thêm tool theo nghiệp vụ và tóm tắt hồ sơ/upsell có kiểm soát. 🔑 Cần `AI_API_KEY`. |
+| D1 | **AI trợ lý vận hành** | ✅ Agent có tool + approval + đọc file | ✅ Agent `/tro-ly` đọc dữ liệu thật qua whitelist; ✅ đọc lương/công nợ, xuất file, ưu tiên khách, cảnh báo tài chính; ✅ preview + ADMIN xác nhận cho thao tác ghi; ✅ upload/trích xuất TXT, CSV, JSON, Word, Excel, PDF; ✅ lưu feedback correction; ✅ nhập giọng nói trên trình duyệt; ✅ fallback JSON. ⏳ Còn: thêm tool nghiệp vụ theo nhu cầu, OCR ảnh và tóm tắt hồ sơ/upsell có kiểm soát. 🔑 Cần `AI_API_KEY`. |
 | D2 | **So sánh ảnh trước/sau (slider)** | ✅ Xong | Kéo so sánh (clip-path), chọn ảnh trái/phải bất kỳ. Chưa làm: đóng dấu ngày/logo, xuất ảnh ghép. |
 | D3 | **Cổng khách hàng nâng cao** | ✅ Xong | ✅ Khách tự xác nhận/đổi lịch (Đợt 12). ✅ Đánh giá NPS từ cổng khách + thẻ NPS ở Phân tích; ✅ link cổng khách có hạn 90 ngày + thu hồi (Đợt 18). |
 | D4 | **Tìm kiếm toàn cục (Ctrl/Cmd+K)** | ✅ Xong | Command palette tìm khách/hồ sơ/vật tư/**kế hoạch** (Đợt 29) + điều hướng menu. |
 | D5 | **Màn "đầu ca lễ tân"** | ✅ Xong | Gộp khách chưa đến + đang chờ + việc tồn đọng (link `/viec-hom-nay`). |
+| D6 | **AI đọc file, feedback và giọng nói** | ✅ Code + test | File được lưu tối đa 30 ngày, trích xuất nội dung bằng thư viện server-side, feedback được audit theo tài khoản; giọng nói chỉ điền vào ô nhập và không tự gửi nếu anh chưa bấm gửi. |
 
 ## NHÓM E — CHẤT LƯỢNG MÃ NGUỒN
 

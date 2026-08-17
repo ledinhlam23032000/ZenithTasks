@@ -2,6 +2,36 @@
 
 Tài liệu này ghi các thay đổi đã được đẩy lên nhánh `master`. Commit mới hơn nằm ở phía trên. Phiên bản mô tả đầy đủ hiện tại nằm trong [`VERSION.md`](VERSION.md).
 
+## 2026-08-18 — `2026.08.18-r1`
+
+Commit chuẩn nội dung: [`31f7211`](https://github.com/ledinhlam23032000/ZenithTasks/commit/31f7211).
+
+### Tài chính, lương và chứng từ
+
+- Chuyển hoa hồng tự động sang căn cứ tiền khách thực tế đã thanh toán theo từng Payment; khách trả góp đến đâu tính đến đó.
+- Tách `commissionOverride` khỏi hoa hồng tự động để không cộng đôi khi kế toán điều chỉnh thủ công.
+- Thêm giấy đề nghị thanh toán tại `/ke-toan/de-nghi-thanh-toan`: tạo phiếu, ADMIN duyệt/từ chối, ghi sổ PAID, in Word/HTML và liên kết CashTransaction.
+- Luồng chi lương và hoa hồng cộng tác viên tự tạo chứng từ PAID liên kết với phiếu lương/CTV; hoàn tác sẽ hủy liên kết phù hợp.
+
+### Sổ tư vấn và hồ sơ nhân sự
+
+- Thêm sổ tư vấn điện tử gồm hành chính bổ sung, sinh hiệu, 18 câu sàng lọc, nút đánh dấu nhanh, mong muốn, hiện trạng, kết quả dự tính, chỉ định và xác nhận khách.
+- Thêm giới hạn sửa sổ tư vấn trong 24 giờ; sửa sau hạn chỉ ADMIN và bắt buộc audit; có route in sổ tư vấn.
+- Thêm hồ sơ thỏa thuận bảo mật và không cạnh tranh/không lôi kéo với version, snapshot nội dung, trạng thái nháp/đã ký/thu hồi, thời hạn và route in.
+
+### AI quản trị
+
+- Cho phép upload và trích xuất nội dung TXT, CSV, JSON, Word, Excel, PDF; file tối đa 15MB và tự hết hạn sau 30 ngày.
+- Thêm feedback đúng/cần sửa để lưu thành bộ nhớ phản hồi theo tài khoản; thêm nhập câu hỏi bằng giọng nói trên trình duyệt.
+- Giữ nguyên whitelist tool, preview và ADMIN approval; AI không tự sửa code production, tiền, lương hoặc hồ sơ y tế.
+
+### Kiểm tra
+
+- 45 file test, 296/296 test đạt.
+- Prisma validate, TypeScript và Next.js production build đạt.
+- Đã lưu checkpoint bộ nhớ nhiệm vụ dài trong `.task-memory/` và biên bản tại `UPGRADE-HANDOFF-2026-08.md`.
+- Chưa chạy migration trên máy phòng khám; cần backup trước khi triển khai.
+
 ## 2026-08-17 — `2026.08.17-r2`
 
 ### Tài chính, lương và doanh thu
