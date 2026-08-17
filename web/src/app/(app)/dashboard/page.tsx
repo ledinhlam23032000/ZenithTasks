@@ -9,6 +9,7 @@ import {
   UserPlus,
   MessageCircleHeart,
   MessageCircle,
+  AlertTriangle,
   ArrowRight,
   BarChart3,
   ListTodo,
@@ -146,6 +147,8 @@ export default async function DashboardPage() {
           />
         </Link>
       </div>
+
+      {d.financialIssuesCount > 0 && <Card className="border-amber-200 bg-amber-50/40"><CardHeader><CardTitle className="flex items-center gap-2 text-amber-900"><AlertTriangle className="h-4 w-4 text-amber-600" /> Cảnh báo tài chính ({d.financialIssuesCount})</CardTitle></CardHeader><CardContent className="pt-0"><ul className="space-y-2">{d.financialIssues.slice(0, 5).map((issue) => <li key={`${issue.caseId}-${issue.anomaly}`} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-100 bg-white/70 px-3 py-2 text-sm"><span><b>{issue.caseCode}</b> · {issue.customerName}<span className="ml-1 text-xs text-amber-700">{issue.message}</span></span><Link href={`/ho-so/${issue.caseId}`} className="text-xs font-semibold text-brand-700 hover:underline">Mở hồ sơ</Link></li>)}</ul></CardContent></Card>}
 
       {/* Biểu đồ: doanh thu 6 tháng + cơ cấu lịch hôm nay */}
       <div className="grid gap-6 lg:grid-cols-5">

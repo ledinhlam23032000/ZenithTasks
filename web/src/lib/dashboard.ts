@@ -14,6 +14,7 @@ import { prisma } from "@/lib/db";
 import { toNum } from "@/lib/money";
 import { summarizeCase } from "@/lib/financial-summary";
 import { todayRange, monthRange, lastMonthRange, growthPct } from "@/lib/dates";
+import { getFinancialHealthIssues } from "@/lib/financial-health-db";
 
 export type AdminDashboard = Awaited<ReturnType<typeof getAdminDashboard>>;
 
@@ -157,6 +158,7 @@ export async function getAdminDashboard() {
     month: buildSeries(12, addMonths, startOfMonth, "MM/yy"),
     year: buildSeries(5, addYears, startOfYear, "yyyy"),
   };
+  const financialIssues = await getFinancialHealthIssues();
 
   return {
     today: {
@@ -185,6 +187,8 @@ export async function getAdminDashboard() {
     recentCare,
     todaySchedule,
     unreadConversations: unreadConversations._sum.unreadCount ?? 0,
+    financialIssuesCount: financialIssues.length,
+    financialIssues: financialIssues.slice(0, 8),
     revenueSeries,
   };
 }
