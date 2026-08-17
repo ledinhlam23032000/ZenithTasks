@@ -5,6 +5,8 @@
 > phiên trước. Lịch sử thay đổi chi tiết theo từng đợt nằm ở `DU-AN.md`. Lưu ý Next.js: đọc `AGENTS.md`.
 >
 > Khi bạn (Claude) thêm tính năng/đổi quy ước, hãy CẬP NHẬT file này cho khớp.
+>
+> **Phiên bản hiện tại:** trước khi làm việc, đọc [`../VERSION.md`](../VERSION.md) và [`../CHANGELOG.md`](../CHANGELOG.md). Commit chuẩn hiện tại, các migration gần đây, Agent AI và workflow hộp thư được mô tả ở đó. Không dùng các mô tả cũ bên dưới nếu `VERSION.md` đã cập nhật khác.
 
 ---
 

@@ -1,5 +1,8 @@
 # Ứng dụng quản trị — Trung tâm Phẫu thuật Tạo hình Thẩm mỹ (BVĐK Hồng Phúc)
 
+> **Phiên bản chuẩn hiện tại:** [`2026.08.17-r2`](VERSION.md) · **Commit:** [`5c67b0c`](https://github.com/ledinhlam23032000/ZenithTasks/commit/5c67b0c) · **Ngày:** 17/08/2026<br>
+> Muốn biết bản mới nhất có gì, đọc [`VERSION.md`](VERSION.md). Muốn xem lịch sử thay đổi, đọc [`CHANGELOG.md`](CHANGELOG.md).
+
 Ứng dụng web **nội bộ** quản lý phòng khám thẩm mỹ: tiếp nhận khách, lịch hẹn, hồ sơ điều trị
 (dịch vụ · vật tư · thanh toán · ảnh trước/sau/tái khám/cận lâm sàng), chăm sóc khách, báo cáo
 doanh thu & lãi/lỗ, nhân sự, chấm công, lương/hoa hồng, kho, sổ thu chi, cộng tác viên, hiệu suất.
@@ -14,14 +17,21 @@ Có **cổng khách hàng** (link riêng) và **đặt lịch online**.
 
 | File | Nội dung |
 |------|----------|
-| **[`web/BAN-GIAO.md`](web/BAN-GIAO.md)** | **BẮT ĐẦU TỪ ĐÂY.** Bàn giao kỹ thuật đầy đủ, tự chứa: kiến trúc, mô hình dữ liệu, phân quyền, logic nghiệp vụ, quy ước phát triển bắt buộc, bảo mật, cách chạy/kiểm thử, cạm bẫy đã gặp. Đọc file này là làm việc được ngay. |
+| **[`VERSION.md`](VERSION.md)** | **ĐỌC ĐẦU TIÊN.** Phiên bản chuẩn, commit hiện tại, tính năng đã có, migration gần đây, kiểm tra chất lượng và giới hạn còn lại. |
+| **[`CHANGELOG.md`](CHANGELOG.md)** | Lịch sử các nâng cấp gần đây theo commit và nhóm chức năng. |
+| **[`web/BAN-GIAO.md`](web/BAN-GIAO.md)** | **BẮT ĐẦU KỸ THUẬT TỪ ĐÂY.** Kiến trúc, mô hình dữ liệu, phân quyền, logic nghiệp vụ, quy ước phát triển, bảo mật, cách chạy/kiểm thử và cạm bẫy đã gặp. |
 | **[`ROADMAP.md`](ROADMAP.md)** | **MUỐN LÀM TIẾP? ĐỌC ĐÂY.** Bảng theo dõi tiến độ A→E (✅ xong / ⏳ chưa / 🔑 cần khoá-tài khoản) + chi tiết từng đợt + việc còn lại + việc của chủ. Đây là nơi biết "nên làm gì tiếp theo". |
 | [`web/DU-AN.md`](web/DU-AN.md) | Nhật ký thay đổi chi tiết theo từng đợt (lịch sử + lý do từng quyết định). |
 | [`web/AGENTS.md`](web/AGENTS.md) | Lưu ý: Next.js 16 khác bản cũ — đọc docs trong `node_modules/next/dist/docs/` trước khi viết. |
 | [`web/DEPLOY.md`](web/DEPLOY.md) | Hướng dẫn triển khai & vận hành chi tiết. |
+| [`AI-AGENT-RESEARCH.md`](AI-AGENT-RESEARCH.md) | Nền tảng thiết kế Trợ lý AI: tool whitelist, structured output, approval và giới hạn an toàn. |
 | [`PROJECT-OVERVIEW.md`](PROJECT-OVERVIEW.md) | Bản giới thiệu tổng quan dự án (số liệu quy mô đã kiểm chứng). |
 
 > Nếu bạn dùng Claude Code: `web/CLAUDE.md` tự nạp 2 tài liệu nền (`AGENTS.md` + `BAN-GIAO.md`) vào ngữ cảnh mỗi phiên (cố ý KHÔNG nạp `DU-AN.md`/`ROADMAP.md` để tiết kiệm token — đọc theo yêu cầu khi cần lịch sử/kế hoạch).
+
+## 🔄 Cập nhật lên bản mới nhất
+
+Nhánh chuẩn là `master`. Trên máy phát triển dùng `git pull --ff-only origin master`; trên máy Windows vận hành dùng `windows\\Sua-Loi.bat`, sau khi sao lưu nếu bản cập nhật có migration. Không chạy `prisma db push` trên dữ liệu thật.
 
 ## 🚀 Chạy nhanh
 
