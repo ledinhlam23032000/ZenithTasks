@@ -9,6 +9,7 @@ import { requireUser } from "@/lib/auth";
 import { userCan } from "@/lib/permissions";
 import { auditRequired } from "@/lib/audit";
 import { encryptPhone, decryptPhone, normalizePhone, phoneLast5, hashPhone } from "@/lib/phone";
+import { restoreMaterialUsageStock } from "@/app/(app)/ho-so/actions";
 
 export type EditCustomerState = { ok?: boolean; error?: string };
 export type RevealState = { phone?: string; error?: string };
@@ -154,6 +155,10 @@ export async function deleteCustomer(formData: FormData): Promise<void> {
   if (!id) return;
 
   await prisma.$transaction(async (tx) => {
+    // Hoàn kho vật tư đã dùng TRƯỚC khi xóa MaterialUsage, nếu không tồn kho bị trừ
+    // vĩnh viễn dù khách/hồ sơ không còn tồn tại (xem restoreMaterialUsageStock()).
+    const usages = await tx.materialUsage.findMany({ where: { case: { customerId: id } }, select: { materialId: true, quantity: true } });
+    await restoreMaterialUsageStock(tx, usages, user.id, "Hoàn kho (xóa khách hàng)");
     await tx.payment.deleteMany({ where: { case: { customerId: id } } });
     await tx.caseService.deleteMany({ where: { case: { customerId: id } } });
     await tx.materialUsage.deleteMany({ where: { case: { customerId: id } } });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { summarizeCase, validatePaymentAmount, validateServicePrice, correctedFinalPrice } from "./financial-summary";
+import { summarizeCase, validatePaymentAmount, validateServicePrice, correctedFinalPrice, normalizeServicePrice } from "./financial-summary";
 
 describe("summarizeCase", () => {
   it("sums services and payments from child records instead of a stale snapshot", () => {
@@ -88,6 +88,34 @@ describe("summarizeCase", () => {
     expect(validateServicePrice({ unitPrice: 10_000_000, quantity: 1, discount: 10_000_001 })).toEqual({
       ok: false,
       error: "Mức giảm không được lớn hơn giá trị dịch vụ.",
+    });
+  });
+});
+
+describe("normalizeServicePrice", () => {
+  it("giữ nguyên dịch vụ có giá bình thường", () => {
+    expect(normalizeServicePrice({ listPrice: 10_000_000, unitPrice: 8_000_000, quantity: 1, discount: 1_000_000 })).toEqual({
+      listPrice: 10_000_000,
+      unitPrice: 8_000_000,
+      quantity: 1,
+      discount: 1_000_000,
+    });
+  });
+
+  it("dịch vụ tặng (giá ưu đãi=0, còn giá gốc) → chuyển thành giảm giá 100%, không giữ unitPrice=0", () => {
+    const normalized = normalizeServicePrice({ listPrice: 3_000_000, unitPrice: 0, quantity: 2, discount: 0 });
+    expect(normalized).toEqual({ listPrice: 3_000_000, unitPrice: 3_000_000, quantity: 2, discount: 6_000_000 });
+    // Sau chuẩn hoá, correctedFinalPrice vẫn đúng là 0đ như nhân viên đã nhập, và không
+    // rơi vào nhánh "hồ sơ cũ thiếu giá" của lineBaseFor() (unitPrice giờ > 0).
+    expect(correctedFinalPrice(normalized)).toBe(0);
+  });
+
+  it("cả unitPrice lẫn listPrice đều 0 → không có gì để chuẩn hoá, giữ nguyên", () => {
+    expect(normalizeServicePrice({ listPrice: 0, unitPrice: 0, quantity: 1, discount: 0 })).toEqual({
+      listPrice: 0,
+      unitPrice: 0,
+      quantity: 1,
+      discount: 0,
     });
   });
 });

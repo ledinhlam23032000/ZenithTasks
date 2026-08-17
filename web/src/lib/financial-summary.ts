@@ -57,6 +57,24 @@ export function validateServicePrice(input: { unitPrice: unknown; quantity: unkn
   return { ok: true };
 }
 
+export type NormalizedServicePrice = { listPrice: number; unitPrice: number; quantity: number; discount: number };
+
+/**
+ * Chuẩn hoá giá dịch vụ TRƯỚC KHI LƯU (gọi sau khi `validateServicePrice` đã qua).
+ * Khi nhân viên để "Giá ưu đãi" = 0 để TẶNG/miễn phí (còn giá gốc > 0), lưu dưới dạng
+ * giảm giá 100% (unitPrice = giá gốc, discount = đủ để về 0) thay vì giữ nguyên
+ * unitPrice = 0 — vì unitPrice=0 & finalPrice=0 là ĐÚNG hình dạng dữ liệu hồ sơ cũ
+ * thiếu giá mà `lineBaseFor()` ở dưới coi là "thiếu giá, lấy tạm giá gốc" (xem comment
+ * ở đó) — nếu không chuẩn hoá, dịch vụ tặng hôm nay sẽ bị hiểu nhầm thành thiếu giá và
+ * bị tính lại đúng giá gốc thay vì 0đ như nhân viên đã nhập.
+ */
+export function normalizeServicePrice(input: NormalizedServicePrice): NormalizedServicePrice {
+  if (input.unitPrice === 0 && input.listPrice > 0) {
+    return { listPrice: input.listPrice, unitPrice: input.listPrice, quantity: input.quantity, discount: input.listPrice * input.quantity };
+  }
+  return input;
+}
+
 export function validatePaymentAmount(input: { amount: unknown; total: unknown; paid: unknown }): ValidationResult {
   const amount = integerMoney(input.amount);
   const total = integerMoney(input.total);

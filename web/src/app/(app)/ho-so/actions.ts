@@ -9,7 +9,7 @@ import { prisma } from "@/lib/db";
 import { requireUser, requireCap } from "@/lib/auth";
 import { auditRequired } from "@/lib/audit";
 import { toNum, formatVND } from "@/lib/money";
-import { summarizeCase, validatePaymentAmount, validateServicePrice } from "@/lib/financial-summary";
+import { summarizeCase, validatePaymentAmount, validateServicePrice, normalizeServicePrice } from "@/lib/financial-summary";
 import { bomNeeds, type BomLine } from "@/lib/service-bom";
 import { isAllowedDocMime, docExt, safeStoredName, sniffImageExt, isDocumentBufferValid } from "@/lib/upload";
 import { getUploadDir, getUploadStorageError } from "@/lib/upload-storage";
@@ -45,7 +45,8 @@ async function isLockedFor(caseId: string, role: string): Promise<boolean> {
 
 /**
  * Tính lại tổng tiền / đã trả / công nợ cho hồ sơ (hoa hồng nhập tay, không tự tính).
- * Toán đặt ở `lib/case-math.ts` (thuần, có test). Nhận `db` để chạy trong $transaction.
+ * Toán đặt ở `lib/financial-summary.ts` (`summarizeCase`, thuần, có test). Nhận `db` để
+ * chạy trong $transaction.
  */
 async function recalc(caseId: string, db: Db = prisma): Promise<void> {
   const [services, payments, rec] = await Promise.all([
@@ -262,8 +263,13 @@ export async function addCaseService(_prev: CaseActionState, formData: FormData)
   const d = parsed.data;
   const priceValidation = validateServicePrice(d);
   if (!priceValidation.ok) return { error: priceValidation.error };
-  const finalPrice = Math.max(d.unitPrice * d.quantity - d.discount, 0);
-  const listPrice = d.listPrice > 0 ? d.listPrice : d.unitPrice; // không có giá gốc → lấy giá ưu đãi
+  const { listPrice, unitPrice, discount, quantity: qty } = normalizeServicePrice({
+    listPrice: d.listPrice > 0 ? d.listPrice : d.unitPrice, // không có giá gốc → lấy giá ưu đãi
+    unitPrice: d.unitPrice,
+    quantity: d.quantity,
+    discount: d.discount,
+  });
+  const finalPrice = Math.max(unitPrice * qty - discount, 0);
 
   const c = await prisma.caseRecord.findUnique({ where: { id: d.caseId }, select: { doctorId: true } });
   await withCaseLock(d.caseId, async (tx) => {
@@ -273,9 +279,9 @@ export async function addCaseService(_prev: CaseActionState, formData: FormData)
         serviceId: d.serviceId || null,
         name: d.name,
         listPrice,
-        unitPrice: d.unitPrice,
-        quantity: d.quantity,
-        discount: d.discount,
+        unitPrice,
+        quantity: qty,
+        discount,
         finalPrice,
         doctorId: c?.doctorId ?? null,
         nurseId: d.nurseId || null,
@@ -294,6 +300,30 @@ export async function addCaseService(_prev: CaseActionState, formData: FormData)
     });
   });
   return { ok: true, nonce: Date.now() };
+}
+
+/**
+ * Hoàn kho cho các dòng MaterialUsage TRƯỚC KHI xóa — dùng khi xóa cả hồ sơ/khách hàng
+ * (khác `removeMaterial()`, xóa 1 dòng vật tư đơn lẻ, nhưng phải hoàn kho giống hệt vậy:
+ * nếu không, tồn kho bị trừ vĩnh viễn dù ca điều trị không còn tồn tại).
+ */
+export async function restoreMaterialUsageStock(
+  tx: Prisma.TransactionClient,
+  usages: { materialId: string | null; quantity: unknown }[],
+  userId: string,
+  note: string,
+): Promise<void> {
+  for (const usage of usages) {
+    if (!usage.materialId) continue;
+    const q = toNum(usage.quantity);
+    if (q <= 0) continue;
+    const mat = await tx.material.findUnique({ where: { id: usage.materialId }, select: { avgCost: true } });
+    const uc = mat && toNum(mat.avgCost) > 0 ? toNum(mat.avgCost) : null;
+    await tx.material.update({ where: { id: usage.materialId }, data: { stock: { increment: q } } });
+    await tx.stockMovement.create({
+      data: { materialId: usage.materialId, type: "IN", quantity: q, unitCost: uc, note, createdById: userId },
+    });
+  }
 }
 
 // Trừ vật tư theo ĐỊNH MỨC (BOM) của 1 dòng dịch vụ, trong 1 giao dịch `tx`.
@@ -440,8 +470,13 @@ export async function updateCaseService(_prev: CaseActionState, formData: FormDa
   const d = parsed.data;
   const priceValidation = validateServicePrice(d);
   if (!priceValidation.ok) return { error: priceValidation.error };
-  const finalPrice = Math.max(d.unitPrice * d.quantity - d.discount, 0);
-  const listPrice = d.listPrice > 0 ? d.listPrice : d.unitPrice;
+  const { listPrice, unitPrice, discount, quantity: qty } = normalizeServicePrice({
+    listPrice: d.listPrice > 0 ? d.listPrice : d.unitPrice,
+    unitPrice: d.unitPrice,
+    quantity: d.quantity,
+    discount: d.discount,
+  });
+  const finalPrice = Math.max(unitPrice * qty - discount, 0);
 
   const result = await withCaseLock(d.caseId, async (tx) => {
     const existing = await tx.caseService.findFirst({ where: { id: d.id, caseId: d.caseId }, select: { id: true, bomApplied: true } });
@@ -460,7 +495,7 @@ export async function updateCaseService(_prev: CaseActionState, formData: FormDa
       tx.payment.findMany({ where: { caseId: d.caseId }, select: { amount: true } }),
     ]);
     const after = summarizeCase({
-      services: [...otherServices, { listPrice, unitPrice: d.unitPrice, quantity: d.quantity, discount: d.discount, finalPrice }],
+      services: [...otherServices, { listPrice, unitPrice, quantity: qty, discount, finalPrice }],
       payments,
       voucherAmount: record?.voucherAmount,
     });
@@ -472,7 +507,7 @@ export async function updateCaseService(_prev: CaseActionState, formData: FormDa
 
     await tx.caseService.update({
       where: { id: d.id },
-      data: { name: d.name, listPrice, unitPrice: d.unitPrice, quantity: d.quantity, discount: d.discount, finalPrice, nurseId: d.nurseId || null },
+      data: { name: d.name, listPrice, unitPrice, quantity: qty, discount, finalPrice, nurseId: d.nurseId || null },
     });
     await recalc(d.caseId, tx);
     await auditRequired(tx, user.id, "UPDATE_CASE_SERVICE", {
@@ -1042,8 +1077,12 @@ export async function deleteCase(formData: FormData): Promise<void> {
   const rec = await prisma.caseRecord.findUnique({ where: { id }, select: { customerId: true } });
   if (!rec) return;
   // Dịch vụ/thanh toán/vật tư/tái khám tự xóa theo (onDelete: Cascade); ảnh giữ lại cho khách.
+  // Vật tư đã dùng phải hoàn kho TRƯỚC khi cascade xóa MaterialUsage, nếu không tồn kho
+  // bị trừ vĩnh viễn dù hồ sơ không còn tồn tại (xem restoreMaterialUsageStock()).
   await prisma.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT id FROM "CaseRecord" WHERE id = ${id} FOR UPDATE`;
+    const usages = await tx.materialUsage.findMany({ where: { caseId: id }, select: { materialId: true, quantity: true } });
+    await restoreMaterialUsageStock(tx, usages, user.id, "Hoàn kho (xóa hồ sơ)");
     await tx.photo.updateMany({ where: { caseId: id }, data: { caseId: null } });
     const deleted = await tx.caseRecord.deleteMany({ where: { id } });
     if (deleted.count === 0) return;
