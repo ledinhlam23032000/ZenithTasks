@@ -45,8 +45,15 @@ try {
   #    ban backup phai nam tren o dia/Google Drive chi chu de an truy cap.
   & docker compose -f $Compose cp 'app:/app/.runtime' $runtimeDir
   if ($LASTEXITCODE -ne 0) { throw "Khong sao luu duoc khoa runtime cua ung dung." }
-  & docker compose -f $Compose cp 'app:/app/private/inbox' $inboxDir
-  if ($LASTEXITCODE -ne 0) { throw "Khong sao luu duoc tep dinh kem hop thu." }
+  & docker compose -f $Compose exec -T app sh -c 'test -d /app/private/inbox'
+  if ($LASTEXITCODE -eq 0) {
+    & docker compose -f $Compose cp 'app:/app/private/inbox' $inboxDir
+    if ($LASTEXITCODE -ne 0) { throw "Khong sao luu duoc tep dinh kem hop thu." }
+  }
+  else {
+    New-Item -ItemType Directory -Force -Path $inboxDir | Out-Null
+    Log "Khong co thu muc inbox attachments; bo qua (khong phai loi)."
+  }
 
   # 4) Nen thanh 1 file .zip.
   $zip = Join-Path $BackupRoot "zenith-$stamp.zip"
