@@ -30,7 +30,7 @@ const nextConfig: NextConfig = {
       "default-src 'self'",
       "script-src 'self'",
       "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: blob:",
+      "img-src 'self' https://img.vietqr.io data: blob:",
       "font-src 'self' data:",
       "connect-src 'self'",
       "object-src 'none'",

@@ -74,6 +74,7 @@ import { UploadDocumentButton } from "./case-document-widgets";
 import { DebtPlanCard } from "./debt-plan-widgets";
 import { debtPlanStatus } from "@/lib/debt-plan";
 import { photoSrc } from "@/lib/media";
+import { PaymentQrButton } from "./payment-qr-button";
 
 export const dynamic = "force-dynamic";
 
@@ -620,6 +621,7 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
               )}
               <div className="flex flex-wrap items-center gap-2 pt-1">
                 {canPay && <AddPaymentButton caseId={record.id} debt={debt} />}
+                <PaymentQrButton caseCode={record.code} amount={debt} />
                 {canVoidPayment && <EditVoucherButton caseId={record.id} voucher={{ amount: voucher, code: record.voucherCode ?? "" }} />}
               </div>
 
