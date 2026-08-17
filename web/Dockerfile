@@ -20,15 +20,18 @@ ENV NEXT_TELEMETRY_DISABLED=1
 
 # ---------- deps (cache layer) ----------
 FROM base AS deps
-COPY package.json package-lock.json ./
+# Dự án dùng pnpm-lock.yaml; không dùng npm ci vì sẽ thất bại khi package.json có dependency mới.
+RUN corepack enable && corepack prepare pnpm@10.0.0 --activate
+COPY package.json pnpm-lock.yaml ./
 COPY prisma ./prisma
-RUN npm ci
+RUN pnpm install --frozen-lockfile --ignore-scripts && pnpm exec prisma generate
 
 # ---------- build ----------
 FROM base AS build
+RUN corepack enable && corepack prepare pnpm@10.0.0 --activate
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN npx prisma generate && npm run build
+RUN pnpm exec prisma generate && pnpm run build
 
 # ---------- runner ----------
 FROM base AS runner
