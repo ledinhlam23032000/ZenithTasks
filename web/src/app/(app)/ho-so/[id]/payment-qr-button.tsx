@@ -24,7 +24,9 @@ export function PaymentQrButton({ caseCode, amount }: { caseCode: string; amount
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const safeAmount = Math.max(0, Math.round(amount));
-  const qrUrl = vietQrUrl(safeAmount, caseCode);
+  const [draftAmount, setDraftAmount] = useState(safeAmount);
+  const qrAmount = Math.max(0, Math.round(draftAmount));
+  const qrUrl = vietQrUrl(qrAmount, caseCode);
 
   async function copyAccount() {
     try {
@@ -38,7 +40,7 @@ export function PaymentQrButton({ caseCode, amount }: { caseCode: string; amount
 
   return (
     <>
-      <Button type="button" size="sm" variant="subtle" onClick={() => setOpen(true)}>
+      <Button type="button" size="sm" variant="subtle" onClick={() => { setDraftAmount(safeAmount); setOpen(true); }}>
         <QrCode className="h-4 w-4" /> QR chuyển khoản
       </Button>
       <Modal
@@ -49,6 +51,11 @@ export function PaymentQrButton({ caseCode, amount }: { caseCode: string; amount
         size="sm"
       >
         <div className="space-y-4">
+          <label className="block rounded-xl border border-brand-200 bg-brand-50/50 p-3">
+            <span className="text-xs font-semibold text-brand-800">Số tiền khách cần chuyển</span>
+            <div className="mt-1 flex items-center gap-2"><input type="number" min={0} step={1000} value={draftAmount || ""} onChange={(event) => setDraftAmount(Number(event.target.value || 0))} placeholder="Ví dụ: 10000000" className="h-10 min-w-0 flex-1 rounded-lg border border-brand-200 bg-white px-3 text-right text-base font-semibold text-slate-800 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20" /><span className="text-sm font-medium text-slate-500">VND</span></div>
+            <span className="mt-1 block text-[11px] text-slate-500">Có thể sửa số tiền trước khi khách quét; nội dung chuyển khoản vẫn tự có mã hồ sơ.</span>
+          </label>
           <div className="rounded-2xl border border-slate-200 bg-white p-3 text-center shadow-sm">
             {/* QR được tạo từ thông tin tài khoản công ty, không chứa dữ liệu y khoa của khách. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -58,7 +65,7 @@ export function PaymentQrButton({ caseCode, amount }: { caseCode: string; amount
           <div className="rounded-xl bg-slate-50 px-3 py-2.5 text-sm text-slate-700">
             <div className="flex items-center justify-between gap-3">
               <span className="text-slate-500">Số tiền đề nghị</span>
-              <strong className="text-brand-700">{safeAmount > 0 ? formatVND(safeAmount) : "Nhập theo thỏa thuận"}</strong>
+              <strong className="text-brand-700">{qrAmount > 0 ? formatVND(qrAmount) : "Nhập theo thỏa thuận"}</strong>
             </div>
             <div className="mt-1 flex items-center justify-between gap-3">
               <span className="text-slate-500">Nội dung</span>
@@ -82,7 +89,7 @@ export function PaymentQrButton({ caseCode, amount }: { caseCode: string; amount
           </div>
 
           <p className="text-xs leading-5 text-slate-500">
-            Sau khi khách chuyển khoản, nhân viên vẫn cần kiểm tra giao dịch thành công rồi bấm “Thu tiền” để ghi nhận vào hồ sơ. QR này chưa tự xác nhận tiền về ngân hàng.
+            Sau khi khách chuyển khoản, nhân viên vẫn cần kiểm tra giao dịch thành công rồi bấm “Thu tiền” để ghi nhận đúng số đã nhận vào hồ sơ. QR này chưa tự xác nhận tiền về ngân hàng.
           </p>
 
           <details className="rounded-xl border border-slate-200 px-3 py-2 text-xs text-slate-500">
