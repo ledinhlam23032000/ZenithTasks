@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { startOfMonth, endOfMonth, addMonths, format } from "date-fns";
 import { vi } from "date-fns/locale";
-import { Coins, ChevronLeft, ChevronRight, ArrowUpRight, ArrowDownRight, Scale } from "lucide-react";
+import { Coins, ChevronLeft, ChevronRight, ArrowUpRight, ArrowDownRight, Scale, FileText } from "lucide-react";
 import { requireCap } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { toNum, formatVND } from "@/lib/money";
@@ -9,6 +9,8 @@ import { fmtDate } from "@/lib/format";
 import { PAYMENT_LABEL } from "@/lib/status";
 import { CASH_TYPE, categoryLabel, INVESTMENT_CATEGORY_CODE } from "@/lib/finance";
 import { isShareholder } from "@/lib/rbac";
+import { userCan } from "@/lib/permissions";
+import { paymentRequestStatusLabel } from "@/lib/payment-request";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatCard } from "@/components/ui/stat-card";
@@ -52,7 +54,7 @@ export default async function CashPage({ searchParams }: { searchParams: Promise
     prisma.cashTransaction.findMany({
       where,
       orderBy: { occurredAt: "desc" },
-      include: { createdBy: { select: { fullName: true } } },
+      include: { createdBy: { select: { fullName: true } }, paymentRequest: { select: { id: true, requestNo: true, status: true } } },
     }),
     prisma.cashTransaction.findMany({
       where: { occurredAt: { gte: from, lte: to }, ...hideInvestment },
@@ -114,7 +116,8 @@ export default async function CashPage({ searchParams }: { searchParams: Promise
                 },
               ]}
             />
-            {canManage && <NewCashButton defaultDate={today} />}
+            <Link href="/ke-toan/de-nghi-thanh-toan" className={buttonVariants({ variant: "secondary" })}><FileText className="h-4 w-4" /> Đề nghị thanh toán</Link>
+            {canManage && <NewCashButton defaultDate={today} canCreatePaymentRequest={userCan(user, "accounting.pay")} />}
           </div>
         }
       />
@@ -189,6 +192,7 @@ export default async function CashPage({ searchParams }: { searchParams: Promise
                   <TH>Hạng mục</TH>
                   <TH>Nguồn / Ghi chú</TH>
                   <TH>Hình thức</TH>
+                  <TH>Chứng từ</TH>
                   <TH className="text-right">Số tiền</TH>
                   <TH />
                 </TR>
@@ -211,6 +215,15 @@ export default async function CashPage({ searchParams }: { searchParams: Promise
                         {!t.vendor && !t.note ? "—" : ""}
                       </TD>
                       <TD className="text-slate-500">{PAYMENT_LABEL[t.method]}</TD>
+                      <TD>
+                        {t.paymentRequest ? (
+                          <a href={`/ke-toan/de-nghi-thanh-toan/${t.paymentRequest.id}/export`} className="text-xs font-medium text-brand-700 hover:underline">
+                            {t.paymentRequest.requestNo}<span className="mt-0.5 block text-[11px] text-slate-400">{paymentRequestStatusLabel(t.paymentRequest.status)}</span>
+                          </a>
+                        ) : (
+                          <span className="text-xs text-slate-400">Ghi trực tiếp</span>
+                        )}
+                      </TD>
                       <TD className={`text-right font-semibold tabular-nums ${isIncome ? "text-emerald-600" : "text-rose-600"}`}>
                         {isIncome ? "+" : "−"}{formatVND(a)}
                       </TD>
@@ -263,6 +276,7 @@ export default async function CashPage({ searchParams }: { searchParams: Promise
                     <p className="mt-1 text-xs text-slate-400">
                       {fmtDate(t.occurredAt)} · {PAYMENT_LABEL[t.method]}
                       {t.vendor || t.note ? ` · ${[t.vendor, t.note].filter(Boolean).join(" · ")}` : ""}
+                      {t.paymentRequest ? ` · ${t.paymentRequest.requestNo} (${paymentRequestStatusLabel(t.paymentRequest.status)})` : ""}
                     </p>
                     {canManage && (
                     <div className="mt-2 flex items-center justify-end gap-0.5">

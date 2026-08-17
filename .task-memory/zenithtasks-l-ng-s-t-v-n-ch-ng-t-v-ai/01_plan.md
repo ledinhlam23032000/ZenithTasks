@@ -57,3 +57,29 @@ flowchart TD
   P3T03 --> P7T01
   P7T01 --> P7T02["P7-T02 Bàn giao"]
 ```
+
+
+## Phụ lục kế hoạch bắt buộc — cập nhật 18/08/2026
+
+Yêu cầu mới không thay thế các phase cũ mà bổ sung hai workstream phải hoàn thành trước khi bàn giao:
+
+| ID | Workstream | Phụ thuộc | Đầu ra bắt buộc | Trạng thái |
+|---|---|---|---|---|
+| W1 | AI ADMIN hiểu đầy đủ cơ chế vận hành | P6, tài liệu nghiệp vụ hiện tại | Runtime context gồm quy tắc vận hành, dữ liệu được cấp quyền, hướng dẫn module, khả năng giải thích và tra cứu; test không trả lời chung chung khi có dữ liệu | in_progress |
+| W2 | Đề nghị thanh toán ↔ Sổ thu–chi ↔ Kế toán | P5, schema PaymentRequest/CashTransaction | Khoản chi nhỏ tạo được chứng từ; duyệt/chi sinh đúng một dòng CashTransaction; Thu–chi và Kế toán có liên kết ngược, trạng thái và đường dẫn chứng từ | in_progress |
+| W3 | Trung tâm chứng từ kế toán | W2, bảng lương hiện tại | Xem/lọc/mở/in đề nghị thanh toán, bảng lương, phiếu thu/chi và file xuất theo tháng/trạng thái | not_started |
+
+### Dependency bổ sung
+
+```mermaid
+flowchart TD
+  P5[PaymentRequest hiện có] --> W2[Liên kết PaymentRequest - CashTransaction]
+  P7[Kiểm thử và triển khai] --> W2
+  W2 --> W3[Trung tâm chứng từ Kế toán]
+  P6[AI file/feedback/voice] --> W1[AI ADMIN hiểu vận hành]
+  W3 --> W1
+  W1 --> FINAL[Bàn giao cuối cùng]
+  W3 --> FINAL
+```
+
+Không được đánh dấu W1 hoặc W2 là `done` nếu chưa có bằng chứng trong `checks/` về quyền ADMIN, audit, chống ghi trùng, luồng khoản chi nhỏ, và câu trả lời AI dựa trên kiến thức vận hành + dữ liệu thật.

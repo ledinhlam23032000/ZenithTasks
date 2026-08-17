@@ -1,8 +1,8 @@
 # Project State
 
-- Updated: 2026-08-18 01:20 GMT+7
-- Goal: Nâng cấp lương, sổ tư vấn, chứng từ, HR agreement và AI cho ZenithTasks.
-- Current phase: P3/P4/P5/P6 đang thực thi
+- Updated: 2026-08-18 02:14 GMT+7
+- Goal: Nâng cấp AI ADMIN hiểu đầy đủ vận hành và hoàn thiện luồng Đề nghị thanh toán → Thu–chi → Kế toán.
+- Current phase: Đã triển khai code chính; đang kiểm thử chống ghi trùng, quyền, build và chuẩn bị tài liệu.
 - Overall status: active
 
 ## Đã hoàn thành trong checkpoint này
@@ -23,11 +23,11 @@
 
 ## Bằng chứng kiểm tra hiện tại
 
-- `npx prisma generate`: đạt.
-- `npx prisma validate`: đạt trước các thay đổi UI/AI; cần chạy lại ở checkpoint cuối.
-- `./node_modules/.bin/tsc --noEmit`: đạt sau các thay đổi hiện tại.
-- Chưa chạy test/build đầy đủ.
-- Chưa chạy migration trên database staging/production.
+- `./node_modules/.bin/tsc --noEmit`: đạt sau các thay đổi liên kết chứng từ và AI knowledge.
+- Vitest toàn bộ: **45 file, 299/299 test đạt**; test mới bao phủ metadata khoản chi nhỏ, khóa sửa/xóa dòng đã liên kết và knowledge map của AI.
+- Next.js production build: đạt sau phần finance trước khi bổ sung AI knowledge; cần chạy lại build ở checkpoint cuối.
+- Prisma migration `20260818100000_finance_consultation_hr_ai` đã áp dụng trên máy vận hành theo checkpoint trước.
+- Chưa kiểm thử UI production bằng tài khoản ADMIN cho checkbox khoản chi nhỏ, trung tâm chứng từ và câu hỏi AI vận hành.
 
 ## Verified facts và rủi ro
 
@@ -35,9 +35,9 @@ HEAD trước đợt mới là `e45021c`. Repo có một số file untracked cũ
 
 ## Next 3 actions
 
-1. Chạy Prisma validate, git diff check, test và build; sửa mọi lỗi.
-2. Kiểm tra migration SQL và cập nhật docs/UPGRADE-HANDOFF.
-3. Commit/push GitHub, backup rồi cập nhật máy Windows; chỉ chạy migration production sau khi anh xác nhận.
+1. Chạy lại Prisma validate/generate, TypeScript, full test và production build sau cả phần AI knowledge.
+2. Rà soát diff, cập nhật CHANGELOG/VERSION/UPGRADE-HANDOFF và lưu logs trong `checks/`.
+3. Commit/push GitHub, backup rồi cập nhật máy Windows; sau đó kiểm tra UI ADMIN và câu hỏi AI thực tế.
 
 ## Files to read first
 
@@ -50,4 +50,10 @@ HEAD trước đợt mới là `e45021c`. Repo có một số file untracked cũ
 
 ## Quality risks
 
-Không dùng giá chốt thay thực thu; không cộng đôi user kiêm nhiệm; không để AI tự ghi đè tiền/lương/y tế/code; không chạy migration production khi chưa backup; không coi template pháp lý là tư vấn pháp lý.
+Không dùng giá chốt thay thực thu; không cộng đôi user kiêm nhiệm; không để AI tự ghi đè tiền/lương/y tế/code; không chạy migration production khi chưa backup; không coi template pháp lý là tư vấn pháp lý. Luồng Đề nghị thanh toán và Thu–chi phải có một nguồn ghi sổ, không tạo hai dòng chi cho cùng một phiếu. AI ADMIN phải biết cơ chế vận hành và số liệu được cấp quyền nhưng không được bỏ qua preview, audit và xác nhận đối với thao tác ghi.
+
+## Yêu cầu bắt buộc mới đã ghi nhận
+
+- AI ADMIN phải được xem là một workstream bắt buộc, không bị quên khi chuyển sang các phần finance/accounting.
+- Kế toán phải xem được giấy đề nghị thanh toán, bảng lương, phiếu thu/chi và các file xuất theo tháng/trạng thái.
+- Khoản chi nhỏ như gói tăm 3.000đ phải lập được đề nghị thanh toán và khi duyệt/chi chỉ sinh đúng một dòng Thu–chi liên kết.

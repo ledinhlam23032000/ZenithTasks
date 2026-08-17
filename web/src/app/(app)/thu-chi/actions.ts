@@ -9,8 +9,9 @@ import { isShareholder } from "@/lib/rbac";
 import { CATEGORY_LABEL } from "@/lib/finance";
 import { isMonthClosed } from "@/lib/accounting";
 import { auditRequired } from "@/lib/audit";
+import { buildCashbookPaymentRequestDetails, linkedCashTransactionGuard, paymentRequestNo } from "@/lib/payment-request";
 
-export type CashState = { ok?: boolean; error?: string };
+export type CashState = { ok?: boolean; error?: string; requestId?: string; message?: string };
 
 const NO_WRITE = "Bạn chỉ có quyền xem sổ thu chi.";
 
@@ -27,6 +28,7 @@ const schema = z.object({
   method: z.enum(["CASH", "CARD", "TRANSFER", "EWALLET"]).default("CASH"),
   vendor: z.string().trim().optional(),
   note: z.string().trim().optional(),
+  createPaymentRequest: z.boolean().optional(),
 });
 
 function parse(formData: FormData) {
@@ -38,6 +40,7 @@ function parse(formData: FormData) {
     method: formData.get("method") ?? "CASH",
     vendor: formData.get("vendor") ?? "",
     note: formData.get("note") ?? "",
+    createPaymentRequest: formData.get("createPaymentRequest") === "on",
   });
 }
 
@@ -50,6 +53,33 @@ export async function createCashTransaction(_prev: CashState, formData: FormData
   const when = new Date(d.occurredAt);
   if (Number.isNaN(when.getTime())) return { error: "Ngày không hợp lệ." };
   if (await isMonthClosed(format(when, "yyyy-MM"))) return { error: closedMsg(when) };
+
+  if (d.createPaymentRequest) {
+    if (d.type !== "EXPENSE") return { error: "Chỉ khoản chi mới lập được Đề nghị thanh toán." };
+    const accountingUser = await requireCap("accounting.pay");
+    const request = await prisma.$transaction(async (tx) => {
+      const created = await tx.paymentRequest.create({
+        data: {
+          requestNo: paymentRequestNo(),
+          type: "EXPENSE",
+          status: "PENDING",
+          requesterId: accountingUser.id,
+          payeeName: d.vendor || "Nhà cung cấp",
+          amount: Math.round(d.amount),
+          reason: d.note || `Chi ${CATEGORY_LABEL[d.category] ?? d.category}`,
+          month: format(when, "yyyy-MM"),
+          details: buildCashbookPaymentRequestDetails({ category: d.category, note: d.note, occurredAt: when, method: d.method, vendor: d.vendor }),
+        },
+      });
+      await auditRequired(tx, accountingUser.id, "CREATE_PAYMENT_REQUEST_FROM_CASHBOOK", {
+        entity: "PaymentRequest",
+        entityId: created.id,
+        meta: { requestNo: created.requestNo, amount: Math.round(d.amount), category: d.category },
+      });
+      return created;
+    });
+    return { ok: true, requestId: request.id, message: `Đã lập ${request.requestNo} — đang chờ ADMIN duyệt, chưa ghi dòng chi.` };
+  }
 
   await prisma.$transaction(async (tx) => {
     const cash = await tx.cashTransaction.create({
@@ -84,8 +114,10 @@ export async function updateCashTransaction(_prev: CashState, formData: FormData
   const when = new Date(d.occurredAt);
   if (Number.isNaN(when.getTime())) return { error: "Ngày không hợp lệ." };
 
-  const current = await prisma.cashTransaction.findUnique({ where: { id }, select: { occurredAt: true } });
+  const current = await prisma.cashTransaction.findUnique({ where: { id }, select: { occurredAt: true, paymentRequestId: true } });
   if (!current) return { error: "Không tìm thấy giao dịch." };
+  const editGuard = linkedCashTransactionGuard(current.paymentRequestId, "edit");
+  if (editGuard) return { error: editGuard };
   // Chặn cả tháng CŨ lẫn tháng MỚI: không được rút giao dịch ra khỏi / đẩy vào một tháng đã chốt.
   if (await isMonthClosed(format(current.occurredAt, "yyyy-MM"))) return { error: closedMsg(current.occurredAt) };
   if (await isMonthClosed(format(when, "yyyy-MM"))) return { error: closedMsg(when) };
@@ -118,8 +150,10 @@ export async function deleteCashTransaction(formData: FormData): Promise<void> {
   const id = String(formData.get("id") ?? "");
   if (!id) return;
 
-  const cash = await prisma.cashTransaction.findUnique({ where: { id }, select: { occurredAt: true, amount: true, type: true, category: true } });
+  const cash = await prisma.cashTransaction.findUnique({ where: { id }, select: { occurredAt: true, amount: true, type: true, category: true, paymentRequestId: true } });
   if (!cash) return;
+  const deleteGuard = linkedCashTransactionGuard(cash.paymentRequestId, "delete");
+  if (deleteGuard) throw new Error(deleteGuard);
   if (await isMonthClosed(format(cash.occurredAt, "yyyy-MM"))) return;
 
   // Nếu đây là phiếu chi lương / hoa hồng do trang Kế toán sinh ra thì bỏ luôn

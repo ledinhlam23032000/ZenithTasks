@@ -26,3 +26,15 @@ Người dùng chính là BS. Lê Đình Lam, cần giao diện và hướng d�
 5. Hồ sơ nhân sự có agreement records và file/snapshot.
 6. AI có file context, feedback records, voice input fallback và approval flow.
 7. TypeScript, test, build, migration status và cập nhật máy vận hành đều được kiểm tra.
+
+## Phụ lục bắt buộc — AI ADMIN và trung tâm chứng từ (18/08/2026)
+
+Theo yêu cầu bổ sung của anh Lam, nhiệm vụ nâng cấp **Trợ lý AI quản trị dành cho ADMIN** là một phần bắt buộc của đợt nâng cấp, không được bỏ quên hoặc tự động đóng khi xử lý các phần tài chính khác. Trợ lý phải được cung cấp kiến thức vận hành đầy đủ của hệ thống: quy tắc thu tiền thực tế, công nợ, hoa hồng/lương, phân bổ phối hợp, thu–chi, kế toán, giấy đề nghị thanh toán, bảng lương, sổ tư vấn, nhân sự, hộp thư và phân quyền. AI phải trả lời có căn cứ từ quy tắc hệ thống và dữ liệu hiện tại, không chỉ trả lời chung chung.
+
+AI ADMIN được phép tra cứu dữ liệu nghiệp vụ cần thiết theo quyền ADMIN, nhưng không được tự ý sửa code production, xóa dữ liệu, hoặc ghi nhận tiền/lương/hồ sơ khi chưa có bản xem trước, audit và xác nhận rõ ràng. Việc được đọc dữ liệu không đồng nghĩa với việc đưa secret, mật khẩu, API key hoặc toàn bộ dữ liệu nhạy cảm không cần thiết vào prompt/memory.
+
+Song song với AI, luồng **Đề nghị thanh toán → duyệt ADMIN → ghi Sổ thu–chi một lần** là yêu cầu bắt buộc. Các khoản chi nhỏ như gói tăm 3.000đ cũng phải lập được chứng từ, in được và sau khi duyệt thì sinh đúng một dòng chi liên kết. Khu vực Kế toán phải có khả năng xem nhanh các nhóm chứng từ gồm giấy đề nghị thanh toán, bảng lương, phiếu thu/chi và các file xuất kế toán theo tháng/trạng thái.
+
+### Tiêu chí không được đánh dấu hoàn tất
+
+Chỉ được đánh dấu hoàn tất khi đã ghi nhận yêu cầu trên vào checkpoint, có test cho AI ADMIN và luồng chứng từ không ghi trùng, có kiểm tra quyền/audit, và tài liệu bàn giao mô tả rõ hai nhánh công việc này.

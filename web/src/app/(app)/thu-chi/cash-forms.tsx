@@ -23,7 +23,7 @@ export type CashTx = {
   note: string;
 };
 
-function CashForm({ tx, defaultDate, onDone }: { tx?: CashTx; defaultDate: string; onDone: () => void }) {
+function CashForm({ tx, defaultDate, onDone, canCreatePaymentRequest = false }: { tx?: CashTx; defaultDate: string; onDone: () => void; canCreatePaymentRequest?: boolean }) {
   const isEdit = !!tx;
   const [state, action, pending] = useFormAction(
     isEdit ? updateCashTransaction : createCashTransaction,
@@ -96,6 +96,16 @@ function CashForm({ tx, defaultDate, onDone }: { tx?: CashTx; defaultDate: strin
         <Textarea id="cf-note" name="note" defaultValue={tx?.note ?? ""} placeholder="Diễn giải chi tiết…" />
       </div>
 
+      {!isEdit && canCreatePaymentRequest && type === "EXPENSE" && (
+        <label className="flex items-start gap-2 rounded-lg border border-brand-200 bg-brand-50/60 px-3 py-2.5 text-sm text-slate-700">
+          <input name="createPaymentRequest" type="checkbox" className="mt-0.5 h-4 w-4 accent-brand-600" />
+          <span>
+            <span className="block font-medium text-brand-800">Lập giấy đề nghị thanh toán trước</span>
+            <span className="mt-0.5 block text-xs text-slate-500">Dùng cho cả khoản nhỏ như mua tăm 3.000đ. Phiếu sẽ chờ ADMIN duyệt; sau khi thanh toán mới ghi đúng một dòng vào Sổ thu–chi.</span>
+          </span>
+        </label>
+      )}
+
       {state.error && <p className="text-sm text-rose-600">{state.error}</p>}
       <div className="flex justify-end gap-2">
         <Button type="button" variant="secondary" onClick={onDone}>Hủy</Button>
@@ -107,15 +117,15 @@ function CashForm({ tx, defaultDate, onDone }: { tx?: CashTx; defaultDate: strin
   );
 }
 
-export function NewCashButton({ defaultDate }: { defaultDate: string }) {
+export function NewCashButton({ defaultDate, canCreatePaymentRequest }: { defaultDate: string; canCreatePaymentRequest?: boolean }) {
   const [open, setOpen] = useState(false);
   return (
     <>
       <Button onClick={() => setOpen(true)}>
         <Plus className="h-4 w-4" /> Thêm thu / chi
       </Button>
-      <Modal open={open} onClose={() => setOpen(false)} title="Ghi nhận thu / chi" size="lg">
-        <CashForm defaultDate={defaultDate} onDone={() => setOpen(false)} />
+        <Modal open={open} onClose={() => setOpen(false)} title="Ghi nhận thu / chi" size="lg">
+        <CashForm defaultDate={defaultDate} canCreatePaymentRequest={canCreatePaymentRequest} onDone={() => setOpen(false)} />
       </Modal>
     </>
   );

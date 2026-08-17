@@ -5,7 +5,7 @@ import { prisma } from "@/lib/db";
 import { requireCap } from "@/lib/auth";
 import { aiConfigured, generateStructured } from "@/lib/ai";
 import { getAssistantContext } from "@/lib/assistant-data";
-import { formatAssistantContext } from "@/lib/assistant";
+import { BUSINESS_RULES_KNOWLEDGE, formatAssistantContext } from "@/lib/assistant";
 import { getPayroll } from "@/lib/payroll";
 import { formatVND } from "@/lib/money";
 import { isMonthClosed } from "@/lib/accounting";
@@ -126,10 +126,13 @@ Công cụ được phép:
 - propose_system_change: ghi đề xuất đổi cơ chế/code thành kế hoạch để duyệt; args {request}.
 Không tự đoán tên người, tháng, số tiền; nếu thiếu thì action=none và hỏi lại. Không gọi tool khác, không viết SQL, không sửa file trực tiếp.`;
 
-async function buildPlannerPrompt(question: string, userId: string): Promise<string> {
+async function buildPlannerPrompt(question: string, userId: string, role: string): Promise<string> {
   const context = await getAssistantContext();
   const fileContext = await getAssistantFileContext(userId);
-  return `${actionHelp}\n\nBỐI CẢNH SỐ LIỆU HIỆN TẠI:\n${formatAssistantContext(context)}\n\n${fileContext}\n\nYÊU CẦU CỦA ADMIN:\n${question}\n\nChọn tối đa một action. Yêu cầu sửa/ghi dữ liệu phải đặt requires_confirmation=true. Nếu là yêu cầu đổi công thức hoặc code, dùng propose_system_change, không dùng save_payroll.`;
+  const accessNote = role === "ADMIN"
+    ? "Người dùng hiện tại là ADMIN. Có thể dùng dữ liệu nghiệp vụ được cấp trong các read tool và toàn bộ kiến thức vận hành dưới đây để trả lời có căn cứ."
+    : "Người dùng không phải ADMIN. Chỉ dùng số liệu tổng hợp và quy tắc không nhạy cảm; không suy đoán hoặc tiết lộ chi tiết lương, hồ sơ hay dữ liệu bị giới hạn.";
+  return `${actionHelp}\n\nQUYỀN TRUY CẬP:\n${accessNote}\n\nKIẾN THỨC VẬN HÀNH ĐÃ XÁC NHẬN:\n${BUSINESS_RULES_KNOWLEDGE}\n\nBỐI CẢNH SỐ LIỆU HIỆN TẠI:\n${formatAssistantContext(context)}\n\n${fileContext}\n\nYÊU CẦU CỦA ADMIN:\n${question}\n\nNếu câu hỏi chỉ yêu cầu giải thích cơ chế hoặc hướng dẫn đi đúng module, action=none và trả lời trực tiếp dựa trên KIẾN THỨC VẬN HÀNH. Chọn tối đa một action cho yêu cầu cần đọc dữ liệu cụ thể. Yêu cầu sửa/ghi dữ liệu phải đặt requires_confirmation=true. Nếu là yêu cầu đổi công thức hoặc code, dùng propose_system_change, không dùng save_payroll.`;
 }
 
 function getCaseFinancialTotal(record: { services: Array<{ listPrice: unknown; unitPrice: unknown; quantity: unknown; discount: unknown; finalPrice: unknown }>; payments: Array<{ amount: unknown }>; voucherAmount: unknown }) {
@@ -301,8 +304,8 @@ export async function runAssistantAgent(_prev: AgentState, formData: FormData): 
   if (!aiConfigured()) return planError("Chưa cấu hình AI.");
 
   const planned = await generateStructured<PlannerOutput>({
-    system: "Bạn là Agent quản trị của ZenithTasks. Bạn không được tự ý sửa DB. Hãy chọn đúng một công cụ trong danh sách, không bịa ID/tên/tháng/số tiền, và dùng tiếng Việt.",
-    prompt: await buildPlannerPrompt(question, user.id),
+    system: "Bạn là Agent quản trị nội bộ của Trung tâm Phẫu thuật Tạo hình Thẩm mỹ — Bệnh viện Đa khoa Hồng Phúc. Bạn không được tự ý sửa DB. Hãy chọn đúng một công cụ trong danh sách, dùng kiến thức vận hành đã cung cấp, không bịa ID/tên/tháng/số tiền, và dùng tiếng Việt.",
+    prompt: await buildPlannerPrompt(question, user.id, user.role),
     schemaName: "zenith_agent_plan",
     schema: plannerSchema,
     maxTokens: 1200,

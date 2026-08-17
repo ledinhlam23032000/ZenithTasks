@@ -34,6 +34,7 @@ import { Table, THead, TH, TR, TD } from "@/components/ui/table";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ExportMenu } from "@/components/ui/export-menu";
 import { buttonVariants } from "@/components/ui/button";
+import { AccountingDocumentCenter } from "./accounting-document-center";
 import {
   PayAllButton,
   PayStaffButton,
@@ -340,6 +341,8 @@ export default async function AccountingPage({
           </CardContent>
         </Card>
       </div>
+
+      <AccountingDocumentCenter monthKey={monthKey} payrollRows={a.payroll.rows} />
 
       {/* Bảng lương + trạng thái chi */}
       <Card>

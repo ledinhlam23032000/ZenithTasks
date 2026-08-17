@@ -9,3 +9,6 @@
 | 2026-08-18 | D-005 | AI chỉ đọc, đề xuất, tạo bản nháp và chờ approval. | Không để AI tự ghi đè tiền/lương/y tế hoặc sửa code production. |
 | 2026-08-18 | D-006 | Thỏa thuận HR lưu snapshot theo type/version/status/thời hạn. | Có lịch sử và bằng chứng bản đã ký; nội dung pháp lý cần luật sư/lao động rà soát trước khi dùng chính thức. |
 | 2026-08-18 | D-007 | Migration chỉ additive, không reset và không `db push` production. | Bảo vệ dữ liệu thật; luôn backup và kiểm tra Prisma trước khi áp dụng. |
+| 2026-08-18 | D-008 | Trợ lý AI mặc định là trợ lý quản trị nội bộ dành cho ADMIN và phải nắm đầy đủ cơ chế vận hành. | AI được tra cứu dữ liệu nghiệp vụ cần thiết theo quyền ADMIN để trả lời có căn cứ; secret/API key/mật khẩu không đưa vào prompt hoặc memory. Preview, audit và xác nhận vẫn bắt buộc cho thao tác ghi. |
+| 2026-08-18 | D-009 | Đề nghị thanh toán là chứng từ đầu vào cho mọi khoản chi, kể cả khoản rất nhỏ như gói tăm 3.000đ. | Sau khi ADMIN duyệt và thanh toán, hệ thống phải sinh hoặc liên kết đúng một CashTransaction EXPENSE; không tạo hai dòng chi cho cùng một phiếu. |
+| 2026-08-18 | D-010 | Kế toán là trung tâm tra cứu chứng từ. | Có thể xem, lọc, mở và in Đề nghị thanh toán, bảng lương, phiếu thu/chi và các file xuất theo tháng/trạng thái. |

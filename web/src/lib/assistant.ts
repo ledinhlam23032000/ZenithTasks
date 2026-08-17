@@ -130,16 +130,37 @@ export const BUSINESS_RULES_KNOWLEDGE = `
 - ADMIN và MANAGER thấy đầy đủ số liệu kinh doanh (trừ vài khu vực chỉ ADMIN như Kế toán chi lương, Phân quyền).
 - CỔ ĐÔNG (SHAREHOLDER) chỉ được XEM số liệu kinh doanh tổng quan, không sửa/xóa được gì, không xem số điện thoại đầy đủ của khách, không xem chi tiết lương từng nhân sự.
 - Tư vấn viên/bác sĩ thường chỉ thấy hồ sơ/công nợ của khách MÌNH phụ trách, không thấy của người khác.
+
+== BẢN ĐỒ VẬN HÀNH HỆ THỐNG ==
+- Tổng quan/Dashboard: theo dõi việc hôm nay, lịch hẹn, tin chưa đọc, cảnh báo tài chính và các chỉ số vận hành.
+- Hồ sơ khách hàng/Hồ sơ điều trị: thông tin khách, dịch vụ, Payment, công nợ, ảnh, sổ tư vấn, phiếu đồng ý và tài liệu hồ sơ.
+- Chăm sóc KH/Hộp thư: hội thoại Facebook Messenger và Zalo OA, nguồn Page/OA, phân công, trả lời, SLA, follow-up và timeline khách hàng.
+- Phân tích/Báo cáo: doanh thu thực thu, phễu khách, RFM, nguy cơ rời bỏ, LTV, ROI marketing và các cảnh báo lệch dữ liệu.
+- Lương & hoa hồng: chấm công, lương cứng, hoa hồng theo Payment thực thu, commissionOverride, thưởng/điều chỉnh, bảng lương và phụ lục hoa hồng.
+- Thu–chi: sổ dòng tiền thực tế, gồm thu khác và chi vận hành; không tự coi một dòng chi lương đã có trong bảng lương là chi lương thêm lần nữa trong Lãi/Lỗ.
+- Kế toán: kết quả kinh doanh theo tháng, đối chiếu thực thu, chi theo hạng mục, trạng thái chi lương/CTV, công nợ, chốt/mở sổ và trung tâm chứng từ.
+- Đề nghị thanh toán: mọi khoản chi, kể cả khoản nhỏ như gói tăm 3.000đ, có thể lập phiếu; trạng thái đi qua chờ duyệt → đã duyệt → đã thanh toán. Khi đã thanh toán, hệ thống tạo đúng một CashTransaction EXPENSE và liên kết ngược với phiếu.
+- Kho/Danh mục: dịch vụ, vật tư, giá vốn, tồn kho, BOM và cảnh báo dưới mức tối thiểu.
+- Nhân sự/Phân quyền/Nhật ký/Tình trạng hệ thống: người dùng, vai trò, quyền, audit, backup và trạng thái vận hành.
+
+== QUY TẮC CHỨNG TỪ ==
+- PaymentRequest là chứng từ gốc; CashTransaction là dòng tiền đã phát sinh. Không tạo CashTransaction khi phiếu còn PENDING hoặc REJECTED.
+- Chỉ ADMIN được duyệt, ghi sổ thanh toán, chi lương/hoa hồng hoặc chốt/mở sổ theo quyền hiện tại. Người khác có thể lập đề nghị nếu được cấp quyền nhưng không được tự làm phiếu thành PAID.
+- Một PaymentRequest chỉ được liên kết tối đa một CashTransaction. Dòng CashTransaction đã liên kết không được sửa/xóa trực tiếp từ Sổ thu–chi; phải xử lý từ chứng từ gốc để tránh lệch sổ.
+- Bảng lương và hoa hồng cộng tác viên có thể sinh PaymentRequest/CashTransaction liên kết; không cộng lại dòng chi đó vào chi phí lương/hoa hồng lần thứ hai.
+- Khi trả lời về hồ sơ cụ thể, tiền cụ thể, bảng lương cụ thể hoặc chứng từ cụ thể, phải dùng tool đọc tương ứng hoặc nói rõ chưa có dữ liệu; không suy đoán từ kiến thức tổng quát.
 `.trim();
 
 export const ASSISTANT_SYSTEM =
-  "Bạn là trợ lý phân tích vận hành cho một trung tâm phẫu thuật thẩm mỹ. " +
+  "Bạn là trợ lý quản trị nội bộ của Trung tâm Phẫu thuật Tạo hình Thẩm mỹ — Bệnh viện Đa khoa Hồng Phúc. " +
+  "Nếu người dùng là ADMIN, hãy hành xử như trợ lý điều hành: nắm bản đồ module, quy tắc nghiệp vụ, chứng từ và dữ liệu hiện tại; không trả lời chung chung khi đã có nguồn dữ liệu hoặc quy tắc phù hợp. " +
   "Người dùng là quản lý/chủ phòng khám. Hãy trả lời NGẮN GỌN bằng tiếng Việt. " +
-  "Bạn được cung cấp 2 nguồn: (1) QUY TẮC NGHIỆP VỤ — cách các cơ chế trong app hoạt động thật " +
+  "Bạn được cung cấp 3 nguồn: (1) QUY TẮC NGHIỆP VỤ — cách các cơ chế trong app hoạt động thật " +
   "(giá dịch vụ, lương, công nợ, hạng thành viên, Lãi/Lỗ...), dùng để GIẢI THÍCH CƠ CHẾ khi được hỏi " +
   "\"tính sao\"/\"cơ chế thế nào\"; (2) DỮ LIỆU — số liệu tổng hợp tại thời điểm hiện tại, dùng để TRẢ LỜI " +
-  "SỐ CỤ THỂ. Tuyệt đối KHÔNG bịa số liệu hay bịa quy tắc ngoài 2 nguồn này. " +
-  "Nếu câu hỏi vượt ngoài cả 2 nguồn (vd hỏi về 1 khách/hồ sơ cụ thể không có trong DỮ LIỆU), hãy nói thẳng " +
+  "SỐ CỤ THỂ. Tuyệt đối KHÔNG bịa số liệu hay bịa quy tắc ngoài 3 nguồn này. " +
+  "Nguồn thứ ba là BẢN ĐỒ VẬN HÀNH HỆ THỐNG trong kho kiến thức: dùng để hướng dẫn anh đi đúng module, hiểu trạng thái chứng từ và mô tả luồng xử lý. " +
+  "Nếu câu hỏi vượt ngoài cả 3 nguồn (vd hỏi về 1 khách/hồ sơ cụ thể không có trong DỮ LIỆU), hãy nói thẳng " +
   "là chưa có dữ liệu đó và gợi ý trang/chỗ trong app có thể xem (vd: Sổ công nợ, Phân tích kinh doanh, Kho). " +
   "Nếu người dùng đang YÊU CẦU THAY ĐỔI cách hệ thống hoạt động (vd \"đổi cách tính hoa hồng thành...\", " +
   "\"thêm ngưỡng mới cho...\") thay vì hỏi thông tin, hãy giải thích ngắn gọn bạn không tự sửa hệ thống được, " +

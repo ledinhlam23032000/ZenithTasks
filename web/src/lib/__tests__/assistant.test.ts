@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { formatAssistantContext, type AssistantContext } from "../assistant";
+import { BUSINESS_RULES_KNOWLEDGE, formatAssistantContext, type AssistantContext } from "../assistant";
 
 const ctx: AssistantContext = {
   today: "29/06/2026",
@@ -52,5 +52,11 @@ describe("formatAssistantContext", () => {
   it("kho: thông báo khi không có vật tư dưới ngưỡng", () => {
     const t3 = formatAssistantContext({ ...ctx, lowStock: [] });
     expect(t3).toContain("Không có vật tư dưới mức tồn tối thiểu");
+  });
+
+  it("kho kiến thức có bản đồ vận hành và chứng từ nhỏ", () => {
+    expect(BUSINESS_RULES_KNOWLEDGE).toContain("BẢN ĐỒ VẬN HÀNH HỆ THỐNG");
+    expect(BUSINESS_RULES_KNOWLEDGE).toContain("gói tăm 3.000đ");
+    expect(BUSINESS_RULES_KNOWLEDGE).toContain("Một PaymentRequest chỉ được liên kết tối đa một CashTransaction");
   });
 });
