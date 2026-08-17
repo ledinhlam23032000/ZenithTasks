@@ -23,38 +23,43 @@ function Log($m) {
 $stamp = Get-Date -Format 'yyyy-MM-dd_HHmm'
 $tmp = Join-Path $env:TEMP "zenith-bk-$stamp"
 New-Item -ItemType Directory -Force -Path $tmp | Out-Null
+$dbDump = Join-Path $tmp 'db.sql'
+$uploadsDir = Join-Path $tmp 'uploads'
+$runtimeDir = Join-Path $tmp 'runtime'
+$inboxDir = Join-Path $tmp 'inbox-attachments'
 
 try {
   Log "Bat dau sao luu..."
 
-  # 1) Xuat toan bo CSDL ra file db.sql
-  cmd /c "docker compose -f ""$Compose"" exec -T db pg_dump -U zenith -d zenith_clinic > ""$tmp\db.sql"""
-  if (-not (Test-Path "$tmp\db.sql") -or (Get-Item "$tmp\db.sql").Length -lt 100) {
+  # 1) Xuat toan bo CSDL ra file db.sql.
+  & docker compose -f $Compose exec -T db pg_dump -U zenith -d zenith_clinic | Out-File -FilePath $dbDump -Encoding utf8
+  if ($LASTEXITCODE -ne 0 -or -not (Test-Path $dbDump) -or (Get-Item $dbDump).Length -lt 100) {
     throw "Khong xuat duoc CSDL. Docker/ung dung dang chay chua?"
   }
 
-  # 2) Sao chep thu muc anh (truoc/sau, avatar...)
-  cmd /c "docker compose -f ""$Compose"" cp app:/app/private/uploads ""$tmp\uploads""" 2>$null
+  # 2) Sao chep thu muc anh (truoc/sau, avatar...).
+  & docker compose -f $Compose cp 'app:/app/private/uploads' $uploadsDir
+  if ($LASTEXITCODE -ne 0) { throw "Khong sao chep duoc thu muc anh uploads." }
 
   # 3) Sao luu khoa runtime + tep dinh kem inbox. Day la du lieu NHAY CAM:
-  #    ban backup phai nam tren o dia/Google Drive chi chu du an truy cap.
-  cmd /c "docker compose -f ""$Compose"" cp app:/app/.runtime ""$tmpuntime""" 2>$null
+  #    ban backup phai nam tren o dia/Google Drive chi chu de an truy cap.
+  & docker compose -f $Compose cp 'app:/.runtime' $runtimeDir
   if ($LASTEXITCODE -ne 0) { throw "Khong sao luu duoc khoa runtime cua ung dung." }
-  cmd /c "docker compose -f ""$Compose"" cp app:/app/private/inbox ""$tmpinbox-attachments""" 2>$null
+  & docker compose -f $Compose cp 'app:/app/private/inbox' $inboxDir
   if ($LASTEXITCODE -ne 0) { throw "Khong sao luu duoc tep dinh kem hop thu." }
 
-  # 4) Nen thanh 1 file .zip
+  # 4) Nen thanh 1 file .zip.
   $zip = Join-Path $BackupRoot "zenith-$stamp.zip"
-  Compress-Archive -Path "$tmp\*" -DestinationPath $zip -Force
+  Compress-Archive -Path (Join-Path $tmp '*') -DestinationPath $zip -Force
   $sizeMB = [math]::Round((Get-Item $zip).Length / 1MB, 1)
   Log "Da luu: $zip ($sizeMB MB)"
 
-  # 5) Chi giu ban sao luu trong 30 ngay gan nhat
+  # 5) Chi giu ban sao luu trong 30 ngay gan nhat.
   Get-ChildItem (Join-Path $BackupRoot 'zenith-*.zip') |
     Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-30) } |
     Remove-Item -Force -ErrorAction SilentlyContinue
 
-  # 6) Sao chep ra NOI LUU NGOAI (Google Drive / USB / o mang) neu da cau hinh
+  # 6) Sao chep ra NOI LUU NGOAI (Google Drive / USB / o mang) neu da cau hinh.
   $offFile = Join-Path $env:USERPROFILE 'zenith-sao-luu-offsite.txt'
   if (Test-Path $offFile) {
     $offsite = (Get-Content $offFile -Raw).Trim()
