@@ -17,6 +17,7 @@ import {
   Crown,
   Share2,
   AlertTriangle,
+  Clock3,
 } from "lucide-react";
 import { differenceInYears, format } from "date-fns";
 import { requireCap } from "@/lib/auth";
@@ -90,6 +91,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
       followUps: scopedClinical
         ? { where: { case: caseScope }, orderBy: { scheduledAt: "desc" }, take: 8 }
         : { orderBy: { scheduledAt: "desc" }, take: 8 },
+      conversations: { orderBy: { lastMessageAt: "desc" }, take: 20, include: { channelAccount: { select: { kind: true, label: true, externalName: true } } } },
       createdBy: { select: { fullName: true } },
     },
   });
@@ -114,6 +116,14 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
   const tier = tierFor(lifetimePaid);
   const points = pointsFor(lifetimePaid);
   const nxt = nextTier(lifetimePaid);
+
+  const timeline = [
+    ...customer.cases.map((item) => ({ at: item.createdAt, type: "Hồ sơ", title: `Mở hồ sơ ${item.code}`, detail: `${CASE_STATUS[item.status].label} · ${CONSULT_RESULT[item.consultResult].label}`, href: `/ho-so/${item.id}` })),
+    ...customer.appointments.map((item) => ({ at: item.scheduledAt, type: "Lịch hẹn", title: item.serviceInterest ? `Hẹn ${item.serviceInterest}` : "Lịch hẹn", detail: APPT_STATUS[item.status]?.label ?? item.status, href: "/lich-hen" })),
+    ...customer.followUps.map((item) => ({ at: item.scheduledAt, type: "Follow-up", title: "Lịch chăm sóc/tái khám", detail: item.note ?? item.status, href: `/ho-so/${item.caseId}` })),
+    ...customer.careMessages.map((item) => ({ at: item.createdAt, type: "CSKH", title: `${CARE_CHANNEL[item.channel].label} · ${item.createdBy?.fullName ?? "Nhân viên"}`, detail: item.content.slice(0, 120), href: "/cham-soc" })),
+    ...customer.conversations.map((item) => ({ at: item.lastMessageAt, type: item.channelAccount.kind === "FACEBOOK" ? "Facebook" : "Zalo OA", title: item.channelAccount.externalName ?? item.channelAccount.label, detail: item.lastMessagePreview ?? "Có hội thoại", href: `/cham-soc/hop-thu/${item.id}` })),
+  ].sort((a, b) => b.at.getTime() - a.at.getTime()).slice(0, 30);
 
   const canReceive = ["ADMIN", "RECEPTION", "CONSULTANT", "DOCTOR", "MANAGER"].includes(user.role);
   const canCare = ["ADMIN", "MANAGER", "CARE"].includes(user.role);
@@ -211,6 +221,13 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
         <StatCard label="Tổng giá trị dịch vụ" value={formatVND(totalValue)} icon={<Wallet className="h-5 w-5" />} tone="green" />
         <StatCard label="Công nợ còn lại" value={formatVND(totalDebt)} icon={<Receipt className="h-5 w-5" />} tone={totalDebt > 0 ? "red" : "slate"} />
       </div>
+
+      <Card>
+        <CardHeader><CardTitle className="flex items-center gap-2"><Clock3 className="h-4 w-4 text-brand-500" /> Timeline khách hàng 360°</CardTitle></CardHeader>
+        <CardContent className="pt-0">
+          {timeline.length === 0 ? <EmptyState title="Chưa có hoạt động" /> : <ol className="relative ml-2 border-l border-slate-200 pl-5">{timeline.map((event, index) => <li key={`${event.type}-${event.at.toISOString()}-${index}`} className="relative pb-4 last:pb-0"><span className="absolute -left-[1.47rem] top-1.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-brand-500 ring-1 ring-brand-200" /><div className="flex flex-wrap items-baseline justify-between gap-2"><Link href={event.href} className="text-sm font-semibold text-slate-800 hover:text-brand-700">{event.title}</Link><time className="text-xs text-slate-400">{fmtDateTime(event.at)}</time></div><p className="mt-0.5 text-xs text-slate-500"><span className="font-medium text-brand-600">{event.type}</span> · {event.detail}</p></li>)}</ol>}
+        </CardContent>
+      </Card>
 
       {/* Thẻ thành viên */}
       <Card>
