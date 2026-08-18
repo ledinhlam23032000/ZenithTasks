@@ -13,4 +13,5 @@
 - Đã mở modal Ghi nhận thu/chi ở chế độ kiểm tra; chưa chọn hạng mục, chưa nhập tiền và chưa gửi form.
 - Đã cuộn container modal và sau đó đóng modal; không chọn hạng mục, không nhập tiền, không gửi form và không tạo dòng Thu–chi mới.
 - Đã mở `/tro-ly` bằng phiên ADMIN mới; giao diện có nút tải file, voice và các shortcut đọc lương/xuất bảng lương.
-- Đã gửi câu hỏi chỉ đọc về hoa hồng theo tiền thực thu và khoản chi 3.000đ. AI không ghi dữ liệu, nhưng câu trả lời thực tế hiện chỉ là khung chung “đã hiểu yêu cầu / không cần thao tác dữ liệu”, chưa giải thích nội dung. Đây là lỗi cần xử lý tiếp ở action=none/answer generation; không được kết luận AI đã đạt.
+- Lần kiểm tra đầu cho thấy AI chỉ trả lời khung chung; đã sửa action=none và build/recreate image mới.
+- Lần kiểm tra lại bằng đúng câu hỏi cho thấy AI giải thích cụ thể: hoa hồng chỉ tính trên từng Payment thực thu, ví dụ 5.000.000đ; không tính trên giá chốt 100.000.000đ; khoản tăm 3.000đ đi qua PENDING → ADMIN duyệt → PAID tạo đúng một CashTransaction EXPENSE liên kết, không ghi tay trùng. AI không ghi dữ liệu trong bài kiểm tra.
