@@ -489,7 +489,17 @@ export async function confirmAssistantApproval(_prev: AgentState, formData: Form
       if (!plan) plan = await prisma.plan.create({ data: { title: "Yêu cầu từ Trợ lý AI", note: "Đề xuất do Agent lập, cần quản trị viên duyệt trước khi sửa code.", aiGenerated: true, createdById: user.id } });
       const max = await prisma.planTask.aggregate({ where: { planId: plan.id, parentId: null }, _max: { order: true } });
       const task = await prisma.planTask.create({ data: { planId: plan.id, title: request.slice(0, 120), note: request, order: (max._max.order ?? -1) + 1 } });
-      await auditRequired(prisma, user.id, "ASSISTANT_CHANGE_PROPOSAL", { entity: "PlanTask", entityId: task.id, meta: { planId: plan.id } });
+      const checklist = [
+        ["Phân tích phạm vi", "Đọc schema, actions, UI, quyền và dữ liệu liên quan; chốt chính xác file cần đổi."],
+        ["Soạn diff để ADMIN xem", "Tạo bản thay đổi có thể review, nêu rõ dữ liệu/migration và ảnh hưởng ngược."],
+        ["Kiểm thử trước triển khai", "Chạy Prisma validate/generate, TypeScript, test hồi quy và production build."],
+        ["Backup và migration", "Backup production trước; nếu có schema thì dùng migrate deploy, không reset/db push."],
+        ["Triển khai và kiểm tra", "Recreate image, kiểm tra endpoint/role/luồng thực tế; nếu lỗi thì dừng và quay về backup phù hợp."],
+      ] as const;
+      for (let i = 0; i < checklist.length; i += 1) {
+        await prisma.planTask.create({ data: { planId: plan.id, parentId: task.id, title: checklist[i][0], note: checklist[i][1], order: i } });
+      }
+      await auditRequired(prisma, user.id, "ASSISTANT_CHANGE_PROPOSAL", { entity: "PlanTask", entityId: task.id, meta: { planId: plan.id, checklist: checklist.map(([title]) => title) } });
     } else {
       return planError("Công cụ xác nhận không còn được hỗ trợ.");
     }
