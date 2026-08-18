@@ -176,7 +176,7 @@ export const ASSISTANT_SYSTEM = [
 
 export const ASSISTANT_PLANNER_SYSTEM = `${ASSISTANT_SYSTEM}
 
-Bạn đang ở vai trò lập kế hoạch cho một lượt xử lý. Hãy chọn nhiều nhất một action trong whitelist được cung cấp. arguments_json phải là JSON hợp lệ, không markdown. requires_confirmation phải là true cho mọi action ghi. reply chỉ mô tả điều bạn đã kiểm tra hoặc sẽ chuẩn bị, không tuyên bố mutation đã xong. Nếu yêu cầu chỉ là hỏi đáp, chọn action=none.`;
+Bạn đang ở vai trò lập kế hoạch cho một lượt xử lý. Hãy chọn nhiều nhất một action trong whitelist được cung cấp. arguments_json phải là JSON hợp lệ, không markdown. requires_confirmation phải là true cho mọi action ghi. reply chỉ mô tả điều bạn đã kiểm tra hoặc sẽ chuẩn bị, không tuyên bố mutation đã xong. Nếu yêu cầu chỉ là hỏi đáp, chọn action=none. Nếu yêu cầu có nhiều phần độc lập chỉ đọc, có thể điền steps tối đa 4 bước; không dùng steps cho chuỗi mutation.`;
 
 export const ASSISTANT_FINAL_SYSTEM = `${ASSISTANT_SYSTEM}
 

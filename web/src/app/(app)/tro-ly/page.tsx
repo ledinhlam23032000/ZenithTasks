@@ -1,8 +1,8 @@
-import Link from "next/link";
 import { requireCap } from "@/lib/auth";
 import { aiConfigured } from "@/lib/ai";
 import { shortName } from "@/lib/format";
 import { AssistantChat } from "./assistant-chat";
+import { ConversationHistory } from "./conversation-history";
 import { getAssistantConversationTurns, getOrCreateAssistantConversation, listAssistantConversations } from "./conversations";
 
 export const dynamic = "force-dynamic";
@@ -22,15 +22,7 @@ export default async function AssistantPage({ searchParams }: { searchParams: Pr
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Lịch sử trợ lý</p>
           <span className="text-[11px] text-slate-400">{history.length}</span>
         </div>
-        <div className="space-y-1">
-          {history.length === 0 && <p className="px-2 py-3 text-xs text-slate-400">Chưa có phiên đã lưu.</p>}
-          {history.map((item) => (
-            <Link key={item.id} href={`/tro-ly?c=${item.id}`} className={`block rounded-xl px-2.5 py-2 text-xs transition ${item.id === conversation.id ? "bg-brand-50 font-semibold text-brand-700" : "text-slate-600 hover:bg-slate-50"}`}>
-              <span className="block truncate">{item.title || "Cuộc trò chuyện mới"}</span>
-              <span className="mt-0.5 block text-[10px] font-normal text-slate-400">{item.status === "ARCHIVED" ? "Đã lưu trữ" : "Đang mở"} · {new Date(item.lastMessageAt).toLocaleDateString("vi-VN")}</span>
-            </Link>
-          ))}
-        </div>
+        <ConversationHistory history={history} currentId={conversation.id} />
       </aside>
       <AssistantChat
         aiOn={aiOn}

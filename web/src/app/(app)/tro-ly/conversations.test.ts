@@ -13,8 +13,8 @@ describe("turnsToPrompt", () => {
 
   it("giới hạn context và ưu tiên phần cuối khi lịch sử quá dài", () => {
     const result = turnsToPrompt(Array.from({ length: 30 }, (_, index) => ({ role: "USER", content: `${index}: ${"x".repeat(4_000)}` })));
-    expect(result.length).toBeLessThanOrEqual(18_060);
+    expect(result.length).toBeLessThanOrEqual(24_100);
     expect(result).toContain("29:");
-    expect(result).toContain("Các lượt cũ hơn đã được rút gọn");
+    expect(result).toContain("Các lượt cũ hơn đã được tóm tắt vào memory");
   });
 });
