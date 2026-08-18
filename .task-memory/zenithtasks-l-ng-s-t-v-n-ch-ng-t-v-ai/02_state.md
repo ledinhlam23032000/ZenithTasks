@@ -1,9 +1,9 @@
 # Project State
 
-- Updated: 2026-08-18 02:14 GMT+7
+- Updated: 2026-08-18 09:02 GMT+7
 - Goal: Nâng cấp AI ADMIN hiểu đầy đủ vận hành và hoàn thiện luồng Đề nghị thanh toán → Thu–chi → Kế toán.
-- Current phase: Đã triển khai code chính; đang kiểm thử chống ghi trùng, quyền, build và chuẩn bị tài liệu.
-- Overall status: active
+- Current phase: Đã hoàn tất triển khai r3, kiểm tra UI ADMIN và lưu biên bản; nhiệm vụ vẫn có thể mở rộng ở các đợt sau.
+- Overall status: completed-for-this-release
 
 ## Đã hoàn thành trong checkpoint này
 
@@ -27,7 +27,8 @@
 - Vitest toàn bộ: **45 file, 299/299 test đạt**; test mới bao phủ metadata khoản chi nhỏ, khóa sửa/xóa dòng đã liên kết và knowledge map của AI.
 - Next.js production build: đạt sau phần finance trước khi bổ sung AI knowledge; cần chạy lại build ở checkpoint cuối.
 - Prisma migration `20260818100000_finance_consultation_hr_ai` đã áp dụng trên máy vận hành theo checkpoint trước.
-- Chưa kiểm thử UI production bằng tài khoản ADMIN cho checkbox khoản chi nhỏ, trung tâm chứng từ và câu hỏi AI vận hành.
+- Đã kiểm thử UI production bằng tài khoản ADMIN: `/ke-toan`, `/thu-chi`, `/tro-ly` mở được; Trung tâm chứng từ hiển thị; modal Thu–chi mở và đóng không tạo dữ liệu; AI trả lời đúng cơ chế hoa hồng thực thu và khoản chi 3.000đ.
+- Chưa tạo phiếu PAID thật để không làm thay đổi sổ kế toán trong kiểm thử.
 
 ## Verified facts và rủi ro
 
@@ -35,9 +36,9 @@ HEAD trước đợt mới là `e45021c`. Repo có một số file untracked cũ
 
 ## Next 3 actions
 
-1. Chạy lại Prisma validate/generate, TypeScript, full test và production build sau cả phần AI knowledge.
-2. Rà soát diff, cập nhật CHANGELOG/VERSION/UPGRADE-HANDOFF và lưu logs trong `checks/`.
-3. Commit/push GitHub, backup rồi cập nhật máy Windows; sau đó kiểm tra UI ADMIN và câu hỏi AI thực tế.
+1. Khi anh có khoản chi thực tế, dùng luồng Sổ thu–chi → Đề nghị thanh toán → ADMIN duyệt → PAID; không nhập cùng khoản đó trực tiếp lần hai.
+2. Có thể kiểm tra bổ sung AI tải file/voice, xuất file kế toán, QR và hộp thư khi thuận tiện.
+3. Các đợt nâng cấp sau phải tiếp tục đọc brief/state này; workstream AI ADMIN vẫn là yêu cầu dài hạn bắt buộc.
 
 ## Files to read first
 
