@@ -3,6 +3,7 @@
 > **Phiên bản nội bộ:** `2026.08.18-r7`<br>
 > **Commit code:** [`c7ffa76`](https://github.com/ledinhlam23032000/ZenithTasks/commit/c7ffa76)<br>
 > **Commit Docker Compose:** [`ee9c7b0`](https://github.com/ledinhlam23032000/ZenithTasks/commit/ee9c7b0)<br>
+> **Commit tài liệu/bàn giao:** [`f531973`](https://github.com/ledinhlam23032000/ZenithTasks/commit/f531973)<br>
 > **Ngày cập nhật:** 18/08/2026<br>
 > **Trạng thái:** Đã validate/test/build và CI xanh. Production đã chạy bản Agent đồng nghiệp số: parser ưu tiên yêu cầu mới nhất, approval có trạng thái thật, xác nhận bằng lời ADMIN, timeline bước làm việc, xóa phiên, lập kế hoạch nhiệm vụ chính/phụ và `AI_AGENT_MODEL` reasoning riêng. Bộ tài liệu tiếp quản chuẩn nằm tại [`docs/INDEX.md`](docs/INDEX.md).
 

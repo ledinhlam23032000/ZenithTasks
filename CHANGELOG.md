@@ -4,7 +4,7 @@ Tài liệu này ghi các thay đổi đã được đẩy lên nhánh `master`.
 
 ## 2026-08-18 — `2026.08.18-r7`
 
-Commit code: [`c7ffa76`](https://github.com/ledinhlam23032000/ZenithTasks/commit/c7ffa76). Commit Docker Compose: [`ee9c7b0`](https://github.com/ledinhlam23032000/ZenithTasks/commit/ee9c7b0).
+Commit code: [`c7ffa76`](https://github.com/ledinhlam23032000/ZenithTasks/commit/c7ffa76). Commit Docker Compose: [`ee9c7b0`](https://github.com/ledinhlam23032000/ZenithTasks/commit/ee9c7b0). Commit tài liệu/bàn giao: [`f531973`](https://github.com/ledinhlam23032000/ZenithTasks/commit/f531973).
 
 ### Trợ lý AI thành đồng nghiệp số
 
