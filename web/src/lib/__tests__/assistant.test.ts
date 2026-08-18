@@ -59,4 +59,11 @@ describe("formatAssistantContext", () => {
     expect(BUSINESS_RULES_KNOWLEDGE).toContain("gói tăm 3.000đ");
     expect(BUSINESS_RULES_KNOWLEDGE).toContain("Một PaymentRequest chỉ được liên kết tối đa một CashTransaction");
   });
+
+  it("ghi nhận registry AI mới và các chốt an toàn", () => {
+    expect(BUSINESS_RULES_KNOWLEDGE).toContain("đọc hồ sơ khách theo mã");
+    expect(BUSINESS_RULES_KNOWLEDGE).toContain("cập nhật Sổ tư vấn theo rule 24 giờ");
+    expect(BUSINESS_RULES_KNOWLEDGE).toContain("PENDING → APPROVED → PAID");
+    expect(BUSINESS_RULES_KNOWLEDGE).toContain("hoàn kho vật tư trước rồi mới xóa trong transaction");
+  });
 });

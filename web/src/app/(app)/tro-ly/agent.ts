@@ -11,7 +11,9 @@ import { formatVND } from "@/lib/money";
 import { isMonthClosed } from "@/lib/accounting";
 import { audit, auditRequired } from "@/lib/audit";
 import { savePayroll, saveBulkPayroll } from "../luong/actions";
-import { addPayment, addFollowUp } from "../ho-so/actions";
+import { addPayment, addFollowUp, saveConsultationRecord, restoreMaterialUsageStock } from "../ho-so/actions";
+import { updateCustomer } from "../khach-hang/actions";
+import { createPaymentRequest, approvePaymentRequest, rejectPaymentRequest, markPaymentRequestPaid } from "../ke-toan/de-nghi-thanh-toan/actions";
 import { bulkUpsertAttendance } from "../cham-cong/actions";
 import { createAppointment } from "../lich-hen/actions";
 import { summarizeCase } from "@/lib/financial-summary";
@@ -26,6 +28,7 @@ const actionNames = [
   "none",
   "get_business_summary",
   "get_payroll_row",
+  "get_customer_profile",
   "get_debt_summary",
   "get_lead_priorities",
   "get_financial_alerts",
@@ -36,6 +39,13 @@ const actionNames = [
   "record_payment",
   "create_follow_up",
   "create_appointment",
+  "update_customer_profile",
+  "delete_customer",
+  "update_consultation_record",
+  "create_payment_request",
+  "approve_payment_request",
+  "reject_payment_request",
+  "pay_payment_request",
   "propose_system_change",
 ] as const;
 
@@ -77,6 +87,34 @@ const payrollReadArgs = z.object({
   staffName: z.string().min(1).max(120),
   month: monthSchema.optional(),
 });
+const customerLookupArgs = z.object({ customerCode: z.string().trim().min(2).max(40) });
+const customerUpdateArgs = z.object({
+  customerCode: z.string().trim().min(2).max(40),
+  fullName: z.string().trim().min(1).max(200).optional(),
+  phone: z.string().trim().max(20).optional(),
+  gender: z.enum(["MALE", "FEMALE", "OTHER"]).optional(),
+  dob: z.string().trim().max(20).optional(),
+  source: z.enum(["MARKETING", "COLLABORATOR", "WALK_IN", "REFERRAL", "HOTLINE", "FACEBOOK", "ZALO", "TIKTOK", "OTHER"]).optional(),
+  sourceDetail: z.string().trim().max(200).optional(),
+  address: z.string().trim().max(500).optional(),
+  note: z.string().trim().max(2000).optional(),
+  allergies: z.string().trim().max(2000).optional(),
+  medicalHistory: z.string().trim().max(3000).optional(),
+  contraindications: z.string().trim().max(3000).optional(),
+}).refine((data) => Object.keys(data).some((key) => key !== "customerCode" && data[key as keyof typeof data] !== undefined), { message: "Cần nêu ít nhất một trường muốn sửa." });
+const createPaymentRequestArgs = z.object({
+  type: z.enum(["EXPENSE", "SALARY", "COLLABORATOR", "STAFF_OTHER"]), payeeName: z.string().trim().min(1).max(200), payeeUserId: z.string().trim().optional(), amount: z.number().int().positive(), reason: z.string().trim().min(3).max(1000), month: monthSchema.optional(), category: z.string().trim().max(50).optional(), note: z.string().trim().max(1000).optional(),
+});
+const paymentRequestArgs = z.object({ requestNo: z.string().trim().min(3).max(60) });
+const rejectPaymentArgs = paymentRequestArgs.extend({ reason: z.string().trim().min(3).max(500) });
+const payPaymentArgs = paymentRequestArgs.extend({ method: z.enum(["CASH", "CARD", "TRANSFER", "EWALLET"]), occurredAt: z.string().min(10).optional() });
+const consultationArgs = z.object({
+  caseCode: z.string().trim().min(2).max(40),
+  weightKg: z.number().min(0).max(500).optional(), heightCm: z.number().min(0).max(250).optional(), bloodType: z.string().max(20).optional(),
+  emergencyName: z.string().max(120).optional(), emergencyPhone: z.string().max(40).optional(), pulse: z.number().int().min(0).max(300).optional(),
+  bloodPressure: z.string().max(30).optional(), temperatureC: z.number().min(0).max(50).optional(), respiratoryRate: z.number().int().min(0).max(100).optional(), spo2: z.number().int().min(0).max(100).optional(),
+  screeningJson: z.string().max(10000).optional(), patientConfirmed: z.boolean().optional(), wants: z.string().max(3000).optional(), currentCondition: z.string().max(3000).optional(), expectedResult: z.string().max(3000).optional(), doctorIndication: z.string().max(3000).optional(),
+}).refine((data) => Object.keys(data).some((key) => key !== "caseCode" && data[key as keyof typeof data] !== undefined), { message: "Cần nêu ít nhất một trường sổ tư vấn muốn cập nhật." });
 const payrollExportArgs = z.object({
   month: monthSchema,
   format: z.enum(["xlsx", "doc", "csv"]),
@@ -126,6 +164,7 @@ const actionHelp = `
 Công cụ được phép:
 - get_business_summary: đọc tổng quan vận hành.
 - get_payroll_row: xem bảng lương của một nhân sự theo tháng; args {staffName, month?}.
+- get_customer_profile: đọc hồ sơ khách theo mã, chỉ hiển thị 5 số cuối điện thoại và dữ liệu được phép; args {customerCode}.
 - get_debt_summary: đọc tổng công nợ hiện tại.
 - get_lead_priorities: xếp khách đang tư vấn/cân nhắc theo khả năng cần gọi lại; args {days?}.
 - get_financial_alerts: đọc các hồ sơ có dấu hiệu lệch tiền, trả vượt hoặc snapshot cũ.
@@ -136,6 +175,10 @@ Công cụ được phép:
 - record_payment: ghi nhận khoản thu cho hồ sơ; args {caseCode, amount, method, note}. Luôn xem trước và xác nhận.
 - create_follow_up: tạo lịch chăm sóc/tái khám; args {caseCode, scheduledAt, note}. Luôn xem trước và xác nhận.
 - create_appointment: tạo lịch hẹn; args {guestName, phoneLast5?, scheduledAt, type, serviceInterest?, source, sourceDetail?, consultantName?, note?}. Luôn xem trước và xác nhận.
+- update_customer_profile/delete_customer: ADMIN sửa hoặc xóa hồ sơ khách theo mã chính xác; xóa là vĩnh viễn, hoàn kho trước và luôn xem trước.
+- update_consultation_record: ADMIN/nhân sự có quyền cập nhật Sổ tư vấn; AI luôn preview, áp dụng đúng khóa 24 giờ của hệ thống.
+- create_payment_request: lập Đề nghị thanh toán PENDING, dùng cả khoản nhỏ như gói tăm 3.000đ; args {type, payeeName, amount, reason, month?, category?, note?}.
+- approve_payment_request/reject_payment_request/pay_payment_request: ADMIN quản lý trạng thái Đề nghị thanh toán; chỉ ghi sổ khi chứng từ đã duyệt, luôn preview.
 - propose_system_change: ghi đề xuất đổi cơ chế/code thành kế hoạch để duyệt; args {request}.
 Không tự đoán tên người, tháng, số tiền; nếu thiếu thì action=none và hỏi lại. Không gọi tool khác, không viết SQL, không sửa file trực tiếp.`;
 
@@ -216,7 +259,34 @@ async function findStaff(staffName: string) {
   return { user: partial.length === 1 ? partial[0] : null, choices: partial.map((u) => u.fullName) };
 }
 
-async function readAction(action: ActionName, args: unknown): Promise<AgentState> {
+async function findCustomer(customerCode: string) {
+  const exact = await prisma.customer.findUnique({
+    where: { code: customerCode.trim() },
+    select: { id: true, code: true, fullName: true, phoneLast5: true, gender: true, dob: true, source: true, sourceDetail: true, address: true, note: true, allergies: true, medicalHistory: true, contraindications: true },
+  });
+  if (exact) return { customer: exact, choices: [] as string[] };
+  const partial = await prisma.customer.findMany({ where: { code: { contains: customerCode.trim(), mode: "insensitive" } }, take: 5, select: { code: true, fullName: true } });
+  return { customer: null, choices: partial.map((row) => `${row.code} — ${row.fullName}`) };
+}
+
+async function deleteCustomerForAgent(userId: string, customerId: string) {
+  await prisma.$transaction(async (tx) => {
+    const usages = await tx.materialUsage.findMany({ where: { case: { customerId } }, select: { materialId: true, quantity: true } });
+    await restoreMaterialUsageStock(tx, usages, userId, "Hoàn kho (AI xóa khách hàng)");
+    await tx.payment.deleteMany({ where: { case: { customerId } } });
+    await tx.caseService.deleteMany({ where: { case: { customerId } } });
+    await tx.materialUsage.deleteMany({ where: { case: { customerId } } });
+    await tx.followUp.deleteMany({ where: { customerId } });
+    await tx.photo.deleteMany({ where: { customerId } });
+    await tx.careMessage.deleteMany({ where: { customerId } });
+    await tx.appointment.deleteMany({ where: { customerId } });
+    await tx.caseRecord.deleteMany({ where: { customerId } });
+    await tx.customer.delete({ where: { id: customerId } });
+    await auditRequired(tx, userId, "DELETE_CUSTOMER", { entity: "Customer", entityId: customerId, meta: { source: "ASSISTANT_ADMIN_GATEWAY" } });
+  });
+}
+
+async function readAction(action: ActionName, args: unknown, userId: string): Promise<AgentState> {
   if (action === "get_business_summary") {
     const context = await getAssistantContext();
     return { ok: true, answer: `Tôi đã đọc số liệu hiện tại.\n\n${formatAssistantContext(context)}` };
@@ -245,6 +315,17 @@ async function readAction(action: ActionName, args: unknown): Promise<AgentState
   if (action === "get_financial_alerts") {
     const issues = await getFinancialHealthIssues();
     return { ok: true, answer: issues.length ? `Có ${issues.length} cảnh báo tài chính:\n\n${issues.slice(0, 15).map((i) => `- ${i.caseCode} · ${i.customerName}: ${i.message}`).join("\n")}` : "Không phát hiện cảnh báo tài chính trong dữ liệu gần đây." };
+  }
+  if (action === "get_customer_profile") {
+    const actor = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
+    if (actor?.role !== "ADMIN") return planError("Chỉ ADMIN được đọc chi tiết hồ sơ khách qua Trợ lý AI.");
+    const parsed = customerLookupArgs.safeParse(args);
+    if (!parsed.success) return planError("Cần mã hồ sơ khách chính xác.");
+    const found = await findCustomer(parsed.data.customerCode);
+    if (!found.customer) return planError(found.choices.length ? `Có mã hồ sơ gần giống: ${found.choices.join(", ")}.` : "Không tìm thấy hồ sơ khách.");
+    const cases = await prisma.caseRecord.findMany({ where: { customerId: found.customer.id }, orderBy: { createdAt: "desc" }, take: 10, select: { code: true, status: true, createdAt: true, services: { select: { listPrice: true, unitPrice: true, quantity: true, discount: true, finalPrice: true } }, payments: { select: { amount: true } }, voucherAmount: true } });
+    const totals = cases.reduce((sum, row) => { const f = getCaseFinancialTotal(row); return { total: sum.total + f.total, paid: sum.paid + f.paid, debt: sum.debt + f.debt }; }, { total: 0, paid: 0, debt: 0 });
+    return { ok: true, answer: `Hồ sơ ${found.customer.fullName} (${found.customer.code})\n- Điện thoại: ******${found.customer.phoneLast5}\n- Giới tính/ngày sinh: ${found.customer.gender ?? "chưa nhập"} / ${found.customer.dob ? found.customer.dob.toLocaleDateString("vi-VN") : "chưa nhập"}\n- Nguồn: ${found.customer.source}${found.customer.sourceDetail ? ` — ${found.customer.sourceDetail}` : ""}\n- Tiền sử/dị ứng/chống chỉ định: ${found.customer.medicalHistory || "chưa nhập"} / ${found.customer.allergies || "chưa nhập"} / ${found.customer.contraindications || "chưa nhập"}\n- Hồ sơ điều trị gần đây: ${cases.map((row) => `${row.code} (${row.status}, ${formatVND(getCaseFinancialTotal(row).paid)} đã thu, còn ${formatVND(getCaseFinancialTotal(row).debt)})`).join("; ") || "chưa có"}\n- Tổng theo các hồ sơ gần đây: đã thu ${formatVND(totals.paid)}, còn nợ ${formatVND(totals.debt)}.` };
   }
   if (action === "get_payroll_row") {
     const parsed = payrollReadArgs.safeParse(args);
@@ -279,6 +360,82 @@ async function validateWrite(action: ActionName, args: unknown, userId: string):
   if (action === "save_payroll" || action === "save_bulk_payroll" || action === "bulk_upsert_attendance") {
     const actor = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
     if (actor?.role !== "ADMIN" && actor?.role !== "MANAGER") return { error: "Chỉ ADMIN/MANAGER được chuẩn bị thao tác chấm công hoặc sửa lương." };
+  }
+  if (["update_customer_profile", "delete_customer", "update_consultation_record", "create_payment_request", "approve_payment_request", "reject_payment_request", "pay_payment_request"].includes(action)) {
+    const actor = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
+    if (actor?.role !== "ADMIN") return { error: "Các thao tác hồ sơ, sổ tư vấn và chứng từ chỉ ADMIN mới được chuẩn bị và xác nhận." };
+  }
+  if (action === "update_customer_profile") {
+    const parsed = customerUpdateArgs.safeParse(args);
+    if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Thông tin sửa hồ sơ khách chưa hợp lệ." };
+    const found = await findCustomer(parsed.data.customerCode);
+    if (!found.customer) return { error: found.choices.length ? `Có mã hồ sơ gần giống: ${found.choices.join(", ")}.` : "Không tìm thấy hồ sơ khách." };
+    const current = found.customer;
+    const merged = {
+      customerId: current.id,
+      customerCode: current.code,
+      fullName: parsed.data.fullName ?? current.fullName,
+      phone: parsed.data.phone ?? "",
+      gender: parsed.data.gender ?? current.gender ?? undefined,
+      dob: parsed.data.dob ?? (current.dob ? current.dob.toISOString().slice(0, 10) : ""),
+      source: parsed.data.source ?? current.source,
+      sourceDetail: parsed.data.sourceDetail ?? current.sourceDetail ?? "",
+      address: parsed.data.address ?? current.address ?? "",
+      note: parsed.data.note ?? current.note ?? "",
+      allergies: parsed.data.allergies ?? current.allergies ?? "",
+      medicalHistory: parsed.data.medicalHistory ?? current.medicalHistory ?? "",
+      contraindications: parsed.data.contraindications ?? current.contraindications ?? "",
+      resolvedName: current.fullName,
+    };
+    const changed = Object.entries(parsed.data).filter(([key]) => key !== "customerCode" && parsed.data[key as keyof typeof parsed.data] !== undefined).map(([key]) => key).join(", ");
+    return { args: merged, preview: `Sửa hồ sơ khách ${current.fullName} (${current.code}), các trường: ${changed}. Số điện thoại nếu có đổi sẽ được mã hóa và kiểm tra trùng; các thông tin y khoa vẫn ghi audit.` };
+  }
+  if (action === "delete_customer") {
+    const parsed = customerLookupArgs.safeParse(args);
+    if (!parsed.success) return { error: "Cần mã hồ sơ khách chính xác để xóa." };
+    const found = await findCustomer(parsed.data.customerCode);
+    if (!found.customer) return { error: found.choices.length ? `Có mã hồ sơ gần giống: ${found.choices.join(", ")}.` : "Không tìm thấy hồ sơ khách." };
+    const [caseCount, appointmentCount, paymentCount] = await Promise.all([
+      prisma.caseRecord.count({ where: { customerId: found.customer.id } }),
+      prisma.appointment.count({ where: { customerId: found.customer.id } }),
+      prisma.payment.count({ where: { case: { customerId: found.customer.id } } }),
+    ]);
+    return { args: { customerId: found.customer.id, customerCode: found.customer.code, resolvedName: found.customer.fullName }, preview: `XÓA VĨNH VIỄN hồ sơ ${found.customer.fullName} (${found.customer.code}), gồm ${caseCount} hồ sơ điều trị, ${paymentCount} khoản thanh toán và ${appointmentCount} lịch hẹn. Hệ thống sẽ hoàn kho vật tư trước khi xóa; không thể hoàn tác bằng nút thông thường.` };
+  }
+  if (action === "update_consultation_record") {
+    const parsed = consultationArgs.safeParse(args);
+    if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Thông tin sổ tư vấn chưa hợp lệ." };
+    const found = await findCase(parsed.data.caseCode);
+    if (!found.record) return { error: found.choices.length ? `Có mã hồ sơ gần giống: ${found.choices.join(", ")}.` : "Không tìm thấy hồ sơ điều trị." };
+    const existing = await prisma.consultationRecord.findUnique({ where: { caseId: found.record.id } });
+    const merged = {
+      caseId: found.record.id,
+      caseCode: found.record.code,
+      weightKg: parsed.data.weightKg ?? (existing?.weightKg == null ? undefined : Number(existing.weightKg)), heightCm: parsed.data.heightCm ?? (existing?.heightCm == null ? undefined : Number(existing.heightCm)),
+      bloodType: parsed.data.bloodType ?? existing?.bloodType ?? "", emergencyName: parsed.data.emergencyName ?? existing?.emergencyName ?? "", emergencyPhone: parsed.data.emergencyPhone ?? existing?.emergencyPhone ?? "",
+      pulse: parsed.data.pulse ?? existing?.pulse ?? undefined, bloodPressure: parsed.data.bloodPressure ?? existing?.bloodPressure ?? "", temperatureC: parsed.data.temperatureC ?? (existing?.temperatureC == null ? undefined : Number(existing.temperatureC)), respiratoryRate: parsed.data.respiratoryRate ?? existing?.respiratoryRate ?? undefined, spo2: parsed.data.spo2 ?? existing?.spo2 ?? undefined,
+      screeningJson: parsed.data.screeningJson ?? JSON.stringify(existing?.screening ?? {}), patientConfirmed: parsed.data.patientConfirmed ?? existing?.patientConfirmed ?? false,
+      wants: parsed.data.wants ?? existing?.wants ?? "", currentCondition: parsed.data.currentCondition ?? existing?.currentCondition ?? "", expectedResult: parsed.data.expectedResult ?? existing?.expectedResult ?? "", doctorIndication: parsed.data.doctorIndication ?? existing?.doctorIndication ?? "",
+    };
+    const late = !!existing && Date.now() - existing.updatedAt.getTime() > 24 * 60 * 60 * 1000;
+    return { args: merged, preview: `Cập nhật Sổ tư vấn hồ sơ ${found.record.code} (${found.record.customer.fullName}), giữ nguyên các trường không nêu. ${late ? "Bản ghi đã quá 24 giờ nên bắt buộc ADMIN sửa; audit sẽ ghi rõ sửa muộn." : "Bản ghi còn trong thời hạn 24 giờ hoặc sẽ tạo mới."}` };
+  }
+  if (action === "create_payment_request") {
+    const parsed = createPaymentRequestArgs.safeParse(args);
+    if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Thông tin Đề nghị thanh toán chưa hợp lệ." };
+    if (parsed.data.month && await isMonthClosed(parsed.data.month)) return { error: `Tháng ${parsed.data.month} đã chốt sổ; không thể tạo chứng từ mới.` };
+    return { args: parsed.data, preview: `Lập Đề nghị thanh toán PENDING cho ${parsed.data.payeeName}: ${formatVND(parsed.data.amount)} — ${parsed.data.reason}. Chứng từ chưa tạo dòng chi cho đến khi ADMIN duyệt và ghi sổ đã thanh toán.` };
+  }
+  if (action === "approve_payment_request" || action === "reject_payment_request" || action === "pay_payment_request") {
+    const parsed = action === "reject_payment_request" ? rejectPaymentArgs.safeParse(args) : action === "pay_payment_request" ? payPaymentArgs.safeParse(args) : paymentRequestArgs.safeParse(args);
+    if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Thông tin chứng từ chưa hợp lệ." };
+    const requestNo = parsed.data.requestNo;
+    const request = await prisma.paymentRequest.findUnique({ where: { requestNo }, select: { id: true, requestNo: true, status: true, payeeName: true, amount: true, reason: true, month: true } });
+    if (!request) return { error: `Không tìm thấy Đề nghị thanh toán ${requestNo}.` };
+    if (action === "approve_payment_request" && request.status !== "PENDING") return { error: `Chứng từ ${requestNo} không còn ở trạng thái chờ duyệt.` };
+    if (action === "reject_payment_request" && request.status !== "PENDING") return { error: `Chứng từ ${requestNo} không còn ở trạng thái chờ duyệt.` };
+    if (action === "pay_payment_request" && request.status !== "APPROVED") return { error: `Chứng từ ${requestNo} phải được ADMIN duyệt trước khi ghi sổ thanh toán.` };
+    return { args: { ...parsed.data, requestId: request.id }, preview: `${action === "approve_payment_request" ? "Duyệt" : action === "reject_payment_request" ? "Từ chối" : "Ghi sổ đã thanh toán"} chứng từ ${request.requestNo}: ${request.payeeName} — ${formatVND(Number(request.amount))} — ${request.reason}${action === "reject_payment_request" ? `; lý do: ${(parsed.data as z.infer<typeof rejectPaymentArgs>).reason}` : ""}.` };
   }
   if (action === "bulk_upsert_attendance") {
     const parsed = attendanceArgs.safeParse(args);
@@ -402,8 +559,8 @@ export async function runAssistantAgent(_prev: AgentState, formData: FormData): 
     const answer = await buildFinalKnowledgeAnswer(question, user.role, planned.data.reply);
     return finish({ ok: true, answer: `${answer}\n\nTôi chưa thực hiện thay đổi nào.` });
   }
-  if (["get_business_summary", "get_debt_summary", "get_lead_priorities", "get_financial_alerts", "get_payroll_row", "prepare_payroll_export"].includes(action)) {
-    const result = await readAction(action, args);
+  if (["get_business_summary", "get_debt_summary", "get_lead_priorities", "get_financial_alerts", "get_payroll_row", "get_customer_profile", "prepare_payroll_export"].includes(action)) {
+    const result = await readAction(action, args, user.id);
     await audit(user.id, "ASSISTANT_READ_TOOL", { entity: action, meta: { ok: result.ok } });
     return finish({ ...result, answer: `${planned.data.reply}\n\n${result.answer ?? ""}` });
   }
@@ -482,6 +639,61 @@ export async function confirmAssistantApproval(_prev: AgentState, formData: Form
       fd.set("consultantId", String(args.consultantId ?? ""));
       fd.set("note", String(args.note ?? ""));
       const result = await createAppointment({}, fd);
+      if (result.error) return planError(result.error);
+    } else if (approval.toolName === "update_customer_profile") {
+      const fd = new FormData();
+      fd.set("customerId", String(args.customerId));
+      fd.set("fullName", String(args.fullName));
+      fd.set("phone", String(args.phone ?? ""));
+      fd.set("gender", String(args.gender ?? ""));
+      fd.set("dob", String(args.dob ?? ""));
+      fd.set("source", String(args.source ?? "OTHER"));
+      fd.set("sourceDetail", String(args.sourceDetail ?? ""));
+      fd.set("address", String(args.address ?? ""));
+      fd.set("note", String(args.note ?? ""));
+      fd.set("allergies", String(args.allergies ?? ""));
+      fd.set("medicalHistory", String(args.medicalHistory ?? ""));
+      fd.set("contraindications", String(args.contraindications ?? ""));
+      const result = await updateCustomer({}, fd);
+      if (result.error) return planError(result.error);
+    } else if (approval.toolName === "delete_customer") {
+      await deleteCustomerForAgent(user.id, String(args.customerId));
+    } else if (approval.toolName === "update_consultation_record") {
+      const fd = new FormData();
+      fd.set("caseId", String(args.caseId));
+      for (const key of ["weightKg", "heightCm", "bloodType", "emergencyName", "emergencyPhone", "pulse", "bloodPressure", "temperatureC", "respiratoryRate", "spo2", "screeningJson", "wants", "currentCondition", "expectedResult", "doctorIndication"]) fd.set(key, String(args[key] ?? ""));
+      fd.set("patientConfirmed", String(Boolean(args.patientConfirmed)));
+      const result = await saveConsultationRecord({}, fd);
+      if (result.error) return planError(result.error);
+    } else if (approval.toolName === "create_payment_request") {
+      const fd = new FormData();
+      fd.set("type", String(args.type));
+      fd.set("payeeName", String(args.payeeName));
+      fd.set("payeeUserId", String(args.payeeUserId ?? ""));
+      fd.set("amount", String(args.amount));
+      fd.set("reason", String(args.reason));
+      fd.set("month", String(args.month ?? ""));
+      fd.set("category", String(args.category ?? ""));
+      fd.set("note", String(args.note ?? ""));
+      const result = await createPaymentRequest({}, fd);
+      if (result.error) return planError(result.error);
+    } else if (approval.toolName === "approve_payment_request") {
+      const fd = new FormData();
+      fd.set("id", String(args.requestId));
+      const result = await approvePaymentRequest({}, fd);
+      if (result.error) return planError(result.error);
+    } else if (approval.toolName === "reject_payment_request") {
+      const fd = new FormData();
+      fd.set("id", String(args.requestId));
+      fd.set("reason", String(args.reason));
+      const result = await rejectPaymentRequest({}, fd);
+      if (result.error) return planError(result.error);
+    } else if (approval.toolName === "pay_payment_request") {
+      const fd = new FormData();
+      fd.set("id", String(args.requestId));
+      fd.set("method", String(args.method));
+      fd.set("occurredAt", String(args.occurredAt ?? new Date().toISOString()));
+      const result = await markPaymentRequestPaid({}, fd);
       if (result.error) return planError(result.error);
     } else if (approval.toolName === "propose_system_change") {
       const request = String(args.request);

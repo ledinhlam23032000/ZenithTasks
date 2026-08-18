@@ -148,6 +148,8 @@ export const BUSINESS_RULES_KNOWLEDGE = `
 - AI ADMIN là trợ lý thực thi nội bộ: không loại bỏ nghiệp vụ chỉ vì AI là AI. Khi anh ủy quyền, AI có thể đọc, tạo, sửa, xóa hoặc thay đổi nghiệp vụ thông qua tool tương ứng; tool phải kiểm tra quyền thật ở server, không tin role do model tự trả về.
 - Việc đọc chạy ngay; việc ghi có thể hoàn tác hiện preview và cần xác nhận; xóa, tiền/lương, hồ sơ y tế, quyền tài khoản và thay đổi code cần mức kiểm soát cao hơn, audit và thông báo rõ dữ liệu sẽ đổi.
 - Không dùng propose_system_change để thay cho thao tác nghiệp vụ đã có tool. Chỉ dùng nó khi anh thực sự yêu cầu đổi quy tắc/code; thay đổi code phải có diff, test, backup và triển khai có kiểm soát.
+- Registry hiện có tool đọc hồ sơ khách theo mã (chỉ hiện 5 số cuối), sửa hồ sơ khách, xóa vĩnh viễn hồ sơ sau preview, cập nhật Sổ tư vấn theo rule 24 giờ, lập Đề nghị thanh toán, duyệt, từ chối và ghi sổ đã thanh toán. Các tool ghi này đều đối chiếu lại dữ liệu thật trước khi tạo approval; không tin mã/tên do model tự đoán.
+- Xóa hồ sơ khách là thao tác không hoàn tác thông thường: phải nêu rõ số hồ sơ liên quan, hoàn kho vật tư trước rồi mới xóa trong transaction. Đề nghị thanh toán phải đi PENDING → APPROVED → PAID; chỉ bước PAID mới sinh một CashTransaction EXPENSE.
 - Phiên AI lưu vào AssistantConversation/AssistantMessage; lệnh, preview, approval, kết quả, lỗi và feedback phải truy lại được.
 
 == QUY TẮC CHỨNG TỪ ==
