@@ -93,6 +93,45 @@ describe("generateStructured — tương thích provider", () => {
     expect(String(fetchSpy.mock.calls[0]?.[1]?.body)).toContain('"model":"deepseek-reasoner"');
   });
 
+  it("DeepSeek dùng json_object thay vì json_schema", async () => {
+    vi.stubEnv("AI_API_KEY", "test-key");
+    vi.stubEnv("AI_BASE_URL", "https://api.deepseek.com");
+    vi.stubEnv("AI_MODEL", "deepseek-chat");
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: { content: '{"action":"none"}' } }] }), { status: 200 }));
+
+    const result = await generateStructured<{ action: string }>({
+      system: "Return JSON",
+      prompt: "test",
+      schemaName: "test_plan",
+      schema: { type: "object", properties: { action: { type: "string" } }, required: ["action"], additionalProperties: false },
+    });
+
+    expect(result).toEqual({ ok: true, data: { action: "none" } });
+    expect(String(fetchSpy.mock.calls[0]?.[1]?.body)).toContain('"type":"json_object"');
+    expect(String(fetchSpy.mock.calls[0]?.[1]?.body)).not.toContain('"json_schema"');
+  });
+
+  it("DeepSeek reasoner rỗng content thì fallback sang AI_MODEL chat", async () => {
+    vi.stubEnv("AI_API_KEY", "test-key");
+    vi.stubEnv("AI_BASE_URL", "https://api.deepseek.com");
+    vi.stubEnv("AI_MODEL", "deepseek-chat");
+    vi.stubEnv("AI_AGENT_MODEL", "deepseek-reasoner");
+    const fetchSpy = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: { content: "", reasoning_content: "đã suy luận" } }] }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: { content: '{"action":"none"}' } }] }), { status: 200 }));
+
+    const result = await generateStructured<{ action: string }>({
+      system: "Return JSON",
+      prompt: "test",
+      schemaName: "test_plan",
+      schema: { type: "object", properties: { action: { type: "string" } }, required: ["action"], additionalProperties: false },
+    });
+
+    expect(result).toEqual({ ok: true, data: { action: "none" } });
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    expect(String(fetchSpy.mock.calls[1]?.[1]?.body)).toContain('"model":"deepseek-chat"');
+  });
+
   it("fallback sang JSON trong prompt khi response_format bị provider từ chối", async () => {
     vi.stubEnv("AI_API_KEY", "test-key");
     vi.stubEnv("AI_BASE_URL", "https://provider.test/v1");
