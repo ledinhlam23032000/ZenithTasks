@@ -7,19 +7,59 @@ import { Markdown } from "@/components/ui/markdown";
 import { SUGGESTED_QUESTIONS } from "@/lib/assistant";
 import { runAssistantAgent, confirmAssistantApproval, rejectAssistantApproval, type AgentState } from "./agent";
 import { saveAssistantFeedback, uploadAssistantFile } from "./file-actions";
+import { startNewAssistantConversation } from "./conversation-actions";
 
 type Turn = {
+  id?: string;
   q: string;
   a: string;
   exportUrl?: string;
   approval?: NonNullable<AgentState["approval"]>;
 };
 
+type StoredAssistantMessage = {
+  id: string;
+  role: string;
+  content: string;
+  metadata?: unknown;
+};
+
+function storedMessagesToTurns(messages: readonly StoredAssistantMessage[]): Turn[] {
+  const result: Turn[] = [];
+  for (const message of messages) {
+    if (message.role === "USER") {
+      result.push({ id: message.id, q: message.content, a: "" });
+      continue;
+    }
+    if (message.role === "ASSISTANT") {
+      const last = result[result.length - 1];
+      if (last && !last.a) {
+        const metadata = message.metadata as { approval?: NonNullable<AgentState["approval"]> } | null | undefined;
+        result[result.length - 1] = { ...last, a: message.content, approval: metadata?.approval };
+      } else if (last) {
+        result[result.length - 1] = { ...last, a: `${last.a}\n\n${message.content}`, approval: undefined };
+      }
+    }
+  }
+  return result;
+}
+
 type SpeechRecognitionLike = { lang: string; interimResults: boolean; continuous: boolean; onresult: ((event: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null; onerror: (() => void) | null; start: () => void };
 
-export function AssistantChat({ aiOn, greetName }: { aiOn: boolean; greetName: string }) {
+export function AssistantChat({
+  aiOn,
+  greetName,
+  conversationId: initialConversationId,
+  initialMessages,
+}: {
+  aiOn: boolean;
+  greetName: string;
+  conversationId: string;
+  initialMessages: readonly StoredAssistantMessage[];
+}) {
   const [q, setQ] = useState("");
-  const [turns, setTurns] = useState<Turn[]>([]);
+  const [turns, setTurns] = useState<Turn[]>(() => storedMessagesToTurns(initialMessages));
+  const [conversationId, setConversationId] = useState(initialConversationId);
   const [err, setErr] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const [actionPending, startAction] = useTransition();
@@ -39,11 +79,13 @@ export function AssistantChat({ aiOn, greetName }: { aiOn: boolean; greetName: s
     setErr(null);
     const fd = new FormData();
     fd.set("question", text);
+    fd.set("conversationId", conversationId);
     start(async () => {
       const r = await runAssistantAgent({}, fd);
       if (r.error) setErr(r.error);
       else {
-        setTurns((t) => [...t, { q: text, a: r.answer ?? "", approval: r.approval, exportUrl: r.exportUrl }]);
+        if (r.conversationId) setConversationId(r.conversationId);
+        setTurns((t) => [...t, { id: r.conversationId ?? crypto.randomUUID(), q: text, a: r.answer ?? "", approval: r.approval, exportUrl: r.exportUrl }]);
         setQ("");
       }
     });
@@ -83,6 +125,19 @@ export function AssistantChat({ aiOn, greetName }: { aiOn: boolean; greetName: s
     startAction(async () => { const result = await saveAssistantFeedback({}, fd); if (result.error) setErr(result.error); else { setErr(null); if (kind === "CORRECTION") setQ(`Hãy rà soát lại câu trả lời trước cho yêu cầu: ${turn.q}`); } });
   }
 
+  function newConversation() {
+    if (actionPending) return;
+    startAction(async () => {
+      const result = await startNewAssistantConversation(conversationId);
+      if (result.ok) {
+        setConversationId(result.conversationId);
+        setTurns([]);
+        setQ("");
+        setErr(null);
+      }
+    });
+  }
+
   function resolveApproval(index: number, approve: boolean) {
     const approval = turns[index]?.approval;
     if (!approval || actionPending) return;
@@ -113,7 +168,7 @@ export function AssistantChat({ aiOn, greetName }: { aiOn: boolean; greetName: s
           <p className="text-xs text-slate-400">Đọc số liệu, chuẩn bị thao tác và xin xác nhận trước khi sửa</p>
         </div>
         {turns.length > 0 && (
-          <button type="button" onClick={() => { setTurns([]); setErr(null); }} className="ml-auto rounded-lg px-2.5 py-1 text-xs font-medium text-slate-400 hover:bg-slate-100 hover:text-slate-600">
+          <button type="button" onClick={newConversation} disabled={actionPending} className="ml-auto rounded-lg px-2.5 py-1 text-xs font-medium text-slate-400 hover:bg-slate-100 hover:text-slate-600 disabled:opacity-50">
             Cuộc trò chuyện mới
           </button>
         )}
@@ -137,7 +192,7 @@ export function AssistantChat({ aiOn, greetName }: { aiOn: boolean; greetName: s
         ) : (
           <div className="mx-auto max-w-2xl space-y-5">
             {turns.map((t, i) => (
-              <div key={i} className="space-y-3">
+              <div key={t.id ?? i} className="space-y-3">
                 <div className="flex justify-end"><div className="flex max-w-[85%] items-start gap-2"><div className="rounded-2xl rounded-tr-sm bg-brand-600 px-3.5 py-2 text-sm text-white shadow-sm">{t.q}</div><span className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-200 text-slate-500"><User className="h-4 w-4" /></span></div></div>
                 <div className="flex items-start gap-2">
                   <span className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-violet-500 text-white"><Sparkles className="h-4 w-4" /></span>

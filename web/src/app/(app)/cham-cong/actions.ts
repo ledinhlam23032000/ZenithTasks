@@ -9,6 +9,14 @@ import { auditRequired } from "@/lib/audit";
 
 export type AttState = { ok?: boolean; error?: string };
 
+const bulkAttSchema = z.object({
+  userId: z.string().min(1),
+  dates: z.array(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)).min(1).max(62),
+  checkIn: z.string().regex(/^\d{2}:\d{2}$/),
+  checkOut: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+  note: z.string().trim().max(500).optional(),
+});
+
 /** Nhân viên chấm công VÀO (ngày hôm nay). */
 export async function checkIn(): Promise<void> {
   const user = await requireUser();
@@ -75,6 +83,42 @@ const attSchema = z.object({
  * Quản trị THÊM / SỬA chấm công cho bất kỳ ngày nào (kể cả ngày trước khi có app).
  * Nhập giờ vào / giờ ra theo giờ VN. Upsert theo (nhân viên, ngày).
  */
+export async function bulkUpsertAttendance(_prev: AttState, formData: FormData): Promise<AttState> {
+  const me = await requireUser(["ADMIN", "MANAGER"]);
+  let dates: unknown;
+  try { dates = JSON.parse(String(formData.get("dates") ?? "[]")); } catch { dates = []; }
+  const parsed = bulkAttSchema.safeParse({
+    userId: formData.get("userId") ?? "",
+    dates,
+    checkIn: formData.get("checkIn") ?? "",
+    checkOut: String(formData.get("checkOut") ?? "").trim() || undefined,
+    note: formData.get("note") ?? "",
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu chấm công hàng loạt không hợp lệ." };
+  const d = parsed.data;
+  const target = await prisma.user.findUnique({ where: { id: d.userId }, select: { id: true, fullName: true } });
+  if (!target) return { error: "Không tìm thấy nhân viên." };
+  const checkInAt = (date: string) => vnDateTime(date, d.checkIn);
+  const checkOutAt = (date: string) => d.checkOut ? vnDateTime(date, d.checkOut) : null;
+  const rows = d.dates.map((date) => ({ date, checkInAt: checkInAt(date), checkOutAt: checkOutAt(date) }));
+  if (rows.some((row) => !row.checkInAt || (d.checkOut && !row.checkOutAt))) return { error: "Có ngày hoặc giờ chấm công không hợp lệ." };
+  if (rows.some((row) => row.checkOutAt && row.checkInAt && row.checkOutAt < row.checkInAt)) return { error: "Giờ ra phải sau giờ vào." };
+  await prisma.$transaction(async (tx) => {
+    for (const row of rows) {
+      const attendance = await tx.attendance.upsert({
+        where: { userId_date: { userId: d.userId, date: dateOnly(row.date)! } },
+        create: { userId: d.userId, date: dateOnly(row.date)!, checkInAt: row.checkInAt!, checkOutAt: row.checkOutAt, note: d.note || null },
+        update: { checkInAt: row.checkInAt!, checkOutAt: row.checkOutAt, note: d.note || null },
+      });
+      await auditRequired(tx, me.id, "EDIT_ATTENDANCE", { entity: "Attendance", entityId: attendance.id, meta: { userId: d.userId, date: row.date, source: "ASSISTANT_BULK" } });
+    }
+  });
+  revalidatePath("/cham-cong");
+  revalidatePath("/luong");
+  revalidatePath("/ke-toan");
+  return { ok: true };
+}
+
 export async function upsertAttendance(_prev: AttState, formData: FormData): Promise<AttState> {
   const me = await requireUser(["ADMIN", "MANAGER"]);
   const parsed = attSchema.safeParse({

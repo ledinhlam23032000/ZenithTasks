@@ -143,6 +143,18 @@ enum AssistantApprovalStatus {
   EXPIRED
 }
 
+enum AssistantConversationStatus {
+  OPEN
+  ARCHIVED
+}
+
+enum AssistantMessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+  TOOL
+}
+
 enum PaymentRequestType {
   EXPENSE
   SALARY
@@ -253,6 +265,8 @@ model User {
   channelMessagesSent  Message[]
   pushSubscriptions   PushSubscription[]
   assistantApprovals  AssistantApproval[]
+  assistantConversations AssistantConversation[]
+  assistantMessages AssistantMessage[]
   revenueAllocationsCreated CaseRevenueAllocation[] @relation("RevenueAllocationCreatedBy")
   assignedConversations Conversation[] @relation("ConversationAssignee")
   staffAgreements StaffAgreement[] @relation("StaffAgreementSubject")
@@ -904,10 +918,42 @@ model CaseRevenueAllocation {
 }
 
 // Yêu cầu thao tác do Trợ lý AI lập — mutation phải chờ ADMIN xác nhận rõ ràng.
+model AssistantConversation {
+  id            String                       @id @default(cuid())
+  userId        String
+  user          User                         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title         String?
+  status        AssistantConversationStatus  @default(OPEN)
+  lastMessageAt DateTime                     @default(now())
+  createdAt     DateTime                     @default(now())
+  updatedAt     DateTime                     @updatedAt
+  messages      AssistantMessage[]
+  approvals     AssistantApproval[]
+
+  @@index([userId, status, lastMessageAt])
+}
+
+model AssistantMessage {
+  id             String               @id @default(cuid())
+  conversationId String
+  conversation   AssistantConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role           AssistantMessageRole
+  content        String
+  metadata       Json?
+  createdAt      DateTime             @default(now())
+
+  @@index([conversationId, createdAt])
+  @@index([userId, createdAt])
+}
+
 model AssistantApproval {
   id          String                  @id @default(cuid())
   userId      String
   user        User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  conversationId String?
+  conversation AssistantConversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
   toolName    String
   arguments   Json
   preview     Json

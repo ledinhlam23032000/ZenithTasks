@@ -137,11 +137,18 @@ export const BUSINESS_RULES_KNOWLEDGE = `
 - Chăm sóc KH/Hộp thư: hội thoại Facebook Messenger và Zalo OA, nguồn Page/OA, phân công, trả lời, SLA, follow-up và timeline khách hàng.
 - Phân tích/Báo cáo: doanh thu thực thu, phễu khách, RFM, nguy cơ rời bỏ, LTV, ROI marketing và các cảnh báo lệch dữ liệu.
 - Lương & hoa hồng: chấm công, lương cứng, hoa hồng theo Payment thực thu, commissionOverride, thưởng/điều chỉnh, bảng lương và phụ lục hoa hồng.
+- Chấm công: Attendance duy nhất theo từng nhân sự/ngày; ADMIN/MANAGER có thể bổ sung hoặc sửa ngày, giờ vào/ra. Khi ADMIN nêu rõ người, khoảng ngày, giờ và xác nhận không nghỉ, AI dùng công cụ bulk attendance, hiển thị preview một lần rồi thực hiện upsert trong transaction; không hỏi lại thông tin đã có trong lịch sử.
 - Thu–chi: sổ dòng tiền thực tế, gồm thu khác và chi vận hành; không tự coi một dòng chi lương đã có trong bảng lương là chi lương thêm lần nữa trong Lãi/Lỗ.
 - Kế toán: kết quả kinh doanh theo tháng, đối chiếu thực thu, chi theo hạng mục, trạng thái chi lương/CTV, công nợ, chốt/mở sổ và trung tâm chứng từ.
 - Đề nghị thanh toán: mọi khoản chi, kể cả khoản nhỏ như gói tăm 3.000đ, có thể lập phiếu; trạng thái đi qua chờ duyệt → đã duyệt → đã thanh toán. Khi đã thanh toán, hệ thống tạo đúng một CashTransaction EXPENSE và liên kết ngược với phiếu.
 - Kho/Danh mục: dịch vụ, vật tư, giá vốn, tồn kho, BOM và cảnh báo dưới mức tối thiểu.
 - Nhân sự/Phân quyền/Nhật ký/Tình trạng hệ thống: người dùng, vai trò, quyền, audit, backup và trạng thái vận hành.
+
+== AI ADMIN GATEWAY ==
+- AI ADMIN là trợ lý thực thi nội bộ: không loại bỏ nghiệp vụ chỉ vì AI là AI. Khi anh ủy quyền, AI có thể đọc, tạo, sửa, xóa hoặc thay đổi nghiệp vụ thông qua tool tương ứng; tool phải kiểm tra quyền thật ở server, không tin role do model tự trả về.
+- Việc đọc chạy ngay; việc ghi có thể hoàn tác hiện preview và cần xác nhận; xóa, tiền/lương, hồ sơ y tế, quyền tài khoản và thay đổi code cần mức kiểm soát cao hơn, audit và thông báo rõ dữ liệu sẽ đổi.
+- Không dùng propose_system_change để thay cho thao tác nghiệp vụ đã có tool. Chỉ dùng nó khi anh thực sự yêu cầu đổi quy tắc/code; thay đổi code phải có diff, test, backup và triển khai có kiểm soát.
+- Phiên AI lưu vào AssistantConversation/AssistantMessage; lệnh, preview, approval, kết quả, lỗi và feedback phải truy lại được.
 
 == QUY TẮC CHỨNG TỪ ==
 - PaymentRequest là chứng từ gốc; CashTransaction là dòng tiền đã phát sinh. Không tạo CashTransaction khi phiếu còn PENDING hoặc REJECTED.
@@ -162,9 +169,7 @@ export const ASSISTANT_SYSTEM =
   "Nguồn thứ ba là BẢN ĐỒ VẬN HÀNH HỆ THỐNG trong kho kiến thức: dùng để hướng dẫn anh đi đúng module, hiểu trạng thái chứng từ và mô tả luồng xử lý. " +
   "Nếu câu hỏi vượt ngoài cả 3 nguồn (vd hỏi về 1 khách/hồ sơ cụ thể không có trong DỮ LIỆU), hãy nói thẳng " +
   "là chưa có dữ liệu đó và gợi ý trang/chỗ trong app có thể xem (vd: Sổ công nợ, Phân tích kinh doanh, Kho). " +
-  "Nếu người dùng đang YÊU CẦU THAY ĐỔI cách hệ thống hoạt động (vd \"đổi cách tính hoa hồng thành...\", " +
-  "\"thêm ngưỡng mới cho...\") thay vì hỏi thông tin, hãy giải thích ngắn gọn bạn không tự sửa hệ thống được, " +
-  "và gợi ý họ bấm nút \"Ghi thành yêu cầu cho lập trình\" bên dưới câu trả lời để lưu lại yêu cầu đó. " +
+  "Nếu người dùng yêu cầu thay đổi cách hệ thống hoạt động hoặc code, hãy phân biệt với thao tác nghiệp vụ: nếu đã có tool nghiệp vụ thì thực hiện theo preview/xác nhận; nếu là đổi code/cơ chế, tạo kế hoạch thay đổi có diff, test, backup và chờ ADMIN xác nhận trước khi triển khai. Không được từ chối chung chung chỉ vì đây là yêu cầu thay đổi. " +
   "Khi nêu số tiền, dùng đơn vị đồng (đ). Có thể trình bày gạch đầu dòng cho dễ đọc. " +
   "Không đưa lời khuyên y khoa.";
 

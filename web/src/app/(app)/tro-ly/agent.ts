@@ -12,10 +12,13 @@ import { isMonthClosed } from "@/lib/accounting";
 import { audit, auditRequired } from "@/lib/audit";
 import { savePayroll, saveBulkPayroll } from "../luong/actions";
 import { addPayment, addFollowUp } from "../ho-so/actions";
+import { bulkUpsertAttendance } from "../cham-cong/actions";
 import { createAppointment } from "../lich-hen/actions";
 import { summarizeCase } from "@/lib/financial-summary";
 import { getFinancialHealthIssues } from "@/lib/financial-health-db";
 import { getAssistantFileContext } from "./file-actions";
+import { appendAssistantTurn, getAssistantConversationTurns, getOrCreateAssistantConversation, turnsToPrompt } from "./conversations";
+import { inferAttendanceIntent } from "./attendance-intent";
 import type { Prisma } from "@/generated/prisma/client";
 
 const monthSchema = z.string().regex(/^\d{4}-\d{2}$/);
@@ -27,6 +30,7 @@ const actionNames = [
   "get_lead_priorities",
   "get_financial_alerts",
   "prepare_payroll_export",
+  "bulk_upsert_attendance",
   "save_payroll",
   "save_bulk_payroll",
   "record_payment",
@@ -51,6 +55,7 @@ export type AgentState = {
   error?: string;
   approval?: { id: string; toolName: string; preview: string; expiresAt: string };
   exportUrl?: string;
+  conversationId?: string;
 };
 
 const plannerSchema = {
@@ -96,6 +101,13 @@ const paymentArgs = z.object({ caseCode: z.string().min(1).max(40), amount: z.nu
 const followUpArgs = z.object({ caseCode: z.string().min(1).max(40), scheduledAt: z.string().min(10), note: z.string().max(500).optional() });
 const appointmentArgs = z.object({ guestName: z.string().min(1).max(120), phoneLast5: z.string().regex(/^\d{5}$/).optional(), scheduledAt: z.string().min(10), type: z.enum(["NEW", "FOLLOW_UP", "RE_SERVICE"]), serviceInterest: z.string().max(200).optional(), source: z.enum(["MARKETING", "COLLABORATOR", "WALK_IN", "REFERRAL", "HOTLINE", "FACEBOOK", "ZALO", "TIKTOK", "OTHER"]), sourceDetail: z.string().max(200).optional(), consultantName: z.string().max(120).optional(), note: z.string().max(500).optional() });
 const changeArgs = z.object({ request: z.string().min(5).max(2000) });
+const attendanceArgs = z.object({
+  staffName: z.string().min(1).max(120),
+  dates: z.array(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)).min(1).max(62),
+  checkIn: z.string().regex(/^\d{2}:\d{2}$/),
+  checkOut: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+  note: z.string().max(500).optional(),
+});
 
 const nowMonth = () => {
   const d = new Date();
@@ -118,6 +130,7 @@ Công cụ được phép:
 - get_lead_priorities: xếp khách đang tư vấn/cân nhắc theo khả năng cần gọi lại; args {days?}.
 - get_financial_alerts: đọc các hồ sơ có dấu hiệu lệch tiền, trả vượt hoặc snapshot cũ.
 - prepare_payroll_export: chuẩn bị link xuất bảng lương; args {month, format: xlsx|doc|csv, standardDays?}.
+- bulk_upsert_attendance: chấm công hàng loạt cho một nhân sự theo các ngày cụ thể; args {staffName, dates:[yyyy-MM-dd], checkIn:"08:00", checkOut:"17:00", note?}. ADMIN/MANAGER xác nhận một lần; upsert không tạo bản ghi trùng.
 - save_payroll: sửa lương/điều chỉnh hoa hồng ngoài công thức/thưởng/điều chỉnh một nhân sự; args {staffName, month, baseSalary?, commissionOverride, bonus, adjustment}. Hoa hồng tự động theo thực thu không nhập lại. Luôn cần ADMIN xác nhận.
 - save_bulk_payroll: sửa nhiều nhân sự; args {month, rows:[{staffName, commissionOverride, bonus, adjustment}]}. Luôn cần ADMIN xác nhận.
 - record_payment: ghi nhận khoản thu cho hồ sơ; args {caseCode, amount, method, note}. Luôn xem trước và xác nhận.
@@ -126,13 +139,13 @@ Công cụ được phép:
 - propose_system_change: ghi đề xuất đổi cơ chế/code thành kế hoạch để duyệt; args {request}.
 Không tự đoán tên người, tháng, số tiền; nếu thiếu thì action=none và hỏi lại. Không gọi tool khác, không viết SQL, không sửa file trực tiếp.`;
 
-async function buildPlannerPrompt(question: string, userId: string, role: string): Promise<string> {
+async function buildPlannerPrompt(question: string, userId: string, role: string, history: string): Promise<string> {
   const context = await getAssistantContext();
   const fileContext = await getAssistantFileContext(userId);
   const accessNote = role === "ADMIN"
     ? "Người dùng hiện tại là ADMIN. Có thể dùng dữ liệu nghiệp vụ được cấp trong các read tool và toàn bộ kiến thức vận hành dưới đây để trả lời có căn cứ."
     : "Người dùng không phải ADMIN. Chỉ dùng số liệu tổng hợp và quy tắc không nhạy cảm; không suy đoán hoặc tiết lộ chi tiết lương, hồ sơ hay dữ liệu bị giới hạn.";
-  return `${actionHelp}\n\nQUYỀN TRUY CẬP:\n${accessNote}\n\nKIẾN THỨC VẬN HÀNH ĐÃ XÁC NHẬN:\n${BUSINESS_RULES_KNOWLEDGE}\n\nBỐI CẢNH SỐ LIỆU HIỆN TẠI:\n${formatAssistantContext(context)}\n\n${fileContext}\n\nYÊU CẦU CỦA ADMIN:\n${question}\n\nNếu câu hỏi chỉ yêu cầu giải thích cơ chế hoặc hướng dẫn đi đúng module, action=none và trả lời trực tiếp dựa trên KIẾN THỨC VẬN HÀNH. Chọn tối đa một action cho yêu cầu cần đọc dữ liệu cụ thể. Yêu cầu sửa/ghi dữ liệu phải đặt requires_confirmation=true. Nếu là yêu cầu đổi công thức hoặc code, dùng propose_system_change, không dùng save_payroll.`;
+  return `${actionHelp}\n\nQUYỀN TRUY CẬP:\n${accessNote}\n\nKIẾN THỨC VẬN HÀNH ĐÃ XÁC NHẬN:\n${BUSINESS_RULES_KNOWLEDGE}\n\nBỐI CẢNH SỐ LIỆU HIỆN TẠI:\n${formatAssistantContext(context)}\n\n${fileContext}\n\nLỊCH SỬ PHIÊN GẦN ĐÂY:\n${history || "Chưa có lịch sử."}\n\nYÊU CẦU CỦA ADMIN:\n${question}\n\nNếu lịch sử đã cung cấp đủ tên, tháng, ngày hoặc điều kiện mà câu mới chỉ bổ sung xác nhận (ví dụ 'chưa nghỉ ngày nào', 'làm đi', 'anh là admin'), phải ghép ngữ cảnh và tiếp tục cùng action, không hỏi lại. Nếu yêu cầu chấm công/ghi dữ liệu rõ ràng, chọn đúng tool thực thi; không dùng propose_system_change để thay cho thao tác nghiệp vụ. Chỉ dùng propose_system_change khi anh thực sự yêu cầu đổi code/cơ chế hệ thống. Yêu cầu sửa/ghi dữ liệu phải đặt requires_confirmation=true.`;
 }
 
 function getCaseFinancialTotal(record: { services: Array<{ listPrice: unknown; unitPrice: unknown; quantity: unknown; discount: unknown; finalPrice: unknown }>; payments: Array<{ amount: unknown }>; voucherAmount: unknown }) {
@@ -256,16 +269,27 @@ async function readAction(action: ActionName, args: unknown): Promise<AgentState
   return planError("Tôi chưa có công cụ đọc phù hợp cho yêu cầu này.");
 }
 
-async function createApproval(userId: string, toolName: string, args: Prisma.InputJsonValue, preview: string): Promise<AgentState> {
+async function createApproval(userId: string, toolName: string, args: Prisma.InputJsonValue, preview: string, conversationId?: string): Promise<AgentState> {
   const expiresAt = new Date(Date.now() + 10 * 60_000);
-  const approval = await prisma.assistantApproval.create({ data: { userId, toolName, arguments: args, preview, expiresAt } });
+  const approval = await prisma.assistantApproval.create({ data: { userId, toolName, arguments: args, preview, expiresAt, conversationId } });
   return { ok: true, answer: "Tôi đã chuẩn bị thao tác nhưng chưa thực hiện.", approval: { id: approval.id, toolName, preview, expiresAt: expiresAt.toISOString() } };
 }
 
 async function validateWrite(action: ActionName, args: unknown, userId: string): Promise<{ args: unknown; preview: string } | { error: string }> {
-  if (action === "save_payroll" || action === "save_bulk_payroll") {
+  if (action === "save_payroll" || action === "save_bulk_payroll" || action === "bulk_upsert_attendance") {
     const actor = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
-    if (actor?.role !== "ADMIN") return { error: "Chỉ ADMIN được chuẩn bị thao tác sửa lương." };
+    if (actor?.role !== "ADMIN" && actor?.role !== "MANAGER") return { error: "Chỉ ADMIN/MANAGER được chuẩn bị thao tác chấm công hoặc sửa lương." };
+  }
+  if (action === "bulk_upsert_attendance") {
+    const parsed = attendanceArgs.safeParse(args);
+    if (!parsed.success) return { error: "Cần đủ tên nhân sự, danh sách ngày và giờ vào/ra để chấm công." };
+    const found = await findStaff(parsed.data.staffName);
+    if (!found.user) return { error: found.choices.length ? `Có nhiều tên gần giống: ${found.choices.join(", ")}.` : "Không tìm thấy nhân sự đó." };
+    const uniqueDates = [...new Set(parsed.data.dates)].sort();
+    return {
+      args: { ...parsed.data, dates: uniqueDates, userId: found.user.id, resolvedName: found.user.fullName },
+      preview: `Chấm công ${found.user.fullName} đủ ${uniqueDates.length} ngày (${uniqueDates[0]} đến ${uniqueDates[uniqueDates.length - 1]}), giờ vào ${parsed.data.checkIn}, giờ ra ${parsed.data.checkOut ?? "chưa nhập"}. Nếu ngày đã có dữ liệu, hệ thống sẽ cập nhật theo lệnh mới; không tạo bản ghi trùng.`,
+    };
   }
   if (action === "save_payroll") {
     const parsed = savePayrollArgs.safeParse(args);
@@ -331,40 +355,64 @@ async function validateWrite(action: ActionName, args: unknown, userId: string):
   return { error: "Thao tác này không cần xác nhận hoặc chưa được mở." };
 }
 
+async function persistAssistantResult(userId: string, conversationId: string, state: AgentState) {
+  const content = state.answer ?? state.error ?? "";
+  if (content) {
+    const metadata = state.approval ? { approval: state.approval } : undefined;
+    await appendAssistantTurn(userId, conversationId, "ASSISTANT", content, metadata);
+  }
+  return { ...state, conversationId };
+}
+
 export async function runAssistantAgent(_prev: AgentState, formData: FormData): Promise<AgentState> {
   const user = await requireCap("mod:tro-ly");
   const question = String(formData.get("question") ?? "").trim();
   if (!question) return planError("Vui lòng nhập yêu cầu.");
   if (question.length > 1200) return planError("Yêu cầu quá dài (tối đa 1.200 ký tự).");
-  if (!aiConfigured()) return planError("Chưa cấu hình AI.");
+  const conversation = await getOrCreateAssistantConversation(user.id, String(formData.get("conversationId") ?? "") || null);
+  const previous = await getAssistantConversationTurns(user.id, conversation.id);
+  const history = turnsToPrompt(previous);
+  await appendAssistantTurn(user.id, conversation.id, "USER", question);
+  const finish = (state: AgentState) => persistAssistantResult(user.id, conversation.id, state);
+  if (!aiConfigured()) return finish(planError("Chưa cấu hình AI."));
+
+  const staffCandidates = await prisma.user.findMany({ where: { active: true }, select: { id: true, fullName: true } });
+  const deterministicAttendance = inferAttendanceIntent(question, history, staffCandidates);
+  if (deterministicAttendance) {
+    const checked = await validateWrite("bulk_upsert_attendance", deterministicAttendance, user.id);
+    if ("error" in checked) return finish(planError(checked.error));
+    const approval = await createApproval(user.id, "bulk_upsert_attendance", checked.args as Prisma.InputJsonValue, checked.preview, conversation.id);
+    return finish(approval);
+  }
 
   const planned = await generateStructured<PlannerOutput>({
-    system: "Bạn là Agent quản trị nội bộ của Trung tâm Phẫu thuật Tạo hình Thẩm mỹ — Bệnh viện Đa khoa Hồng Phúc. Bạn không được tự ý sửa DB. Hãy chọn đúng một công cụ trong danh sách, dùng kiến thức vận hành đã cung cấp, không bịa ID/tên/tháng/số tiền, và dùng tiếng Việt.",
-    prompt: await buildPlannerPrompt(question, user.id, user.role),
+    system: "Bạn là Agent quản trị nội bộ của Trung tâm Phẫu thuật Tạo hình Thẩm mỹ — Bệnh viện Đa khoa Hồng Phúc. Bạn không được tự ý sửa DB ngoài công cụ được cấp. Hãy chọn đúng một công cụ, ghép lịch sử hội thoại, dùng kiến thức vận hành, không bịa ID/tên/tháng/số tiền, và dùng tiếng Việt.",
+    prompt: await buildPlannerPrompt(question, user.id, user.role, history),
     schemaName: "zenith_agent_plan",
     schema: plannerSchema,
-    maxTokens: 1200,
+    maxTokens: 1400,
   });
-  if (!planned.ok) return { error: planned.error };
+  if (!planned.ok) return finish({ error: planned.error });
   const action = planned.data.action;
-  if (!actionNames.includes(action)) return planError("AI trả về công cụ không được phép.");
+  if (!actionNames.includes(action)) return finish(planError("AI trả về công cụ không được phép."));
   const args = jsonArgs(planned.data.arguments_json);
-  if (args === null) return planError("Tôi chưa đọc được tham số yêu cầu. Anh hãy nói rõ tên, tháng hoặc số tiền.");
+  if (args === null) return finish(planError("Tôi chưa đọc được tham số yêu cầu. Anh hãy nói rõ tên, tháng hoặc số tiền."));
 
   if (action === "none") {
     const answer = await buildFinalKnowledgeAnswer(question, user.role, planned.data.reply);
-    return { ok: true, answer: `${answer}\n\nTôi chưa thực hiện thay đổi nào.` };
+    return finish({ ok: true, answer: `${answer}\n\nTôi chưa thực hiện thay đổi nào.` });
   }
   if (["get_business_summary", "get_debt_summary", "get_lead_priorities", "get_financial_alerts", "get_payroll_row", "prepare_payroll_export"].includes(action)) {
     const result = await readAction(action, args);
     await audit(user.id, "ASSISTANT_READ_TOOL", { entity: action, meta: { ok: result.ok } });
-    return { ...result, answer: `${planned.data.reply}\n\n${result.answer ?? ""}` };
+    return finish({ ...result, answer: `${planned.data.reply}\n\n${result.answer ?? ""}` });
   }
 
   const checked = await validateWrite(action, args, user.id);
-  if ("error" in checked) return planError(checked.error);
-  if (!planned.data.requires_confirmation) return planError("Thao tác ghi dữ liệu luôn phải có xác nhận ADMIN.");
-  return createApproval(user.id, action, checked.args as Prisma.InputJsonValue, checked.preview);
+  if ("error" in checked) return finish(planError(checked.error));
+  if (!planned.data.requires_confirmation) return finish(planError("Thao tác ghi dữ liệu luôn phải có xác nhận ADMIN."));
+  const approval = await createApproval(user.id, action, checked.args as Prisma.InputJsonValue, checked.preview, conversation.id);
+  return finish(approval);
 }
 
 export async function confirmAssistantApproval(_prev: AgentState, formData: FormData): Promise<AgentState> {
@@ -380,7 +428,16 @@ export async function confirmAssistantApproval(_prev: AgentState, formData: Form
 
   const args = approval.arguments as Record<string, unknown>;
   try {
-    if (approval.toolName === "save_payroll") {
+    if (approval.toolName === "bulk_upsert_attendance") {
+      const fd = new FormData();
+      fd.set("userId", String(args.userId));
+      fd.set("dates", JSON.stringify(Array.isArray(args.dates) ? args.dates : []));
+      fd.set("checkIn", String(args.checkIn));
+      fd.set("checkOut", String(args.checkOut ?? ""));
+      fd.set("note", String(args.note ?? ""));
+      const result = await bulkUpsertAttendance({}, fd);
+      if (result.error) return planError(result.error);
+    } else if (approval.toolName === "save_payroll") {
       const fd = new FormData();
       fd.set("id", String(args.userId));
       fd.set("month", String(args.month));
@@ -438,7 +495,12 @@ export async function confirmAssistantApproval(_prev: AgentState, formData: Form
     }
     await prisma.assistantApproval.update({ where: { id }, data: { status: "APPROVED", resolvedAt: new Date() } });
     await audit(user.id, "ASSISTANT_MUTATION_EXECUTED", { entity: approval.toolName, entityId: id });
-    return { ok: true, answer: `Đã thực hiện: ${approval.preview}` };
+    const result: AgentState = { ok: true, answer: `Đã thực hiện: ${approval.preview}` };
+    if (approval.conversationId) {
+      await appendAssistantTurn(user.id, approval.conversationId, "ASSISTANT", result.answer ?? "Đã thực hiện.", { approvalId: id, toolName: approval.toolName, status: "APPROVED" });
+      result.conversationId = approval.conversationId;
+    }
+    return result;
   } catch (error) {
     return planError(error instanceof Error ? error.message : "Thao tác thất bại; chưa thể xác nhận kết quả.");
   }
@@ -447,7 +509,13 @@ export async function confirmAssistantApproval(_prev: AgentState, formData: Form
 export async function rejectAssistantApproval(_prev: AgentState, formData: FormData): Promise<AgentState> {
   const user = await requireCap("mod:tro-ly");
   const id = String(formData.get("approvalId") ?? "");
+  const approval = await prisma.assistantApproval.findFirst({ where: { id, userId: user.id, status: "PENDING" }, select: { conversationId: true } });
   await prisma.assistantApproval.updateMany({ where: { id, userId: user.id, status: "PENDING" }, data: { status: "REJECTED", resolvedAt: new Date() } });
   await audit(user.id, "ASSISTANT_APPROVAL_REJECTED", { entity: "AssistantApproval", entityId: id });
-  return { ok: true, answer: "Đã hủy thao tác. Không có dữ liệu nào bị thay đổi." };
+  const result: AgentState = { ok: true, answer: "Đã hủy thao tác. Không có dữ liệu nào bị thay đổi." };
+  if (approval?.conversationId) {
+    await appendAssistantTurn(user.id, approval.conversationId, "ASSISTANT", result.answer ?? "Đã hủy thao tác.", { approvalId: id, status: "REJECTED" });
+    result.conversationId = approval.conversationId;
+  }
+  return result;
 }
