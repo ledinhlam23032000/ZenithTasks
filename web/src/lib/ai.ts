@@ -17,8 +17,9 @@
 //                    Gemini   : https://generativelanguage.googleapis.com/v1beta/openai
 //                    OpenAI   : https://api.openai.com/v1
 //                    Claude   : https://api.anthropic.com
-//   AI_MODEL     — tên model, vd: deepseek-chat | qwen-plus | gemini-2.0-flash
+//   AI_MODEL     — tên model mặc định, vd: deepseek-chat | qwen-plus | gemini-2.0-flash
 //                    | gpt-4o-mini | claude-haiku-4-5
+//   AI_AGENT_MODEL — model riêng cho planner/Agent có nhiều bước (tuỳ chọn); nếu bỏ trống dùng AI_MODEL
 //   AI_PROVIDER  — (tuỳ chọn) "openai" | "anthropic". Bỏ trống = tự suy ra từ AI_BASE_URL.
 //
 // TƯƠNG THÍCH NGƯỢC: nếu chưa đặt AI_* mà có ANTHROPIC_API_KEY (cách cũ) thì vẫn
@@ -110,10 +111,13 @@ export async function generateStructured<T>(opts: {
 }): Promise<StructuredAiResult<T>> {
   const cfg = resolveAiConfig();
   if (!cfg) return { ok: false, error: "Chưa cấu hình AI (đặt AI_API_KEY hoặc ANTHROPIC_API_KEY)." };
-  const maxTokens = opts.maxTokens ?? 1200;
+  const requestedMaxTokens = opts.maxTokens ?? 1200;
+  const model = (process.env.AI_AGENT_MODEL ?? "").trim() || cfg.model;
+  const agentCfg = model === cfg.model ? cfg : { ...cfg, model };
+  const maxTokens = /reasoner|reasoning/i.test(agentCfg.model) ? Math.max(requestedMaxTokens, 3200) : requestedMaxTokens;
   try {
-    if (cfg.provider === "openai") return await callOpenAiStructured<T>(cfg, opts, maxTokens);
-    return await callAnthropicStructured<T>(cfg, opts, maxTokens);
+    if (agentCfg.provider === "openai") return await callOpenAiStructured<T>(agentCfg, opts, maxTokens);
+    return await callAnthropicStructured<T>(agentCfg, opts, maxTokens);
   } catch {
     return { ok: false, error: "Không gọi được dịch vụ AI (kiểm tra mạng hoặc API key)." };
   }

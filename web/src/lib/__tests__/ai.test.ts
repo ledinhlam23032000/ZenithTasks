@@ -76,6 +76,23 @@ describe("resolveAiConfig — trung lập nhà cung cấp", () => {
 
 
 describe("generateStructured — tương thích provider", () => {
+  it("dùng AI_AGENT_MODEL cho planner nhưng vẫn giữ provider/base chung", async () => {
+    vi.stubEnv("AI_API_KEY", "test-key");
+    vi.stubEnv("AI_BASE_URL", "https://provider.test/v1");
+    vi.stubEnv("AI_MODEL", "deepseek-chat");
+    vi.stubEnv("AI_AGENT_MODEL", "deepseek-reasoner");
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: { content: '{"action":"none"}' } }] }), { status: 200 }));
+
+    await generateStructured<{ action: string }>({
+      system: "Return JSON",
+      prompt: "test",
+      schemaName: "test_plan",
+      schema: { type: "object", properties: { action: { type: "string" } }, required: ["action"], additionalProperties: false },
+    });
+
+    expect(String(fetchSpy.mock.calls[0]?.[1]?.body)).toContain('"model":"deepseek-reasoner"');
+  });
+
   it("fallback sang JSON trong prompt khi response_format bị provider từ chối", async () => {
     vi.stubEnv("AI_API_KEY", "test-key");
     vi.stubEnv("AI_BASE_URL", "https://provider.test/v1");

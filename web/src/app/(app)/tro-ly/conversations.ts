@@ -31,11 +31,31 @@ export async function listAssistantConversations(userId: string) {
 }
 
 export async function getAssistantConversationTurns(userId: string, conversationId: string) {
-  return prisma.assistantMessage.findMany({
+  const messages = await prisma.assistantMessage.findMany({
     where: { userId, conversationId },
     orderBy: { createdAt: "asc" },
     take: 40,
     select: { id: true, role: true, content: true, metadata: true, createdAt: true },
+  });
+  const approvalIds = messages.flatMap((message) => {
+    if (!message.metadata || typeof message.metadata !== "object" || Array.isArray(message.metadata)) return [];
+    const approval = (message.metadata as Record<string, unknown>).approval;
+    if (!approval || typeof approval !== "object" || Array.isArray(approval)) return [];
+    const id = (approval as Record<string, unknown>).id;
+    return typeof id === "string" ? [id] : [];
+  });
+  if (approvalIds.length === 0) return messages;
+  const approvals = await prisma.assistantApproval.findMany({ where: { userId, id: { in: approvalIds } }, select: { id: true, status: true } });
+  const statusById = new Map(approvals.map((approval) => [approval.id, approval.status]));
+  return messages.map((message) => {
+    if (!message.metadata || typeof message.metadata !== "object" || Array.isArray(message.metadata)) return message;
+    const metadata = message.metadata as Record<string, unknown>;
+    const approval = metadata.approval;
+    if (!approval || typeof approval !== "object" || Array.isArray(approval)) return message;
+    const approvalId = (approval as Record<string, unknown>).id;
+    if (typeof approvalId !== "string" || statusById.get(approvalId) === "PENDING") return message;
+    const { approval: _staleApproval, ...rest } = metadata;
+    return { ...message, metadata: rest };
   });
 }
 
@@ -68,6 +88,16 @@ export async function archiveAssistantConversation(userId: string, conversationI
 
 export async function createNewAssistantConversation(userId: string) {
   return prisma.assistantConversation.create({ data: { userId, title: null } });
+}
+
+export async function deleteAssistantConversation(userId: string, conversationId: string) {
+  const conversation = await prisma.assistantConversation.findFirst({ where: { id: conversationId, userId }, select: { id: true } });
+  if (!conversation) return { ok: false as const, error: "Không tìm thấy cuộc trò chuyện hoặc anh không có quyền xóa." };
+  await prisma.$transaction(async (tx) => {
+    await tx.assistantApproval.updateMany({ where: { conversationId, userId, status: "PENDING" }, data: { status: "REJECTED", resolvedAt: new Date(), conversationId: null } });
+    await tx.assistantConversation.delete({ where: { id: conversationId } });
+  });
+  return { ok: true as const };
 }
 
 export function turnsToPrompt(turns: Array<{ role: string; content: string }>) {

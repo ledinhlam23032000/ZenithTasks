@@ -34,10 +34,11 @@ export function extractAttendanceDateRange(text: string, currentYear = new Date(
 }
 
 export function extractAttendanceTime(text: string, kind: "in" | "out") {
+  const normalized = normalizeAssistantText(text);
   const re = kind === "in"
     ? /(?:sang|vao|bat dau)[^\d]{0,20}(\d{1,2})(?:\s*(?:h|:)\s*(\d{2})?)/i
     : /(?:chieu|ra|ve|ket thuc)[^\d]{0,20}(\d{1,2})(?:\s*(?:h|:)\s*(\d{2})?)/i;
-  const m = text.match(re);
+  const m = normalized.match(re);
   if (!m) return undefined;
   const hour = Number(m[1]);
   const minute = Number(m[2] ?? 0);
@@ -45,21 +46,71 @@ export function extractAttendanceTime(text: string, kind: "in" | "out") {
   return `${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`;
 }
 
-export function inferAttendanceIntent(question: string, history: string, staff: AttendanceStaffCandidate[], currentYear = new Date().getFullYear()): AttendanceIntent | null {
-  const text = `${history}\n${question}`;
+function extractFlexibleBoundaryTime(text: string, kind: "in" | "out") {
   const normalized = normalizeAssistantText(text);
-  if (!(normalized.includes("cham cong") || normalized.includes("ngay cong") || normalized.includes("bo sung cong") || normalized.includes("di lam"))) return null;
-  const target = staff.find((u) => normalized.includes(normalizeAssistantText(u.fullName)));
-  const dates = extractAttendanceDateRange(normalized, currentYear);
-  const checkIn = extractAttendanceTime(normalized, "in");
-  const checkOut = extractAttendanceTime(normalized, "out");
-  const confirmedFullAttendance = normalized.includes("chua nghi") || normalized.includes("khong nghi") || normalized.includes("di lam du") || normalized.includes("tat ca cac ngay");
+  const pattern = kind === "in"
+    ? /som hon[^\d]{0,12}(\d{1,2})(?:\s*(?:h|:)\s*(\d{2})?)?/i
+    : /muon hon[^\d]{0,12}(\d{1,2})(?:\s*(?:h|:)\s*(\d{2})?)?/i;
+  const match = normalized.match(pattern);
+  if (!match) return undefined;
+  const referenceHour = Number(match[1]);
+  const referenceMinute = Number(match[2] ?? 0);
+  const hour = kind === "in" ? referenceHour - 1 : referenceHour + 1;
+  if (hour < 0 || hour > 23 || referenceMinute > 59) return undefined;
+  return `${hour.toString().padStart(2, "0")}:${referenceMinute.toString().padStart(2, "0")}`;
+}
+
+function userMessagesFromHistory(history: string) {
+  const messages = [...history.matchAll(/(?:^|\n)USER:\s*([\s\S]*?)(?=\n(?:USER|ASSISTANT|SYSTEM|TOOL):|$)/g)].map((match) => match[1].trim()).filter(Boolean);
+  return messages.length > 0 ? messages : history.trim() ? [history.trim()] : [];
+}
+
+function latestTextWith(texts: string[], predicate: (text: string) => boolean) {
+  return [...texts].reverse().find(predicate) ?? "";
+}
+
+function latestStaff(staff: AttendanceStaffCandidate[], texts: string[]) {
+  for (const text of texts) {
+    const normalized = normalizeAssistantText(text);
+    const matches = staff.filter((candidate) => normalized.includes(normalizeAssistantText(candidate.fullName)));
+    if (matches.length > 0) return matches.sort((a, b) => b.fullName.length - a.fullName.length)[0];
+  }
+  return undefined;
+}
+
+export function inferAttendanceIntent(question: string, history: string, staff: AttendanceStaffCandidate[], currentYear = new Date().getFullYear()): AttendanceIntent | null {
+  const normalizedQuestion = normalizeAssistantText(question);
+  const historyUsers = userMessagesFromHistory(history);
+  const userTexts = [...historyUsers, question];
+  const normalizedAllUserText = normalizeAssistantText(userTexts.join("\n"));
+  if (!(normalizedAllUserText.includes("cham cong") || normalizedAllUserText.includes("ngay cong") || normalizedAllUserText.includes("bo sung cong") || normalizedAllUserText.includes("di lam"))) return null;
+
+  const target = latestStaff(staff, [question, ...historyUsers]);
+  const dateSource = extractAttendanceDateRange(question, currentYear).length > 0
+    ? question
+    : latestTextWith(historyUsers, (text) => extractAttendanceDateRange(text, currentYear).length > 0);
+  const timeInSource = extractAttendanceTime(question, "in") || extractFlexibleBoundaryTime(question, "in")
+    ? question
+    : latestTextWith(historyUsers, (text) => Boolean(extractAttendanceTime(text, "in") || extractFlexibleBoundaryTime(text, "in")));
+  const timeOutSource = extractAttendanceTime(question, "out") || extractFlexibleBoundaryTime(question, "out")
+    ? question
+    : latestTextWith(historyUsers, (text) => Boolean(extractAttendanceTime(text, "out") || extractFlexibleBoundaryTime(text, "out")));
+  const dates = extractAttendanceDateRange(dateSource, currentYear);
+  const checkIn = extractFlexibleBoundaryTime(timeInSource, "in") ?? extractAttendanceTime(timeInSource, "in");
+  const checkOut = extractFlexibleBoundaryTime(timeOutSource, "out") ?? extractAttendanceTime(timeOutSource, "out");
+  const confirmedFullAttendance = normalizedQuestion.includes("chua nghi") || normalizedQuestion.includes("khong nghi") || normalizedQuestion.includes("di lam du") || normalizedQuestion.includes("tat ca cac ngay")
+    || historyUsers.some((text) => {
+      const normalized = normalizeAssistantText(text);
+      return normalized.includes("chua nghi") || normalized.includes("khong nghi") || normalized.includes("di lam du") || normalized.includes("tat ca cac ngay");
+    });
   if (!target || dates.length === 0 || !checkIn || !checkOut || !confirmedFullAttendance) return null;
+
+  const flexibleTime = Boolean(extractFlexibleBoundaryTime(timeInSource, "in") || extractFlexibleBoundaryTime(timeOutSource, "out"));
   return {
     staffName: target.fullName,
     dates,
     checkIn,
     checkOut,
-    note: `AI chấm công theo lệnh ADMIN; đủ ngày trong khoảng ${dates[0]} đến ${dates[dates.length - 1]}.`,
+    note: `AI chấm công theo lệnh ADMIN; đủ ngày trong khoảng ${dates[0]} đến ${dates[dates.length - 1]}${flexibleTime ? "; đã chọn giờ biên an toàn sớm hơn giờ bắt đầu và muộn hơn giờ kết thúc theo yêu cầu." : "."}`,
   };
 }

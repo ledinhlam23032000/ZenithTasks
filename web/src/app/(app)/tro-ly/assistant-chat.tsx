@@ -1,13 +1,14 @@
 "use client";
 
 import { useState, useRef, useEffect, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Sparkles, LoaderCircle, SendHorizontal, User, Check, ShieldCheck, X, Download, Mic, Paperclip, ThumbsUp, ThumbsDown } from "lucide-react";
+import { Sparkles, LoaderCircle, SendHorizontal, User, Check, ShieldCheck, X, Download, Mic, Paperclip, ThumbsUp, ThumbsDown, Trash2, CircleDot } from "lucide-react";
 import { Markdown } from "@/components/ui/markdown";
 import { SUGGESTED_QUESTIONS } from "@/lib/assistant";
 import { runAssistantAgent, confirmAssistantApproval, rejectAssistantApproval, type AgentState } from "./agent";
 import { saveAssistantFeedback, uploadAssistantFile } from "./file-actions";
-import { startNewAssistantConversation } from "./conversation-actions";
+import { removeAssistantConversation, startNewAssistantConversation } from "./conversation-actions";
 
 type Turn = {
   id?: string;
@@ -15,6 +16,7 @@ type Turn = {
   a: string;
   exportUrl?: string;
   approval?: NonNullable<AgentState["approval"]>;
+  steps?: string[];
 };
 
 type StoredAssistantMessage = {
@@ -34,10 +36,11 @@ function storedMessagesToTurns(messages: readonly StoredAssistantMessage[]): Tur
     if (message.role === "ASSISTANT") {
       const last = result[result.length - 1];
       if (last && !last.a) {
-        const metadata = message.metadata as { approval?: NonNullable<AgentState["approval"]> } | null | undefined;
-        result[result.length - 1] = { ...last, a: message.content, approval: metadata?.approval };
+        const metadata = message.metadata as { approval?: NonNullable<AgentState["approval"]>; steps?: string[] } | null | undefined;
+        result[result.length - 1] = { ...last, a: message.content, approval: metadata?.approval, steps: metadata?.steps };
       } else if (last) {
-        result[result.length - 1] = { ...last, a: `${last.a}\n\n${message.content}`, approval: undefined };
+        const metadata = message.metadata as { steps?: string[] } | null | undefined;
+        result[result.length - 1] = { ...last, a: `${last.a}\n\n${message.content}`, approval: undefined, steps: metadata?.steps ?? last.steps };
       }
     }
   }
@@ -66,6 +69,7 @@ export function AssistantChat({
   const [actionIndex, setActionIndex] = useState<number | null>(null);
   const [filePending, startFile] = useTransition();
   const [fileMessage, setFileMessage] = useState<string | null>(null);
+  const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -85,7 +89,7 @@ export function AssistantChat({
       if (r.error) setErr(r.error);
       else {
         if (r.conversationId) setConversationId(r.conversationId);
-        setTurns((t) => [...t, { id: r.conversationId ?? crypto.randomUUID(), q: text, a: r.answer ?? "", approval: r.approval, exportUrl: r.exportUrl }]);
+        setTurns((t) => [...t, { id: r.conversationId ?? crypto.randomUUID(), q: text, a: r.answer ?? "", approval: r.approval, steps: r.steps, exportUrl: r.exportUrl }]);
         setQ("");
       }
     });
@@ -138,6 +142,22 @@ export function AssistantChat({
     });
   }
 
+  function deleteConversation() {
+    if (actionPending) return;
+    if (!window.confirm("Xóa vĩnh viễn cuộc trò chuyện này và các tin nhắn trong đó? Approval đang chờ sẽ bị hủy, dữ liệu nghiệp vụ không bị xóa.")) return;
+    startAction(async () => {
+      const result = await removeAssistantConversation(conversationId);
+      if (!result.ok) setErr(result.error);
+      else {
+        setTurns([]);
+        setQ("");
+        setErr(null);
+        router.push("/tro-ly");
+        router.refresh();
+      }
+    });
+  }
+
   function resolveApproval(index: number, approve: boolean) {
     const approval = turns[index]?.approval;
     if (!approval || actionPending) return;
@@ -164,13 +184,14 @@ export function AssistantChat({
           <Sparkles className="h-4 w-4" />
         </span>
         <div className="leading-tight">
-          <p className="text-sm font-semibold text-slate-800">Trợ lý quản trị AI</p>
-          <p className="text-xs text-slate-400">Đọc số liệu, chuẩn bị thao tác và xin xác nhận trước khi sửa</p>
+          <div className="flex items-center gap-2"><p className="text-sm font-semibold text-slate-800">Trợ lý quản trị AI</p><span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700"><CircleDot className="h-2.5 w-2.5" /> Sẵn sàng</span></div>
+          <p className="text-xs text-slate-400">Đồng nghiệp số: phân tích, chia bước, đối chiếu và báo cáo rõ ràng</p>
         </div>
         {turns.length > 0 && (
-          <button type="button" onClick={newConversation} disabled={actionPending} className="ml-auto rounded-lg px-2.5 py-1 text-xs font-medium text-slate-400 hover:bg-slate-100 hover:text-slate-600 disabled:opacity-50">
-            Cuộc trò chuyện mới
-          </button>
+          <div className="ml-auto flex items-center gap-1">
+            <button type="button" onClick={newConversation} disabled={actionPending} className="rounded-lg px-2.5 py-1 text-xs font-medium text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 disabled:opacity-50">Cuộc trò chuyện mới</button>
+            <button type="button" onClick={deleteConversation} disabled={actionPending} className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50" title="Xóa cuộc trò chuyện"><Trash2 className="h-4 w-4" /></button>
+          </div>
         )}
       </div>
 
@@ -197,7 +218,8 @@ export function AssistantChat({
                 <div className="flex items-start gap-2">
                   <span className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-violet-500 text-white"><Sparkles className="h-4 w-4" /></span>
                   <div className="max-w-[90%] space-y-2">
-                    <div className="rounded-2xl rounded-tl-sm border border-slate-100 bg-slate-50 px-4 py-2.5"><Markdown text={t.a} /></div>
+                    <div className="rounded-2xl rounded-tl-sm border border-slate-100 bg-slate-50 px-4 py-2.5 shadow-[0_8px_30px_-24px_rgba(15,23,42,0.45)]"><Markdown text={t.a} /></div>
+                    {t.steps && t.steps.length > 0 && <div className="flex flex-wrap gap-1.5 pl-1">{t.steps.map((step, stepIndex) => <span key={`${step}-${stepIndex}`} className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-1 text-[10px] text-slate-500"><Check className="h-3 w-3 text-emerald-500" />{step}</span>)}</div>}
                     <div className="flex items-center gap-2 pl-1"><span className="text-[11px] text-slate-400">Câu trả lời này có hữu ích không?</span><button type="button" onClick={() => saveFeedback(t, "APPROVAL")} disabled={actionPending} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-emerald-700 hover:bg-emerald-50"><ThumbsUp className="h-3 w-3" /> Đúng</button><button type="button" onClick={() => saveFeedback(t, "CORRECTION")} disabled={actionPending} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-amber-700 hover:bg-amber-50"><ThumbsDown className="h-3 w-3" /> Cần sửa</button></div>
                     {t.exportUrl && <Link href={t.exportUrl} className="inline-flex items-center gap-1.5 rounded-lg bg-brand-50 px-3 py-2 text-xs font-semibold text-brand-700 hover:bg-brand-100"><Download className="h-3.5 w-3.5" /> Tải file đã chuẩn bị</Link>}
                     {t.approval && (
@@ -213,7 +235,7 @@ export function AssistantChat({
                 </div>
               </div>
             ))}
-            {pending && <div className="mx-auto max-w-2xl"><div className="flex items-start gap-2"><span className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-violet-500 text-white"><Sparkles className="h-4 w-4" /></span><div className="rounded-2xl rounded-tl-sm border border-slate-100 bg-slate-50 px-4 py-3"><span className="flex gap-1"><span className="h-2 w-2 animate-bounce rounded-full bg-slate-400 [animation-delay:-0.3s]" /><span className="h-2 w-2 animate-bounce rounded-full bg-slate-400 [animation-delay:-0.15s]" /><span className="h-2 w-2 animate-bounce rounded-full bg-slate-400" /></span></div></div></div>}
+            {pending && <div className="mx-auto max-w-2xl"><div className="flex items-start gap-2"><span className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-violet-500 text-white shadow-lg shadow-brand-500/20"><Sparkles className="h-4 w-4 animate-pulse" /></span><div className="rounded-2xl rounded-tl-sm border border-brand-100 bg-gradient-to-br from-brand-50 to-violet-50 px-4 py-3"><p className="mb-2 text-xs font-medium text-brand-700">Em đang phân tích yêu cầu và chia nhỏ các bước…</p><span className="flex gap-1"><span className="h-2 w-2 animate-bounce rounded-full bg-brand-400 [animation-delay:-0.3s]" /><span className="h-2 w-2 animate-bounce rounded-full bg-brand-400 [animation-delay:-0.15s]" /><span className="h-2 w-2 animate-bounce rounded-full bg-brand-400" /></span></div></div></div>}
           </div>
         )}
       </div>
