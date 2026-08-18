@@ -54,6 +54,42 @@ const DEFAULTS = {
 
 const stripSlash = (s?: string) => (s ?? "").trim().replace(/\/+$/, "");
 
+const aiTimeoutMs = () => {
+  const parsed = Number(process.env.AI_TIMEOUT_MS ?? 30_000);
+  return Number.isFinite(parsed) ? Math.min(Math.max(parsed, 5_000), 120_000) : 30_000;
+};
+
+const aiMaxRetries = () => {
+  const parsed = Number(process.env.AI_MAX_RETRIES ?? 2);
+  return Number.isFinite(parsed) ? Math.min(Math.max(Math.floor(parsed), 0), 4) : 2;
+};
+
+function retryableStatus(status: number) {
+  return status === 408 || status === 409 || status === 425 || status === 429 || status >= 500;
+}
+
+async function fetchWithRetry(input: RequestInfo | URL, init: RequestInit): Promise<Response> {
+  const retries = aiMaxRetries();
+  let lastError: unknown;
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), aiTimeoutMs());
+    try {
+      const response = await fetch(input, { ...init, signal: controller.signal });
+      if (!retryableStatus(response.status) || attempt === retries) return response;
+      await response.arrayBuffer().catch(() => undefined);
+    } catch (error) {
+      lastError = error;
+      if (attempt === retries) throw error;
+    } finally {
+      clearTimeout(timer);
+    }
+    const backoffMs = Math.min(250 * 2 ** attempt, 2_000) + Math.floor(Math.random() * 100);
+    await new Promise((resolve) => setTimeout(resolve, backoffMs));
+  }
+  throw lastError instanceof Error ? lastError : new Error("AI request failed");
+}
+
 /**
  * Phân giải cấu hình AI từ biến môi trường — KHÔNG thiên vị nhà cung cấp.
  * Ưu tiên cấu hình chung AI_* (dùng được cho mọi hãng), giữ tương thích ngược
@@ -108,11 +144,13 @@ export async function generateStructured<T>(opts: {
   schemaName: string;
   schema: JsonSchema;
   maxTokens?: number;
+  /** Optional per-call override, useful when planner and answer writer use different models. */
+  model?: string;
 }): Promise<StructuredAiResult<T>> {
   const cfg = resolveAiConfig();
   if (!cfg) return { ok: false, error: "Chưa cấu hình AI (đặt AI_API_KEY hoặc ANTHROPIC_API_KEY)." };
   const requestedMaxTokens = opts.maxTokens ?? 1200;
-  const model = (process.env.AI_AGENT_MODEL ?? "").trim() || cfg.model;
+  const model = opts.model?.trim() || (process.env.AI_AGENT_MODEL ?? "").trim() || cfg.model;
   const agentCfg = model === cfg.model ? cfg : { ...cfg, model };
   const maxTokens = /reasoner|reasoning/i.test(agentCfg.model) ? Math.max(requestedMaxTokens, 3200) : requestedMaxTokens;
   try {
@@ -147,7 +185,7 @@ function aiError(status: number, body: string): AiResult {
 }
 
 async function callOpenAiStructured<T>(cfg: AiConfig, opts: { system: string; prompt: string; schemaName: string; schema: JsonSchema }, maxTokens: number): Promise<StructuredAiResult<T>> {
-  const res = await fetch(`${cfg.baseUrl}/chat/completions`, {
+  const res = await fetchWithRetry(`${cfg.baseUrl}/chat/completions`, {
     method: "POST",
     headers: { authorization: `Bearer ${cfg.apiKey}`, "content-type": "application/json" },
     body: JSON.stringify({
@@ -177,7 +215,7 @@ async function callOpenAiStructured<T>(cfg: AiConfig, opts: { system: string; pr
 }
 
 async function callOpenAiJsonFallback<T>(cfg: AiConfig, opts: { system: string; prompt: string; schemaName: string; schema: JsonSchema }, maxTokens: number): Promise<StructuredAiResult<T>> {
-  const res = await fetch(`${cfg.baseUrl}/chat/completions`, {
+  const res = await fetchWithRetry(`${cfg.baseUrl}/chat/completions`, {
     method: "POST",
     headers: { authorization: `Bearer ${cfg.apiKey}`, "content-type": "application/json" },
     body: JSON.stringify({
@@ -208,7 +246,7 @@ function parseStructuredText<T>(text: string): StructuredAiResult<T> {
 
 async function callAnthropicStructured<T>(cfg: AiConfig, opts: { system: string; prompt: string; schemaName: string; schema: JsonSchema }, maxTokens: number): Promise<StructuredAiResult<T>> {
   const schemaText = JSON.stringify(opts.schema);
-  const res = await fetch(`${cfg.baseUrl}/v1/messages`, {
+  const res = await fetchWithRetry(`${cfg.baseUrl}/v1/messages`, {
     method: "POST",
     headers: {
       "x-api-key": cfg.apiKey,
@@ -233,7 +271,7 @@ async function callAnthropicStructured<T>(cfg: AiConfig, opts: { system: string;
 
 // ----- Chuẩn OpenAI (DeepSeek / Qwen / Gemini / OpenAI / Groq / tự host...) -----
 async function callOpenAi(cfg: AiConfig, system: string, prompt: string, maxTokens: number): Promise<AiResult> {
-  const res = await fetch(`${cfg.baseUrl}/chat/completions`, {
+  const res = await fetchWithRetry(`${cfg.baseUrl}/chat/completions`, {
     method: "POST",
     headers: { authorization: `Bearer ${cfg.apiKey}`, "content-type": "application/json" },
     body: JSON.stringify({
@@ -253,7 +291,7 @@ async function callOpenAi(cfg: AiConfig, system: string, prompt: string, maxToke
 
 // ----- Chuẩn Anthropic (Claude) -----
 async function callAnthropic(cfg: AiConfig, system: string, prompt: string, maxTokens: number): Promise<AiResult> {
-  const res = await fetch(`${cfg.baseUrl}/v1/messages`, {
+  const res = await fetchWithRetry(`${cfg.baseUrl}/v1/messages`, {
     method: "POST",
     headers: {
       "x-api-key": cfg.apiKey,

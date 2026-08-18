@@ -95,6 +95,29 @@ pnpm start                         # chạy server Node.js
 - Ảnh và giấy tờ được lưu ngoài `public/` (mặc định `private/uploads`) và chỉ phát qua route đã xác thực.
   Docker cần volume bền vững; Vercel/serverless cần cấu hình object storage trước khi bật upload.
 
+## Cấu hình Trợ lý AI và giọng nói
+
+Trợ lý AI chạy hoàn toàn phía máy chủ qua `AI_API_KEY`, `AI_BASE_URL` và `AI_MODEL`; không đặt khóa trong Client Component. Có thể tách model lập kế hoạch và model viết câu trả lời bằng `AI_AGENT_MODEL` và `AI_WRITER_MODEL`. Model planner nên ưu tiên khả năng suy luận/structured JSON, còn writer nên ưu tiên tiếng Việt tự nhiên và độ trễ thấp. `AI_TIMEOUT_MS` kiểm soát thời gian chờ mỗi lượt gọi và `AI_MAX_RETRIES` giới hạn retry cho lỗi tạm thời như 429 hoặc 5xx.
+
+Chế độ giọng nói dùng `MediaRecorder` trong trình duyệt, gửi audio đến `/api/assistant/transcribe`, rồi chuyển thành transcript để người dùng xem/sửa trước khi gửi cho agent. Máy chủ cần cấu hình `VOICE_API_KEY`, `VOICE_BASE_URL` có endpoint `/audio/transcriptions` và `VOICE_MODEL` (mặc định `whisper-1`). Nếu chưa có cấu hình speech-to-text, ứng dụng vẫn giữ fallback SpeechRecognition của trình duyệt khi trình duyệt hỗ trợ; không nên coi fallback này là đường voice production vì khả năng hỗ trợ và chất lượng phụ thuộc browser.
+
+Ví dụ cấu hình tối thiểu:
+
+```dotenv
+AI_API_KEY="..."
+AI_BASE_URL="https://api.openai.com/v1"
+AI_MODEL="gpt-5-mini"
+AI_AGENT_MODEL="gpt-5"
+AI_WRITER_MODEL="gpt-5-mini"
+AI_TIMEOUT_MS="30000"
+AI_MAX_RETRIES="2"
+VOICE_API_KEY="..."
+VOICE_BASE_URL="https://api.openai.com/v1"
+VOICE_MODEL="whisper-1"
+```
+
+Các thao tác đọc được chạy ngay theo quyền; thao tác ghi, tiền, lương, hồ sơ y khoa, xóa và bulk action vẫn phải qua preview, approval, audit và kiểm tra trạng thái thật. Sau khi thay đổi cấu hình hoặc code, chạy `pnpm exec prisma generate`, `pnpm exec tsc --noEmit`, `pnpm test` và `pnpm build`.
+
 ## Cấu trúc thư mục
 
 ```

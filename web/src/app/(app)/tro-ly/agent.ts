@@ -5,7 +5,7 @@ import { prisma } from "@/lib/db";
 import { requireCap } from "@/lib/auth";
 import { aiConfigured, generateStructured } from "@/lib/ai";
 import { getAssistantContext } from "@/lib/assistant-data";
-import { BUSINESS_RULES_KNOWLEDGE, formatAssistantContext } from "@/lib/assistant";
+import { ASSISTANT_FINAL_SYSTEM, ASSISTANT_PLANNER_SYSTEM, BUSINESS_RULES_KNOWLEDGE, formatAssistantContext } from "@/lib/assistant";
 import { getPayroll } from "@/lib/payroll";
 import { formatVND } from "@/lib/money";
 import { isMonthClosed } from "@/lib/accounting";
@@ -243,20 +243,21 @@ function knowledgeAnswerFallback(question: string): string {
   return parts.join("\n\n");
 }
 
-async function buildFinalKnowledgeAnswer(question: string, role: string, plannerReply: string): Promise<string> {
+async function buildFinalKnowledgeAnswer(question: string, role: string, plannerReply: string, verifiedResult = ""): Promise<string> {
   const fallback = knowledgeAnswerFallback(question);
   const context = await getAssistantContext();
   const accessNote = role === "ADMIN" ? "Người dùng là ADMIN; được dùng kiến thức vận hành và số liệu tổng hợp hiện tại để giải thích." : "Chỉ trả lời trong phạm vi quyền người dùng; không tiết lộ dữ liệu bị giới hạn.";
   const generated = await generateStructured<{ answer: string }>({
-    system: "Bạn là người viết câu trả lời cuối cho đồng nghiệp số của Trung tâm Phẫu thuật Tạo hình Thẩm mỹ — Bệnh viện Đa khoa Hồng Phúc. Hãy xưng em, gọi người dùng là anh, trả lời tiếng Việt tự nhiên, nói thẳng quy tắc và các bước cụ thể. Không mở đầu bằng 'tôi đã hiểu yêu cầu' hoặc câu xã giao rỗng. Không bịa số liệu, không nói đã ghi/sửa/xóa nếu lượt hiện tại không có trạng thái APPROVED; nếu chỉ là câu hỏi thì nói rõ đây là giải thích, chưa thay đổi dữ liệu.",
-    prompt: `${accessNote}\n\nKIẾN THỨC VẬN HÀNH:\n${BUSINESS_RULES_KNOWLEDGE}\n\nSỐ LIỆU TỔNG HỢP HIỆN TẠI:\n${formatAssistantContext(context)}\n\nCÂU HỎI:\n${question}\n\nCÂU TRẢ LỜI DỰ KIẾN CỦA PLANNER:\n${plannerReply}\n\nHãy viết câu trả lời hoàn chỉnh, ưu tiên ví dụ và quy trình nếu câu hỏi hỏi 'tính thế nào/ra sao'.`,
+    system: ASSISTANT_FINAL_SYSTEM,
+    prompt: `${accessNote}\n\nKIẾN THỨC VẬN HÀNH:\n${BUSINESS_RULES_KNOWLEDGE}\n\nSỐ LIỆU TỔNG HỢP HIỆN TẠI:\n${formatAssistantContext(context)}\n\nKẾT QUẢ TOOL ĐÃ KIỂM CHỨNG (nếu có):\n${verifiedResult || "Không có tool đọc; chỉ trả lời từ kiến thức và policy."}\n\nCÂU HỎI:\n${question}\n\nCÂU TRẢ LỜI DỰ KIẾN CỦA PLANNER:\n${plannerReply}\n\nHãy viết câu trả lời hoàn chỉnh, ưu tiên kết luận trước rồi mới đến số liệu/quy trình. Không lặp prompt, không thêm dữ kiện ngoài nguồn đã cung cấp. Nếu có kết quả tool thì coi đó là sự thật ưu tiên.`,
     schemaName: "zenith_agent_final_answer",
     schema: finalAnswerSchema,
     maxTokens: 900,
+    model: process.env.AI_WRITER_MODEL?.trim() || undefined,
   });
   const answer = generated.ok ? generated.data.answer.trim() : "";
   const generic = !answer || (norm(answer).includes("da hieu yeu cau") && !norm(answer).includes("hoa hong") && !norm(answer).includes("de nghi"));
-  return generic ? (fallback || plannerReply) : answer;
+  return generic ? (fallback || verifiedResult || plannerReply) : answer;
 }
 
 async function findCase(caseCode: string) {
@@ -622,7 +623,7 @@ export async function runAssistantAgent(_prev: AgentState, formData: FormData): 
   }
 
   const planned = await generateStructured<PlannerOutput>({
-    system: "Bạn là đồng nghiệp số quản trị nội bộ của Trung tâm Phẫu thuật Tạo hình Thẩm mỹ — Bệnh viện Đa khoa Hồng Phúc. Hãy xưng em và gọi người dùng là anh. Hãy tự chia yêu cầu thành các bước: hiểu mục tiêu, đối chiếu dữ liệu thật, chọn công cụ, rồi báo preview hoặc kết quả. Chọn đúng một tool trong whitelist, ghép lịch sử nhưng ưu tiên câu mới nhất, không bịa ID/tên/tháng/số tiền. Với thao tác ghi, chỉ được nói đang chuẩn bị và chờ xác nhận; không được nói đã làm khi chưa có trạng thái APPROVED.",
+    system: ASSISTANT_PLANNER_SYSTEM,
     prompt: await buildPlannerPrompt(question, user.id, user.role, history),
     schemaName: "zenith_agent_plan",
     schema: plannerSchema,
@@ -641,7 +642,10 @@ export async function runAssistantAgent(_prev: AgentState, formData: FormData): 
   if (["get_business_summary", "get_debt_summary", "get_lead_priorities", "get_financial_alerts", "get_payroll_row", "get_customer_profile", "prepare_payroll_export"].includes(action)) {
     const result = await readAction(action, args, user.id);
     await audit(user.id, "ASSISTANT_READ_TOOL", { entity: action, meta: { ok: result.ok } });
-    return finish({ ...result, answer: `${planned.data.reply}\n\n${result.answer ?? ""}`, steps: workflowSteps(action, "read") });
+    const answer = result.answer
+      ? await buildFinalKnowledgeAnswer(question, user.role, planned.data.reply, result.answer)
+      : planned.data.reply;
+    return finish({ ...result, answer, steps: workflowSteps(action, "read") });
   }
 
   const checked = await validateWrite(action, args, user.id);
@@ -692,7 +696,8 @@ export async function confirmAssistantApproval(_prev: AgentState, formData: Form
     } else if (approval.toolName === "record_payment") {
       const fd = new FormData();
       fd.set("caseId", String(args.caseId));
-      fd.set("clientNonce", crypto.randomUUID());
+      // Approval ID là nonce ổn định: cùng một approval xác nhận lại không được tạo Payment thứ hai.
+      fd.set("clientNonce", id);
       fd.set("amount", String(args.amount));
       fd.set("method", String(args.method));
       fd.set("note", String(args.note ?? ""));

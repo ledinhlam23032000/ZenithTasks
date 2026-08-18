@@ -54,7 +54,8 @@ export async function getAssistantConversationTurns(userId: string, conversation
     if (!approval || typeof approval !== "object" || Array.isArray(approval)) return message;
     const approvalId = (approval as Record<string, unknown>).id;
     if (typeof approvalId !== "string" || statusById.get(approvalId) === "PENDING") return message;
-    const { approval: _staleApproval, ...rest } = metadata;
+    const rest = { ...metadata };
+    delete rest.approval;
     return { ...message, metadata: rest };
   });
 }
@@ -101,5 +102,14 @@ export async function deleteAssistantConversation(userId: string, conversationId
 }
 
 export function turnsToPrompt(turns: Array<{ role: string; content: string }>) {
-  return turns.slice(-20).map((turn) => `${turn.role}: ${turn.content}`).join("\n");
+  const recent = turns.slice(-24).map((turn, index) => {
+    const role = turn.role === "USER" ? "ANH" : turn.role === "ASSISTANT" ? "EM" : turn.role;
+    const content = turn.content.trim().slice(0, 4_000);
+    return `[${index + 1}] ${role}: ${content}`;
+  });
+  const joined = recent.join("\n");
+  const maxChars = 18_000;
+  return joined.length <= maxChars
+    ? joined
+    : `[Các lượt cũ hơn đã được rút gọn để giữ ngữ cảnh gần nhất]\n${joined.slice(-maxChars)}`;
 }
