@@ -2,6 +2,31 @@
 
 Tài liệu này ghi các thay đổi đã được đẩy lên nhánh `master`. Commit mới hơn nằm ở phía trên. Phiên bản mô tả đầy đủ hiện tại nằm trong [`VERSION.md`](VERSION.md).
 
+## 2026-08-18 — `2026.08.18-r4`
+
+Commit chuẩn: [`efce179`](https://github.com/ledinhlam23032000/ZenithTasks/commit/efce179).
+
+### AI Admin Gateway có giám sát
+
+- Mở rộng Agent theo hướng trợ lý thực thi nội bộ: không dùng `propose_system_change` để thay cho nghiệp vụ đã có tool; registry tool được mở rộng tiếp theo từng module.
+- Thêm knowledge map cho Chấm công và AI Admin Gateway, ghép lịch sử hội thoại để không hỏi lại thông tin đã có trong các lượt trước.
+- Thêm `bulk_upsert_attendance`: chấm công nhiều ngày cho một nhân sự, upsert theo khóa nhân sự/ngày, transaction, audit và cập nhật lại các trang Chấm công/Lương/Kế toán.
+- Với lệnh rõ như “từ 2/8 đến 18/8, sáng 8h, chiều 17h, chưa nghỉ ngày nào”, AI tạo preview một lần; ADMIN bấm xác nhận để thực hiện, không tạo bản ghi chấm công trùng.
+
+### Lưu trữ phiên trò chuyện
+
+- Thêm `AssistantConversation` và `AssistantMessage`, liên kết `AssistantApproval` với phiên.
+- Lưu câu hỏi, câu trả lời, preview, approval, kết quả thực thi, hủy và metadata; đổi trang hoặc tải lại vẫn khôi phục được lịch sử.
+- Thêm sidebar các phiên gần đây, tiêu đề tự sinh từ câu hỏi đầu tiên và nút “Cuộc trò chuyện mới” để archive phiên cũ.
+
+### Kiểm tra
+
+- Prisma validate/generate đạt.
+- TypeScript đạt.
+- Vitest: **46 file, 302/302 test đạt**; riêng parser chấm công đạt 3/3.
+- Next.js production build đạt.
+- Migration `20260818120000_ai_admin_gateway` đã tạo nhưng **chưa áp dụng trên máy phòng khám**; cần backup trước khi deploy.
+
 ## 2026-08-18 — `2026.08.18-r3`
 
 Commit chuẩn: [`989c850`](https://github.com/ledinhlam23032000/ZenithTasks/commit/989c850).

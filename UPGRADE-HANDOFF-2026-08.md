@@ -63,3 +63,16 @@ Các kiểm tra nghiệp vụ còn có thể làm lúc thuận tiện gồm tả
 ## Nguyên tắc an toàn
 
 Không commit API key, mật khẩu, `.env` thật hoặc dữ liệu khách hàng thật. Không dùng `prisma db push` trên máy vận hành. Không reset database. Các khoản tiền, lương, chứng từ, dữ liệu y tế và sửa sau hạn phải có quyền/audit phù hợp.
+
+
+### Bổ sung phiên bản 2026.08.18-r4 — AI Admin Gateway
+
+Release `efce179` mở rộng Trợ lý AI theo hướng trợ lý thực thi nội bộ dưới quyền ADMIN. Không loại bỏ nghiệp vụ tuyệt đối; thay vào đó, server tool tự kiểm tra quyền, thao tác ghi hiển thị preview và approval, còn xóa, tiền/lương, hồ sơ y tế, quyền tài khoản và thay đổi code cần mức kiểm soát cao hơn.
+
+Đã thêm migration `20260818120000_ai_admin_gateway` với `AssistantConversation`, `AssistantMessage` và trường liên kết `conversationId` cho `AssistantApproval`. Lịch sử lưu câu hỏi, câu trả lời, preview, approval, kết quả, hủy và metadata; giao diện `/tro-ly` có sidebar phiên gần đây, tiêu đề theo câu hỏi đầu tiên và nút tạo phiên mới.
+
+Đã thêm `bulkUpsertAttendance` và parser `attendance-intent.ts`. Với yêu cầu nêu rõ nhân sự, khoảng ngày, giờ vào/ra và xác nhận đủ ngày, AI tạo preview một lần; sau khi ADMIN xác nhận, action upsert Attendance trong transaction, audit từng ngày và revalidate Chấm công/Lương/Kế toán. Ngày đã có bản ghi sẽ được cập nhật theo preview, không tạo bản ghi trùng.
+
+Bằng chứng kiểm tra release: Prisma validate/generate đạt; TypeScript đạt; 46 file và 302/302 test đạt; Next.js production build đạt. Migration r4 **chưa chạy trên máy phòng khám** tại thời điểm bàn giao phụ lục này. Trước khi triển khai phải backup, đồng bộ repo, build image mới, chạy `docker compose exec -T app npx prisma migrate deploy`, kiểm tra `prisma migrate status`, rồi thử lệnh chấm công trong phiên ADMIN và tải lại `/tro-ly` để kiểm tra lịch sử.
+
+Phần workflow thay đổi code vẫn đang được mở rộng: khi anh yêu cầu đổi cơ chế/code, AI phải tạo kế hoạch/diff/test/backup/triển khai có kiểm soát; không sửa mù trực tiếp trong production container.
