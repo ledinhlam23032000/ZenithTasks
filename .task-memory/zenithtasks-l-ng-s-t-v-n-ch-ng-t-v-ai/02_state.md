@@ -1,8 +1,8 @@
 # Project State
 
-- Updated: 2026-08-18 11:40 GMT+7
+- Updated: 2026-08-18 19:30 GMT+7
 - Goal: Xây dựng AI Admin Gateway cho Trợ lý AI ADMIN: thực hiện mọi nghiệp vụ được ủy quyền dưới giám sát, có preview/xác nhận/audit, lưu phiên và mở rộng dần tới workflow thay đổi code.
-- Current phase: Đã hoàn thiện lõi conversation persistence và công cụ chấm công hàng loạt; đang chuẩn bị commit, backup, migration và kiểm tra production.
+- Current phase: Release r4 đã triển khai production và kiểm tra preview chấm công; đang mở rộng registry tool và workflow thay đổi code.
 - Overall status: active
 
 ## Đã hoàn thành trong checkpoint này
@@ -11,9 +11,9 @@
 
 Đã thiết kế AI Admin Gateway theo nguyên tắc không loại bỏ nghiệp vụ tuyệt đối. Tool server tự kiểm tra quyền thật; thao tác đọc chạy ngay, thao tác ghi có preview/xác nhận; xóa, tiền/lương, hồ sơ y tế, quyền tài khoản và thay đổi code sẽ có mức kiểm soát cao hơn, audit và khả năng backup/test/hoàn tác phù hợp.
 
-Đã thêm schema additive `AssistantConversation`, `AssistantMessage`, các enum trạng thái/vai trò, và `conversationId` nullable vào `AssistantApproval`. Đã tạo migration `web/prisma/migrations/20260818120000_ai_admin_gateway/migration.sql`; migration này chưa chạy trên máy phòng khám.
+Đã thêm schema additive `AssistantConversation`, `AssistantMessage`, các enum trạng thái/vai trò, và `conversationId` nullable vào `AssistantApproval`. Đã tạo migration `web/prisma/migrations/20260818120000_ai_admin_gateway/migration.sql` và đã áp dụng trên production.
 
-Đã thêm helper/server action lưu phiên, mở lại phiên OPEN, lưu USER/ASSISTANT turn, archive phiên cũ và tạo phiên mới. UI Trợ lý AI nhận lịch sử từ server, gửi `conversationId`, khôi phục câu trả lời sau khi tải lại và có nút “Cuộc trò chuyện mới”. Approval được liên kết với conversation để giữ preview/kết quả.
+Đã thêm helper/server action lưu phiên, mở lại phiên OPEN, lưu USER/ASSISTANT turn, archive phiên cũ và tạo phiên mới. UI Trợ lý AI nhận lịch sử từ server, gửi `conversationId`, khôi phục câu trả lời sau khi tải lại, có sidebar phiên gần đây và nút “Cuộc trò chuyện mới”. Approval được liên kết với conversation để giữ preview/kết quả.
 
 Đã thêm `bulkUpsertAttendance`: nhận một nhân sự, danh sách ngày, giờ vào/ra và ghi chú; upsert theo khóa duy nhất nhân sự/ngày trong transaction, ghi audit cho từng bản ghi và revalidate Chấm công/Lương/Kế toán.
 
@@ -29,23 +29,24 @@
 - Vitest toàn bộ: **46 file, 302/302 test đạt**.
 - Test parser chấm công: 3/3 đạt; test lịch sử/knowledge hiện có đạt.
 - Next.js production build: đạt sau khi thêm schema, Agent, UI, parser và knowledge map.
-- Chưa chạy migration `20260818120000_ai_admin_gateway` trên database production.
-- Chưa recreate Docker image mới trên máy phòng khám cho release này.
-- Chưa tạo bản ghi chấm công thật trong production; browser verification cần chạy sau migration/recreate.
+- Production đã backup `F:\\6.Sao lưu hệ thống\\zenith-2026-08-18_1901.zip` dung lượng 299.196.021 bytes.
+- Repo Windows đã đồng bộ `4089825`; image r4 mới là `sha256:b2e76120668593cacef58773e8cd6e3dc3bb2c92be0a129b714ed30d8dba2481`; app đã recreate bằng image này, database healthy.
+- Migration `20260818120000_ai_admin_gateway` đã applied lúc `2026-08-18 12:21:44 UTC`; `prisma migrate status` báo 49 migrations, schema up to date; `/login` HTTP 200.
+- Browser ADMIN đã tạo đúng preview chấm công 17 ngày, chưa bấm xác nhận nên chưa ghi Attendance thật. Browser extension timeout khi thử nút Hủy; không kết luận Hủy đã chạy.
 
 ## Verified facts và rủi ro
 
-HEAD trước release Gateway chưa được commit; các file untracked cũ như `web/pnpm-workspace.yaml` không thuộc release và không được tự ý thêm. Không đưa file khách thật, secret, API key, mật khẩu hoặc `.env` vào repo.
+HEAD release Gateway đã được commit/push ở `efce179`, tài liệu r4 ở `4089825`; file untracked cũ như `web/pnpm-workspace.yaml` không thuộc release và không được tự ý thêm. Không đưa file khách thật, secret, API key, mật khẩu hoặc `.env` vào repo.
 
-Migration mới chỉ additive, không reset/xóa dữ liệu; phải backup trước khi deploy production. `bulkUpsertAttendance` cố ý upsert nên nếu ngày đã có dữ liệu thì cập nhật theo preview, không tạo bản ghi trùng. Approval status ngăn xác nhận lặp.
+Migration mới chỉ additive, không reset/xóa dữ liệu. `bulkUpsertAttendance` cố ý upsert nên nếu ngày đã có dữ liệu thì cập nhật theo preview, không tạo bản ghi trùng. Approval status ngăn xác nhận lặp.
 
 Lõi Gateway hiện mới mở rộng conversation và chấm công; các tool xóa/sửa hồ sơ, toàn bộ chứng từ, thay đổi code và rollback sẽ tiếp tục được thêm theo registry và workflow riêng, không được tuyên bố đã hoàn thành chỉ vì chấm công đã chạy.
 
 ## Next 3 actions
 
-1. Chạy diff review, commit/push release Gateway và cập nhật tài liệu/changelog.
-2. Trên máy Windows: backup mới, đồng bộ repo, build image, chạy migration `20260818120000_ai_admin_gateway`, recreate app và kiểm tra login.
-3. Bằng phiên ADMIN: gửi lệnh chấm công chỉ đọc/preview, bấm xác nhận một lần, kiểm tra Chấm công và tải lại `/tro-ly` để xác nhận lịch sử bền vững.
+1. Kiểm tra/xử lý approval preview còn PENDING do browser timeout; không ghi dữ liệu thật nếu chưa có xác nhận rõ.
+2. Bằng phiên ADMIN, sau khi anh cho phép, kiểm tra một lệnh chấm công thật và tải lại `/tro-ly` để xác nhận lịch sử bền vững.
+3. Tiếp tục mở rộng registry tool cho sửa/xóa hồ sơ, chứng từ, lương và workflow code có diff/test/backup; không đánh dấu AI toàn quyền hoàn tất khi các tool chưa có.
 
 ## Files to read first
 

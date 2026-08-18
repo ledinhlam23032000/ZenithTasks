@@ -34,3 +34,12 @@ Anh Lam xác nhận Trợ lý AI mặc định phải hiểu đầy đủ cơ ch
 Đồng thời ghi nhận workstream W2/W3: mọi khoản chi, kể cả gói tăm 3.000đ, có thể lập Đề nghị thanh toán; sau duyệt và thanh toán chỉ tạo đúng một dòng Thu–chi liên kết; khu vực Kế toán trở thành trung tâm xem và in Đề nghị thanh toán, bảng lương, phiếu thu/chi và file xuất theo tháng/trạng thái.
 
 Checkpoint đã cập nhật tại `02_state.md`, kế hoạch chi tiết tại `01_plan.md`, brief tại `00_brief.md` và quyết định tại `03_decisions.md`. Trạng thái vẫn `active`; chưa đánh dấu hoàn tất khi chưa có code và bằng chứng kiểm thử.
+
+
+## 2026-08-18 — Release r4 AI Admin Gateway trên production
+
+Đã push code release `efce179` và tài liệu release `4089825`. Trên máy Windows đã tạo backup `F:\6.Sao lưu hệ thống\zenith-2026-08-18_1901.zip` dung lượng 299.196.021 bytes, đồng bộ repo lên `4089825`, build image mới `sha256:b2e76120668593cacef58773e8cd6e3dc3bb2c92be0a129b714ed30d8dba2481`, recreate app và giữ database container healthy.
+
+Migration `20260818120000_ai_admin_gateway` đã được Prisma áp dụng thành công lúc `2026-08-18 12:21:44 UTC`; `prisma migrate status` báo 49 migrations và schema up to date. Login endpoint trả HTTP 200.
+
+Kiểm tra bằng phiên ADMIN tại `/tro-ly`: AI nhận đúng lệnh chấm công Đào Ngọc Trang từ 02/08 đến 18/08/2026, 08:00–17:00, đủ 17 ngày; tạo preview rõ ràng và chưa ghi Attendance vì chưa bấm xác nhận. Browser extension bị timeout khi thử nút Hủy; không kết luận thao tác Hủy đã chạy. Cần kiểm tra lại approval PENDING hoặc chờ hết hạn trước khi test ghi thật.
