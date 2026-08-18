@@ -1,9 +1,9 @@
 # ZenithTasks — Trạng thái phiên bản hiện tại
 
-> **Phiên bản nội bộ:** `2026.08.18-r4`<br>
-> **Commit chuẩn nội dung:** [`efce179`](https://github.com/ledinhlam23032000/ZenithTasks/commit/efce179)<br>
+> **Phiên bản nội bộ:** `2026.08.18-r5`<br>
+> **Commit chuẩn nội dung:** [`d815f23`](https://github.com/ledinhlam23032000/ZenithTasks/commit/d815f23)<br>
 > **Ngày cập nhật:** 18/08/2026<br>
-> **Trạng thái:** Đã validate/test/build. Release này đã thêm AI Admin Gateway, chấm công thực thi và lưu lịch sử phiên; **chưa áp dụng migration trên máy vận hành**.
+> **Trạng thái:** Đã validate/test/build và CI xanh. Workflow đề xuất thay đổi code của AI đã thành kế hoạch thực thi 5 bước có review diff, test, backup, migration và triển khai có kiểm soát; production đang chạy bản r4 và cần đồng bộ code r5.
 
 ## Quy tắc đọc tài liệu
 
@@ -38,13 +38,13 @@
 | `20260817160000_case_revenue_allocations` | Lưu phân bổ doanh thu theo hồ sơ, người, vai trò và tỷ lệ. |
 | `20260817170000_conversation_workflow` | Lưu trạng thái hội thoại, người phụ trách, thời điểm tin đến và hạn SLA. |
 | `20260818100000_finance_consultation_hr_ai` | Thêm hoa hồng điều chỉnh riêng, chứng từ thanh toán, sổ tư vấn điện tử, thỏa thuận nhân sự, file/feedback AI. **Đã áp dụng trên production ngày 18/08/2026.** |
-| `20260818120000_ai_admin_gateway` | Lưu AssistantConversation/AssistantMessage, liên kết approval với conversation và hỗ trợ chấm công hàng loạt qua AI. **Chưa áp dụng trên production.** |
+| `20260818120000_ai_admin_gateway` | Lưu AssistantConversation/AssistantMessage, liên kết approval với conversation và hỗ trợ chấm công hàng loạt qua AI. **Đã áp dụng trên production ngày 18/08/2026.** |
 
 Migration là **bổ sung dữ liệu, không được tự xóa hoặc reset database**. Khi triển khai production phải dùng `prisma migrate deploy`, không dùng `prisma db push`.
 
 ## Kiểm tra chất lượng gần nhất
 
-Commit chuẩn đã được kiểm tra bằng Prisma generate, TypeScript, Vitest và Next production build. Lần kiểm tra cuối có **46 file test và 302/302 test đạt**, TypeScript, Prisma validate và Next production build đạt. Khi sửa nghiệp vụ tiền, lương, công nợ, phân quyền hoặc webhook, phải bổ sung test hồi quy trước khi commit.
+Commit chuẩn `d815f23` đã được kiểm tra bằng Prisma generate, TypeScript, Vitest, Next production build và CI GitHub Actions. Lần kiểm tra cuối có **46 file test và 302/302 test đạt**, TypeScript, Prisma validate và Next production build đạt. Khi sửa nghiệp vụ tiền, lương, công nợ, phân quyền hoặc webhook, phải bổ sung test hồi quy trước khi commit.
 
 ## Quy trình cập nhật máy vận hành
 

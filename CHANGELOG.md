@@ -2,6 +2,25 @@
 
 Tài liệu này ghi các thay đổi đã được đẩy lên nhánh `master`. Commit mới hơn nằm ở phía trên. Phiên bản mô tả đầy đủ hiện tại nằm trong [`VERSION.md`](VERSION.md).
 
+## 2026-08-18 — `2026.08.18-r5`
+
+Commit chuẩn: [`d815f23`](https://github.com/ledinhlam23032000/ZenithTasks/commit/d815f23).
+
+### Workflow thay đổi code có kiểm soát
+
+- Khi ADMIN yêu cầu AI thay đổi cơ chế hoặc code, AI tạo một PlanTask cha và 5 bước con: phân tích phạm vi, soạn diff để ADMIN xem, chạy kiểm thử, backup/migration và triển khai/kiểm tra.
+- Workflow vẫn giữ nguyên nguyên tắc không sửa mù production: thay đổi nhạy cảm phải có preview, approval, audit; thay đổi code phải có diff, test, backup và đường lui.
+- Metadata checklist được ghi vào audit để người vận hành và AI tiếp quản sau này biết kế hoạch đã được tạo như thế nào.
+
+### Kiểm tra và trạng thái triển khai
+
+- Prisma validate/generate đạt.
+- TypeScript đạt.
+- Vitest: **46 file, 302/302 test đạt**.
+- Next.js production build đạt.
+- GitHub Actions CI cho `d815f23` đã hoàn tất với kết luận **success**.
+- Không có migration mới ở r5; production đã có 49 migration và cần đồng bộ image/code r5 từ commit này.
+
 ## 2026-08-18 — `2026.08.18-r4`
 
 Commit chuẩn: [`efce179`](https://github.com/ledinhlam23032000/ZenithTasks/commit/efce179).
@@ -25,7 +44,7 @@ Commit chuẩn: [`efce179`](https://github.com/ledinhlam23032000/ZenithTasks/com
 - TypeScript đạt.
 - Vitest: **46 file, 302/302 test đạt**; riêng parser chấm công đạt 3/3.
 - Next.js production build đạt.
-- Migration `20260818120000_ai_admin_gateway` đã tạo nhưng **chưa áp dụng trên máy phòng khám**; cần backup trước khi deploy.
+- Migration `20260818120000_ai_admin_gateway` đã được áp dụng trên máy phòng khám ngày 18/08/2026 sau khi phát hành r4.
 
 ## 2026-08-18 — `2026.08.18-r3`
 
