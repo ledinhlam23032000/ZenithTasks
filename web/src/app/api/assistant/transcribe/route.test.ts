@@ -37,6 +37,16 @@ describe("POST /api/assistant/transcribe", () => {
     expect(fetchSpy).toHaveBeenCalledWith("https://voice.test/v1/audio/transcriptions", expect.objectContaining({ method: "POST" }));
   });
 
+  it("dùng whisper.cpp nội bộ qua /inference mà không cần API key", async () => {
+    vi.stubEnv("VOICE_PROVIDER", "whisper-cpp");
+    vi.stubEnv("VOICE_BASE_URL", "http://whisper.internal:8080");
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ text: "Mở hàng chờ kiểm duyệt" }), { status: 200 }));
+    const response = await POST(requestWith(new File(["audio"], "voice.webm", { type: "audio/webm" })));
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ ok: true, text: "Mở hàng chờ kiểm duyệt" });
+    expect(fetchSpy).toHaveBeenCalledWith("http://whisper.internal:8080/inference", expect.objectContaining({ method: "POST", headers: undefined }));
+  });
+
   it("báo lỗi cấu hình rõ ràng khi chưa có voice key", async () => {
     const response = await POST(requestWith(new File(["audio"], "voice.webm", { type: "audio/webm" })));
     expect(response.status).toBe(503);

@@ -99,16 +99,16 @@ pnpm start                         # chạy server Node.js
 
 Trợ lý AI chạy hoàn toàn phía máy chủ qua `AI_API_KEY`, `AI_BASE_URL` và `AI_MODEL`; không đặt khóa trong Client Component. Có thể tách model lập kế hoạch và model viết câu trả lời bằng `AI_AGENT_MODEL` và `AI_WRITER_MODEL`. Model planner nên ưu tiên khả năng suy luận/structured JSON, còn writer nên ưu tiên tiếng Việt tự nhiên và độ trễ thấp. `AI_TIMEOUT_MS` kiểm soát thời gian chờ mỗi lượt gọi và `AI_MAX_RETRIES` giới hạn retry cho lỗi tạm thời như 429 hoặc 5xx.
 
-Chế độ giọng nói dùng `MediaRecorder` trong trình duyệt, gửi audio đến `/api/assistant/transcribe`, rồi chuyển thành transcript để người dùng xem/sửa trước khi gửi cho agent. Máy chủ cần cấu hình `VOICE_API_KEY`, `VOICE_BASE_URL` có endpoint `/audio/transcriptions` và `VOICE_MODEL` (mặc định `whisper-1`). Nếu chưa có cấu hình speech-to-text, ứng dụng vẫn giữ fallback SpeechRecognition của trình duyệt khi trình duyệt hỗ trợ; không nên coi fallback này là đường voice production vì khả năng hỗ trợ và chất lượng phụ thuộc browser.
+Chế độ giọng nói dùng `MediaRecorder` trong trình duyệt, gửi audio đến `/api/assistant/transcribe`, rồi chuyển thành transcript để người dùng xem/sửa trước khi gửi cho agent. Mặc định máy chủ dùng `VOICE_PROVIDER=openai-compatible` với endpoint `/audio/transcriptions`. Có thể dùng `VOICE_PROVIDER=whisper-cpp`, trỏ `VOICE_BASE_URL` tới whisper-server nội bộ (mặc định endpoint upstream là `/inference`) và không cần `VOICE_API_KEY`. whisper-server phải chạy nội bộ hoặc sau firewall; không mở trực tiếp endpoint upload của nó ra internet. Nếu chưa có cấu hình speech-to-text, ứng dụng vẫn giữ fallback SpeechRecognition của trình duyệt khi trình duyệt hỗ trợ; không nên coi fallback này là đường voice production vì khả năng hỗ trợ và chất lượng phụ thuộc browser.
 
 Ví dụ cấu hình tối thiểu:
 
 ```dotenv
 AI_API_KEY="..."
-AI_BASE_URL="https://api.openai.com/v1"
-AI_MODEL="gpt-5-mini"
-AI_AGENT_MODEL="gpt-5"
-AI_WRITER_MODEL="gpt-5-mini"
+AI_BASE_URL="https://api.deepseek.com"
+AI_MODEL="deepseek-chat"
+AI_AGENT_MODEL="deepseek-reasoner"
+AI_WRITER_MODEL="deepseek-chat"
 AI_TIMEOUT_MS="30000"
 AI_MAX_RETRIES="2"
 VOICE_API_KEY="..."

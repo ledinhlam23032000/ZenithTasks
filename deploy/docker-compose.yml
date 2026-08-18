@@ -51,6 +51,7 @@ services:
       AI_TIMEOUT_MS: "${AI_TIMEOUT_MS:-30000}"
       AI_MAX_RETRIES: "${AI_MAX_RETRIES:-2}"
       AI_PROVIDER: "${AI_PROVIDER:-}"
+      VOICE_PROVIDER: "${VOICE_PROVIDER:-openai-compatible}"
       VOICE_API_KEY: "${VOICE_API_KEY:-}"
       VOICE_BASE_URL: "${VOICE_BASE_URL:-https://api.openai.com/v1}"
       VOICE_MODEL: "${VOICE_MODEL:-whisper-1}"

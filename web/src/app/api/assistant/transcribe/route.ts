@@ -14,18 +14,32 @@ const allowedAudioTypes = new Set([
   "video/webm",
 ]);
 
-function voiceConfig() {
+type VoiceProvider = "openai-compatible" | "whisper-cpp";
+type VoiceConfig = { provider: VoiceProvider; apiKey: string; baseUrl: string; model: string };
+
+function voiceConfig(): VoiceConfig | null {
+  const provider = (process.env.VOICE_PROVIDER ?? "openai-compatible").trim().toLowerCase();
   const apiKey = (process.env.VOICE_API_KEY ?? "").trim();
-  const baseUrl = (process.env.VOICE_BASE_URL ?? "https://api.openai.com/v1").trim().replace(/\/+$/, "");
   const model = (process.env.VOICE_MODEL ?? "whisper-1").trim();
-  if (apiKey) return { apiKey, baseUrl, model };
+
+  if (provider === "whisper-cpp") {
+    return {
+      provider: "whisper-cpp",
+      apiKey,
+      baseUrl: (process.env.VOICE_BASE_URL ?? "http://127.0.0.1:8080").trim().replace(/\/+$/, ""),
+      model,
+    };
+  }
+
+  const baseUrl = (process.env.VOICE_BASE_URL ?? "https://api.openai.com/v1").trim().replace(/\/+$/, "");
+  if (apiKey) return { provider: "openai-compatible", apiKey, baseUrl, model };
 
   // Chỉ dùng AI_API_KEY làm fallback khi base URL thực sự là OpenAI; DeepSeek
   // và các provider chat-compatible khác thường không có endpoint transcription.
   const genericKey = (process.env.AI_API_KEY ?? "").trim();
   const genericBase = (process.env.AI_BASE_URL ?? "").trim();
   if (genericKey && /api\.openai\.com/i.test(genericBase)) {
-    return { apiKey: genericKey, baseUrl: genericBase.replace(/\/+$/, ""), model };
+    return { provider: "openai-compatible", apiKey: genericKey, baseUrl: genericBase.replace(/\/+$/, ""), model };
   }
   return null;
 }
@@ -46,22 +60,28 @@ export async function POST(request: Request) {
 
   const config = voiceConfig();
   if (!config) {
-    return NextResponse.json({ ok: false, error: "Chưa cấu hình dịch vụ nhận dạng giọng nói. Cần đặt VOICE_API_KEY và VOICE_BASE_URL trên máy chủ." }, { status: 503 });
+    return NextResponse.json({ ok: false, error: "Chưa cấu hình dịch vụ nhận dạng giọng nói. Cần đặt VOICE_API_KEY/VOICE_BASE_URL hoặc bật VOICE_PROVIDER=whisper-cpp." }, { status: 503 });
   }
 
   const payload = new FormData();
   payload.set("file", audio, audio.name || "assistant-voice.webm");
-  payload.set("model", config.model);
   payload.set("language", "vi");
   payload.set("response_format", "json");
   payload.set("prompt", "Trợ lý quản trị nội bộ, tiếng Việt, tên nhân sự, mã hồ sơ, ngày tháng, số tiền và thao tác kiểm duyệt.");
+  if (config.provider === "openai-compatible") {
+    payload.set("model", config.model);
+  } else {
+    payload.set("temperature", "0");
+    payload.set("carry_initial_prompt", "true");
+  }
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 60_000);
   try {
-    const response = await fetch(`${config.baseUrl}/audio/transcriptions`, {
+    const endpoint = config.provider === "whisper-cpp" ? `${config.baseUrl}/inference` : `${config.baseUrl}/audio/transcriptions`;
+    const response = await fetch(endpoint, {
       method: "POST",
-      headers: { authorization: `Bearer ${config.apiKey}` },
+      headers: config.apiKey ? { authorization: `Bearer ${config.apiKey}` } : undefined,
       body: payload,
       signal: controller.signal,
     });
