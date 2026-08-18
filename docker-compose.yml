@@ -52,11 +52,12 @@ services:
       # để đảm bảo các thao tác lưu/xóa hoạt động sau proxy.
       APP_ORIGINS: "${APP_ORIGINS:-trungtamphauthuattaohinhvathammybenhviendakhoahongphuc.xyz,www.trungtamphauthuattaohinhvathammybenhviendakhoahongphuc.xyz}"
       # AI soạn tin chăm sóc — TRUNG LẬP NHÀ CUNG CẤP (DeepSeek/Qwen/Gemini/OpenAI/Claude/tự host).
-      # Điền AI_API_KEY + AI_BASE_URL + AI_MODEL trong .env (xem khối "AI" trong .env.example).
+      # Điền AI_API_KEY + AI_BASE_URL + AI_MODEL trong .env; có thể thêm AI_AGENT_MODEL cho planner reasoning (xem .env.example).
       # Để trống = tính năng AI tự ẩn.
       AI_API_KEY: "${AI_API_KEY:-}"
       AI_BASE_URL: "${AI_BASE_URL:-}"
       AI_MODEL: "${AI_MODEL:-}"
+      AI_AGENT_MODEL: "${AI_AGENT_MODEL:-}"
       AI_PROVIDER: "${AI_PROVIDER:-}"
       # Tương thích ngược cách cũ (chỉ Claude):
       ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:-}"
