@@ -56,7 +56,7 @@ export type AgentState = {
 const plannerSchema = {
   type: "object",
   properties: {
-    reply: { type: "string", description: "Câu trả lời ngắn bằng tiếng Việt, nêu AI đã hiểu yêu cầu gì." },
+    reply: { type: "string", description: "Câu trả lời cuối bằng tiếng Việt. Nếu action=none, phải giải thích trực tiếp cơ chế/quy trình được hỏi, không chỉ nói đã hiểu yêu cầu." },
     action: { type: "string", enum: actionNames },
     arguments_json: { type: "string", description: "JSON object chứa tham số của action; nếu none thì {}." },
     requires_confirmation: { type: "boolean" },
@@ -148,6 +148,41 @@ function getCaseFinancialTotal(record: { services: Array<{ listPrice: unknown; u
 
 function planError(message: string): AgentState {
   return { error: message };
+}
+
+const finalAnswerSchema = {
+  type: "object",
+  properties: { answer: { type: "string", description: "Câu trả lời cuối bằng tiếng Việt, có quy tắc và các bước cụ thể; không nói chung chung là đã hiểu." } },
+  required: ["answer"],
+  additionalProperties: false,
+};
+
+function knowledgeAnswerFallback(question: string): string {
+  const q = norm(question);
+  const parts: string[] = [];
+  if (q.includes("hoa hong") || q.includes("thuc thu") || q.includes("tra gop") || q.includes("tra 5 trieu")) {
+    parts.push("Hoa hồng được tính theo tiền khách thực tế đã thanh toán từng lần, không tính theo giá dịch vụ đã chốt. Ví dụ dịch vụ 100.000.000đ nhưng khách trả 5.000.000đ trong tháng này thì kỳ này chỉ lấy 5.000.000đ làm căn cứ hoa hồng; các lần trả sau tính ở kỳ tương ứng. Nếu một người kiêm nhiều vai trò, doanh thu không nhân đôi; nếu có phối hợp tư vấn thì phần thực thu được phân bổ theo tỷ lệ/phân công đã lưu.");
+  }
+  if (q.includes("de nghi") || q.includes("tam") || q.includes("thu chi") || q.includes("3.000") || q.includes("3000")) {
+    parts.push("Khoản chi nhỏ như mua gói tăm 3.000đ vẫn có thể lập Đề nghị thanh toán ngay từ Sổ thu–chi. Phiếu ở trạng thái PENDING nên chưa tạo dòng chi; sau khi ADMIN duyệt, chọn đã thanh toán thì hệ thống mới tạo đúng một CashTransaction EXPENSE và liên kết ngược với số phiếu. Dòng đã liên kết không sửa/xóa trực tiếp từ Sổ thu–chi để tránh ghi trùng; xem/in chứng từ tại Kế toán hoặc Đề nghị thanh toán.");
+  }
+  return parts.join("\n\n");
+}
+
+async function buildFinalKnowledgeAnswer(question: string, role: string, plannerReply: string): Promise<string> {
+  const fallback = knowledgeAnswerFallback(question);
+  const context = await getAssistantContext();
+  const accessNote = role === "ADMIN" ? "Người dùng là ADMIN; được dùng kiến thức vận hành và số liệu tổng hợp hiện tại để giải thích." : "Chỉ trả lời trong phạm vi quyền người dùng; không tiết lộ dữ liệu bị giới hạn.";
+  const generated = await generateStructured<{ answer: string }>({
+    system: "Bạn là người viết câu trả lời cuối cho trợ lý quản trị của Trung tâm Phẫu thuật Tạo hình Thẩm mỹ — Bệnh viện Đa khoa Hồng Phúc. Hãy trả lời bằng tiếng Việt, nói thẳng quy tắc và các bước cụ thể. Không được viết các câu mở đầu kiểu 'tôi đã hiểu yêu cầu' thay cho câu trả lời. Không bịa số liệu; nếu không có số liệu cụ thể thì giải thích cơ chế.",
+    prompt: `${accessNote}\n\nKIẾN THỨC VẬN HÀNH:\n${BUSINESS_RULES_KNOWLEDGE}\n\nSỐ LIỆU TỔNG HỢP HIỆN TẠI:\n${formatAssistantContext(context)}\n\nCÂU HỎI:\n${question}\n\nCÂU TRẢ LỜI DỰ KIẾN CỦA PLANNER:\n${plannerReply}\n\nHãy viết câu trả lời hoàn chỉnh, ưu tiên ví dụ và quy trình nếu câu hỏi hỏi 'tính thế nào/ra sao'.`,
+    schemaName: "zenith_agent_final_answer",
+    schema: finalAnswerSchema,
+    maxTokens: 900,
+  });
+  const answer = generated.ok ? generated.data.answer.trim() : "";
+  const generic = !answer || (norm(answer).includes("da hieu yeu cau") && !norm(answer).includes("hoa hong") && !norm(answer).includes("de nghi"));
+  return generic ? (fallback || plannerReply) : answer;
 }
 
 async function findCase(caseCode: string) {
@@ -317,7 +352,8 @@ export async function runAssistantAgent(_prev: AgentState, formData: FormData): 
   if (args === null) return planError("Tôi chưa đọc được tham số yêu cầu. Anh hãy nói rõ tên, tháng hoặc số tiền.");
 
   if (action === "none") {
-    return { ok: true, answer: `${planned.data.reply}\n\nTôi chưa thực hiện thay đổi nào.` };
+    const answer = await buildFinalKnowledgeAnswer(question, user.role, planned.data.reply);
+    return { ok: true, answer: `${answer}\n\nTôi chưa thực hiện thay đổi nào.` };
   }
   if (["get_business_summary", "get_debt_summary", "get_lead_priorities", "get_financial_alerts", "get_payroll_row", "prepare_payroll_export"].includes(action)) {
     const result = await readAction(action, args);
