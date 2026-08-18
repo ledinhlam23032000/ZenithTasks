@@ -76,3 +76,14 @@ Release `efce179` mở rộng Trợ lý AI theo hướng trợ lý thực thi n�
 Bằng chứng kiểm tra release: Prisma validate/generate đạt; TypeScript đạt; 46 file và 302/302 test đạt; Next.js production build đạt. Migration r4 **chưa chạy trên máy phòng khám** tại thời điểm bàn giao phụ lục này. Trước khi triển khai phải backup, đồng bộ repo, build image mới, chạy `docker compose exec -T app npx prisma migrate deploy`, kiểm tra `prisma migrate status`, rồi thử lệnh chấm công trong phiên ADMIN và tải lại `/tro-ly` để kiểm tra lịch sử.
 
 Phần workflow thay đổi code vẫn đang được mở rộng: khi anh yêu cầu đổi cơ chế/code, AI phải tạo kế hoạch/diff/test/backup/triển khai có kiểm soát; không sửa mù trực tiếp trong production container.
+
+
+### Bổ sung phiên bản 2026.08.18-r6 — Registry AI nghiệp vụ
+
+Commit code chuẩn r6 là `0f81781`; tài liệu phát hành hiện tại ở `b76f7a1`. CI của cả hai commit đều success. Registry AI đã có tool đọc hồ sơ khách theo mã với số điện thoại chỉ hiện 5 số cuối, sửa hồ sơ có kiểm tra trùng/mã hóa số, xóa hồ sơ sau preview với hoàn kho trong transaction, cập nhật Sổ tư vấn theo rule 24 giờ, lập Đề nghị thanh toán PENDING và quản lý các bước duyệt/từ chối/ghi sổ PAID.
+
+Mọi tool mới đều kiểm tra quyền ở server-side, đối chiếu dữ liệu thật trước khi tạo AssistantApproval, lưu preview và audit. Xóa khách là vĩnh viễn; PaymentRequest chỉ sinh CashTransaction ở bước PAID. Workflow `propose_system_change` hiện tạo PlanTask cha và checklist 5 bước: phân tích, diff để ADMIN xem, test, backup/migration và triển khai/kiểm tra.
+
+Kiểm tra r6 đạt: Prisma validate/generate, TypeScript, Vitest 46 file/303 test, Next production build và CI. Máy Windows đã chạy HEAD code `0f81781` bằng image `sha256:fd6bc2244f22046d2060747282082e675a0bc18af03e8e90171434b7beebed8a`; database healthy, 49 migrations up to date, không có migration mới ở r6 và `/login` HTTP 200. Approval preview chấm công thử nghiệm đã hết hạn được chuyển sang EXPIRED; không có Attendance thật phát sinh từ preview chưa xác nhận. Biên bản chi tiết ở `checks/2026-08-18-r6-ai-registry-production.md`.
+
+Chưa thực hiện thao tác ghi hồ sơ/chứng từ thật bằng các tool r6 trên production. Khi kiểm thử nghiệp vụ thật, phải dùng bản ghi test đã xác định, xem preview và chỉ bấm xác nhận sau khi ADMIN kiểm tra.

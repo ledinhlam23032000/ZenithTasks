@@ -1,63 +1,58 @@
 # Project State
 
-- Updated: 2026-08-18 19:30 GMT+7
+- Updated: 2026-08-18 20:25 GMT+7
 - Goal: Xây dựng AI Admin Gateway cho Trợ lý AI ADMIN: thực hiện mọi nghiệp vụ được ủy quyền dưới giám sát, có preview/xác nhận/audit, lưu phiên và mở rộng dần tới workflow thay đổi code.
-- Current phase: Release r4 đã triển khai production và kiểm tra preview chấm công; đang mở rộng registry tool và workflow thay đổi code.
+- Current phase: Đã triển khai r6 registry AI lên production; đang hoàn tất hồ sơ bàn giao và kiểm thử smoke cuối.
 - Overall status: active
 
 ## Đã hoàn thành trong checkpoint này
 
-Đã rà soát transcript lỗi chấm công và xác định nguyên nhân: Agent chỉ có registry đọc/lương/hồ sơ hẹn, chưa có tool Attendance; khi thiếu tool, planner rơi vào hỏi lại hoặc propose_system_change.
+Đã xác nhận CI của workflow thay đổi code `d815f23` xanh; cập nhật tài liệu r5; sau đó mở rộng registry AI ở `0f81781` và CI của commit này cũng xanh.
 
-Đã thiết kế AI Admin Gateway theo nguyên tắc không loại bỏ nghiệp vụ tuyệt đối. Tool server tự kiểm tra quyền thật; thao tác đọc chạy ngay, thao tác ghi có preview/xác nhận; xóa, tiền/lương, hồ sơ y tế, quyền tài khoản và thay đổi code sẽ có mức kiểm soát cao hơn, audit và khả năng backup/test/hoàn tác phù hợp.
+Đã thêm tool đọc hồ sơ khách theo mã với số điện thoại chỉ hiện 5 số cuối; tool sửa hồ sơ dùng lại action thật để mã hóa/kiểm tra trùng số; tool xóa hồ sơ chỉ ADMIN, preview trước, hoàn kho vật tư trong transaction rồi mới xóa dữ liệu liên quan và audit.
 
-Đã thêm schema additive `AssistantConversation`, `AssistantMessage`, các enum trạng thái/vai trò, và `conversationId` nullable vào `AssistantApproval`. Đã tạo migration `web/prisma/migrations/20260818120000_ai_admin_gateway/migration.sql` và đã áp dụng trên production.
+Đã thêm tool cập nhật Sổ tư vấn qua `saveConsultationRecord`, giữ nguyên các trường không nêu, kiểm tra quyền hồ sơ và tôn trọng rule sửa trong 24 giờ; bản ghi muộn chỉ ADMIN sửa và audit ghi `LATE_UPDATE_CONSULTATION`.
 
-Đã thêm helper/server action lưu phiên, mở lại phiên OPEN, lưu USER/ASSISTANT turn, archive phiên cũ và tạo phiên mới. UI Trợ lý AI nhận lịch sử từ server, gửi `conversationId`, khôi phục câu trả lời sau khi tải lại, có sidebar phiên gần đây và nút “Cuộc trò chuyện mới”. Approval được liên kết với conversation để giữ preview/kết quả.
+Đã thêm tool lập Đề nghị thanh toán PENDING cho cả khoản nhỏ như gói tăm 3.000đ, cùng tool duyệt, từ chối và ghi sổ đã thanh toán. Các tool đối chiếu trạng thái chứng từ thật; chỉ action PAID tạo CashTransaction EXPENSE thông qua action kế toán hiện hữu.
 
-Đã thêm `bulkUpsertAttendance`: nhận một nhân sự, danh sách ngày, giờ vào/ra và ghi chú; upsert theo khóa duy nhất nhân sự/ngày trong transaction, ghi audit cho từng bản ghi và revalidate Chấm công/Lương/Kế toán.
-
-Đã thêm parser thuần `attendance-intent.ts` để ghép nhiều lượt hội thoại. Lệnh dạng “Đào Ngọc Trang từ 2/8 đến 18/8/2026 chấm công hộ, sáng 8h, chiều 17h” rồi “chưa nghỉ ngày nào, anh là admin, làm đi” được nhận diện thành một intent 17 ngày, 08:00–17:00, không hỏi lại và tạo preview chấm công hàng loạt.
-
-Đã cập nhật knowledge map và system prompt: không dùng `propose_system_change` thay cho tool nghiệp vụ đã tồn tại; nếu yêu cầu code/cơ chế thì tạo workflow diff → test → backup → triển khai có kiểm soát. AI biết Attendance, Gateway và quy tắc lưu lịch sử.
+Đã biến `propose_system_change` thành PlanTask cha có checklist 5 bước: phân tích phạm vi, soạn diff để ADMIN xem, test, backup/migration và triển khai/kiểm tra. Không có thay đổi code production mù.
 
 ## Bằng chứng kiểm tra hiện tại
 
 - `pnpm exec prisma validate`: đạt.
-- `pnpm exec prisma generate`: đạt, Prisma Client đã sinh lại.
+- `pnpm exec prisma generate`: đạt.
 - `./node_modules/.bin/tsc --noEmit`: đạt.
-- Vitest toàn bộ: **46 file, 302/302 test đạt**.
-- Test parser chấm công: 3/3 đạt; test lịch sử/knowledge hiện có đạt.
-- Next.js production build: đạt sau khi thêm schema, Agent, UI, parser và knowledge map.
-- Production đã backup `F:\\6.Sao lưu hệ thống\\zenith-2026-08-18_1901.zip` dung lượng 299.196.021 bytes.
-- Repo Windows đã đồng bộ `4089825`; image r4 mới là `sha256:b2e76120668593cacef58773e8cd6e3dc3bb2c92be0a129b714ed30d8dba2481`; app đã recreate bằng image này, database healthy.
-- Migration `20260818120000_ai_admin_gateway` đã applied lúc `2026-08-18 12:21:44 UTC`; `prisma migrate status` báo 49 migrations, schema up to date; `/login` HTTP 200.
-- Browser ADMIN đã tạo đúng preview chấm công 17 ngày, chưa bấm xác nhận nên chưa ghi Attendance thật. Browser extension timeout khi thử nút Hủy; không kết luận Hủy đã chạy.
+- Vitest toàn bộ: **46 file, 303/303 test đạt**; test parser chấm công 3/3 và test knowledge map AI đạt.
+- Next.js production build: đạt.
+- CI GitHub Actions cho `0f81781`: success.
+- Repo master hiện có commit tài liệu `b76f7a1` sau commit code `0f81781`.
+- Production Windows đã đồng bộ code `0f81781`; image app mới `sha256:fd6bc2244f22046d2060747282082e675a0bc18af03e8e90171434b7beebed8a`; container `zenithtasks-app-1` running.
+- Database `zenithtasks-db-1` healthy; Prisma báo 49 migrations và schema up to date; r6 không có migration mới; `/login` HTTP 200.
+- Approval preview chấm công thử nghiệm `cmsymwqau00023krzfniimmxm` đã hết hạn và được chuyển từ PENDING sang EXPIRED lúc 12:59; không có Attendance thật được ghi từ preview đó.
+- Smoke test trình duyệt bằng phiên ADMIN: Dashboard và `/tro-ly` tải được; lịch sử phiên chấm công và preview 17 ngày hiển thị.
+- Bằng chứng chi tiết: `checks/2026-08-18-r6-ai-registry-production.md`.
 
 ## Verified facts và rủi ro
 
-HEAD release Gateway đã được commit/push ở `efce179`, tài liệu r4 ở `4089825`; file untracked cũ như `web/pnpm-workspace.yaml` không thuộc release và không được tự ý thêm. Không đưa file khách thật, secret, API key, mật khẩu hoặc `.env` vào repo.
+Không có migration mới ở r6, không reset database và không dùng `prisma db push`. Không có file khách thật, secret, API key, mật khẩu hay `.env` được commit. Các file untracked cũ trên Windows như `web/pnpm-workspace.yaml`, log build và thư mục QA không thuộc release.
 
-Migration mới chỉ additive, không reset/xóa dữ liệu. `bulkUpsertAttendance` cố ý upsert nên nếu ngày đã có dữ liệu thì cập nhật theo preview, không tạo bản ghi trùng. Approval status ngăn xác nhận lặp.
-
-Lõi Gateway hiện mới mở rộng conversation và chấm công; các tool xóa/sửa hồ sơ, toàn bộ chứng từ, thay đổi code và rollback sẽ tiếp tục được thêm theo registry và workflow riêng, không được tuyên bố đã hoàn thành chỉ vì chấm công đã chạy.
+Các tool ghi mới đã được kiểm tra compile/build và test knowledge map, nhưng chưa thực hiện thao tác ghi nghiệp vụ thật qua AI trên production. Lần thử tiếp theo nên dùng hồ sơ/chứng từ test đã xác định rõ, xem preview và chỉ xác nhận sau khi ADMIN kiểm tra.
 
 ## Next 3 actions
 
-1. Kiểm tra/xử lý approval preview còn PENDING do browser timeout; không ghi dữ liệu thật nếu chưa có xác nhận rõ.
-2. Bằng phiên ADMIN, sau khi anh cho phép, kiểm tra một lệnh chấm công thật và tải lại `/tro-ly` để xác nhận lịch sử bền vững.
-3. Tiếp tục mở rộng registry tool cho sửa/xóa hồ sơ, chứng từ, lương và workflow code có diff/test/backup; không đánh dấu AI toàn quyền hoàn tất khi các tool chưa có.
+1. Kiểm tra CI của commit tài liệu `b76f7a1` và giữ GitHub master/production version docs nhất quán; không cần recreate app vì đây chỉ là tài liệu.
+2. Nếu anh cho phép, kiểm thử không ghi dữ liệu một câu hỏi AI về khả năng đọc hồ sơ hoặc quy trình chứng từ; sau đó có thể thử một chứng từ test nhỏ theo đúng preview/xác nhận.
+3. Tiếp tục mở rộng registry cho các nghiệp vụ còn lại như chi lương/hoa hồng cộng tác viên, quản lý quyền tài khoản, link cổng khách, kho và rollback workflow; mỗi tool phải có server-side permission, preview, approval, audit, idempotency và test hồi quy.
 
 ## Files to read first
 
-- `UPGRADE-HANDOFF-2026-08.md`
-- `.task-memory/zenithtasks-l-ng-s-t-v-n-ch-ng-t-v-ai/01_plan.md`
+- `VERSION.md`
+- `CHANGELOG.md`
+- `checks/2026-08-18-r6-ai-registry-production.md`
 - `.task-memory/zenithtasks-l-ng-s-t-v-n-ch-ng-t-v-ai/03_decisions.md`
-- `web/prisma/schema.prisma`
-- `web/prisma/migrations/20260818120000_ai_admin_gateway/migration.sql`
 - `web/src/app/(app)/tro-ly/agent.ts`
-- `web/src/app/(app)/tro-ly/attendance-intent.ts`
-- `web/src/app/(app)/tro-ly/conversations.ts`
+- `web/src/lib/assistant.ts`
+- `web/prisma/schema.prisma`
 
 ## Quality risks
 
