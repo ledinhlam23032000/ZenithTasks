@@ -68,6 +68,10 @@ function retryableStatus(status: number) {
   return status === 408 || status === 409 || status === 425 || status === 429 || status >= 500;
 }
 
+function isDeepSeekConfig(cfg: Pick<AiConfig, "baseUrl" | "model">) {
+  return /deepseek/i.test(`${cfg.baseUrl}/${cfg.model}`);
+}
+
 async function fetchWithRetry(input: RequestInfo | URL, init: RequestInit): Promise<Response> {
   const retries = aiMaxRetries();
   let lastError: unknown;
@@ -195,10 +199,9 @@ async function callOpenAiStructured<T>(cfg: AiConfig, opts: { system: string; pr
         { role: "system", content: opts.system },
         { role: "user", content: opts.prompt },
       ],
-      response_format: {
-        type: "json_schema",
-        json_schema: { name: opts.schemaName, strict: true, schema: opts.schema },
-      },
+      response_format: isDeepSeekConfig(cfg)
+        ? { type: "json_object" }
+        : { type: "json_schema", json_schema: { name: opts.schemaName, strict: true, schema: opts.schema } },
     }),
   });
   if (!res.ok) {
@@ -210,8 +213,14 @@ async function callOpenAiStructured<T>(cfg: AiConfig, opts: { system: string; pr
     }
     return { ok: false, error: res.status === 401 || res.status === 403 ? "API key AI không hợp lệ." : `Lỗi dịch vụ AI (${res.status}). ${body.slice(0, 160)}` };
   }
-  const data = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
-  return parseStructuredText<T>((data.choices?.[0]?.message?.content ?? "").trim());
+  const data = (await res.json()) as { choices?: Array<{ message?: { content?: string; reasoning_content?: string } }> };
+  const content = (data.choices?.[0]?.message?.content ?? "").trim();
+  const parsed = parseStructuredText<T>(content);
+  const fallbackModel = (process.env.AI_MODEL ?? "").trim();
+  if (!parsed.ok && isDeepSeekConfig(cfg) && /reasoner|reasoning/i.test(cfg.model) && fallbackModel && fallbackModel !== cfg.model) {
+    return callOpenAiJsonFallback<T>({ ...cfg, model: fallbackModel }, opts, Math.min(maxTokens, 2_200));
+  }
+  return parsed;
 }
 
 async function callOpenAiJsonFallback<T>(cfg: AiConfig, opts: { system: string; prompt: string; schemaName: string; schema: JsonSchema }, maxTokens: number): Promise<StructuredAiResult<T>> {
@@ -225,6 +234,7 @@ async function callOpenAiJsonFallback<T>(cfg: AiConfig, opts: { system: string; 
         { role: "system", content: `${opts.system} Return ONLY valid JSON, no markdown fences. The JSON must follow this schema: ${JSON.stringify(opts.schema)}` },
         { role: "user", content: opts.prompt },
       ],
+      ...(isDeepSeekConfig(cfg) ? { response_format: { type: "json_object" } } : {}),
     }),
   });
   if (!res.ok) {
@@ -236,10 +246,20 @@ async function callOpenAiJsonFallback<T>(cfg: AiConfig, opts: { system: string; 
 }
 
 function parseStructuredText<T>(text: string): StructuredAiResult<T> {
+  const clean = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+  if (!clean) return { ok: false, error: "AI không trả về kế hoạch hợp lệ." };
   try {
-    const clean = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
-    return clean ? { ok: true, data: JSON.parse(clean) as T } : { ok: false, error: "AI không trả về kế hoạch hợp lệ." };
+    return { ok: true, data: JSON.parse(clean) as T };
   } catch {
+    const start = clean.indexOf("{");
+    const end = clean.lastIndexOf("}");
+    if (start >= 0 && end > start) {
+      try {
+        return { ok: true, data: JSON.parse(clean.slice(start, end + 1)) as T };
+      } catch {
+        // Fall through to a stable, user-facing format error.
+      }
+    }
     return { ok: false, error: "AI trả về dữ liệu không đúng định dạng." };
   }
 }
