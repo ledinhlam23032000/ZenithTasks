@@ -2,6 +2,26 @@
 
 Tài liệu này ghi các thay đổi đã được đẩy lên nhánh `master`. Commit mới hơn nằm ở phía trên. Phiên bản mô tả đầy đủ hiện tại nằm trong [`VERSION.md`](VERSION.md).
 
+## 2026-08-18 — `2026.08.18-r7`
+
+Commit code: [`c7ffa76`](https://github.com/ledinhlam23032000/ZenithTasks/commit/c7ffa76). Commit Docker Compose: [`ee9c7b0`](https://github.com/ledinhlam23032000/ZenithTasks/commit/ee9c7b0).
+
+### Trợ lý AI thành đồng nghiệp số
+
+- Sửa lỗi nghiêm trọng trong parser chấm công: yêu cầu mới nhất luôn thắng tên nhân sự cũ; ngày/giờ được lấy từ lượt phù hợp gần nhất; preview cũ không còn lấn át yêu cầu mới. Cách nói “sớm hơn 8h/muộn hơn 17h” được chuẩn hóa thành giờ biên 07:00/18:00 và hiển thị rõ trong preview.
+- Sửa lỗi trả lời mâu thuẫn “đã thực hiện” rồi lại “chưa thực hiện”. Câu hỏi trạng thái nay đọc `AssistantApproval` thật; chỉ `APPROVED` mới được báo đã thực hiện. ADMIN có thể nhắn “làm đi”, “xác nhận” hoặc “tiến hành” để xác nhận approval PENDING bằng lời.
+- Preview chấm công PENDING cũ trong cùng phiên được đánh dấu thay thế khi có yêu cầu chấm công mới; khi tải lại phiên, approval đã xử lý hoặc stale không còn hiện nút xác nhận nhầm.
+- Thêm timeline các bước AI đã làm, trạng thái “đang phân tích và chia nhỏ các bước”, giao diện đồng nghiệp số, nút tạo phiên mới và nút xóa vĩnh viễn cuộc trò chuyện. Xóa phiên chỉ xóa message/approval liên quan, không xóa hồ sơ nghiệp vụ.
+- Thêm tool `create_work_plan` để AI chia mục tiêu thành nhiệm vụ chính/phụ và lưu vào module Kế hoạch sau preview/approval.
+- Thêm `AI_AGENT_MODEL`; production dùng `deepseek-reasoner` cho planner Agent, còn `AI_MODEL=deepseek-chat` giữ cho tác vụ AI mặc định. Docker Compose đã truyền biến model riêng vào container.
+
+### Kiểm tra và triển khai
+
+- TypeScript đạt; Vitest: **46 file, 306/306 test đạt**; riêng parser chấm công có 5 test và ai.ts có test model Agent riêng.
+- Next.js production build đạt; CI GitHub Actions của `c7ffa76` và `ee9c7b0` đều **success**.
+- Production Windows đã pull code/compose mới, recreate app; database healthy, 49 migration, schema up to date và `/login` HTTP 200.
+- Biên bản kiểm chứng nằm tại [`checks/2026-08-18-r7-ai-colleague-production.md`](checks/2026-08-18-r7-ai-colleague-production.md).
+
 ## 2026-08-18 — `2026.08.18-r6`
 
 Commit chuẩn: [`0f81781`](https://github.com/ledinhlam23032000/ZenithTasks/commit/0f81781).

@@ -11,12 +11,12 @@ AI Admin Gateway là lớp trợ lý quản trị nội bộ của **Trung tâm 
 | Giai đoạn | Thành phần | Kết quả |
 |---|---|---|
 | 1. Nhận yêu cầu | `runAssistantAgent` | Mở hoặc khôi phục `AssistantConversation`, lưu USER turn. |
-| 2. Ghép ngữ cảnh | `getAssistantContext`, `BUSINESS_RULES_KNOWLEDGE`, lịch sử phiên, file context | AI có bản đồ nghiệp vụ và số liệu được cấp quyền; không truy cập DB tự do. |
+| 2. Ghép ngữ cảnh | `getAssistantContext`, `BUSINESS_RULES_KNOWLEDGE`, lịch sử phiên, file context | AI có bản đồ nghiệp vụ và số liệu được cấp quyền; parser nghiệp vụ ưu tiên câu USER mới nhất, không lấy preview ASSISTANT cũ làm dữ kiện mới. |
 | 3. Chọn tool | `plannerSchema`, `actionNames`, `actionHelp` | Chỉ một action trong whitelist; không viết SQL và không sửa file trực tiếp. |
 | 4. Kiểm tra | `validateWrite` hoặc `readAction` | Đối chiếu mã/tên/trạng thái với DB, kiểm quyền server-side và tạo preview. |
 | 5. Chờ ADMIN | `createApproval` | Lưu arguments, preview, thời hạn 10 phút, conversationId và trạng thái PENDING. |
 | 6. Xác nhận | `confirmAssistantApproval` | Gọi server action nghiệp vụ thật, cập nhật APPROVED, ghi audit và lưu kết quả vào phiên. |
-| 7. Hủy/hết hạn | `rejectAssistantApproval` hoặc kiểm tra `expiresAt` | REJECTED/EXPIRED; không thực hiện mutation. |
+| 7. Hủy/hết hạn | `rejectAssistantApproval` hoặc kiểm tra `expiresAt` | REJECTED/EXPIRED; không thực hiện mutation. Preview cũ bị thay thế khi có yêu cầu chấm công mới trong cùng phiên. |
 
 Không được bỏ qua bước preview bằng cách gọi trực tiếp Prisma từ planner. Nếu cần thêm tool, phải nối vào cả schema action, prompt help, validate, confirm, audit và test.
 
@@ -45,6 +45,9 @@ Không được bỏ qua bước preview bằng cách gọi trực tiếp Prisma
 | `reject_payment_request` | Từ chối chứng từ | Chỉ ADMIN; chỉ PENDING và cần lý do | `rejectPaymentRequest` |
 | `pay_payment_request` | Ghi sổ tiền | Chỉ chứng từ APPROVED; chỉ một CashTransaction | `markPaymentRequestPaid` |
 | `propose_system_change` | Kế hoạch code/cơ chế | Chỉ tạo kế hoạch; không sửa production trực tiếp | Tạo PlanTask + checklist 5 bước |
+| `create_work_plan` | Lập kế hoạch nghiệp vụ | ADMIN + preview/approval; tạo nhiệm vụ chính/phụ | Tạo Plan + PlanTask/PlanTask con |
+
+Ngoài nút bấm trên preview, ADMIN có thể nhắn câu xác nhận ngắn như “làm đi”, “xác nhận” hoặc “tiến hành”. Agent chỉ gọi confirm khi approval gần nhất của chính phiên đang là `PENDING`; câu hỏi “đã làm chưa?” chỉ đọc trạng thái thật và không suy đoán từ nội dung chat. |
 
 ## Quy tắc dữ liệu nhạy cảm
 
@@ -72,8 +75,12 @@ Khi ADMIN yêu cầu đổi cơ chế hoặc code, chỉ dùng `propose_system_c
 
 AI không được commit secret, sửa container production bằng tay, bỏ qua diff, bỏ qua backup hoặc tuyên bố đã triển khai khi chưa có bằng chứng.
 
+## Đồng nghiệp số và giao diện
+
+`assistant-chat.tsx` hiển thị trạng thái “đang phân tích và chia nhỏ các bước”, timeline các bước đã làm, preview, kết quả và trạng thái chờ. `conversation-actions.ts`/`conversations.ts` cho phép tạo phiên mới, archive phiên cũ và xóa vĩnh viễn một phiên; xóa phiên chỉ xóa message/approval liên quan, không xóa hồ sơ nghiệp vụ.
+
 ## Cách thêm tool mới
 
 Trước hết phải tìm server action nghiệp vụ thật và đọc schema/action test của module đó. Sau đó thêm action vào `actionNames`, mô tả vào `actionHelp`, định nghĩa zod schema, thêm nhánh quyền và preview trong `validateWrite`, thêm nhánh thực thi trong `confirmAssistantApproval`, ghi audit, kiểm tra idempotency và thêm test hồi quy. Chạy TypeScript, toàn bộ Vitest và Next production build trước khi commit.
 
-Không đặt API key trong `agent.ts`. AI server-side dùng cấu hình tích hợp hiện có; không gọi LLM từ Client Component và không gửi dữ liệu nhạy cảm không cần thiết vào prompt.
+Không đặt API key trong `agent.ts`. AI server-side dùng cấu hình tích hợp hiện có; không gọi LLM từ Client Component và không gửi dữ liệu nhạy cảm không cần thiết vào prompt. `AI_MODEL` là model mặc định; `AI_AGENT_MODEL` có thể trỏ planner sang model reasoning mạnh hơn, ví dụ `deepseek-reasoner`, và phải được truyền qua `docker-compose.yml`.

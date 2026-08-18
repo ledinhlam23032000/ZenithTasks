@@ -1,9 +1,10 @@
 # ZenithTasks — Trạng thái phiên bản hiện tại
 
-> **Phiên bản nội bộ:** `2026.08.18-r6`<br>
-> **Commit chuẩn nội dung:** [`0f81781`](https://github.com/ledinhlam23032000/ZenithTasks/commit/0f81781)<br>
+> **Phiên bản nội bộ:** `2026.08.18-r7`<br>
+> **Commit code:** [`c7ffa76`](https://github.com/ledinhlam23032000/ZenithTasks/commit/c7ffa76)<br>
+> **Commit Docker Compose:** [`ee9c7b0`](https://github.com/ledinhlam23032000/ZenithTasks/commit/ee9c7b0)<br>
 > **Ngày cập nhật:** 18/08/2026<br>
-> **Trạng thái:** Đã validate/test/build và CI xanh. Production đã chạy image r6; registry AI được mở rộng cho hồ sơ khách, sổ tư vấn và Đề nghị thanh toán với preview, approval, audit và kiểm tra quyền ADMIN. Bộ tài liệu tiếp quản chuẩn nằm tại [`docs/INDEX.md`](docs/INDEX.md).
+> **Trạng thái:** Đã validate/test/build và CI xanh. Production đã chạy bản Agent đồng nghiệp số: parser ưu tiên yêu cầu mới nhất, approval có trạng thái thật, xác nhận bằng lời ADMIN, timeline bước làm việc, xóa phiên, lập kế hoạch nhiệm vụ chính/phụ và `AI_AGENT_MODEL` reasoning riêng. Bộ tài liệu tiếp quản chuẩn nằm tại [`docs/INDEX.md`](docs/INDEX.md).
 
 ## Quy tắc đọc tài liệu
 
@@ -24,7 +25,7 @@
 | Phân bổ doanh thu | `web/src/lib/revenue-attribution.ts`; một nhân sự kiêm hai vai trò không bị đếm đôi; hồ sơ phối hợp có thể chia tỷ lệ đủ 100% tại tab `Phối hợp DS`. |
 | Hộp thư đa kênh | Facebook Messenger và Zalo OA qua webhook; hiển thị Page/OA, hội thoại, ảnh/tệp, trả lời, mẫu trả lời nhanh, phân công, trạng thái và SLA. |
 | Thông báo | Web Push cho thiết bị đã bật thông báo; webhook tin đến cập nhật hội thoại và gửi thông báo nền. |
-| Trợ lý AI | AI Admin Gateway có knowledge map vận hành, tool chấm công hàng loạt, preview/xác nhận/audit, lưu conversation/message/approval, khôi phục lịch sử, upload/đọc file, feedback và nhập giọng nói; registry tool tiếp tục mở rộng cho lương, hồ sơ, chứng từ và workflow code. |
+| Trợ lý AI | AI Admin Gateway có knowledge map vận hành, tool chấm công hàng loạt, parser ưu tiên yêu cầu mới nhất, trạng thái approval thật, xác nhận bằng lời ADMIN, timeline đồng nghiệp số, xóa phiên, lập kế hoạch nhiệm vụ chính/phụ, upload/đọc file, feedback, nhập giọng nói và `AI_AGENT_MODEL` reasoning riêng. |
 | Dashboard và phân tích | Trung tâm điều hành hôm nay, tin chưa đọc, cảnh báo tài chính, phễu, RFM, nguy cơ rời bỏ, LTV và ROI marketing. |
 | Kho và vận hành | Giá vốn, tồn kho, BOM vật tư, nhập nhiều dòng, cảnh báo hạn dùng, việc hôm nay, đầu ca lễ tân và sao lưu tự động. |
 | Bảo mật và audit | Phân quyền theo module/hành động, audit thao tác nhạy cảm, mã hóa số điện thoại, bảo vệ ảnh bằng phiên hoặc vé ký, CSP và backup status; chứng từ tiền/lương chỉ ADMIN ghi sổ, sổ tư vấn khóa sửa sau 24 giờ, thỏa thuận nhân sự lưu version/snapshot. |
@@ -44,7 +45,7 @@ Migration là **bổ sung dữ liệu, không được tự xóa hoặc reset da
 
 ## Kiểm tra chất lượng gần nhất
 
-Commit chuẩn `0f81781` đã được kiểm tra bằng Prisma generate, TypeScript, Vitest, Next production build và CI GitHub Actions. Lần kiểm tra cuối có **46 file test và 303/303 test đạt**, TypeScript, Prisma validate và Next production build đạt. Khi sửa nghiệp vụ tiền, lương, công nợ, phân quyền hoặc webhook, phải bổ sung test hồi quy trước khi commit.
+Commit code `c7ffa76` và Compose `ee9c7b0` đã được kiểm tra bằng Prisma generate, TypeScript, Vitest, Next production build và CI GitHub Actions. Lần kiểm tra cuối có **46 file test và 306/306 test đạt**, TypeScript và Next production build đạt. Production có 49 migration, schema up to date và `/login` HTTP 200. Khi sửa nghiệp vụ tiền, lương, công nợ, phân quyền hoặc webhook, phải bổ sung test hồi quy trước khi commit.
 
 ## Quy trình cập nhật máy vận hành
 

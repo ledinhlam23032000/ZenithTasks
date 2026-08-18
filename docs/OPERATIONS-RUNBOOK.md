@@ -32,7 +32,7 @@ Nếu có migration mới, entrypoint phải chạy `prisma migrate deploy` ho�
 | Migration | `docker compose exec -T app npx prisma migrate status` | Database schema is up to date. |
 | HTTP | `Invoke-WebRequest -UseBasicParsing http://localhost:3000/login` | HTTP 200. |
 | Đăng nhập | Mở `/login` bằng trình duyệt | ADMIN đăng nhập được. |
-| AI | Mở `/tro-ly` | Lịch sử phiên và textarea tải được. |
+| AI | Mở `/tro-ly` | Lịch sử phiên, header “Đồng nghiệp số”, timeline và textarea tải được; nút tạo mới/xóa phiên hiện đúng. |
 | Chứng từ | Mở Kế toán/Đề nghị thanh toán | Không tạo dữ liệu khi chỉ xem. |
 | Backup | Mở `/he-thong` | Trạng thái backup không cảnh báo bất thường. |
 
@@ -46,9 +46,15 @@ Backup production hiện được lưu ngoài GitHub tại thư mục `F:\6.Sao 
 
 Build Next.js production có thể lâu do Turbopack và bước export layer Docker. Không kết luận thất bại chỉ vì terminal hết thời gian chờ; kiểm tra `docker image inspect zenithtasks-app:latest`, log build và `docker compose ps`. Nếu image chưa được tạo, chạy lại `docker compose build app` với thời gian chờ đủ dài. Không chạy nhiều build chồng lên nhau và không xóa container database để chữa lỗi build app.
 
+## Cấu hình model AI
+
+Production dùng `AI_MODEL` cho tác vụ AI mặc định. Planner đồng nghiệp số có thể dùng `AI_AGENT_MODEL` mạnh hơn, ví dụ `deepseek-reasoner`; biến này phải xuất hiện trong cả file `.env` thật và phần `environment` của `docker-compose.yml`. Sau khi đổi model, chạy `docker compose up -d --force-recreate app`, rồi kiểm tra không in API key: `docker compose exec -T app printenv AI_AGENT_MODEL`.
+
+Không ghi model hoặc API key vào biên bản nếu không cần thiết; tuyệt đối không đưa API key thật lên GitHub. Nếu Agent lỗi JSON hoặc timeout sau khi đổi model, quay lại model trước trong `.env`, recreate app và ghi nhận sự cố trước khi thử tiếp.
+
 ## Xử lý approval AI
 
-Approval được lưu trong bảng `AssistantApproval`. Khi một preview hết hạn, hệ thống chuyển trạng thái sang `EXPIRED`; khi ADMIN bấm hủy là `REJECTED`. Không tự chuyển PENDING thành APPROVED bằng SQL. Nếu cần dọn một approval thử nghiệm đã quá hạn, chỉ xử lý khi xác định đúng `id`, `toolName`, `expiresAt`, user và conversation; ghi lại lý do trong `checks/` và không sửa Attendance, tiền, lương hoặc hồ sơ thật.
+Approval được lưu trong bảng `AssistantApproval`. Khi một preview hết hạn, hệ thống chuyển trạng thái sang `EXPIRED`; khi ADMIN bấm hủy là `REJECTED`. Preview chấm công mới trong cùng phiên sẽ đánh dấu preview PENDING cũ là bị thay thế. ADMIN có thể xác nhận bằng nút hoặc câu “làm đi”; Agent chỉ chuyển sang APPROVED sau khi action nghiệp vụ thật trả kết quả thành công. Không tự chuyển PENDING thành APPROVED bằng SQL. Nếu cần dọn một approval thử nghiệm đã quá hạn, chỉ xử lý khi xác định đúng `id`, `toolName`, `expiresAt`, user và conversation; ghi lại lý do trong `checks/` và không sửa Attendance, tiền, lương hoặc hồ sơ thật.
 
 ## Quy tắc an toàn nghiệp vụ
 
