@@ -47,7 +47,8 @@ function storedMessagesToTurns(messages: readonly StoredAssistantMessage[]): Tur
   return result;
 }
 
-type SpeechRecognitionLike = { lang: string; interimResults: boolean; continuous: boolean; onresult: ((event: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null; onerror: (() => void) | null; start: () => void };
+type SpeechRecognitionLike = { lang: string; interimResults: boolean; continuous: boolean; onresult: ((event: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null; onerror: (() => void) | null; onend?: (() => void) | null; start: () => void };
+type VoiceState = "idle" | "recording" | "transcribing";
 
 export function AssistantChat({
   aiOn,
@@ -69,13 +70,25 @@ export function AssistantChat({
   const [actionIndex, setActionIndex] = useState<number | null>(null);
   const [filePending, startFile] = useTransition();
   const [fileMessage, setFileMessage] = useState<string | null>(null);
+  const [voiceState, setVoiceState] = useState<VoiceState>("idle");
+  const [voiceSeconds, setVoiceSeconds] = useState(0);
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const voiceChunksRef = useRef<Blob[]>([]);
+  const voiceTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [turns.length, pending, actionPending]);
+
+  useEffect(() => () => {
+    if (voiceTimerRef.current) clearInterval(voiceTimerRef.current);
+    recorderRef.current?.stop();
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+  }, []);
 
   function ask(question: string) {
     const text = question.trim();
@@ -95,17 +108,84 @@ export function AssistantChat({
     });
   }
 
-  function startVoice() {
+  function appendVoiceText(text: string) {
+    const cleaned = text.trim();
+    if (cleaned) setQ((old) => `${old}${old ? " " : ""}${cleaned}`);
+  }
+
+  function startBrowserRecognitionFallback() {
     const browserWindow = window as Window & { SpeechRecognition?: new () => SpeechRecognitionLike; webkitSpeechRecognition?: new () => SpeechRecognitionLike };
     const Recognition = browserWindow.SpeechRecognition ?? browserWindow.webkitSpeechRecognition;
-    if (!Recognition) { setErr("Trình duyệt này chưa hỗ trợ nhập giọng nói; anh có thể gõ nội dung thay thế."); return; }
+    if (!Recognition) {
+      setErr("Trình duyệt chưa hỗ trợ nhập giọng nói. Anh hãy dùng Chrome hoặc gõ nội dung thay thế.");
+      return;
+    }
     const recognition = new Recognition();
     recognition.lang = "vi-VN";
     recognition.interimResults = false;
     recognition.continuous = false;
-    recognition.onresult = (event) => { const text = event.results[0]?.[0]?.transcript ?? ""; if (text) setQ((old) => `${old}${old ? " " : ""}${text}`); };
-    recognition.onerror = () => setErr("Không nhận được giọng nói; anh thử lại hoặc gõ nội dung.");
+    recognition.onresult = (event) => appendVoiceText(event.results[0]?.[0]?.transcript ?? "");
+    recognition.onerror = () => setErr("Không nhận được giọng nói; anh kiểm tra quyền micro rồi thử lại.");
     recognition.start();
+  }
+
+  async function startVoice() {
+    if (voiceState === "recording") {
+      recorderRef.current?.stop();
+      return;
+    }
+    if (voiceState === "transcribing") return;
+    setErr(null);
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
+      startBrowserRecognitionFallback();
+      return;
+    }
+    let stream: MediaStream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch {
+      setErr("Không có quyền dùng micro. Anh hãy cho phép microphone trong thanh địa chỉ trình duyệt rồi thử lại.");
+      return;
+    }
+    const candidates = ["audio/webm;codecs=opus", "audio/webm", "audio/ogg;codecs=opus"];
+    const mimeType = candidates.find((candidate) => MediaRecorder.isTypeSupported(candidate));
+    const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+    recorderRef.current = recorder;
+    streamRef.current = stream;
+    voiceChunksRef.current = [];
+    setVoiceState("recording");
+    setVoiceSeconds(0);
+    voiceTimerRef.current = setInterval(() => setVoiceSeconds((seconds) => seconds + 1), 1_000);
+    recorder.ondataavailable = (event) => { if (event.data.size > 0) voiceChunksRef.current.push(event.data); };
+    recorder.onerror = () => {
+      setErr("Microphone gặp lỗi khi ghi âm; anh thử lại hoặc gõ nội dung.");
+      setVoiceState("idle");
+    };
+    recorder.onstop = async () => {
+      if (voiceTimerRef.current) clearInterval(voiceTimerRef.current);
+      stream.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+      recorderRef.current = null;
+      const blob = new Blob(voiceChunksRef.current, { type: recorder.mimeType || "audio/webm" });
+      voiceChunksRef.current = [];
+      if (blob.size === 0) { setVoiceState("idle"); setErr("Bản ghi rỗng; anh hãy nói lại gần micro hơn."); return; }
+      setVoiceState("transcribing");
+      const fd = new FormData();
+      const extension = recorder.mimeType.includes("ogg") ? "ogg" : "webm";
+      fd.set("audio", blob, `assistant-voice.${extension}`);
+      try {
+        const response = await fetch("/api/assistant/transcribe", { method: "POST", body: fd });
+        const result = await response.json().catch(() => null) as { ok?: boolean; text?: string; error?: string } | null;
+        if (!response.ok || !result?.ok) setErr(result?.error ?? "Không nhận diện được giọng nói; anh thử lại.");
+        else appendVoiceText(result.text ?? "");
+      } catch {
+        setErr("Không kết nối được dịch vụ nhận diện giọng nói; anh thử lại hoặc gõ nội dung.");
+      } finally {
+        setVoiceState("idle");
+      }
+    };
+    recorder.start(250);
+    window.setTimeout(() => { if (recorder.state === "recording") recorder.stop(); }, 120_000);
   }
 
   function uploadFile(file: File | undefined) {
@@ -204,7 +284,7 @@ export function AssistantChat({
             <h2 className="mt-4 text-lg font-semibold text-slate-800">Chào {greetName}</h2>
             <p className="mt-1 text-sm text-slate-500">Anh có thể hỏi số liệu, yêu cầu xuất file, xem lương từng người hoặc yêu cầu sửa dữ liệu. Với thao tác thay đổi, AI sẽ hiện bản xem trước để anh xác nhận.</p>
             <div className="mt-6 grid w-full gap-2 sm:grid-cols-2">
-              {["Xem lương tháng này của Lê Đình Lam", "Xuất bảng lương tháng này ra Excel", "Công nợ hiện tại bao nhiêu?", "Đổi hoa hồng tháng này của Đào Ngọc Trang thành 5 triệu"].map((s) => (
+              {[...SUGGESTED_QUESTIONS.slice(0, 3), "Đổi hoa hồng tháng này của Đào Ngọc Trang thành 5 triệu"].map((s) => (
                 <button key={s} type="button" onClick={() => ask(s)} disabled={!aiOn} className="rounded-xl border border-slate-200 px-3.5 py-2.5 text-left text-sm text-slate-600 transition hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700 disabled:opacity-50">{s}</button>
               ))}
             </div>
@@ -242,13 +322,15 @@ export function AssistantChat({
 
       <div className="border-t border-slate-100 px-4 py-3">
         {err && <p className="mb-2 text-sm text-rose-600">{err}</p>}
+        {voiceState === "recording" && <p className="mb-2 text-sm text-brand-700">Đang nghe {voiceSeconds}s… Bấm micro lần nữa để dừng và nhận diện.</p>}
+        {voiceState === "transcribing" && <p className="mb-2 text-sm text-brand-700">Đang chuyển giọng nói thành văn bản…</p>}
         {fileMessage && <p className="mb-2 text-xs text-slate-600">{fileMessage}</p>}
         <div className="mx-auto flex max-w-2xl items-end gap-2">
           <input ref={fileInputRef} type="file" className="hidden" accept=".txt,.csv,.json,.pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.webp" onChange={(e) => uploadFile(e.target.files?.[0])} />
           <button type="button" onClick={() => fileInputRef.current?.click()} disabled={filePending || pending || actionPending} className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40" title="Tải file"><Paperclip className="h-5 w-5" /></button>
-          <button type="button" onClick={startVoice} disabled={!aiOn || pending || actionPending} className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40" title="Nhập bằng giọng nói"><Mic className="h-5 w-5" /></button>
-          <textarea value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); ask(q); } }} rows={1} disabled={!aiOn || pending || actionPending} placeholder="Hỏi AI hoặc yêu cầu đọc file… (Enter để gửi)" className="max-h-32 min-h-[44px] flex-1 resize-none rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-500/15 disabled:bg-slate-50" />
-          <button type="button" onClick={() => ask(q)} disabled={!aiOn || pending || actionPending || !q.trim()} className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-white transition hover:bg-brand-700 disabled:opacity-40" title="Gửi">{pending ? <LoaderCircle className="h-5 w-5 animate-spin" /> : <SendHorizontal className="h-5 w-5" />}</button>
+          <button type="button" onClick={startVoice} disabled={!aiOn || pending || actionPending || voiceState === "transcribing"} className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border text-slate-600 hover:bg-slate-50 disabled:opacity-40 ${voiceState === "recording" ? "border-rose-300 bg-rose-50 text-rose-700" : "border-slate-200"}`} title={voiceState === "recording" ? "Dừng ghi âm" : "Nhập bằng giọng nói"}><Mic className={`h-5 w-5 ${voiceState === "recording" ? "animate-pulse" : ""}`} /></button>
+          <textarea value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); ask(q); } }} rows={1} disabled={!aiOn || pending || actionPending || voiceState === "transcribing"} placeholder="Hỏi AI hoặc yêu cầu đọc file… (Enter để gửi)" className="max-h-32 min-h-[44px] flex-1 resize-none rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-500/15 disabled:bg-slate-50" />
+          <button type="button" onClick={() => ask(q)} disabled={!aiOn || pending || actionPending || voiceState !== "idle" || !q.trim()} className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-white transition hover:bg-brand-700 disabled:opacity-40" title="Gửi">{pending ? <LoaderCircle className="h-5 w-5 animate-spin" /> : <SendHorizontal className="h-5 w-5" />}</button>
         </div>
         <p className="mx-auto mt-2 max-w-2xl text-center text-[11px] text-slate-400">AI chỉ dùng các thao tác được cấp phép. File được lưu tối đa 30 ngày; đọc có thể chạy ngay; sửa lương/dữ liệu luôn hiện xem trước và cần ADMIN xác nhận. Mọi thay đổi và góp ý được ghi nhật ký.</p>
       </div>

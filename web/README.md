@@ -95,6 +95,29 @@ pnpm start                         # chạy server Node.js
 - Ảnh và giấy tờ được lưu ngoài `public/` (mặc định `private/uploads`) và chỉ phát qua route đã xác thực.
   Docker cần volume bền vững; Vercel/serverless cần cấu hình object storage trước khi bật upload.
 
+## Cấu hình Trợ lý AI và giọng nói
+
+Trợ lý AI chạy hoàn toàn phía máy chủ qua `AI_API_KEY`, `AI_BASE_URL` và `AI_MODEL`; không đặt khóa trong Client Component. Có thể tách model lập kế hoạch và model viết câu trả lời bằng `AI_AGENT_MODEL` và `AI_WRITER_MODEL`. Model planner nên ưu tiên khả năng suy luận/structured JSON, còn writer nên ưu tiên tiếng Việt tự nhiên và độ trễ thấp. `AI_TIMEOUT_MS` kiểm soát thời gian chờ mỗi lượt gọi và `AI_MAX_RETRIES` giới hạn retry cho lỗi tạm thời như 429 hoặc 5xx.
+
+Chế độ giọng nói dùng `MediaRecorder` trong trình duyệt, gửi audio đến `/api/assistant/transcribe`, rồi chuyển thành transcript để người dùng xem/sửa trước khi gửi cho agent. Mặc định máy chủ dùng `VOICE_PROVIDER=openai-compatible` với endpoint `/audio/transcriptions`. Có thể dùng `VOICE_PROVIDER=whisper-cpp`, trỏ `VOICE_BASE_URL` tới whisper-server nội bộ (mặc định endpoint upstream là `/inference`) và không cần `VOICE_API_KEY`. whisper-server phải chạy nội bộ hoặc sau firewall; không mở trực tiếp endpoint upload của nó ra internet. Nếu chưa có cấu hình speech-to-text, ứng dụng vẫn giữ fallback SpeechRecognition của trình duyệt khi trình duyệt hỗ trợ; không nên coi fallback này là đường voice production vì khả năng hỗ trợ và chất lượng phụ thuộc browser.
+
+Ví dụ cấu hình tối thiểu:
+
+```dotenv
+AI_API_KEY="..."
+AI_BASE_URL="https://api.deepseek.com"
+AI_MODEL="deepseek-chat"
+AI_AGENT_MODEL="deepseek-reasoner"
+AI_WRITER_MODEL="deepseek-chat"
+AI_TIMEOUT_MS="30000"
+AI_MAX_RETRIES="2"
+VOICE_API_KEY="..."
+VOICE_BASE_URL="https://api.openai.com/v1"
+VOICE_MODEL="whisper-1"
+```
+
+Các thao tác đọc được chạy ngay theo quyền; thao tác ghi, tiền, lương, hồ sơ y khoa, xóa và bulk action vẫn phải qua preview, approval, audit và kiểm tra trạng thái thật. Sau khi thay đổi cấu hình hoặc code, chạy `pnpm exec prisma generate`, `pnpm exec tsc --noEmit`, `pnpm test` và `pnpm build`.
+
 ## Cấu trúc thư mục
 
 ```
