@@ -2,6 +2,25 @@
 
 Tài liệu này ghi các thay đổi đã được đẩy lên nhánh `master`. Commit mới hơn nằm ở phía trên. Phiên bản mô tả đầy đủ hiện tại nằm trong [`VERSION.md`](VERSION.md).
 
+## 2026-08-18 — `2026.08.18-r6`
+
+Commit chuẩn: [`0f81781`](https://github.com/ledinhlam23032000/ZenithTasks/commit/0f81781).
+
+### Registry AI Admin mở rộng
+
+- AI ADMIN có thêm tool đọc hồ sơ khách theo mã với số điện thoại chỉ hiện 5 số cuối, sửa hồ sơ có mã hóa/kiểm tra trùng số, và xóa hồ sơ vĩnh viễn sau preview; khi xóa sẽ hoàn kho vật tư trong transaction trước khi xóa dữ liệu liên quan.
+- AI có thể cập nhật Sổ tư vấn điện tử qua action nghiệp vụ thật, giữ nguyên các trường không nêu và tôn trọng quy tắc trong 24 giờ; bản ghi quá 24 giờ chỉ ADMIN được sửa và audit ghi rõ sửa muộn.
+- AI có thể lập Đề nghị thanh toán PENDING kể cả khoản nhỏ như gói tăm 3.000đ, sau đó ADMIN có thể duyệt, từ chối hoặc ghi sổ đã thanh toán. CashTransaction chỉ được sinh ở bước PAID.
+- Các tool mới đều kiểm tra quyền server-side, đối chiếu dữ liệu thật trước approval, lưu preview/approval/audit và không tin role hoặc mã do model tự đoán.
+
+### Kiểm tra và triển khai
+
+- Prisma validate/generate đạt; TypeScript đạt.
+- Vitest: **46 file, 303/303 test đạt**, trong đó có test hồi quy knowledge map AI.
+- Next.js production build đạt; GitHub Actions CI cho `0f81781` kết luận **success**.
+- Không có migration mới ở r6; production vẫn có 49 migration, database healthy, Prisma báo schema up to date và `/login` HTTP 200.
+- Image production r6 đã được build/recreate trên máy Windows; các thông tin kỹ thuật chi tiết được ghi trong biên bản bàn giao/checkpoint nội bộ.
+
 ## 2026-08-18 — `2026.08.18-r5`
 
 Commit chuẩn: [`d815f23`](https://github.com/ledinhlam23032000/ZenithTasks/commit/d815f23).

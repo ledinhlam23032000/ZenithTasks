@@ -1,9 +1,9 @@
 # ZenithTasks — Trạng thái phiên bản hiện tại
 
-> **Phiên bản nội bộ:** `2026.08.18-r5`<br>
-> **Commit chuẩn nội dung:** [`d815f23`](https://github.com/ledinhlam23032000/ZenithTasks/commit/d815f23)<br>
+> **Phiên bản nội bộ:** `2026.08.18-r6`<br>
+> **Commit chuẩn nội dung:** [`0f81781`](https://github.com/ledinhlam23032000/ZenithTasks/commit/0f81781)<br>
 > **Ngày cập nhật:** 18/08/2026<br>
-> **Trạng thái:** Đã validate/test/build và CI xanh. Workflow đề xuất thay đổi code của AI đã thành kế hoạch thực thi 5 bước có review diff, test, backup, migration và triển khai có kiểm soát; production đang chạy bản r4 và cần đồng bộ code r5.
+> **Trạng thái:** Đã validate/test/build và CI xanh. Production đã chạy image r6; registry AI được mở rộng cho hồ sơ khách, sổ tư vấn và Đề nghị thanh toán với preview, approval, audit và kiểm tra quyền ADMIN.
 
 ## Quy tắc đọc tài liệu
 
@@ -44,7 +44,7 @@ Migration là **bổ sung dữ liệu, không được tự xóa hoặc reset da
 
 ## Kiểm tra chất lượng gần nhất
 
-Commit chuẩn `d815f23` đã được kiểm tra bằng Prisma generate, TypeScript, Vitest, Next production build và CI GitHub Actions. Lần kiểm tra cuối có **46 file test và 302/302 test đạt**, TypeScript, Prisma validate và Next production build đạt. Khi sửa nghiệp vụ tiền, lương, công nợ, phân quyền hoặc webhook, phải bổ sung test hồi quy trước khi commit.
+Commit chuẩn `0f81781` đã được kiểm tra bằng Prisma generate, TypeScript, Vitest, Next production build và CI GitHub Actions. Lần kiểm tra cuối có **46 file test và 303/303 test đạt**, TypeScript, Prisma validate và Next production build đạt. Khi sửa nghiệp vụ tiền, lương, công nợ, phân quyền hoặc webhook, phải bổ sung test hồi quy trước khi commit.
 
 ## Quy trình cập nhật máy vận hành
 
