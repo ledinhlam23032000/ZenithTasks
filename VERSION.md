@@ -1,9 +1,9 @@
 # ZenithTasks — Trạng thái phiên bản hiện tại
 
-> **Phiên bản nội bộ:** `2026.08.18-r2`<br>
-> **Commit chuẩn nội dung:** [`4ba1310`](https://github.com/ledinhlam23032000/ZenithTasks/commit/4ba1310)<br>
+> **Phiên bản nội bộ:** `2026.08.18-r3`<br>
+> **Commit chuẩn nội dung:** [`989c850`](https://github.com/ledinhlam23032000/ZenithTasks/commit/989c850)<br>
 > **Ngày cập nhật:** 18/08/2026<br>
-> **Trạng thái:** Đã validate/test/build local; commit mới chưa áp dụng lên máy vận hành phòng khám, cần backup và cập nhật Docker trước khi chạy thực tế.
+> **Trạng thái:** Đã validate/test/build; đã backup `F:\\6.Sao lưu hệ thống\\zenith-2026-08-18_0857.zip`, cập nhật image Docker AI mới trên máy vận hành và kiểm tra bằng phiên ADMIN. Migration báo up to date.
 
 ## Quy tắc đọc tài liệu
 

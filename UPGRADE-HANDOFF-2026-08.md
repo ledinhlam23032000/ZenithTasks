@@ -39,6 +39,10 @@ Trang Kế toán có component Trung tâm chứng từ tại `web/src/app/(app)/
 
 Planner trong `web/src/app/(app)/tro-ly/agent.ts` hiện nạp `BUSINESS_RULES_KNOWLEDGE` gồm bản đồ module, quy tắc chứng từ và cách xử lý khoản chi nhỏ. Với ADMIN, planner được phép dùng kiến thức này cùng các read tool và snapshot số liệu; câu hỏi về số liệu cụ thể vẫn phải dùng tool hoặc nói rõ chưa có dữ liệu. Preview, audit và ADMIN approval cho thao tác ghi không thay đổi.
 
+Sau kiểm tra thực tế, đã sửa action `none`: AI có bước tạo câu trả lời cuối dựa trên knowledge và có fallback cho câu hỏi hoa hồng thực thu/Đề nghị thanh toán, nên không còn chỉ nói “đã hiểu yêu cầu”. Đã kiểm tra bằng câu hỏi dịch vụ 100 triệu trả 5 triệu/tháng và khoản tăm 3.000đ; AI trả lời đúng cơ chế, không ghi dữ liệu.
+
+Theo xác nhận ADMIN, tài khoản vận hành được gỡ cờ `mustChangePassword` mà không đổi `passwordHash`; phiên cũ đã logout/login lại. Máy Windows đã build/recreate image r3 sau backup `F:\\6.Sao lưu hệ thống\\zenith-2026-08-18_0857.zip`; database healthy và migration up to date.
+
 ## Kiểm tra đã đạt
 
 - `git diff --check`: đạt.
@@ -47,14 +51,14 @@ Planner trong `web/src/app/(app)/tro-ly/agent.ts` hiện nạp `BUSINESS_RULES_K
 - `./node_modules/.bin/tsc --noEmit`: đạt.
 - `./node_modules/.bin/vitest run`: 45 file, 299 test đạt.
 - `./node_modules/.bin/next build`: đạt; các route mới đã được build.
+- Kiểm tra browser ADMIN: `/ke-toan`, `/thu-chi`, `/tro-ly` mở được; AI trả lời đúng câu hỏi hoa hồng thực thu và quy trình chi 3.000đ, không tạo dữ liệu thật.
 - Test mới: metadata khoản chi nhỏ, khóa sửa/xóa CashTransaction đã liên kết và knowledge map AI ADMIN đều đạt.
 
-## Còn phải làm trước khi cập nhật máy phòng khám
+## Trạng thái sau cập nhật máy phòng khám
 
-1. Backup máy phòng khám trước khi cập nhật; không reset database.
-2. Build/recreate image Docker từ commit mới; nếu `prisma migrate status` báo pending thì chạy `prisma migrate deploy`.
-3. Kiểm tra thực tế bằng tài khoản ADMIN: từ Sổ thu–chi chọn khoản chi nhỏ, mở Đề nghị thanh toán, duyệt, ghi PAID và xác nhận chỉ có một dòng Thu–chi; mở Trung tâm chứng từ; hỏi AI các câu về hoa hồng thực thu, chứng từ và module vận hành.
-4. Sau đó kiểm tra lại đăng nhập, bảng lương, QR, hộp thư, AI file/voice và backup status.
+Đã backup, build/recreate image, kiểm tra migration và kiểm tra đọc-only bằng phiên ADMIN. Chưa tạo phiếu chi thử/duyệt PAID thật để không phát sinh dữ liệu kế toán ngoài ý muốn; khi anh muốn đưa khoản chi thực tế vào sổ, hãy dùng luồng Đề nghị thanh toán mới.
+
+Các kiểm tra nghiệp vụ còn có thể làm lúc thuận tiện gồm tải file/voice AI, xuất file kế toán, kiểm tra QR, hộp thư và backup status. Đây là kiểm tra bổ sung, không phải điều kiện để app khởi động.
 
 ## Nguyên tắc an toàn
 

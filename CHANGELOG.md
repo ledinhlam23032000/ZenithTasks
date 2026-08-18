@@ -2,6 +2,22 @@
 
 Tài liệu này ghi các thay đổi đã được đẩy lên nhánh `master`. Commit mới hơn nằm ở phía trên. Phiên bản mô tả đầy đủ hiện tại nằm trong [`VERSION.md`](VERSION.md).
 
+## 2026-08-18 — `2026.08.18-r3`
+
+Commit chuẩn: [`989c850`](https://github.com/ledinhlam23032000/ZenithTasks/commit/989c850).
+
+### Sửa Trợ lý AI sau kiểm tra thực tế
+
+- Sửa lỗi action `none` trước đây chỉ trả lời kiểu “đã hiểu yêu cầu” mà chưa giải thích nội dung.
+- AI nay có bước tạo câu trả lời cuối dựa trên `BUSINESS_RULES_KNOWLEDGE` và số liệu hiện tại; nếu câu hỏi thuộc nhóm hoa hồng thực thu hoặc Đề nghị thanh toán khoản nhỏ, có fallback nghiệp vụ để không trả lời rỗng/chung chung.
+- Đã kiểm tra bằng phiên ADMIN: AI giải thích đúng ví dụ dịch vụ 100.000.000đ trả 5.000.000đ/tháng chỉ tính hoa hồng trên 5.000.000đ thực thu; khoản tăm 3.000đ đi qua PENDING → ADMIN duyệt → PAID tạo đúng một CashTransaction EXPENSE liên kết.
+
+### Triển khai vận hành
+
+- Đã backup `F:\\6.Sao lưu hệ thống\\zenith-2026-08-18_0857.zip`.
+- Đã build/recreate image Docker mới trên máy Windows; database healthy, Prisma báo không còn migration pending và `/login` HTTP 200.
+- Đã gỡ cờ bắt buộc đổi mật khẩu theo xác nhận trực tiếp của ADMIN, giữ nguyên passwordHash; đã logout/login lại để tạo JWT mới.
+
 ## 2026-08-18 — `2026.08.18-r2`
 
 Commit chuẩn: [`4ba1310`](https://github.com/ledinhlam23032000/ZenithTasks/commit/4ba1310).
