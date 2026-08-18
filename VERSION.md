@@ -3,7 +3,7 @@
 > **Phiên bản nội bộ:** `2026.08.18-r6`<br>
 > **Commit chuẩn nội dung:** [`0f81781`](https://github.com/ledinhlam23032000/ZenithTasks/commit/0f81781)<br>
 > **Ngày cập nhật:** 18/08/2026<br>
-> **Trạng thái:** Đã validate/test/build và CI xanh. Production đã chạy image r6; registry AI được mở rộng cho hồ sơ khách, sổ tư vấn và Đề nghị thanh toán với preview, approval, audit và kiểm tra quyền ADMIN.
+> **Trạng thái:** Đã validate/test/build và CI xanh. Production đã chạy image r6; registry AI được mở rộng cho hồ sơ khách, sổ tư vấn và Đề nghị thanh toán với preview, approval, audit và kiểm tra quyền ADMIN. Bộ tài liệu tiếp quản chuẩn nằm tại [`docs/INDEX.md`](docs/INDEX.md).
 
 ## Quy tắc đọc tài liệu
 

@@ -1,6 +1,6 @@
 # Ứng dụng quản trị — Trung tâm Phẫu thuật Tạo hình Thẩm mỹ (BVĐK Hồng Phúc)
 
-> **Phiên bản chuẩn hiện tại:** [`2026.08.18-r1`](VERSION.md) · **Commit nội dung:** [`31f7211`](https://github.com/ledinhlam23032000/ZenithTasks/commit/31f7211) · **Ngày:** 18/08/2026<br>
+> **Phiên bản chuẩn hiện tại:** xem [`VERSION.md`](VERSION.md) — release code r6, commit `0f81781` · **Ngày:** 18/08/2026<br>
 > Muốn biết bản mới nhất có gì, đọc [`VERSION.md`](VERSION.md). Muốn xem lịch sử thay đổi, đọc [`CHANGELOG.md`](CHANGELOG.md).
 
 Ứng dụng web **nội bộ** quản lý phòng khám thẩm mỹ: tiếp nhận khách, lịch hẹn, hồ sơ điều trị
@@ -22,13 +22,17 @@ Có **cổng khách hàng** (link riêng) và **đặt lịch online**.
 | **[`CHANGELOG.md`](CHANGELOG.md)** | Lịch sử các nâng cấp gần đây theo commit và nhóm chức năng. |
 | **[`web/BAN-GIAO.md`](web/BAN-GIAO.md)** | **BẮT ĐẦU KỸ THUẬT TỪ ĐÂY.** Kiến trúc, mô hình dữ liệu, phân quyền, logic nghiệp vụ, quy ước phát triển, bảo mật, cách chạy/kiểm thử và cạm bẫy đã gặp. |
 | **[`ROADMAP.md`](ROADMAP.md)** | **MUỐN LÀM TIẾP? ĐỌC ĐÂY.** Bảng theo dõi tiến độ A→E (✅ xong / ⏳ chưa / 🔑 cần khoá-tài khoản) + chi tiết từng đợt + việc còn lại + việc của chủ. Đây là nơi biết "nên làm gì tiếp theo". |
+| [`docs/INDEX.md`](docs/INDEX.md) | Chỉ mục nguồn sự thật và thứ tự đọc dành cho AI/người tiếp quản. |
+| [`docs/AI-ADMIN-GATEWAY.md`](docs/AI-ADMIN-GATEWAY.md) | Registry AI, quyền, preview, approval, audit và workflow thay đổi code. |
+| [`docs/OPERATIONS-RUNBOOK.md`](docs/OPERATIONS-RUNBOOK.md) | Runbook backup, cập nhật Windows, migration, smoke test và xử lý sự cố. |
+| [`UPGRADE-HANDOFF-2026-08.md`](UPGRADE-HANDOFF-2026-08.md) | Biên bản nâng cấp chi tiết và bằng chứng các release production. |
 | [`web/DU-AN.md`](web/DU-AN.md) | Nhật ký thay đổi chi tiết theo từng đợt (lịch sử + lý do từng quyết định). |
 | [`web/AGENTS.md`](web/AGENTS.md) | Lưu ý: Next.js 16 khác bản cũ — đọc docs trong `node_modules/next/dist/docs/` trước khi viết. |
 | [`web/DEPLOY.md`](web/DEPLOY.md) | Hướng dẫn triển khai & vận hành chi tiết. |
 | [`AI-AGENT-RESEARCH.md`](AI-AGENT-RESEARCH.md) | Nền tảng thiết kế Trợ lý AI: tool whitelist, structured output, approval và giới hạn an toàn. |
 | [`PROJECT-OVERVIEW.md`](PROJECT-OVERVIEW.md) | Bản giới thiệu tổng quan dự án (số liệu quy mô đã kiểm chứng). |
 
-> Nếu bạn dùng Claude Code: `web/CLAUDE.md` tự nạp 2 tài liệu nền (`AGENTS.md` + `BAN-GIAO.md`) vào ngữ cảnh mỗi phiên (cố ý KHÔNG nạp `DU-AN.md`/`ROADMAP.md` để tiết kiệm token — đọc theo yêu cầu khi cần lịch sử/kế hoạch).
+> Nếu bạn dùng AI coding agent: hãy đọc [`docs/INDEX.md`](docs/INDEX.md) trước, sau đó đọc `web/AGENTS.md` và tài liệu nền. `web/CLAUDE.md` vẫn mô tả các quy tắc nạp ngữ cảnh riêng cho Claude Code.
 
 ## 🔄 Cập nhật lên bản mới nhất
 
@@ -46,11 +50,11 @@ docker compose up --build
 **Lập trình (dev):**
 ```bash
 cd web
-npm install
-npx prisma generate
-npx prisma migrate deploy          # cần DATABASE_URL trỏ tới PostgreSQL
-npm run dev                        # http://localhost:3000
-npx tsc --noEmit && npx vitest run # kiểm tra biên dịch + test
+pnpm install --frozen-lockfile
+pnpm exec prisma generate
+pnpm exec prisma migrate deploy    # cần DATABASE_URL trỏ tới PostgreSQL
+pnpm dev                           # http://localhost:3000
+pnpm exec tsc --noEmit && pnpm test -- --run # kiểm tra biên dịch + test
 ```
 
 **Triển khai trên máy Windows (máy chủ phòng khám):** dùng các script trong [`windows/`](windows/)

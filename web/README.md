@@ -2,7 +2,11 @@
 
 > Lưu ý: phần tài khoản mẫu bên dưới chỉ dành cho QA với dữ liệu giả. Production phải dùng bootstrap admin riêng và không dùng mật khẩu mẫu.
 
-Ứng dụng web đa người dùng cho **Trung tâm Phẫu thuật Thẩm mỹ — Bệnh viện Đa khoa Hồng Phúc**:
+Ứng dụng web đa người dùng cho **Trung tâm Phẫu thuật Tạo hình Thẩm mỹ — Bệnh viện Đa khoa Hồng Phúc**.
+
+> Tài liệu tiếp quản chuẩn ở root: [`../docs/INDEX.md`](../docs/INDEX.md), [`../docs/AI-ADMIN-GATEWAY.md`](../docs/AI-ADMIN-GATEWAY.md), [`../docs/OPERATIONS-RUNBOOK.md`](../docs/OPERATIONS-RUNBOOK.md), [`../VERSION.md`](../VERSION.md) và [`../UPGRADE-HANDOFF-2026-08.md`](../UPGRADE-HANDOFF-2026-08.md).
+
+Ứng dụng web đa người dùng cho **Trung tâm Phẫu thuật Tạo hình Thẩm mỹ — Bệnh viện Đa khoa Hồng Phúc**:
 quản lý lịch hẹn, tiếp nhận khách, tư vấn — dịch vụ, hồ sơ điều trị, thanh toán & công nợ,
 chăm sóc khách hàng và báo cáo quản trị.
 
@@ -23,7 +27,7 @@ chăm sóc khách hàng và báo cáo quản trị.
 
 ```bash
 cd web
-npm install                       # cài thư viện (tự chạy "prisma generate")
+pnpm install --frozen-lockfile    # cài đúng lockfile; tự chạy prisma generate
 
 # 1) Tạo file .env từ mẫu, điền DATABASE_URL, AUTH_SECRET, PHONE_ENC_KEY
 cp .env.example .env
@@ -31,11 +35,11 @@ cp .env.example .env
 #                openssl rand -base64 32   (PHONE_ENC_KEY)
 
 # 2) Khởi tạo cơ sở dữ liệu (PostgreSQL phải đang chạy — xem docker-compose bên dưới)
-npm run db:migrate                # tạo bảng
-npm run db:seed                   # QA only: nạp dữ liệu mẫu, không dùng cho dữ liệu thật
+pnpm exec prisma migrate deploy   # áp dụng migration đã commit; không reset database
+pnpm run db:seed                   # QA only: nạp dữ liệu mẫu, không dùng cho dữ liệu thật
 
 # 3) Chạy
-npm run dev                       # http://localhost:3000
+pnpm dev                          # http://localhost:3000
 ```
 
 ### PostgreSQL bằng Docker (nhanh nhất)
@@ -81,9 +85,9 @@ Mật khẩu mẫu chỉ dành cho môi trường QA; không dùng seed hoặc m
 ## Triển khai (production)
 
 ```bash
-npm run build
-npm run db:deploy        # áp dụng migration trên DB thật
-npm run start            # chạy server Node.js
+pnpm build
+pnpm exec prisma migrate deploy   # áp dụng migration trên DB thật
+pnpm start                         # chạy server Node.js
 ```
 
 - Đặt biến môi trường `DATABASE_URL`, `AUTH_SECRET`, `PHONE_ENC_KEY` trên máy chủ.

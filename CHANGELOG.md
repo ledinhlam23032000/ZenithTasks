@@ -21,6 +21,13 @@ Commit chuẩn: [`0f81781`](https://github.com/ledinhlam23032000/ZenithTasks/com
 - Không có migration mới ở r6; production vẫn có 49 migration, database healthy, Prisma báo schema up to date và `/login` HTTP 200.
 - Image production r6 đã được build/recreate trên máy Windows; các thông tin kỹ thuật chi tiết được ghi trong biên bản bàn giao/checkpoint nội bộ.
 
+### Chuẩn hóa tài liệu tiếp quản
+
+- Thêm [`docs/INDEX.md`](docs/INDEX.md) làm chỉ mục nguồn sự thật và thứ tự đọc.
+- Thêm [`docs/AI-ADMIN-GATEWAY.md`](docs/AI-ADMIN-GATEWAY.md) mô tả registry, quyền, preview, approval, audit và workflow thay đổi code.
+- Thêm [`docs/OPERATIONS-RUNBOOK.md`](docs/OPERATIONS-RUNBOOK.md) cho backup, cập nhật Windows, migration, smoke test và xử lý sự cố.
+- Đồng bộ README root, `web/README.md`, `web/BAN-GIAO.md`, `web/CLAUDE.md`, `web/DEPLOY.md` và biên bản bàn giao; các lệnh phát triển chuẩn dùng pnpm.
+
 ## 2026-08-18 — `2026.08.18-r5`
 
 Commit chuẩn: [`d815f23`](https://github.com/ledinhlam23032000/ZenithTasks/commit/d815f23).

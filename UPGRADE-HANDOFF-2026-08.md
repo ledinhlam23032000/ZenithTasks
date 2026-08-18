@@ -73,7 +73,7 @@ Release `efce179` mở rộng Trợ lý AI theo hướng trợ lý thực thi n�
 
 Đã thêm `bulkUpsertAttendance` và parser `attendance-intent.ts`. Với yêu cầu nêu rõ nhân sự, khoảng ngày, giờ vào/ra và xác nhận đủ ngày, AI tạo preview một lần; sau khi ADMIN xác nhận, action upsert Attendance trong transaction, audit từng ngày và revalidate Chấm công/Lương/Kế toán. Ngày đã có bản ghi sẽ được cập nhật theo preview, không tạo bản ghi trùng.
 
-Bằng chứng kiểm tra release: Prisma validate/generate đạt; TypeScript đạt; 46 file và 302/302 test đạt; Next.js production build đạt. Migration r4 **chưa chạy trên máy phòng khám** tại thời điểm bàn giao phụ lục này. Trước khi triển khai phải backup, đồng bộ repo, build image mới, chạy `docker compose exec -T app npx prisma migrate deploy`, kiểm tra `prisma migrate status`, rồi thử lệnh chấm công trong phiên ADMIN và tải lại `/tro-ly` để kiểm tra lịch sử.
+Bằng chứng kiểm tra release: Prisma validate/generate đạt; TypeScript đạt; 46 file và 302/302 test đạt; Next.js production build đạt. Migration r4 **chưa chạy trên máy phòng khám tại thời điểm lập phụ lục r4**. Việc này đã được hoàn tất sau đó và được xác nhận trong phụ lục r6; production hiện có 49 migration, schema up to date. Trước khi triển khai release mới vẫn phải backup nếu có migration, đồng bộ repo, build image mới, kiểm tra `prisma migrate status`, rồi smoke test `/tro-ly`.
 
 Phần workflow thay đổi code vẫn đang được mở rộng: khi anh yêu cầu đổi cơ chế/code, AI phải tạo kế hoạch/diff/test/backup/triển khai có kiểm soát; không sửa mù trực tiếp trong production container.
 

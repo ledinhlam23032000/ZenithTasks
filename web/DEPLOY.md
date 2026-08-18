@@ -1,6 +1,6 @@
 # Hướng dẫn triển khai — Zenith Clinic
 
-Có 3 cách, chọn theo nhu cầu:
+Có 3 cách, chọn theo nhu cầu. Với máy vận hành của phòng khám, ưu tiên Docker và đọc thêm [`../docs/OPERATIONS-RUNBOOK.md`](../docs/OPERATIONS-RUNBOOK.md) trước khi cập nhật:
 
 | Cách | Phù hợp khi | Kết quả |
 |------|-------------|---------|
@@ -25,7 +25,7 @@ Lần đầu sẽ tự: dựng PostgreSQL → chạy migration → bootstrap tà
 Khi thấy dòng `🚀 Khởi động Zenith Clinic`, mở **http://localhost:3000**.
 
 - Dừng: `Ctrl + C` rồi `docker compose down` (giữ dữ liệu).
-- Xoá sạch để chạy lại từ đầu: `docker compose down -v`.
+- **Chỉ môi trường QA mới được xoá sạch:** `docker compose down -v`. Không chạy lệnh này trên production vì sẽ xóa volume dữ liệu.
 - Dữ liệu DB và ảnh upload được lưu trong Docker volume nên không mất khi tắt máy.
 
 > ⚠️ Không bật `ALLOW_DEMO_SEED=true` trong production. `AUTH_SECRET` và `PHONE_ENC_KEY` phải được quản lý bằng secret manager hoặc `.env` ngoài Git.
@@ -54,7 +54,7 @@ Khi thấy dòng `🚀 Khởi động Zenith Clinic`, mở **http://localhost:30
 4. Bấm **Deploy**. (Build sẽ tự chạy `prisma migrate deploy` để tạo bảng.)
 
 ### 3) Khởi tạo tài khoản và dữ liệu
-Không chạy `db:seed` trên database production. Hãy tạo tài khoản riêng bằng cơ chế bootstrap của Docker hoặc chạy `npm run db:bootstrap-admin` với các biến môi trường bootstrap trong một phiên vận hành được kiểm soát.
+Không chạy `db:seed` trên database production. Hãy tạo tài khoản riêng bằng cơ chế bootstrap của Docker hoặc chạy `pnpm run db:bootstrap-admin` với các biến môi trường bootstrap trong một phiên vận hành được kiểm soát.
 
 > ⚠️ **Không dùng Vercel/serverless cho dữ liệu clinical cần lưu tệp.** Các upload ảnh hồ sơ (trước/sau/tái khám), giấy tờ hành chính và avatar sẽ bị từ chối rõ ràng trước khi ghi, vì filesystem local của Vercel là ephemeral; cấu hình `UPLOAD_DIR` sang `/tmp` hay đường dẫn khác cũng không làm dữ liệu bền vững. Dùng **Cách A (Docker)** với volume `zenith_uploads`, hoặc triển khai một adapter object storage bền vững (S3/Cloudinary tương đương) trước khi bật upload.
 
@@ -65,10 +65,10 @@ Không chạy `db:seed` trên database production. Hãy tạo tài khoản riên
 ```bash
 cd web
 cp .env.example .env          # điền DATABASE_URL, AUTH_SECRET, PHONE_ENC_KEY và bootstrap admin
-npm install
-npm run db:deploy             # tạo bảng theo migration
-npm run db:bootstrap-admin    # chỉ khi CSDL chưa có tài khoản
-npm run dev                   # http://localhost:3000   (hoặc: npm run build && npm start)
+pnpm install --frozen-lockfile
+pnpm exec prisma migrate deploy # tạo bảng theo migration; không reset/db push
+pnpm run db:bootstrap-admin     # chỉ khi CSDL chưa có tài khoản
+pnpm dev                        # http://localhost:3000 (hoặc: pnpm build && pnpm start)
 ```
 
 ---
