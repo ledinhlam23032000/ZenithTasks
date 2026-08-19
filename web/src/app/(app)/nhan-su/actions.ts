@@ -7,8 +7,10 @@ import { requireUser, hashPassword } from "@/lib/auth";
 import { diffFromDesired, ALL_PERM_KEYS } from "@/lib/permissions";
 import { auditRequired } from "@/lib/audit";
 import type { Role } from "@/generated/prisma/client";
+import { hasStaffHistory } from "@/lib/staff-history";
 
 export type StaffFormState = { ok?: boolean; error?: string };
+
 
 const schema = z.object({
   fullName: z.string().trim().min(1, "Vui lòng nhập họ tên."),
@@ -115,15 +117,59 @@ export async function deleteStaff(formData: FormData): Promise<void> {
   const id = String(formData.get("id") ?? "");
   if (!id || id === me.id) return;
 
-  const [auditCount, caseCount, serviceCount, paymentCount, attendanceCount, payrollCount] = await Promise.all([
-    prisma.auditLog.count({ where: { actorId: id } }),
-    prisma.caseRecord.count({ where: { OR: [{ consultantId: id }, { doctorId: id }] } }),
-    prisma.caseService.count({ where: { OR: [{ doctorId: id }, { nurseId: id }] } }),
-    prisma.payment.count({ where: { receivedById: id } }),
-    prisma.attendance.count({ where: { userId: id } }),
-    prisma.payrollEntry.count({ where: { userId: id } }),
-  ]);
-  if (auditCount + caseCount + serviceCount + paymentCount + attendanceCount + payrollCount > 0) {
+  const target = await prisma.user.findUnique({
+    where: { id },
+    select: {
+      _count: {
+        select: {
+          customersCreated: true,
+          appointmentsCreated: true,
+          appointmentsAssigned: true,
+          casesCreated: true,
+          casesConsulted: true,
+          casesAsDoctor: true,
+          caseServices: true,
+          caseServicesNursed: true,
+          payments: true,
+          materialUsages: true,
+          photos: true,
+          careMessages: true,
+          followUpsCreated: true,
+          auditLogs: true,
+          shifts: true,
+          stockMovements: true,
+          attendances: true,
+          payrollEntries: true,
+          cashTransactions: true,
+          consentsRecorded: true,
+          debtPlans: true,
+          leadsCreated: true,
+          documentsUploaded: true,
+          plansCreated: true,
+          revenueAllocations: true,
+          periodsClosed: true,
+          channelAccounts: true,
+          channelMessagesSent: true,
+          pushSubscriptions: true,
+          assistantApprovals: true,
+          assistantConversations: true,
+          assistantMessages: true,
+          revenueAllocationsCreated: true,
+          assignedConversations: true,
+          staffAgreements: true,
+          staffAgreementsCreated: true,
+          paymentRequestsRequested: true,
+          paymentRequestsApproved: true,
+          paymentRequestsPayee: true,
+          consultationsCreated: true,
+          assistantFeedback: true,
+          assistantFiles: true,
+        },
+      },
+    },
+  });
+  if (!target) return;
+  if (hasStaffHistory(target._count)) {
     throw new Error(
       "Nhân sự này đã có lịch sử hoạt động (hồ sơ, thu tiền, chấm công, lương hoặc nhật ký hệ thống) — xóa cứng sẽ làm mất dữ liệu đó. Hãy dùng nút \"Ngừng hoạt động\" để khóa tài khoản thay vì xóa.",
     );
@@ -170,7 +216,7 @@ function toDate(s?: string): Date | null {
 
 /** Quản trị viên cập nhật hồ sơ nhân sự (thông tin cá nhân, ngân hàng, công việc, lương). */
 export async function updateStaff(_prev: StaffFormState, formData: FormData): Promise<StaffFormState> {
-  await requireUser(["ADMIN"]);
+  const user = await requireUser(["ADMIN"]);
   const get = (k: string) => formData.get(k) ?? "";
   const parsed = editSchema.safeParse({
     id: get("id"),
@@ -197,29 +243,48 @@ export async function updateStaff(_prev: StaffFormState, formData: FormData): Pr
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu không hợp lệ." };
   const d = parsed.data;
 
-  await prisma.user.update({
-    where: { id: d.id },
-    data: {
-      fullName: d.fullName,
-      role: d.role,
-      phone: d.phone || null,
-      dob: toDate(d.dob),
-      gender: d.gender ?? null,
-      address: d.address || null,
-      hometown: d.hometown || null,
-      nationalId: d.nationalId || null,
-      bankAccount: d.bankAccount || null,
-      bankName: d.bankName || null,
-      bankHolder: d.bankHolder || null,
-      emergencyName: d.emergencyName || null,
-      emergencyPhone: d.emergencyPhone || null,
-      position: d.position || null,
-      department: d.department || null,
-      hireDate: toDate(d.hireDate),
-      qualification: d.qualification || null,
-      notes: d.notes || null,
-      baseSalary: d.baseSalary,
-    },
+  const current = await prisma.user.findUnique({ where: { id: d.id }, select: { fullName: true } });
+  if (!current) return { error: "Không tìm thấy nhân sự." };
+
+  await prisma.$transaction(async (tx) => {
+    await tx.user.update({
+      where: { id: d.id },
+      data: {
+        fullName: d.fullName,
+        role: d.role,
+        phone: d.phone || null,
+        dob: toDate(d.dob),
+        gender: d.gender ?? null,
+        address: d.address || null,
+        hometown: d.hometown || null,
+        nationalId: d.nationalId || null,
+        bankAccount: d.bankAccount || null,
+        bankName: d.bankName || null,
+        bankHolder: d.bankHolder || null,
+        emergencyName: d.emergencyName || null,
+        emergencyPhone: d.emergencyPhone || null,
+        position: d.position || null,
+        department: d.department || null,
+        hireDate: toDate(d.hireDate),
+        qualification: d.qualification || null,
+        notes: d.notes || null,
+        baseSalary: d.baseSalary,
+      },
+    });
+
+    // Chỉ đồng bộ chứng từ chưa chốt; PAID/REJECTED/CANCELLED giữ payeeName
+    // như snapshot kế toán, còn các màn hình live vẫn lấy tên qua quan hệ User.
+    if (current.fullName !== d.fullName) {
+      const updatedRequests = await tx.paymentRequest.updateMany({
+        where: { payeeUserId: d.id, status: { in: ["DRAFT", "PENDING", "APPROVED"] } },
+        data: { payeeName: d.fullName },
+      });
+      await auditRequired(tx, user.id, "RENAME_STAFF", {
+        entity: "User",
+        entityId: d.id,
+        meta: { from: current.fullName, to: d.fullName, paymentRequestsUpdated: updatedRequests.count },
+      });
+    }
   });
   return { ok: true };
 }

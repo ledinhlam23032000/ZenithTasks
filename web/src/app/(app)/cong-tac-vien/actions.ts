@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
+import { auditRequired } from "@/lib/audit";
 
 export type CtvState = { ok?: boolean; error?: string };
 
@@ -43,7 +44,7 @@ export async function createCollaborator(_prev: CtvState, formData: FormData): P
 }
 
 export async function updateCollaborator(_prev: CtvState, formData: FormData): Promise<CtvState> {
-  await requireUser([...ROLES]);
+  const user = await requireUser([...ROLES]);
   const id = String(formData.get("id") ?? "");
   if (!id) return { error: "Thiếu cộng tác viên." };
   const parsed = parse(formData);
@@ -58,16 +59,31 @@ export async function updateCollaborator(_prev: CtvState, formData: FormData): P
   // Đổi tên CTV: phải cập nhật luôn "Chi tiết nguồn" của các khách đã gắn CTV này
   // (hiệu suất CTV được gộp theo TÊN) — làm trong 1 giao dịch để không lệch dữ liệu.
   await prisma.$transaction(async (tx) => {
+    let customersUpdated = 0;
+    let leadsUpdated = 0;
+    let appointmentsUpdated = 0;
     if (current.name !== d.name) {
-      await tx.customer.updateMany({
-        where: { source: "COLLABORATOR", sourceDetail: current.name },
-        data: { sourceDetail: d.name },
-      });
+      const sourceWhere = { source: "COLLABORATOR" as const, sourceDetail: current.name };
+      const [customers, leads, appointments] = await Promise.all([
+        tx.customer.updateMany({ where: sourceWhere, data: { sourceDetail: d.name } }),
+        tx.lead.updateMany({ where: sourceWhere, data: { sourceDetail: d.name } }),
+        tx.appointment.updateMany({ where: sourceWhere, data: { sourceDetail: d.name } }),
+      ]);
+      customersUpdated = customers.count;
+      leadsUpdated = leads.count;
+      appointmentsUpdated = appointments.count;
     }
     await tx.collaborator.update({
       where: { id },
       data: { name: d.name, phone: d.phone || null, bankAccount: d.bankAccount || null, bankName: d.bankName || null, bankHolder: d.bankHolder || null, note: d.note || null },
     });
+    if (current.name !== d.name) {
+      await auditRequired(tx, user.id, "RENAME_COLLABORATOR", {
+        entity: "Collaborator",
+        entityId: id,
+        meta: { from: current.name, to: d.name, customersUpdated, leadsUpdated, appointmentsUpdated },
+      });
+    }
   });
   return { ok: true };
 }
