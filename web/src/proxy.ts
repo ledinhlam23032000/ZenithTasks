@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { jwtVerify } from "jose";
 import { buildContentSecurityPolicy, createCspNonce } from "@/lib/security-headers";
+import { resolveRoleHome } from "@/lib/role-home";
+import type { Role } from "@/generated/prisma/client";
 
 // Next.js 16: "proxy" thay cho "middleware", mặc định chạy Node.js runtime (không
 // còn giới hạn Edge) → xác thực JWT thật ở đây an toàn, không cần "đoán" qua việc
@@ -35,11 +37,13 @@ export async function proxy(request: NextRequest) {
   const token = request.cookies.get(COOKIE_NAME)?.value;
   let hasValidSession = false;
   let mustChangePassword = false;
+  let verifiedRole: Role | null = null;
   if (token) {
     try {
       const verified = await jwtVerify(token, secret());
       hasValidSession = true;
       mustChangePassword = verified.payload.mustChangePassword === true;
+      verifiedRole = verified.payload.role as Role;
     } catch {
       hasValidSession = false;
     }
@@ -67,7 +71,8 @@ export async function proxy(request: NextRequest) {
   }
 
   if (hasValidSession && pathname === "/login") {
-    return secure(NextResponse.redirect(new URL("/dashboard", request.url)));
+    const home = verifiedRole ? resolveRoleHome({ role: verifiedRole, permissions: undefined }) : "/dashboard";
+    return secure(NextResponse.redirect(new URL(home, request.url)));
   }
 
   const response = NextResponse.next({ request: { headers: requestHeaders } });

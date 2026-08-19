@@ -9,6 +9,7 @@ import { auditRequired } from "@/lib/audit";
 import { totpVerify } from "@/lib/totp";
 import { checkLoginAllowed, registerLoginFailure, clearLoginFailures } from "@/lib/rate-limit";
 import { clientIpFromHeaders } from "@/lib/request-client";
+import { resolveRoleHome } from "@/lib/role-home";
 
 export type LoginState = { error?: string };
 
@@ -85,5 +86,5 @@ export async function loginAction(_prev: LoginState, formData: FormData): Promis
     weakPw: false,
     mustChangePassword: user.mustChangePassword,
   });
-  redirect("/dashboard");
+  redirect(resolveRoleHome(user));
 }

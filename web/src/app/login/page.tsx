@@ -3,13 +3,14 @@ import { redirect } from "next/navigation";
 import { ShieldCheck, CalendarClock, TrendingUp } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth";
 import { LoginForm } from "./login-form";
+import { resolveRoleHome } from "@/lib/role-home";
 import { InstallAppButton } from "@/components/install-app";
 
 export const metadata = { title: "Đăng nhập" };
 
 export default async function LoginPage() {
   const user = await getCurrentUser();
-  if (user) redirect("/dashboard");
+  if (user) redirect(resolveRoleHome(user));
 
   return (
     <div className="grid min-h-[100dvh] lg:grid-cols-2">

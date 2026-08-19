@@ -82,7 +82,12 @@ export default async function ReceptionDeskPage() {
                           <p className="text-xs text-slate-400">{fmtTime(a.scheduledAt)} · {maskPhone(last5)}</p>
                         </div>
                       </div>
-                      <QuickStatusButton id={a.id} status="ARRIVED" label="Đã đến" />
+                      <QuickStatusButton
+                        id={a.id}
+                        status="ARRIVED"
+                        label="Đã đến"
+                        nextHref={a.customer ? `/khach-hang/${a.customer.id}` : undefined}
+                      />
                     </li>
                   );
                 })}
