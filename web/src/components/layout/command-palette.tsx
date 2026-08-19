@@ -54,6 +54,21 @@ export function CommandPalette({ nav, open, onOpenChange }: { nav: NavItemData[]
     return () => clearTimeout(timer);
   }, [query]);
 
+  const quickActions = useMemo<Item[]>(() => {
+    if (query.trim()) return [];
+    const quick = [
+      { href: "/viec-hom-nay", title: "Việc cần làm", subtitle: "Mở danh sách ưu tiên hôm nay" },
+      { href: "/dau-ca", title: "Đầu ca lễ tân", subtitle: "Khách chưa đến và đang chờ" },
+      { href: "/tiep-nhan", title: "Tiếp nhận khách", subtitle: "Tra 5 số cuối hoặc lập hồ sơ mới" },
+      { href: "/lich-hen", title: "Lịch hẹn", subtitle: "Xem lịch hẹn và tái khám" },
+      { href: "/khach-hang", title: "Hồ sơ khách hàng", subtitle: "Mở Customer Workspace" },
+    ];
+    const allowed = new Set(nav.map((n) => n.href));
+    return quick
+      .filter((item) => allowed.has(item.href))
+      .map((item) => ({ ...item, id: `quick:${item.href}`, group: "Bắt đầu nhanh" }));
+  }, [nav, query]);
+
   const navMatches = useMemo<Item[]>(() => {
     const q = query.trim().toLowerCase();
     if (!q) return [];
@@ -62,7 +77,7 @@ export function CommandPalette({ nav, open, onOpenChange }: { nav: NavItemData[]
       .map((n) => ({ id: n.href, title: n.label, href: n.href, group: "Điều hướng" }));
   }, [nav, query]);
 
-  const items = useMemo(() => [...navMatches, ...remote], [navMatches, remote]);
+  const items = useMemo(() => [...quickActions, ...navMatches, ...remote], [quickActions, navMatches, remote]);
 
   useEffect(() => {
     const frame = requestAnimationFrame(() => setActive(0));
@@ -120,7 +135,7 @@ export function CommandPalette({ nav, open, onOpenChange }: { nav: NavItemData[]
         </div>
 
         <div className="max-h-[62dvh] overflow-y-auto p-2 sm:max-h-80">
-          {query.trim().length < 2 ? (
+          {query.trim().length < 2 && items.length === 0 ? (
             <p className="flex items-center gap-2 px-3 py-6 text-sm text-slate-400">
               <Compass className="h-4 w-4" /> Gõ tối thiểu 2 ký tự để tìm kiếm.
             </p>
