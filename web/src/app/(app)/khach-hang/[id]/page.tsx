@@ -55,6 +55,7 @@ import { CareComposer } from "../../cham-soc/care-composer";
 import { PhotoGallery } from "@/components/ui/photo-gallery";
 import { summarizeCase } from "@/lib/financial-summary";
 import { PhotoCompareButton } from "@/components/ui/photo-compare";
+import { CustomerNextActions } from "./customer-next-actions";
 import { MedicalAlert } from "@/components/ui/medical-alert";
 import type { Prisma } from "@/generated/prisma/client";
 
@@ -128,6 +129,45 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
   const canReceive = ["ADMIN", "RECEPTION", "CONSULTANT", "DOCTOR", "MANAGER"].includes(user.role);
   const canCare = ["ADMIN", "MANAGER", "CARE"].includes(user.role);
   const canEdit = ["ADMIN", "MANAGER", "RECEPTION", "TELESALE"].includes(user.role);
+  const latestCase = customer.cases[0];
+  const nextSchedule = [
+    ...customer.appointments.filter((a) => a.scheduledAt >= new Date() && ["BOOKED", "CONFIRMED"].includes(a.status)),
+    ...customer.followUps.filter((f) => f.scheduledAt >= new Date() && ["BOOKED", "CONFIRMED"].includes(f.status)),
+  ].sort((a, b) => a.scheduledAt.getTime() - b.scheduledAt.getTime())[0];
+  const nextActions = [
+    nextSchedule && userCan(user, "mod:lich-hen")
+      ? {
+          icon: "calendar" as const,
+          label: "Xem lịch sắp tới",
+          detail: `${fmtDateTime(nextSchedule.scheduledAt)} · Mở lịch hợp nhất`,
+          href: `/lich-hen?date=${format(nextSchedule.scheduledAt, "yyyy-MM-dd")}`,
+        }
+      : null,
+    latestCase && userCan(user, "mod:ho-so")
+      ? {
+          icon: "case" as const,
+          label: "Mở hồ sơ điều trị",
+          detail: `${latestCase.code} · ${CASE_STATUS[latestCase.status].label}`,
+          href: `/ho-so/${latestCase.id}`,
+        }
+      : null,
+    totalDebt > 0 && userCan(user, "payment.add") && latestCase && userCan(user, "mod:ho-so")
+      ? {
+          icon: "wallet" as const,
+          label: "Xử lý công nợ",
+          detail: `Còn nợ ${formatVND(totalDebt)} · mở finance rail`,
+          href: `/ho-so/${latestCase.id}`,
+        }
+      : null,
+    canCare
+      ? {
+          icon: "care" as const,
+          label: "Ghi nhận chăm sóc",
+          detail: customer.careMessages.length > 0 ? "Xem lịch sử và ghi nhận tiếp" : "Khách chưa có lịch sử chăm sóc",
+          href: "/cham-soc",
+        }
+      : null,
+  ].filter((action): action is NonNullable<typeof action> => action !== null);
 
   return (
     <div className="space-y-6">
@@ -221,6 +261,8 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
         <StatCard label="Tổng giá trị dịch vụ" value={formatVND(totalValue)} icon={<Wallet className="h-5 w-5" />} tone="green" />
         <StatCard label="Công nợ còn lại" value={formatVND(totalDebt)} icon={<Receipt className="h-5 w-5" />} tone={totalDebt > 0 ? "red" : "slate"} />
       </div>
+
+      <CustomerNextActions actions={nextActions} />
 
       <Card>
         <CardHeader><CardTitle className="flex items-center gap-2"><Clock3 className="h-4 w-4 text-brand-500" /> Timeline khách hàng 360°</CardTitle></CardHeader>
