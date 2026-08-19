@@ -1,77 +1,47 @@
 # Project State
 
-- Updated: 2026-08-18 15:11 GMT+7
-- Goal: Nâng cấp trợ lý AI ZenithTasks thành trợ lý vận hành admin chuyên nghiệp, có tool nghiệp vụ an toàn và voice input ổn định.
-- Current phase: Phase 3–5 implementation checkpoint — nền tảng hội thoại và voice MVP đã triển khai; đang chuyển sang hardening công cụ admin và test chuyên biệt.
+- Updated: 2026-08-19 01:10 GMT+7
+- Goal: Nâng cấp ZenithTasks từ trợ lý xử lý yêu cầu ngắn thành đồng nghiệp số có context dài, planner nhiều bước, câu trả lời tự nhiên, self-check và lifecycle conversation đúng.
+- Current phase: Phase 7 — stress test read-only trên production, pre-deploy checkpoint.
 - Overall status: active
 
 ## Completed since last checkpoint
 
-- Clone repository `ledinhlam23032000/ZenithTasks` ở branch `master`; working tree sạch trước khi cài dependency.
-- Đọc `web/AGENTS.md`, `web/README.md`, `docs/AI-ADMIN-GATEWAY.md`, `agent.ts`, `assistant-chat.tsx`, `ai.ts`, `assistant.ts`, `conversations.ts` và package scripts.
-- Cài dependency bằng `pnpm install --frozen-lockfile --ignore-scripts`.
-- Sinh Prisma client bằng `pnpm exec prisma generate`.
-- Chạy baseline: `pnpm test -- --reporter=dot` đạt 46 test files / 306 tests.
+Đã hoàn tất bộ nhớ hội thoại nhiều tầng với summary, durable facts, entities, decisions và verified facts; tăng context prompt lên khoảng 24.000 ký tự với ưu tiên lượt gần nhất; thêm compaction định kỳ sau 8+ lượt. Đã thêm xóa conversation trực tiếp từ sidebar với confirm và redirect, không xóa dữ liệu nghiệp vụ.
+
+Planner hiện có schema `steps` tối đa 4 bước. `runAssistantAgent` chạy tuần tự các bước read-only bounded, audit từng bước, gom kết quả đã kiểm chứng và gửi vào final writer. Mọi chuỗi có write/delete đều bị chặn để tiếp tục dùng preview/approval/audit hiện hữu. Final writer hiện nhận mảng verified results và hợp nhất theo thứ tự kết luận → bằng chứng → bước tiếp theo.
+
+Đã chạy `pnpm exec prisma generate` và full Vitest regression: 48 test files, 314 tests passed. TypeScript check và targeted tests cũng passed.
 
 ## Verified facts
 
-- Repository là Next.js 16 + React 19 + TypeScript + Prisma 7 + PostgreSQL; không phải scaffold WebDev tRPC.
-- Trợ lý hiện có agent server-side với whitelist action, Zod validation, preview/approval 10 phút, audit và server-side permission.
-- Hội thoại đang cắt còn 40 messages khi đọc DB và 20 turns khi đưa vào prompt; chưa có summary/memory có cấu trúc.
-- `assistant.ts` có `ASSISTANT_SYSTEM` nhưng agent đang dùng system prompt riêng ở planner và final answer, tạo nguy cơ drift.
-- `ai.ts` dùng provider thủ công qua `AI_API_KEY`/`AI_BASE_URL` và gọi structured JSON; không có timeout, retry/backoff, model catalog runtime, routing có đo lường hoặc streaming.
-- Voice hiện chỉ dùng Web Speech API `SpeechRecognition`/`webkitSpeechRecognition` phía client trong `assistant-chat.tsx`; không có MediaRecorder, upload audio hoặc Whisper transcription. Đây là nguyên nhân trực tiếp khiến voice không ổn định/phụ thuộc browser.
-- Admin Gateway đã có nhiều action thật (đọc tổng quan, lương, hồ sơ, công nợ, attendance, payroll, payment, follow-up, appointment, customer, consultation, payment request, work plan, system change) và tài liệu yêu cầu preview/approval/audit.
-- UI đã có trạng thái pending, preview và confirm/hủy, nhưng chưa có voice recording state, transcript edit, retry, microphone permission UX, hoặc action result verification chi tiết.
-- File context/feedback hiện được ghép vào prompt dạng text; đây là memory thô, chưa có phân loại nguồn, freshness, confidence hoặc chọn lọc theo intent.
-- Baseline test sau khi generate Prisma: PASS — 46 files, 306 tests. Trước khi generate Prisma có lỗi môi trường thiếu `@/generated/prisma/client`, không phải lỗi logic.
+Branch sandbox là `ai-deep-upgrade`, base `68b55fc` (`origin/master`). Production public URL vẫn đang chạy bản trước các thay đổi sandbox: câu `Chào em. Em có thể nói chuyện được ko` hiện trả lỗi parse tham số. Đây là bằng chứng cần deploy, không phải lỗi của branch mới.
 
-## Active assumptions
-
-- Vòng đầu ưu tiên hybrid rule gate + AI planner/final writer; chưa fine-tune.
-- Không mở rộng action tự động nếu chưa kiểm tra action nghiệp vụ thật, quyền và audit.
-- TTS chưa làm ở vòng đầu; hoàn thiện STT trước.
+Migration `web/prisma/migrations/20260819010000_assistant_memory/migration.sql` chỉ thêm các cột nullable/default vào `AssistantConversation`: `summary`, `memory`, `memoryVersion`, `lastCompactedAt`; không xóa dữ liệu khách, tiền, lương hay hồ sơ.
 
 ## Decisions made
 
-- Không thay model đơn thuần; sẽ hợp nhất prompt/policy, nâng lớp AI adapter, memory/context, tool safety và voice.
-- Giữ human-in-the-loop cho các thao tác ghi/xóa/tiền/lương/y khoa/bulk.
-- Không đưa secret vào client hoặc cho model truy cập trực tiếp Prisma/SQL.
+Giữ DeepSeek làm lõi, không thêm dịch vụ trả phí hoặc fine-tune khi chưa có dataset. Multi-step chỉ cho read actions; mutation nhiều bước phải tách preview hoặc tạo action bulk rõ phạm vi. Không dùng Manus API để thay thế agent nội bộ. Không chạy write/destructive stress test trên production.
 
 ## Open blockers/questions
 
-- Cần benchmark model thật theo các biến môi trường hiện có; sandbox clone không chứa secret production.
-- Cần xác định production đang dùng provider/model nào và liệu có endpoint catalog hay không.
-- Cần kiểm tra browser thực tế sau khi triển khai voice; hiện source cho thấy không có đường audio server-side.
-
-## Implementation completed after baseline
-
-- Hợp nhất persona/policy thành `ASSISTANT_SYSTEM`, `ASSISTANT_PLANNER_SYSTEM` và `ASSISTANT_FINAL_SYSTEM`; agent planner/final writer dùng chung policy.
-- `ai.ts` có timeout 5–120 giây, retry/backoff giới hạn cho 408/409/425/429/5xx và hỗ trợ `AI_WRITER_MODEL` per-call.
-- Lịch sử hội thoại được đánh nhãn ANH/EM, giữ tối đa 24 lượt, cắt nội dung quá dài và giới hạn prompt 18.000 ký tự.
-- File/feedback context được đánh dấu là dữ liệu tham chiếu không đáng tin, không phải system instruction.
-- Thêm `/api/assistant/transcribe` server-side với auth capability, giới hạn 16MB, language `vi`, prompt ngữ cảnh và timeout 60 giây.
-- UI assistant đã có MediaRecorder, xin quyền microphone, timer, dừng tự động sau 120 giây, upload multipart, transcript nối vào ô nhập, fallback SpeechRecognition, retry/error state.
-- Bổ sung biến môi trường mẫu: `AI_WRITER_MODEL`, `AI_TIMEOUT_MS`, `AI_MAX_RETRIES`, `VOICE_API_KEY`, `VOICE_BASE_URL`, `VOICE_MODEL`.
-- Quality checkpoint: `tsc --noEmit`, 48 test files/311 tests và `pnpm build` đều PASS; thêm 3 voice endpoint contract tests và 2 history tests.
+Cần commit/push branch, tạo và merge PR vào master, sau đó pull/build/restart đúng origin Windows `C:\Users\PC\ZenithTasks`. Sau deploy phải chạy lại các case read-only A01, A02, B01, E01, E06 và ghi kết quả. Cần xác nhận migration tự apply trong entrypoint production.
 
 ## Next 3 actions
 
-1. Hoàn tất regression sau thay đổi Compose/README và kiểm tra diff cuối.
-2. Chạy lint để phân biệt lỗi pre-existing; chạy build lần cuối.
-3. Tạo commit/branch bàn giao, không push production trực tiếp; ghi rõ cần staging credential cho live voice test.
+1. Commit toàn bộ thay đổi đã kiểm thử và push branch `ai-deep-upgrade`.
+2. Tạo PR, kiểm tra CI và merge vào `master`.
+3. Deploy trên origin Windows, rồi chạy stress test read-only và cập nhật checkpoint production.
 
 ## Files to read first
 
+- `.task-memory/02_state.md`
+- `.task-memory/01_plan.md`
 - `web/src/app/(app)/tro-ly/agent.ts`
-- `web/src/app/(app)/tro-ly/assistant-chat.tsx`
-- `web/src/lib/ai.ts`
-- `web/src/lib/assistant.ts`
 - `web/src/app/(app)/tro-ly/conversations.ts`
-- `docs/AI-ADMIN-GATEWAY.md`
+- `web/src/lib/assistant.ts`
+- `checks/assistant-evaluation-v2.md`
 
 ## Quality risks
 
-- Thay đổi prompt có thể làm regression các action attendance và approval; phải giữ test hiện tại và thêm evaluation cases.
-- Model/provider bên ngoài có thể không hỗ trợ JSON schema hoặc tool semantics giống nhau.
-- Voice codec/permission khác nhau theo browser; phải feature-detect và báo lỗi rõ thay vì giả vờ đã ghi âm.
+Prompt dài không đồng nghĩa memory tốt; summary sai có thể làm AI bịa. Multi-step loop bị giới hạn 4 bước và read-only để tránh latency/side effect. Production hiện chưa chứa migration memory và planner loop cho đến khi release được deploy. Xóa conversation là thao tác không hoàn tác ở lớp lịch sử, nhưng server action chỉ cascade assistant messages và set-null approval, không chạm dữ liệu nghiệp vụ.

@@ -922,10 +922,14 @@ model AssistantConversation {
   id            String                       @id @default(cuid())
   userId        String
   user          User                         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  title         String?
-  status        AssistantConversationStatus  @default(OPEN)
-  lastMessageAt DateTime                     @default(now())
-  createdAt     DateTime                     @default(now())
+  title           String?
+  status          AssistantConversationStatus  @default(OPEN)
+  summary         String?                      @db.Text
+  memory          Json?
+  memoryVersion   Int                          @default(1)
+  lastCompactedAt DateTime?
+  lastMessageAt   DateTime                     @default(now())
+  createdAt       DateTime                     @default(now())
   updatedAt     DateTime                     @updatedAt
   messages      AssistantMessage[]
   approvals     AssistantApproval[]

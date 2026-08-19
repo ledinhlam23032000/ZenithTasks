@@ -19,7 +19,7 @@ import { createAppointment } from "../lich-hen/actions";
 import { summarizeCase } from "@/lib/financial-summary";
 import { getFinancialHealthIssues } from "@/lib/financial-health-db";
 import { getAssistantFileContext } from "./file-actions";
-import { appendAssistantTurn, getAssistantConversationTurns, getOrCreateAssistantConversation, turnsToPrompt } from "./conversations";
+import { appendAssistantTurn, getAssistantConversationContext, getOrCreateAssistantConversation, maybeCompactAssistantConversation } from "./conversations";
 import { inferAttendanceIntent } from "./attendance-intent";
 import type { Prisma } from "@/generated/prisma/client";
 
@@ -52,12 +52,20 @@ const actionNames = [
 
 type ActionName = (typeof actionNames)[number];
 
+type PlannerStep = {
+  action: ActionName;
+  arguments_json: string;
+  requires_confirmation: boolean;
+  note?: string;
+};
+
 type PlannerOutput = {
   reply: string;
   action: ActionName;
   arguments_json: string;
   requires_confirmation: boolean;
   preview: string;
+  steps?: PlannerStep[];
 };
 
 export type AgentState = {
@@ -78,6 +86,22 @@ const plannerSchema = {
     arguments_json: { type: "string", description: "JSON object chứa tham số của action; nếu none thì {}." },
     requires_confirmation: { type: "boolean" },
     preview: { type: "string", description: "Bản xem trước tác động; để trống nếu action là đọc." },
+    steps: {
+      type: "array",
+      maxItems: 4,
+      description: "Tối đa 4 bước chỉ đọc cho yêu cầu nhiều phần; không dùng steps cho chuỗi mutation.",
+      items: {
+        type: "object",
+        properties: {
+          action: { type: "string", enum: actionNames },
+          arguments_json: { type: "string" },
+          requires_confirmation: { type: "boolean" },
+          note: { type: "string" },
+        },
+        required: ["action", "arguments_json", "requires_confirmation"],
+        additionalProperties: false,
+      },
+    },
   },
   required: ["reply", "action", "arguments_json", "requires_confirmation", "preview"],
   additionalProperties: false,
@@ -243,13 +267,14 @@ function knowledgeAnswerFallback(question: string): string {
   return parts.join("\n\n");
 }
 
-async function buildFinalKnowledgeAnswer(question: string, role: string, plannerReply: string, verifiedResult = ""): Promise<string> {
+async function buildFinalKnowledgeAnswer(question: string, role: string, plannerReply: string, verifiedResults: string[] = []): Promise<string> {
   const fallback = knowledgeAnswerFallback(question);
   const context = await getAssistantContext();
+  const verifiedResult = verifiedResults.filter(Boolean).join("\n\n---\n\n");
   const accessNote = role === "ADMIN" ? "Người dùng là ADMIN; được dùng kiến thức vận hành và số liệu tổng hợp hiện tại để giải thích." : "Chỉ trả lời trong phạm vi quyền người dùng; không tiết lộ dữ liệu bị giới hạn.";
   const generated = await generateStructured<{ answer: string }>({
     system: ASSISTANT_FINAL_SYSTEM,
-    prompt: `${accessNote}\n\nKIẾN THỨC VẬN HÀNH:\n${BUSINESS_RULES_KNOWLEDGE}\n\nSỐ LIỆU TỔNG HỢP HIỆN TẠI:\n${formatAssistantContext(context)}\n\nKẾT QUẢ TOOL ĐÃ KIỂM CHỨNG (nếu có):\n${verifiedResult || "Không có tool đọc; chỉ trả lời từ kiến thức và policy."}\n\nCÂU HỎI:\n${question}\n\nCÂU TRẢ LỜI DỰ KIẾN CỦA PLANNER:\n${plannerReply}\n\nHãy viết câu trả lời hoàn chỉnh, ưu tiên kết luận trước rồi mới đến số liệu/quy trình. Không lặp prompt, không thêm dữ kiện ngoài nguồn đã cung cấp. Nếu có kết quả tool thì coi đó là sự thật ưu tiên.`,
+    prompt: `${accessNote}\n\nKIẾN THỨC VẬN HÀNH:\n${BUSINESS_RULES_KNOWLEDGE}\n\nSỐ LIỆU TỔNG HỢP HIỆN TẠI:\n${formatAssistantContext(context)}\n\nKẾT QUẢ TOOL ĐÃ KIỂM CHỨNG (nếu có):\n${verifiedResult || "Không có tool đọc; chỉ trả lời từ kiến thức và policy."}\n\nCÂU HỎI:\n${question}\n\nCÂU TRẢ LỜI DỰ KIẾN CỦA PLANNER:\n${plannerReply}\n\nHãy viết câu trả lời hoàn chỉnh theo thứ tự: kết luận trực tiếp, bằng chứng/số liệu đã kiểm tra, rồi bước tiếp theo hoặc điểm cần anh xác nhận. Khi có nhiều kết quả tool, hãy hợp nhất thành một mạch trả lời, không lặp từng tool như nhật ký. Không lặp prompt, không thêm dữ kiện ngoài nguồn đã cung cấp. Nếu có kết quả tool thì coi đó là sự thật ưu tiên.`,
     schemaName: "zenith_agent_final_answer",
     schema: finalAnswerSchema,
     maxTokens: 900,
@@ -257,7 +282,7 @@ async function buildFinalKnowledgeAnswer(question: string, role: string, planner
   });
   const answer = generated.ok ? generated.data.answer.trim() : "";
   const generic = !answer || (norm(answer).includes("da hieu yeu cau") && !norm(answer).includes("hoa hong") && !norm(answer).includes("de nghi"));
-  return generic ? (fallback || verifiedResult || plannerReply) : answer;
+  return generic ? (fallback || (verifiedResult ? verifiedResults.filter(Boolean).join("\n\n") : "") || plannerReply) : answer;
 }
 
 async function findCase(caseCode: string) {
@@ -368,6 +393,16 @@ async function readAction(action: ActionName, args: unknown, userId: string): Pr
   }
   return planError("Tôi chưa có công cụ đọc phù hợp cho yêu cầu này.");
 }
+
+const READ_ACTIONS = new Set<ActionName>([
+  "get_business_summary",
+  "get_debt_summary",
+  "get_lead_priorities",
+  "get_financial_alerts",
+  "get_payroll_row",
+  "get_customer_profile",
+  "prepare_payroll_export",
+]);
 
 function isBareApproval(text: string) {
   const value = norm(text).replace(/[.!?]+$/g, "").trim();
@@ -587,10 +622,16 @@ export async function runAssistantAgent(_prev: AgentState, formData: FormData): 
   if (!question) return planError("Vui lòng nhập yêu cầu.");
   if (question.length > 1200) return planError("Yêu cầu quá dài (tối đa 1.200 ký tự).");
   const conversation = await getOrCreateAssistantConversation(user.id, String(formData.get("conversationId") ?? "") || null);
-  const previous = await getAssistantConversationTurns(user.id, conversation.id);
-  const history = turnsToPrompt(previous);
+  const conversationContext = await getAssistantConversationContext(user.id, conversation.id);
+  const history = conversationContext.prompt;
+  const userTurnCount = conversationContext.turns.filter((turn) => turn.role === "USER").length + 1;
+  const shouldCompact = userTurnCount >= 8 && userTurnCount % 6 === 0;
   await appendAssistantTurn(user.id, conversation.id, "USER", question);
-  const finish = (state: AgentState) => persistAssistantResult(user.id, conversation.id, state);
+  const finish = async (state: AgentState) => {
+    const persisted = await persistAssistantResult(user.id, conversation.id, state);
+    if (shouldCompact) await maybeCompactAssistantConversation(user.id, conversation.id).catch(() => undefined);
+    return persisted;
+  };
   if (!aiConfigured()) return finish(planError("Chưa cấu hình AI."));
 
   if (isBareApproval(question)) {
@@ -632,18 +673,40 @@ export async function runAssistantAgent(_prev: AgentState, formData: FormData): 
   if (!planned.ok) return finish({ error: planned.error });
   const action = planned.data.action;
   if (!actionNames.includes(action)) return finish(planError("AI trả về công cụ không được phép."));
-  const args = jsonArgs(planned.data.arguments_json);
-  if (args === null) return finish(planError("Tôi chưa đọc được tham số yêu cầu. Anh hãy nói rõ tên, tháng hoặc số tiền."));
+
+  const plannedSteps = planned.data.steps ?? [];
+  if (plannedSteps.length > 4) return finish(planError("Kế hoạch đọc có quá 4 bước; em dừng lại để tránh chạy lan ngoài phạm vi yêu cầu."));
+  if (plannedSteps.length > 0) {
+    const unsafeStep = plannedSteps.find((step) => !READ_ACTIONS.has(step.action));
+    if (unsafeStep) return finish(planError("Yêu cầu nhiều bước có thao tác ghi/xóa. Để bảo đảm approval và audit, em cần tách thành từng thao tác ghi riêng hoặc tạo một preview bulk rõ phạm vi."));
+
+    const verifiedResults: string[] = [];
+    const stepLabels: string[] = ["Phân rã yêu cầu thành các bước đọc độc lập"];
+    for (const [index, step] of plannedSteps.entries()) {
+      const args = jsonArgs(step.arguments_json);
+      if (args === null) return finish(planError(`Tham số của bước ${index + 1} chưa hợp lệ; em chưa chạy bước nào tiếp theo.`));
+      const result = await readAction(step.action, args, user.id);
+      await audit(user.id, "ASSISTANT_READ_TOOL", { entity: step.action, meta: { ok: result.ok, step: index + 1, note: step.note ?? null } });
+      stepLabels.push(`Bước ${index + 1}: đọc ${step.action}`);
+      if (result.error) return finish({ error: result.error, steps: stepLabels });
+      if (result.answer) verifiedResults.push(`Bước ${index + 1} — ${step.action}:\n${result.answer}`);
+    }
+    const answer = await buildFinalKnowledgeAnswer(question, user.role, planned.data.reply, verifiedResults);
+    return finish({ ok: true, answer, steps: [...stepLabels, "Đối chiếu và hợp nhất các kết quả đã kiểm chứng"] });
+  }
 
   if (action === "none") {
-    const answer = await buildFinalKnowledgeAnswer(question, user.role, planned.data.reply);
+    const answer = await buildFinalKnowledgeAnswer(question, user.role, planned.data.reply, []);
     return finish({ ok: true, answer: `${answer}\n\nEm chưa thực hiện thay đổi nào trong yêu cầu này.`, steps: workflowSteps("none") });
   }
-  if (["get_business_summary", "get_debt_summary", "get_lead_priorities", "get_financial_alerts", "get_payroll_row", "get_customer_profile", "prepare_payroll_export"].includes(action)) {
+
+  const args = jsonArgs(planned.data.arguments_json);
+  if (args === null) return finish(planError("Tôi chưa đọc được tham số yêu cầu. Anh hãy nói rõ tên, tháng hoặc số tiền."));
+  if (READ_ACTIONS.has(action)) {
     const result = await readAction(action, args, user.id);
     await audit(user.id, "ASSISTANT_READ_TOOL", { entity: action, meta: { ok: result.ok } });
     const answer = result.answer
-      ? await buildFinalKnowledgeAnswer(question, user.role, planned.data.reply, result.answer)
+      ? await buildFinalKnowledgeAnswer(question, user.role, planned.data.reply, [result.answer])
       : planned.data.reply;
     return finish({ ...result, answer, steps: workflowSteps(action, "read") });
   }
