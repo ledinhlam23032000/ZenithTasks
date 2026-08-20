@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Search, CornerDownLeft, Compass } from "lucide-react";
 import { globalSearch, type SearchResult } from "@/lib/search-actions";
 import type { NavItemData } from "./app-shell";
+import { getQuickStartItems } from "@/lib/quick-starts";
 
 type Item = SearchResult;
 
@@ -54,22 +55,7 @@ export function CommandPalette({ nav, open, onOpenChange }: { nav: NavItemData[]
     return () => clearTimeout(timer);
   }, [query]);
 
-  const quickActions = useMemo<Item[]>(() => {
-    if (query.trim()) return [];
-    const quick = [
-      { href: "/viec-hom-nay", label: "Việc cần làm", subtitle: "Mở danh sách ưu tiên hôm nay" },
-      { href: "/dau-ca", label: "Đầu ca lễ tân", subtitle: "Khách chưa đến và đang chờ" },
-      { href: "/tiep-nhan", label: "Tiếp nhận khách", subtitle: "Tra 5 số cuối hoặc lập hồ sơ mới" },
-      { href: "/lich-hen", label: "Lịch hẹn", subtitle: "Xem lịch hẹn và tái khám" },
-      { href: "/khach-hang", label: "Hồ sơ khách hàng", subtitle: "Mở Customer Workspace" },
-    ];
-    // Dùng cả href và label của navForUser: href là source chuẩn, label là
-    // fallback an toàn khi route alias/legacy thay đổi nhưng quyền vẫn giữ.
-    return quick.flatMap((item) => {
-      const match = nav.find((n) => n.href === item.href || n.label === item.label);
-      return match ? [{ id: `quick:${match.href}`, title: item.label, href: match.href, subtitle: item.subtitle, group: "Bắt đầu nhanh" }] : [];
-    });
-  }, [nav, query]);
+  const quickActions = useMemo<Item[]>(() => getQuickStartItems(nav, query), [nav, query]);
 
   const navMatches = useMemo<Item[]>(() => {
     const q = query.trim().toLowerCase();

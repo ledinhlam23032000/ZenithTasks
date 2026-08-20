@@ -67,6 +67,7 @@ export default async function DashboardPage() {
       />
 
       {work && <WorkSummary sections={work.sections} total={work.total} />}
+      <TodayStartWorkspace user={user} />
 
       {/* KPI hôm nay */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
@@ -299,6 +300,37 @@ export default async function DashboardPage() {
         </Card>
       </div>
     </div>
+  );
+}
+
+function TodayStartWorkspace({ user }: { user: { role: import("@/generated/prisma/client").Role; permissions?: unknown } }) {
+  const candidates = [
+    { href: "/viec-hom-nay", permission: "mod:viec-hom-nay", label: "Việc cần làm", description: "Xử lý các việc đang chờ theo ưu tiên", icon: <ListTodo className="h-5 w-5" />, tone: "bg-brand-50 text-brand-700" },
+    { href: "/tiep-nhan", permission: "mod:tiep-nhan", label: "Tiếp nhận khách", description: "Tra cứu hoặc tạo hồ sơ mới", icon: <UserPlus className="h-5 w-5" />, tone: "bg-emerald-50 text-emerald-700" },
+    { href: "/lich-hen", permission: "mod:lich-hen", label: "Lịch hẹn hôm nay", description: "Xem lịch, tái khám và trạng thái đến", icon: <CalendarClock className="h-5 w-5" />, tone: "bg-blue-50 text-blue-700" },
+    { href: "/bao-cao", permission: "mod:bao-cao", label: "Báo cáo nhanh", description: "Kiểm tra doanh thu và hiệu suất", icon: <BarChart3 className="h-5 w-5" />, tone: "bg-amber-50 text-amber-700" },
+  ].filter((item) => userCan(user, item.permission));
+
+  return (
+    <section className="rounded-2xl border border-brand-100 bg-gradient-to-br from-brand-50 via-white to-accent-50/50 p-4 shadow-sm sm:p-5" aria-label="Bắt đầu ngày">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="max-w-xl">
+          <p className="text-xs font-bold uppercase tracking-[0.12em] text-brand-600">Bắt đầu từ đây</p>
+          <h2 className="mt-1 text-lg font-semibold text-slate-900">Một nơi để chọn việc tiếp theo</h2>
+          <p className="mt-1 text-sm text-slate-600">Đi thẳng vào công việc quan trọng thay vì phải nhớ từng module trong thanh điều hướng.</p>
+        </div>
+        <div className="grid w-full gap-2 sm:grid-cols-2 lg:max-w-2xl lg:grid-cols-4">
+          {candidates.map((item) => (
+            <Link key={item.href} href={item.href} className="group rounded-xl border border-white/80 bg-white/85 p-3 shadow-sm transition hover:-translate-y-0.5 hover:border-brand-200 hover:shadow-md">
+              <span className={`inline-flex h-9 w-9 items-center justify-center rounded-lg ${item.tone}`}>{item.icon}</span>
+              <span className="mt-2 block text-sm font-semibold text-slate-800">{item.label}</span>
+              <span className="mt-1 block text-xs leading-relaxed text-slate-500">{item.description}</span>
+              <span className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-brand-700 opacity-0 transition group-hover:opacity-100">Mở <ArrowRight className="h-3 w-3" /></span>
+            </Link>
+          ))}
+        </div>
+      </div>
+    </section>
   );
 }
 

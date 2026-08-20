@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, type FormEvent } from "react";
-import { Plus, Pencil, LoaderCircle, ShieldCheck, AlertTriangle } from "lucide-react";
+import { Plus, Pencil, LoaderCircle, ShieldCheck, AlertTriangle, ChevronDown } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input, Label, Select, Textarea, FieldHint } from "@/components/ui/field";
@@ -101,6 +101,7 @@ function AppointmentForm({
   onSuccess: () => void;
 }) {
   const isEdit = !!appointment;
+  const [advancedOpen, setAdvancedOpen] = useState(() => Boolean(appointment?.sourceDetail || appointment?.consultantId || appointment?.note));
   const [state, action, pending] = useFormAction(
     isEdit ? updateAppointment : createAppointment,
     onSuccess,
@@ -178,39 +179,52 @@ function AppointmentForm({
         />
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div>
-          <Label htmlFor="source">Nguồn khách</Label>
-          <Select id="source" name="source" defaultValue={appointment?.source ?? "MARKETING"}>
-            {Object.entries(SOURCE_LABEL).map(([k, v]) => (
-              <option key={k} value={k}>
-                {v}
-              </option>
-            ))}
-          </Select>
-        </div>
-        <div>
-          <Label htmlFor="sourceDetail">Chi tiết nguồn</Label>
-          <Input id="sourceDetail" name="sourceDetail" placeholder="VD: CTV Ngọc Hân, chiến dịch Hè…" defaultValue={appointment?.sourceDetail ?? ""} />
-        </div>
-      </div>
+      <div className="rounded-xl border border-slate-200 bg-slate-50/60">
+        <button
+          type="button"
+          onClick={() => setAdvancedOpen((open) => !open)}
+          aria-expanded={advancedOpen}
+          className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left text-sm font-semibold text-slate-700"
+        >
+          <span>Thông tin thêm <span className="font-normal text-slate-400">(có thể bổ sung sau)</span></span>
+          <ChevronDown className={`h-4 w-4 transition-transform ${advancedOpen ? "rotate-180" : ""}`} />
+        </button>
+        <div className={advancedOpen ? "space-y-4 border-t border-slate-200 px-3 pb-3 pt-3" : "hidden"}>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <Label htmlFor="source">Nguồn khách</Label>
+              <Select id="source" name="source" defaultValue={appointment?.source ?? "MARKETING"}>
+                {Object.entries(SOURCE_LABEL).map(([k, v]) => (
+                  <option key={k} value={k}>
+                    {v}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="sourceDetail">Chi tiết nguồn</Label>
+              <Input id="sourceDetail" name="sourceDetail" placeholder="VD: CTV Ngọc Hân, chiến dịch Hè…" defaultValue={appointment?.sourceDetail ?? ""} />
+            </div>
+          </div>
 
-      <div>
-        <Label>Người tư vấn phụ trách (nếu có)</Label>
-        <Combobox
-          name="consultantId"
-          defaultValue={appointment?.consultantId ?? ""}
-          placeholder="— Chưa phân công —"
-          options={[
-            { value: "", label: "— Chưa phân công —" },
-            ...consultants.map((c) => ({ value: c.id, label: c.fullName })),
-          ]}
-        />
-      </div>
+          <div>
+            <Label>Người tư vấn phụ trách (nếu có)</Label>
+            <Combobox
+              name="consultantId"
+              defaultValue={appointment?.consultantId ?? ""}
+              placeholder="— Chưa phân công —"
+              options={[
+                { value: "", label: "— Chưa phân công —" },
+                ...consultants.map((c) => ({ value: c.id, label: c.fullName })),
+              ]}
+            />
+          </div>
 
-      <div>
-        <Label htmlFor="note">Ghi chú</Label>
-        <Textarea id="note" name="note" placeholder="Yêu cầu đặc biệt của khách…" defaultValue={appointment?.note ?? ""} />
+          <div>
+            <Label htmlFor="note">Ghi chú</Label>
+            <Textarea id="note" name="note" placeholder="Yêu cầu đặc biệt của khách…" defaultValue={appointment?.note ?? ""} />
+          </div>
+        </div>
       </div>
 
       {state.error && (
