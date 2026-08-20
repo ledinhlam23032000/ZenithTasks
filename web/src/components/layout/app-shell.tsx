@@ -50,6 +50,7 @@ import { ChangePasswordModal } from "./change-password";
 import { CommandPalette } from "./command-palette";
 import { RouteProgress } from "./route-progress";
 import { PushNotificationButton } from "@/components/push-notification-button";
+import type { Role } from "@/generated/prisma/client";
 
 const ICONS: Record<string, LucideIcon> = {
   LayoutDashboard,
@@ -84,7 +85,7 @@ const ICONS: Record<string, LucideIcon> = {
 };
 
 export type NavItemData = { href: string; label: string; icon: string; group: string };
-export type ShellUser = { fullName: string; roleLabel: string; username: string; avatarUrl?: string | null };
+export type ShellUser = { fullName: string; role: Role; roleLabel: string; username: string; avatarUrl?: string | null };
 
 export function AppShell({
   user,
@@ -162,7 +163,14 @@ export function AppShell({
     return groups;
   }, {});
   // Trợ lý AI đứng ngay thanh đáy nếu tài khoản có quyền (đặc biệt cho Cổ đông).
-  const preferredMobileHrefs = ["/dashboard", "/tro-ly", "/viec-hom-nay", "/lich-hen"];
+  const preferredMobileHrefs =
+    user.role === "RECEPTION" || user.role === "TELESALE"
+      ? ["/dau-ca", "/tiep-nhan", "/lich-hen", "/viec-hom-nay"]
+      : user.role === "DOCTOR" || user.role === "CONSULTANT"
+        ? ["/viec-hom-nay", "/lich-hen", "/ho-so", "/khach-hang"]
+        : user.role === "CARE"
+          ? ["/viec-hom-nay", "/cham-soc", "/cham-soc/hop-thu", "/khach-hang"]
+          : ["/dashboard", "/tro-ly", "/viec-hom-nay", "/lich-hen"];
   const mobileNav = preferredMobileHrefs
     .map((href) => nav.find((item) => item.href === href))
     .filter((item): item is NavItemData => Boolean(item));
