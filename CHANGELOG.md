@@ -2,6 +2,23 @@
 
 Tài liệu này ghi các thay đổi đã được đẩy lên nhánh `master`. Commit mới hơn nằm ở phía trên. Phiên bản mô tả đầy đủ hiện tại nằm trong [`VERSION.md`](VERSION.md).
 
+## 2026-08-21 — `2026.08.21-r11`
+
+Commit master: [`d31e564`](https://github.com/ledinhlam23032000/ZenithTasks/commit/d31e564). Pull request: [#32](https://github.com/ledinhlam23032000/ZenithTasks/pull/32).
+
+### Nhân sự và Cộng tác viên
+
+- Tách Cộng tác viên khỏi khu vực phân tích thành mục quản trị riêng; admin tạo hồ sơ CTV kèm tài khoản và mật khẩu đăng nhập.
+- Thêm định danh `collaboratorId` cho khách, lead, lịch hẹn, hồ sơ điều trị, payout và chứng từ; dữ liệu CTV cũ được backfill theo tên khớp duy nhất. Đổi thông tin CTV đồng bộ phần hiển thị lịch sử nhưng không tính lại tiền.
+- Thêm cổng `/cong-tac-vien-cua-toi`: CTV chỉ thấy khách thuộc mình trong cửa sổ 6 tháng và hoa hồng của mình; số điện thoại chỉ hiển thị 5 số cuối. Quyền được chặn ở server-side.
+- Tách Nhân sự thành Đang làm/Đã nghỉ việc. Nghỉ việc khóa tài khoản và toàn bộ quyền nhưng giữ nguyên lịch sử; thay đổi vai trò/chức danh/phòng ban ghi `StaffRoleHistory` và audit trên cùng tài khoản.
+- Migration `20260821150000_ctv_identity_staff_lifecycle` là additive, chưa chạy production.
+
+### Kiểm tra và bàn giao
+
+- Prisma generate, TypeScript, Vitest **53 file / 332 test**, Next production build và CI PR #32 đều đạt.
+- PR #32 đã squash merge vào `master`; chưa chạy backup, migration hoặc restart production.
+
 ## 2026-08-21 — Quản trị gọn hơn: mục Hệ thống
 
 ### Menu và vận hành quản trị

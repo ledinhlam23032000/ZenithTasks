@@ -59,6 +59,7 @@ export function EditStaffButton({ staff }: { staff: EditableStaff }) {
               </Field>
               <Field label="SĐT nội bộ"><Input name="phone" inputMode="tel" defaultValue={staff.phone} /></Field>
               <Field label="Chức danh"><Input name="position" defaultValue={staff.position} placeholder="VD: Bác sĩ chính" /></Field>
+              <Field label="Ghi chú thăng chức"><Input name="promotionNote" placeholder="VD: Được giao thêm quyền quản lý ca" /></Field>
             </div>
           </Section>
 

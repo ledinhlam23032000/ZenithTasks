@@ -1,10 +1,10 @@
 # ZenithTasks — Trạng thái phiên bản hiện tại
 
-> **Phiên bản nội bộ:** `2026.08.21-r10`<br>
-> **Commit master:** [`983a447`](https://github.com/ledinhlam23032000/ZenithTasks/commit/983a447)<br>
-> **PR gần nhất:** [#29](https://github.com/ledinhlam23032000/ZenithTasks/pull/29), [#30](https://github.com/ledinhlam23032000/ZenithTasks/pull/30)<br>
+> **Phiên bản nội bộ:** `2026.08.21-r11`<br>
+> **Commit master:** [`bb3a269`](https://github.com/ledinhlam23032000/ZenithTasks/commit/bb3a269)<br>
+> **PR gần nhất:** [#32](https://github.com/ledinhlam23032000/ZenithTasks/pull/32)<br>
 > **Ngày cập nhật:** 21/08/2026<br>
-> **Trạng thái:** Code đã merge master, CI xanh, test/build đạt. Release này bổ sung Phiếu tư vấn điện tử tự sinh có checklist tiền sử và editor/in ấn, backfill dữ liệu lịch sử, hợp nhất Thu chi–Đề nghị thanh toán và bản in thanh toán được căn chỉnh thẩm mỹ. **Chưa xác nhận triển khai production**; cần chạy `windows\\Sua-Loi.bat` và smoke test trên máy vận hành. Bộ tài liệu tiếp quản chuẩn nằm tại [`docs/INDEX.md`](docs/INDEX.md), bản đồ năng lực nằm tại [`docs/PRODUCT-CAPABILITIES.md`](docs/PRODUCT-CAPABILITIES.md).
+> **Trạng thái:** Bản vá Nhân sự–Cộng tác viên đã merge master, CI xanh, test/build đạt. Bổ sung cổng đăng nhập CTV, đồng bộ định danh CTV, trạng thái nghỉ việc và lịch sử thăng chức. **Chưa xác nhận triển khai production**; migration cần backup và `prisma migrate deploy` riêng trên máy vận hành. Bộ tài liệu tiếp quản chuẩn nằm tại [`docs/INDEX.md`](docs/INDEX.md), bản đồ năng lực nằm tại [`docs/PRODUCT-CAPABILITIES.md`](docs/PRODUCT-CAPABILITIES.md).
 
 ## Quy tắc đọc tài liệu
 
@@ -40,17 +40,18 @@
 | `20260817170000_conversation_workflow` | Lưu trạng thái hội thoại, người phụ trách, thời điểm tin đến và hạn SLA. |
 | `20260818100000_finance_consultation_hr_ai` | Thêm hoa hồng điều chỉnh riêng, chứng từ thanh toán, sổ tư vấn điện tử nền, thỏa thuận nhân sự, file/feedback AI. **Đã áp dụng trên production ngày 18/08/2026.** |
 | `20260821130000_consultation_print_overrides` | Lưu nội dung chỉnh riêng cho bản in Phiếu tư vấn; migration additive, không thay đổi dữ liệu nguồn. **Đã merge master, chưa xác nhận production.** |
+| `20260821150000_ctv_identity_staff_lifecycle` | Thêm role CTV, liên kết CTV theo ID, cửa sổ hiển thị 6 tháng, trạng thái nghỉ việc/lịch sử thăng chức và liên kết payout; additive, có backfill tên khớp duy nhất. **Đã merge master, chưa xác nhận production.** |
 | `20260818120000_ai_admin_gateway` | Lưu AssistantConversation/AssistantMessage, liên kết approval với conversation và hỗ trợ chấm công hàng loạt qua AI. **Đã áp dụng trên production ngày 18/08/2026.** |
 
 Migration là **bổ sung dữ liệu, không được tự xóa hoặc reset database**. Khi triển khai production phải dùng `prisma migrate deploy`, không dùng `prisma db push`.
 
 ## Kiểm tra chất lượng gần nhất
 
-Release r10 đã được kiểm tra bằng Prisma validate/generate, TypeScript, ESLint, Vitest, shell syntax, Next production build và CI GitHub Actions. PR #29 đạt **52 file test và 329/329 test**; PR #30 có **5 unit test PaymentRequest** và production build đạt. `origin/master` hiện ở merge commit `983a447`. Release này có migration mới cho nội dung in Phiếu tư vấn; chưa được xác nhận đã chạy trên máy production. Khi sửa nghiệp vụ tiền, lương, công nợ, phân quyền, hồ sơ y tế hoặc webhook, phải bổ sung test hồi quy trước khi commit.
+Release r11 đã được kiểm tra bằng Prisma generate, TypeScript, Vitest **53 file / 332 test**, Next production build và CI GitHub Actions của PR #32; CI hậu merge trên master cũng đã thành công. `origin/master` hiện ở commit `bb3a269`. Release này có migration mới cho identity CTV và vòng đời nhân sự; chưa được xác nhận đã chạy trên máy production. Khi sửa nghiệp vụ tiền, lương, công nợ, phân quyền, hồ sơ y tế hoặc webhook, phải bổ sung test hồi quy trước khi commit.
 
 ## Quy trình cập nhật máy vận hành
 
-Trên máy Windows của phòng khám, sao lưu trước nếu bản cập nhật có migration; sau đó chạy `windows\\Sua-Loi.bat` và khởi động lại ứng dụng. Với r10, kiểm tra migration `20260821130000_consultation_print_overrides`, log backfill Phiếu tư vấn/Đề nghị thanh toán và smoke test: đăng nhập, tạo hồ sơ mới, checklist tiền sử, xem/in phiếu tư vấn, Thu chi, Kế toán, bảng lương, QR, hộp thư, AI và backup status tại `/he-thong`. Không chép file `.env` thật lên GitHub.
+Trên máy Windows của phòng khám, sao lưu trước nếu bản cập nhật có migration; sau đó chạy `windows\\Sua-Loi.bat` và khởi động lại ứng dụng. Với r11, kiểm tra migration `20260821150000_ctv_identity_staff_lifecycle`, backfill CTV cũ, đăng nhập CTV, scope khách 6 tháng, mask số điện thoại, đổi thông tin CTV, chuyển nhân sự nghỉ việc và thăng chức. Sau đó smoke test đăng nhập quản trị, một hồ sơ, bảng lương, QR, hộp thư, AI và backup status tại `/he-thong`. Không chép file `.env` thật lên GitHub.
 
 ## Những phần chưa tự động hoàn toàn
 

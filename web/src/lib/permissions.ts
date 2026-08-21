@@ -31,7 +31,8 @@ export const MODULES: ModuleDef[] = [
   { key: "khach-tham-khao", href: "/khach-tham-khao", label: "Khách tham khảo", icon: "UserSearch", group: "Khách hàng", roles: ["ADMIN", "MANAGER", "TELESALE", "RECEPTION"] },
   { key: "tiep-nhan", href: "/tiep-nhan", label: "Tiếp nhận khách", icon: "UserPlus", group: "Khách hàng", roles: ["ADMIN", "RECEPTION", "TELESALE"] },
   { key: "cong-no", href: "/cong-no", label: "Sổ công nợ", icon: "Wallet", group: "Khách hàng", roles: ["ADMIN", "MANAGER", "RECEPTION", "CONSULTANT", "SHAREHOLDER"] },
-  { key: "khach-hang", href: "/khach-hang", label: "Hồ sơ khách hàng", icon: "FolderHeart", group: "Khách hàng", roles: ["ADMIN", "MANAGER", "RECEPTION", "CONSULTANT", "DOCTOR", "CARE", "SHAREHOLDER"] },
+  { key: "khach-hang", href: "/khach-hang", label: "Hồ sơ khách hàng", icon: "FolderHeart", group: "Khách hàng", roles: ["ADMIN", "MANAGER", "RECEPTION", "CONSULTANT", "DOCTOR", "CARE", "SHAREHOLDER", "COLLABORATOR"] },
+  { key: "cong-tac-vien-cua-toi", href: "/cong-tac-vien-cua-toi", label: "Khách hàng & hoa hồng", icon: "Handshake", group: "Khách hàng", roles: ["COLLABORATOR"] },
   // "Hồ sơ điều trị" gộp vào "Hồ sơ khách hàng" — ẩn khỏi menu, vẫn là 1 module để phân quyền.
   { key: "ho-so", href: "/ho-so", label: "Hồ sơ điều trị", icon: "FolderHeart", group: "Khách hàng", roles: ["ADMIN", "MANAGER", "CONSULTANT", "DOCTOR", "RECEPTION", "SHAREHOLDER"], hidden: true },
   { key: "cham-soc", href: "/cham-soc", label: "Chăm sóc KH", icon: "MessageCircleHeart", group: "Khách hàng", roles: ["ADMIN", "MANAGER", "CARE", "SHAREHOLDER"] },
@@ -49,7 +50,7 @@ export const MODULES: ModuleDef[] = [
   { key: "ke-hoach", href: "/ke-hoach", label: "Kế hoạch", icon: "ListTree", group: "Trợ Lý", roles: [...PLAN_ROLES] },
   { key: "hieu-suat", href: "/hieu-suat", label: "Hiệu suất nhân sự", icon: "Activity", group: "Phân tích", roles: ["ADMIN", "MANAGER", "SHAREHOLDER"] },
   // Gộp chung tab với "Hiệu suất nhân sự".
-  { key: "cong-tac-vien", href: "/cong-tac-vien", label: "Cộng tác viên", icon: "Handshake", group: "Phân tích", roles: ["ADMIN", "MANAGER", "SHAREHOLDER"], hidden: true },
+  { key: "cong-tac-vien", href: "/cong-tac-vien", label: "Cộng tác viên", icon: "Handshake", group: "Quản trị", roles: ["ADMIN"] },
   { key: "lich-lam-viec", href: "/lich-lam-viec", label: "Lịch làm việc", icon: "CalendarDays", group: "Vận hành", roles: ALL, hidden: true }, // gộp tab với "Chấm công"
   { key: "luong", href: "/luong", label: "Lương & hoa hồng", icon: "Wallet", group: "Vận hành", roles: ["ADMIN", "MANAGER"] },
   { key: "thu-chi", href: "/thu-chi", label: "Thu chi", icon: "Coins", group: "Vận hành", roles: ["ADMIN", "MANAGER", "SHAREHOLDER"] },
@@ -111,6 +112,11 @@ export function parsePerms(raw: unknown): PermOverride {
 
 /** Người dùng có quyền này không (đã tính cả grant/deny tuỳ chỉnh)? */
 export function userCan(user: UserLike, key: string): boolean {
+  // CTV là workspace giới hạn cứng: grant/deny cá nhân không thể mở rộng sang
+  // module quản trị hoặc quyền nhạy cảm.
+  if (user.role === "COLLABORATOR") {
+    return key === "mod:cong-tac-vien-cua-toi" || key === "mod:khach-hang";
+  }
   // Hội thoại có thể chứa thông tin sức khỏe nhạy cảm. Cổ đông không được mở
   // quyền inbox bằng grant tùy chỉnh; đây là ranh giới bắt buộc ở tầng server.
   if (user.role === "SHAREHOLDER" && key.startsWith("inbox.")) return false;
