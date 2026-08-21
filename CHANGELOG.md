@@ -4,7 +4,7 @@ Tài liệu này ghi các thay đổi đã được đẩy lên nhánh `master`.
 
 ## 2026-08-21 — `2026.08.21-r12`: Hồ sơ dịch vụ thẩm mỹ và bản in sạch hơn
 
-Commit master: [`d552e2b`](https://github.com/ledinhlam23032000/ZenithTasks/commit/d552e2bb5a1eb91e2a758c34166d3fdd1d460b13). Pull request: [#34](https://github.com/ledinhlam23032000/ZenithTasks/pull/34).
+Commit master: [`c2f27f5`](https://github.com/ledinhlam23032000/ZenithTasks/commit/c2f27f50a75f86f1cc9ae47193ff76bf11bba321). Bản vá nghiệp vụ: [#34](https://github.com/ledinhlam23032000/ZenithTasks/pull/34); tài liệu release/checkpoint: [#35](https://github.com/ledinhlam23032000/ZenithTasks/pull/35), [#36](https://github.com/ledinhlam23032000/ZenithTasks/pull/36).
 
 ### Giấy tờ hồ sơ điều trị
 
