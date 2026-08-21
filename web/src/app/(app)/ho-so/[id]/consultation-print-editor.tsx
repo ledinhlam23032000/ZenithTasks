@@ -28,9 +28,9 @@ export function ConsultationPrintEditor({ caseId, initial }: { caseId: string; i
   return (
     <>
       <button type="button" onClick={() => { setDraft(initial); setOpen(true); }} className={buttonVariants({ variant: "secondary", size: "sm" })}>
-        <Edit3 className="h-4 w-4" /> Sửa nội dung phiếu
+        <Edit3 className="h-4 w-4" /> Sửa nội dung hồ sơ
       </button>
-      <Modal open={open} onClose={() => !pending && setOpen(false)} title="Sửa nội dung Phiếu tư vấn" size="lg">
+      <Modal open={open} onClose={() => !pending && setOpen(false)} title="Sửa nội dung Hồ sơ dịch vụ thẩm mỹ" size="lg">
         <form action={run} className="space-y-4">
           <input type="hidden" name="caseId" value={caseId} />
           <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800">
@@ -47,9 +47,9 @@ export function ConsultationPrintEditor({ caseId, initial }: { caseId: string; i
             <div><Label htmlFor={`consult-print-result-${caseId}`}>Kết quả dự tính</Label><Textarea id={`consult-print-result-${caseId}`} name="expectedResult" rows={4} value={draft.expectedResult} onChange={(event) => set("expectedResult", event.target.value)} maxLength={3000} /></div>
             <div><Label htmlFor={`consult-print-indication-${caseId}`}>Chỉ định của bác sĩ</Label><Textarea id={`consult-print-indication-${caseId}`} name="doctorIndication" rows={4} value={draft.doctorIndication} onChange={(event) => set("doctorIndication", event.target.value)} maxLength={3000} /></div>
           </div>
-          <div><Label htmlFor={`consult-print-extra-${caseId}`}>Ghi chú bổ sung</Label><Textarea id={`consult-print-extra-${caseId}`} name="extraNote" rows={4} value={draft.extraNote} onChange={(event) => set("extraNote", event.target.value)} maxLength={3000} placeholder="Có thể gõ thêm nội dung cần in trên phiếu…" /></div>
+          <div><Label htmlFor={`consult-print-extra-${caseId}`}>Ghi chú bổ sung</Label><Textarea id={`consult-print-extra-${caseId}`} name="extraNote" rows={4} value={draft.extraNote} onChange={(event) => set("extraNote", event.target.value)} maxLength={3000} placeholder="Có thể gõ thêm nội dung cần in trên hồ sơ…" /></div>
           {state.error && <p className="text-sm text-rose-600">{state.error}</p>}
-          <div className="flex justify-end gap-2"><Button type="button" variant="secondary" onClick={() => setOpen(false)} disabled={pending}>Hủy</Button><button type="submit" disabled={pending} className={buttonVariants()}>{pending && <LoaderCircle className="h-4 w-4 animate-spin" />} Lưu nội dung phiếu</button></div>
+          <div className="flex justify-end gap-2"><Button type="button" variant="secondary" onClick={() => setOpen(false)} disabled={pending}>Hủy</Button><button type="submit" disabled={pending} className={buttonVariants()}>{pending && <LoaderCircle className="h-4 w-4 animate-spin" />} Lưu nội dung hồ sơ</button></div>
         </form>
       </Modal>
     </>

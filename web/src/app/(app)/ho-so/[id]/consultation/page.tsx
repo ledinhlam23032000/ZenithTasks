@@ -5,11 +5,11 @@ import { userCan } from "@/lib/permissions";
 import { canAccessCase } from "@/lib/case-access";
 import { prisma } from "@/lib/db";
 import { buttonVariants } from "@/components/ui/button";
-import { CONSULTATION_PRINT_CSS, consultationPrintDocument, renderConsultationPaper } from "@/lib/consultation-sheet";
+import { CONSULTATION_DOCUMENT_TITLE, CONSULTATION_PRINT_CSS, consultationPrintDocument, renderConsultationPaper } from "@/lib/consultation-sheet";
 import { ConsultationPrintEditor } from "../consultation-print-editor";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Phiếu tư vấn dịch vụ thẩm mỹ" };
+export const metadata = { title: CONSULTATION_DOCUMENT_TITLE };
 
 export default async function ConsultationPreviewPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireCap("mod:ho-so");
@@ -25,10 +25,10 @@ export default async function ConsultationPreviewPage({ params }: { params: Prom
     },
   });
   if (!record || !canAccessCase(user, record, "read")) {
-    return <div className="rounded-xl border border-rose-200 bg-rose-50 p-6 text-rose-700">Không tìm thấy hoặc bạn không có quyền xem phiếu tư vấn.</div>;
+    return <div className="rounded-xl border border-rose-200 bg-rose-50 p-6 text-rose-700">Không tìm thấy hoặc bạn không có quyền xem Hồ sơ dịch vụ thẩm mỹ.</div>;
   }
   if (!record.consultation) {
-    return <div className="space-y-4"><Link href={`/ho-so/${record.id}`} className="text-sm text-brand-600 hover:underline">← Quay lại hồ sơ</Link><div className="rounded-xl border border-amber-200 bg-amber-50 p-6 text-amber-800">Hồ sơ này chưa có Phiếu tư vấn mặc định. Hãy chạy cập nhật ứng dụng để hệ thống backfill tự bổ sung.</div></div>;
+    return <div className="space-y-4"><Link href={`/ho-so/${record.id}`} className="text-sm text-brand-600 hover:underline">← Quay lại hồ sơ</Link><div className="rounded-xl border border-amber-200 bg-amber-50 p-6 text-amber-800">Hồ sơ này chưa có Hồ sơ dịch vụ thẩm mỹ mặc định. Hãy chạy cập nhật ứng dụng để hệ thống tự bổ sung.</div></div>;
   }
 
   const document = consultationPrintDocument(record);
