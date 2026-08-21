@@ -1,10 +1,10 @@
 # ZenithTasks — Trạng thái phiên bản hiện tại
 
-> **Phiên bản nội bộ:** `2026.08.21-r11`<br>
-> **Commit master:** [`bb3a269`](https://github.com/ledinhlam23032000/ZenithTasks/commit/bb3a269)<br>
-> **PR gần nhất:** [#32](https://github.com/ledinhlam23032000/ZenithTasks/pull/32)<br>
+> **Phiên bản nội bộ:** `2026.08.21-r12`<br>
+> **Commit master:** [`d552e2b`](https://github.com/ledinhlam23032000/ZenithTasks/commit/d552e2bb5a1eb91e2a758c34166d3fdd1d460b13)<br>
+> **PR gần nhất:** [#34](https://github.com/ledinhlam23032000/ZenithTasks/pull/34)<br>
 > **Ngày cập nhật:** 21/08/2026<br>
-> **Trạng thái:** Bản vá Nhân sự–Cộng tác viên đã merge master, CI xanh, test/build đạt. Bổ sung cổng đăng nhập CTV, đồng bộ định danh CTV, trạng thái nghỉ việc và lịch sử thăng chức. **Chưa xác nhận triển khai production**; migration cần backup và `prisma migrate deploy` riêng trên máy vận hành. Bộ tài liệu tiếp quản chuẩn nằm tại [`docs/INDEX.md`](docs/INDEX.md), bản đồ năng lực nằm tại [`docs/PRODUCT-CAPABILITIES.md`](docs/PRODUCT-CAPABILITIES.md).
+> **Trạng thái:** Bản vá Hồ sơ dịch vụ thẩm mỹ và bản in sạch hơn đã merge master, CI xanh, test/build đạt. Gộp toàn bộ giấy tờ hồ sơ vào tab Giấy tờ, bỏ dotted filler trong Giấy đề nghị thanh toán, không thêm migration. **Chưa xác nhận triển khai production**; máy vận hành cần chạy `Sua-Loi.bat` và smoke test trước khi dùng thật. Bộ tài liệu tiếp quản chuẩn nằm tại [`docs/INDEX.md`](docs/INDEX.md), bản đồ năng lực nằm tại [`docs/PRODUCT-CAPABILITIES.md`](docs/PRODUCT-CAPABILITIES.md).
 
 ## Quy tắc đọc tài liệu
 
@@ -47,11 +47,11 @@ Migration là **bổ sung dữ liệu, không được tự xóa hoặc reset da
 
 ## Kiểm tra chất lượng gần nhất
 
-Release r11 đã được kiểm tra bằng Prisma generate, TypeScript, Vitest **53 file / 332 test**, Next production build và CI GitHub Actions của PR #32; CI hậu merge trên master cũng đã thành công. `origin/master` hiện ở commit `bb3a269`. Release này có migration mới cho identity CTV và vòng đời nhân sự; chưa được xác nhận đã chạy trên máy production. Khi sửa nghiệp vụ tiền, lương, công nợ, phân quyền, hồ sơ y tế hoặc webhook, phải bổ sung test hồi quy trước khi commit.
+Release r12 đã được kiểm tra bằng Prisma generate, TypeScript, Vitest **53 file / 334 test**, Next production build và CI GitHub Actions của PR #34; CI push/pull request đều thành công. `origin/master` hiện ở commit `d552e2b`. Release này không có migration mới và chưa được xác nhận đã chạy trên máy production. Khi sửa nghiệp vụ tiền, lương, công nợ, phân quyền, hồ sơ y tế hoặc webhook, phải bổ sung test hồi quy trước khi commit.
 
 ## Quy trình cập nhật máy vận hành
 
-Trên máy Windows của phòng khám, sao lưu trước nếu bản cập nhật có migration; sau đó chạy `windows\\Sua-Loi.bat` và khởi động lại ứng dụng. Với r11, kiểm tra migration `20260821150000_ctv_identity_staff_lifecycle`, backfill CTV cũ, đăng nhập CTV, scope khách 6 tháng, mask số điện thoại, đổi thông tin CTV, chuyển nhân sự nghỉ việc và thăng chức. Sau đó smoke test đăng nhập quản trị, một hồ sơ, bảng lương, QR, hộp thư, AI và backup status tại `/he-thong`. Không chép file `.env` thật lên GitHub.
+Trên máy Windows của phòng khám, sao lưu trước nếu bản cập nhật có migration; sau đó chạy `windows\\Sua-Loi.bat` và khởi động lại ứng dụng. Với r12, chạy smoke test đăng nhập quản trị, mở một hồ sơ điều trị, vào tab Giấy tờ, kiểm tra Hồ sơ dịch vụ thẩm mỹ, nút +, Phiếu đồng ý, tải tài liệu bổ sung và bản in Giấy đề nghị thanh toán. Sau đó kiểm tra Thu chi, Kế toán, Hệ thống và backup status tại `/he-thong`. Không chép file `.env` thật lên GitHub.
 
 ## Những phần chưa tự động hoàn toàn
 
