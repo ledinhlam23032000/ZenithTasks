@@ -4,6 +4,8 @@ import { toNum } from "./money";
 import { loadCaseFinancials } from "./financial-summary-db";
 import { debtPlanStatus } from "./debt-plan";
 import type { Tone } from "@/components/ui/badge";
+import type { SafeUser } from "@/lib/auth";
+import { moduleCan, userCan } from "@/lib/permissions";
 
 // ============================================================================
 // "VIỆC CẦN LÀM HÔM NAY" (B1 — lõi) — tổng hợp việc TỪ DỮ LIỆU SẴN CÓ (không đổi
@@ -33,6 +35,7 @@ export type WorkItem = {
   collect?: { caseId: string; caseCode: string; customerName: string; debt: number };
   // Nếu có: cho phép "Xác nhận đã đến" ngay trên dòng (chỉ dùng cho nhóm tái khám).
   arrive?: { id: string; caseId: string };
+  nextAction?: { label: string; href: string };
 };
 export type WorkSection = { key: string; label: string; hint: string; tone: Tone; icon: string; count: number; items: WorkItem[] };
 
@@ -40,14 +43,17 @@ function maskTail(last5: string | null | undefined): string {
   return last5 ? `••• ${last5}` : "";
 }
 
-export async function getWorkqueue(): Promise<{ sections: WorkSection[]; total: number }> {
+export async function getWorkqueue(user?: Pick<SafeUser, "role" | "permissions">): Promise<{ sections: WorkSection[]; total: number }> {
   const now = new Date();
+  const canSeeCustomers = !user || moduleCan(user, "/khach-hang");
+  const canSeeFinance = !user || userCan(user, "payment.add");
+  const canSeeStock = !user || moduleCan(user, "/kho");
   const todayStart = startOfDay(now);
   const todayEnd = endOfDay(now);
   const followUpEnd = endOfDay(addDays(now, FOLLOWUP_LOOKAHEAD_DAYS));
   const debtBefore = subDays(now, DEBT_OVERDUE_DAYS);
 
-  const [followUps, todayAppts, debtors, materials, birthdays, cold] = await Promise.all([
+  const [followUps, todayAppts, debtors, materials, birthdays, cold, newCustomers] = await Promise.all([
     prisma.followUp.findMany({
       where: { scheduledAt: { gte: todayStart, lte: followUpEnd }, doneAt: null, status: { in: ["BOOKED", "CONFIRMED"] } },
       orderBy: { scheduledAt: "asc" },
@@ -88,9 +94,20 @@ export async function getWorkqueue(): Promise<{ sections: WorkSection[]; total: 
       HAVING MAX(cr."createdAt") < now() - make_interval(days => ${COLD_DAYS})
       ORDER BY last DESC
       LIMIT 30`,
+    canSeeCustomers
+      ? prisma.customer.findMany({
+          where: {
+            createdAt: { gte: subDays(now, 7) },
+            appointments: { none: { scheduledAt: { gte: now }, status: { in: ["BOOKED", "CONFIRMED"] } } },
+          },
+          orderBy: { createdAt: "desc" },
+          take: TAKE,
+          select: { id: true, fullName: true, phoneLast5: true, code: true, createdAt: true },
+        })
+      : Promise.resolve([]),
   ]);
 
-  const debtFinancials = await loadCaseFinancials(debtors.map((d) => d.id));
+  const debtFinancials = canSeeFinance ? await loadCaseFinancials(debtors.map((d) => d.id)) : new Map();
   const currentDebtors = debtors
     .map((d) => ({ ...d, debt: debtFinancials.get(d.id)?.debt ?? 0 }))
     .filter((d) => d.debt > 0)
@@ -100,7 +117,7 @@ export async function getWorkqueue(): Promise<{ sections: WorkSection[]; total: 
   // Kho cảnh báo (tái dùng logic trang Kho).
   const soon = new Date(now.getTime() + 30 * 86400000);
   const stockAlerts: WorkItem[] = [];
-  for (const m of materials) {
+  for (const m of canSeeStock ? materials : []) {
     const stock = toNum(m.stock);
     const min = toNum(m.minStock);
     const exp = m.expiryDate ? new Date(m.expiryDate) : null;
@@ -150,12 +167,21 @@ export async function getWorkqueue(): Promise<{ sections: WorkSection[]; total: 
     });
   }
 
+  const newCustomerItems: WorkItem[] = newCustomers.map((c) => ({
+    id: c.id,
+    title: c.fullName,
+    subtitle: `${c.code} ${maskTail(c.phoneLast5)} · tạo ${fmtTime(c.createdAt)}`.trim(),
+    href: `/khach-hang/${c.id}`,
+    badge: "Mới",
+    nextAction: { label: "Đặt lịch", href: `/lich-hen?customerId=${c.id}` },
+  }));
+
   const sections: WorkSection[] = [
     {
       key: "follow-up",
       label: "Tái khám đến hạn",
       hint: "Gọi nhắc khách lịch tái khám sắp tới.",
-      tone: "purple",
+      tone: "purple" as Tone,
       icon: "CalendarClock",
       count: followUps.length,
       items: followUps.map((f) => ({
@@ -170,7 +196,7 @@ export async function getWorkqueue(): Promise<{ sections: WorkSection[]; total: 
       key: "today-appt",
       label: "Hẹn hôm nay chưa đến",
       hint: "Gọi xác nhận để giảm khách hẹn không đến.",
-      tone: "blue",
+      tone: "blue" as Tone,
       icon: "CalendarCheck",
       count: todayAppts.length,
       items: todayAppts.map((a) => ({
@@ -180,20 +206,29 @@ export async function getWorkqueue(): Promise<{ sections: WorkSection[]; total: 
         href: "/lich-hen",
       })),
     },
-    {
+    ...(canSeeFinance ? [{
       key: "debt",
       label: "Công nợ cần thu",
       hint: `Nợ quá ${DEBT_OVERDUE_DAYS} ngày, chưa có hẹn trả góp hoặc đang chậm hẹn.`,
-      tone: "red",
+      tone: "red" as Tone,
       icon: "Wallet",
       count: debtItems.length,
       items: debtItems,
-    },
+    }] : []),
+    ...(newCustomerItems.length > 0 ? [{
+      key: "new-customer",
+      label: "Khách mới chưa có lịch",
+      hint: "Đặt lịch ngay để không bỏ sót khách vừa tiếp nhận.",
+      tone: "blue" as Tone,
+      icon: "UserPlus",
+      count: newCustomerItems.length,
+      items: newCustomerItems,
+    }] : []),
     {
       key: "birthday",
       label: "Sinh nhật khách hôm nay",
       hint: "Gửi lời chúc / ưu đãi để gắn kết.",
-      tone: "pink",
+      tone: "pink" as Tone,
       icon: "MessageCircleHeart",
       count: birthdays.length,
       items: birthdays.map((b) => ({
@@ -207,7 +242,7 @@ export async function getWorkqueue(): Promise<{ sections: WorkSection[]; total: 
       key: "cold",
       label: "Khách lâu chưa quay lại",
       hint: `Hơn ${COLD_DAYS} ngày chưa đến, chưa có lịch tái khám — mời quay lại.`,
-      tone: "amber",
+      tone: "amber" as Tone,
       icon: "Users",
       count: cold.length,
       items: cold.map((c) => ({
@@ -217,15 +252,15 @@ export async function getWorkqueue(): Promise<{ sections: WorkSection[]; total: 
         href: `/khach-hang/${c.id}`,
       })),
     },
-    {
+    ...(canSeeStock ? [{
       key: "stock",
       label: "Kho cần xử lý",
       hint: "Tồn thấp hoặc sắp / đã hết hạn.",
-      tone: "amber",
+      tone: "amber" as Tone,
       icon: "Boxes",
       count: stockAlerts.length,
       items: stockAlerts,
-    },
+    }] : []),
   ];
 
   const total = sections.reduce((s, x) => s + x.count, 0);

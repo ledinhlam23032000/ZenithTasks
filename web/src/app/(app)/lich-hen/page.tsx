@@ -6,7 +6,7 @@ import { requireCap } from "@/lib/auth";
 import { AutoRefresh } from "@/components/ui/auto-refresh";
 import { prisma } from "@/lib/db";
 import { dayRange, todayRange, tomorrowRange } from "@/lib/dates";
-import { getActiveServices, getConsultants } from "@/lib/lookups";
+import { getActiveServices, getConsultants, getActiveCollaborators } from "@/lib/lookups";
 import { maskPhone } from "@/lib/phone";
 import { fmtTime, fmtDayLabel, toDatetimeLocal } from "@/lib/format";
 import { APPT_TYPE, APPT_STATUS, SOURCE_LABEL } from "@/lib/status";
@@ -49,7 +49,7 @@ export default async function AppointmentsPage({
   const dateKey = format(day, "yyyy-MM-dd");
   const view = sp.view === "month" ? "month" : "day";
 
-  const [appts, todayCount, tomorrowCount, services, consultants, followUps, todayFollowUpCount, tomorrowFollowUpCount] =
+  const [appts, todayCount, tomorrowCount, services, consultants, collaborators, followUps, todayFollowUpCount, tomorrowFollowUpCount] =
     await Promise.all([
       prisma.appointment.findMany({
         where: { scheduledAt: dayRange(day) },
@@ -64,6 +64,7 @@ export default async function AppointmentsPage({
       prisma.appointment.count({ where: { scheduledAt: tomorrowRange() } }),
       getActiveServices(),
       getConsultants(),
+      getActiveCollaborators(),
       // Lịch tái khám (đặt từ hồ sơ điều trị) — trước đây trang này chỉ đọc bảng Appointment
       // nên tái khám đặt cho khách cũ KHÔNG BAO GIỜ hiện ở đây, dù vẫn lưu đúng trong DB
       // (thấy được ở thẻ Tái khám của hồ sơ/khách hàng và "Việc cần làm hôm nay").
@@ -138,6 +139,7 @@ export default async function AppointmentsPage({
             <NewAppointmentButton
               services={services.map((s) => ({ id: s.id, name: s.name }))}
               consultants={consultants}
+              collaborators={collaborators}
               defaultDateTime={toDatetimeLocal(new Date(new Date().setHours(9, 0, 0, 0)))}
             />
           ) : undefined
@@ -342,11 +344,13 @@ export default async function AppointmentsPage({
                               serviceInterest: appointment.serviceInterest ?? "",
                               source: appointment.source,
                               sourceDetail: appointment.sourceDetail ?? "",
+                              collaboratorId: appointment.collaboratorId ?? "",
                               consultantId: appointment.consultantId ?? "",
                               note: appointment.note ?? "",
                             }}
                             services={services.map((service) => ({ id: service.id, name: service.name }))}
                             consultants={consultants}
+                            collaborators={collaborators}
                           />
                           <DeleteButton
                             action={deleteAppointment}
@@ -488,11 +492,13 @@ export default async function AppointmentsPage({
                                   serviceInterest: a.serviceInterest ?? "",
                                   source: a.source,
                                   sourceDetail: a.sourceDetail ?? "",
+                                  collaboratorId: a.collaboratorId ?? "",
                                   consultantId: a.consultantId ?? "",
                                   note: a.note ?? "",
                                 }}
                                 services={services.map((s) => ({ id: s.id, name: s.name }))}
                                 consultants={consultants}
+                                collaborators={collaborators}
                               />
                               <DeleteButton
                                 action={deleteAppointment}

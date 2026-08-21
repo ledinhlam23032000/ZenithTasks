@@ -36,6 +36,26 @@ export function paymentRequestStatusLabel(status: string): string {
   return PAYMENT_REQUEST_STATUS_LABEL[status] ?? status;
 }
 
+export type PaymentRequestStatus = "DRAFT" | "PENDING" | "APPROVED" | "REJECTED" | "PAID" | "CANCELLED";
+
+const PAYMENT_REQUEST_TRANSITIONS: Record<PaymentRequestStatus, PaymentRequestStatus[]> = {
+  DRAFT: ["PENDING", "CANCELLED"],
+  PENDING: ["APPROVED", "REJECTED", "CANCELLED"],
+  APPROVED: ["PAID", "CANCELLED"],
+  REJECTED: ["DRAFT", "CANCELLED"],
+  PAID: [],
+  CANCELLED: [],
+};
+
+export function canTransitionPaymentRequest(from: string, to: PaymentRequestStatus): boolean {
+  return (PAYMENT_REQUEST_TRANSITIONS[from as PaymentRequestStatus] ?? []).includes(to);
+}
+
+export function paymentRequestTransitionError(from: string, to: PaymentRequestStatus): string | null {
+  if (canTransitionPaymentRequest(from, to)) return null;
+  return `Không thể chuyển chứng từ từ ${paymentRequestStatusLabel(from)} sang ${paymentRequestStatusLabel(to)}.`;
+}
+
 export type CashbookPaymentRequestDetails = {
   category: string;
   note?: string | null;

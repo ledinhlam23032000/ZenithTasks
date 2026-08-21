@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { Send, LoaderCircle, Sparkles, X } from "lucide-react";
 import { Input, Textarea } from "@/components/ui/field";
 import { buttonVariants } from "@/components/ui/button";
@@ -24,10 +24,32 @@ const AI_PURPOSES: { key: string; label: string }[] = [
 export function MessageComposer({ conversationId, aiEnabled, disabled, disabledReason }: { conversationId: string; aiEnabled: boolean; disabled?: boolean; disabledReason?: string }) {
   const formRef = useRef<HTMLFormElement>(null);
   const [text, setText] = useState("");
+  const draftKey = `zenith:conversation-draft:${conversationId}`;
   const [state, action, pending] = useFormAction(sendChannelReply, () => {
     formRef.current?.reset();
     setText("");
+    window.localStorage.removeItem(draftKey);
   });
+
+  useEffect(() => {
+    const saved = window.localStorage.getItem(draftKey);
+    if (saved) setText(saved);
+  }, [draftKey]);
+
+  useEffect(() => {
+    if (text.trim()) window.localStorage.setItem(draftKey, text);
+    else window.localStorage.removeItem(draftKey);
+  }, [draftKey, text]);
+
+  useEffect(() => {
+    function warnBeforeLeave(event: BeforeUnloadEvent) {
+      if (!text.trim()) return;
+      event.preventDefault();
+      event.returnValue = "";
+    }
+    window.addEventListener("beforeunload", warnBeforeLeave);
+    return () => window.removeEventListener("beforeunload", warnBeforeLeave);
+  }, [text]);
 
   const [aiOpen, setAiOpen] = useState(false);
   const [aiNote, setAiNote] = useState("");

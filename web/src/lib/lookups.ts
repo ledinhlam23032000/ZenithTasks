@@ -35,6 +35,14 @@ export async function getNurses() {
   });
 }
 
+export async function getActiveCollaborators() {
+  return prisma.collaborator.findMany({
+    where: { active: true },
+    orderBy: { name: "asc" },
+    select: { id: true, name: true },
+  });
+}
+
 export async function getActiveMaterials() {
   return prisma.material.findMany({
     where: { active: true },

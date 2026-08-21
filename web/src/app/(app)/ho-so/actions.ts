@@ -249,6 +249,7 @@ export async function updateCaseInfo(_prev: CaseActionState, formData: FormData)
   const d = parsed.data;
 
   await withCaseLock(d.caseId, async (tx) => {
+    const before = await tx.caseRecord.findUnique({ where: { id: d.caseId }, select: { customerId: true, status: true } });
     await tx.caseRecord.update({
       where: { id: d.caseId },
       data: {
@@ -262,6 +263,19 @@ export async function updateCaseInfo(_prev: CaseActionState, formData: FormData)
         completedAt: d.status === "COMPLETED" ? new Date() : null,
       },
     });
+    if (d.status === "COMPLETED" && before?.status !== "COMPLETED" && before?.customerId) {
+      const hasFutureFollowUp = await tx.followUp.findFirst({
+        where: { caseId: d.caseId, scheduledAt: { gte: new Date() }, status: { in: ["BOOKED", "CONFIRMED"] } },
+        select: { id: true },
+      });
+      if (!hasFutureFollowUp) {
+        const scheduledAt = new Date(Date.now() + 30 * 86_400_000);
+        const followUp = await tx.followUp.create({
+          data: { caseId: d.caseId, customerId: before.customerId, scheduledAt, note: "Tự tạo sau khi hồ sơ hoàn tất — nhân sự có thể điều chỉnh lịch.", createdById: user.id },
+        });
+        await auditRequired(tx, user.id, "AUTO_CREATE_FOLLOW_UP", { entity: "FollowUp", entityId: followUp.id, meta: { caseId: d.caseId, scheduledAt: scheduledAt.toISOString() } });
+      }
+    }
     await auditRequired(tx, user.id, "UPDATE_CASE_INFO", { entity: "CaseRecord", entityId: d.caseId, meta: { status: d.status, consultResult: d.consultResult } });
   });
   return { ok: true, nonce: Date.now() };

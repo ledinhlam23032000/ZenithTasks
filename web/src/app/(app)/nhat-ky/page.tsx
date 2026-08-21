@@ -14,21 +14,13 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Pagination } from "@/components/ui/pagination";
 import { ExportMenu } from "@/components/ui/export-menu";
 import { buttonVariants } from "@/components/ui/button";
+import { formatAuditMeta } from "@/lib/audit-meta";
 import type { Prisma } from "@/generated/prisma/client";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Nhật ký hệ thống" };
 
 const ACTION = AUDIT_ACTION_LABEL;
-
-function metaText(meta: unknown): string {
-  if (!meta || typeof meta !== "object") return "";
-  const o = meta as Record<string, unknown>;
-  const parts: string[] = [];
-  if (o.amount != null) parts.push(`Số tiền: ${Number(o.amount).toLocaleString("vi-VN")} đ`);
-  if (o.code) parts.push(`Mã: ${String(o.code)}`);
-  return parts.join(" · ");
-}
 
 export default async function AuditLogPage({
   searchParams,
@@ -175,7 +167,7 @@ export default async function AuditLogPage({
                       <TD>
                         <Badge tone={a.tone}>{a.label}</Badge>
                       </TD>
-                      <TD className="text-slate-500">{[l.entity, metaText(l.meta)].filter(Boolean).join(" · ") || "—"}</TD>
+                      <TD className="text-slate-500">{[l.entity, formatAuditMeta(l.meta)].filter(Boolean).join(" · ") || "—"}</TD>
                       <TD className="text-slate-400">{l.ip ?? "—"}</TD>
                     </TR>
                   );

@@ -24,10 +24,16 @@ export default async function ReceptionPage({ searchParams }: { searchParams: Pr
   const sp = await searchParams;
   const q = (sp.q ?? "").trim();
   const validQuery = isValidLast5(q);
+  const searchableQuery = q.length >= 2;
+  const customerWhere = validQuery
+    ? { phoneLast5: q }
+    : searchableQuery
+      ? { OR: [{ fullName: { contains: q, mode: "insensitive" as const } }, { code: { contains: q, mode: "insensitive" as const } }] }
+      : null;
 
-  const matches = validQuery
+  const matches = customerWhere
     ? await prisma.customer.findMany({
-        where: { phoneLast5: q },
+        where: customerWhere,
         orderBy: { createdAt: "desc" },
         select: {
           id: true,
@@ -38,7 +44,13 @@ export default async function ReceptionPage({ searchParams }: { searchParams: Pr
           source: true,
           createdAt: true,
           _count: { select: { cases: true } },
-          cases: { orderBy: { createdAt: "desc" }, take: 1, select: { createdAt: true } },
+          cases: { orderBy: { createdAt: "desc" }, take: 1, select: { id: true, code: true, status: true, debtAmount: true, createdAt: true } },
+          appointments: {
+            where: { scheduledAt: { gte: new Date() }, status: { in: ["BOOKED", "CONFIRMED"] } },
+            orderBy: { scheduledAt: "asc" },
+            take: 1,
+            select: { scheduledAt: true, serviceInterest: true },
+          },
         },
       })
     : [];
@@ -49,15 +61,16 @@ export default async function ReceptionPage({ searchParams }: { searchParams: Pr
     take: 12,
     include: { customer: { select: { id: true, fullName: true, phoneLast5: true } } },
   });
+  const collaborators = await prisma.collaborator.findMany({ where: { active: true }, select: { id: true, name: true }, orderBy: { name: "asc" } });
 
   return (
     <div className="space-y-6">
       <AutoRefresh />
       <PageHeader
         title="Tiếp nhận khách"
-        description="Tra cứu khách theo 5 số cuối điện thoại. Nếu chưa có, lập hồ sơ mới và chuyển cho tư vấn — bác sĩ."
+        description="Tìm theo tên, mã khách hoặc 5 số cuối điện thoại. Nếu chưa có, lập hồ sơ mới và chuyển cho tư vấn — bác sĩ."
         icon={<UserPlus className="h-5 w-5" />}
-        actions={<NewCustomerButton />}
+        actions={<NewCustomerButton collaborators={collaborators} />}
       />
 
       {/* Ô tra cứu 5 số cuối */}
@@ -65,7 +78,7 @@ export default async function ReceptionPage({ searchParams }: { searchParams: Pr
         <CardContent className="py-6">
           <form action="/tiep-nhan" className="mx-auto max-w-xl">
             <label className="mb-2 block text-center text-sm font-medium text-slate-600">
-              Nhập 5 số cuối điện thoại của khách để tra cứu hồ sơ
+              Tìm khách theo tên, mã khách hoặc 5 số cuối điện thoại
             </label>
             <div className="flex items-center gap-2">
               <div className="relative flex-1">
@@ -73,10 +86,9 @@ export default async function ReceptionPage({ searchParams }: { searchParams: Pr
                 <input
                   name="q"
                   defaultValue={q}
-                  inputMode="numeric"
-                  maxLength={5}
+                  inputMode="search"
                   autoFocus
-                  placeholder="VD: 12345"
+                  placeholder="VD: Nguyễn Thị A, KH000123 hoặc 12345"
                   className="h-12 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-4 text-lg tracking-widest text-slate-900 shadow-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
                 />
               </div>
@@ -90,10 +102,10 @@ export default async function ReceptionPage({ searchParams }: { searchParams: Pr
       </Card>
 
       {/* Kết quả tra cứu */}
-      {q !== "" && !validQuery && (
+      {q !== "" && !searchableQuery && (
         <Card>
           <CardContent className="flex items-center gap-2 py-4 text-sm text-amber-700">
-            <Info className="h-4 w-4" /> Vui lòng nhập đúng 5 chữ số cuối của số điện thoại.
+              <Info className="h-4 w-4" /> Nhập ít nhất 2 ký tự tên/mã hoặc đủ 5 số cuối điện thoại để tra cứu.
           </CardContent>
         </Card>
       )}
@@ -111,7 +123,7 @@ export default async function ReceptionPage({ searchParams }: { searchParams: Pr
                 icon={<UserPlus className="h-6 w-6" />}
                 title="Không tìm thấy khách với 5 số cuối này"
                 description="Đây có thể là khách mới. Hãy lập hồ sơ và bổ sung thông tin cơ bản."
-                action={<NewCustomerButton label="Lập hồ sơ khách mới" />}
+                action={<NewCustomerButton label="Lập hồ sơ khách mới" collaborators={collaborators} />}
               />
             ) : (
               <div className="grid gap-3 sm:grid-cols-2">
@@ -185,12 +197,14 @@ export default async function ReceptionPage({ searchParams }: { searchParams: Pr
                       <NewCustomerButton
                         label="Tạo hồ sơ"
                         variant="secondary"
-                        prefill={{
+                          prefill={{
                           fullName: a.guestName ?? "",
                           source: a.source,
                           sourceDetail: a.sourceDetail ?? "",
+                          collaboratorId: a.collaboratorId ?? "",
                           note: [a.serviceInterest, a.note].filter(Boolean).join(" · "),
                         }}
+                        collaborators={collaborators}
                       />
                     )}
                   </li>

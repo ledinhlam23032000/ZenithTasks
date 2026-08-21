@@ -32,7 +32,7 @@ export async function revealAppointmentPhone(appointmentId: string): Promise<Rev
 }
 
 // `conflict: true` → form hiện cảnh báo trùng lịch + nút "Vẫn đặt" (gửi lại kèm force=1).
-export type ApptFormState = { ok?: boolean; error?: string; conflict?: boolean };
+export type ApptFormState = { ok?: boolean; error?: string; conflict?: boolean; suggestions?: string[] };
 
 // Trạng thái coi là CÒN HIỆU LỰC khi xét trùng lịch (đã hủy / không đến / xong thì bỏ qua).
 const ACTIVE_STATUSES: AppointmentStatus[] = ["BOOKED", "CONFIRMED", "ARRIVED", "IN_CONSULT", "IN_SERVICE"];
@@ -45,7 +45,7 @@ async function consultantConflictMessage(
   consultantId: string,
   when: Date,
   excludeId?: string,
-): Promise<string | null> {
+): Promise<{ message: string; suggestions: string[] } | null> {
   const dayStart = new Date(when.getTime() - 12 * 3_600_000);
   const dayEnd = new Date(when.getTime() + 12 * 3_600_000);
   const [others, followUps] = await Promise.all([
@@ -90,7 +90,16 @@ async function consultantConflictMessage(
   const nearest = hits[0];
   const fmt = new Intl.DateTimeFormat("vi-VN", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" });
   const apart = minutesApart(when.getTime(), nearest.scheduledAt.getTime());
-  return `Trùng lịch: người phụ trách đã có hẹn "${nearest.label}" lúc ${fmt.format(nearest.scheduledAt)} (cách ${apart} phút).${hits.length > 1 ? ` (+${hits.length - 1} lịch khác gần đó)` : ""} Bấm "Vẫn đặt lịch này" nếu vẫn muốn đặt.`;
+  const offsets = [-60, 60, -120, 120, -180, 180];
+  const suggestions = offsets
+    .map((minutes) => new Date(when.getTime() + minutes * 60_000))
+    .filter((candidate) => findConflicts(candidate.getTime(), slots, SLOT_WINDOW_MIN, excludeId).length === 0)
+    .slice(0, 3)
+    .map((candidate) => candidate.toISOString().slice(0, 16));
+  return {
+    message: `Trùng lịch: người phụ trách đã có hẹn "${nearest.label}" lúc ${fmt.format(nearest.scheduledAt)} (cách ${apart} phút).${hits.length > 1 ? ` (+${hits.length - 1} lịch khác gần đó)` : ""}`,
+    suggestions,
+  };
 }
 
 const ALLOWED_CREATE = ["ADMIN", "MANAGER", "TELESALE", "RECEPTION"] as const;
@@ -107,6 +116,7 @@ const schema = z.object({
   serviceInterest: z.string().trim().optional(),
   source: z.enum(["MARKETING", "COLLABORATOR", "WALK_IN", "REFERRAL", "HOTLINE", "FACEBOOK", "ZALO", "TIKTOK", "OTHER"]),
   sourceDetail: z.string().trim().optional(),
+  collaboratorId: z.string().trim().optional(),
   consultantId: z.string().trim().optional(),
   note: z.string().trim().optional(),
 });
@@ -125,6 +135,7 @@ async function doCreateAppointment(formData: FormData, force: boolean): Promise<
     serviceInterest: formData.get("serviceInterest") ?? "",
     source: formData.get("source") ?? "OTHER",
     sourceDetail: formData.get("sourceDetail") ?? "",
+    collaboratorId: formData.get("collaboratorId") ?? "",
     consultantId: formData.get("consultantId") ?? "",
     note: formData.get("note") ?? "",
   });
@@ -132,14 +143,18 @@ async function doCreateAppointment(formData: FormData, force: boolean): Promise<
     return { error: parsed.error.issues[0]?.message ?? "Dữ liệu không hợp lệ." };
   }
   const data = parsed.data;
+  const collaborator = data.source === "COLLABORATOR" && data.collaboratorId
+    ? await prisma.collaborator.findFirst({ where: { id: data.collaboratorId, active: true }, select: { id: true, name: true } })
+    : null;
+  if (data.source === "COLLABORATOR" && !collaborator) return { error: "Nguồn CTV bắt buộc phải chọn cộng tác viên đang hoạt động." };
 
   const when = new Date(data.scheduledAt);
   if (Number.isNaN(when.getTime())) return { error: "Ngày giờ hẹn không hợp lệ." };
 
   // Chống trùng lịch: cùng người phụ trách, đụng giờ trong cửa sổ → cảnh báo (cho ghi đè).
   if (data.consultantId && !force) {
-    const msg = await consultantConflictMessage(data.consultantId, when);
-    if (msg) return { error: msg, conflict: true };
+    const conflict = await consultantConflictMessage(data.consultantId, when);
+    if (conflict) return { error: conflict.message, conflict: true, suggestions: conflict.suggestions };
   }
 
   // Nếu nhập 5 số cuối và khớp duy nhất một khách → liên kết hồ sơ luôn
@@ -163,7 +178,8 @@ async function doCreateAppointment(formData: FormData, force: boolean): Promise<
         type: data.type,
         serviceInterest: data.serviceInterest || null,
         source: data.source,
-        sourceDetail: data.sourceDetail || null,
+        sourceDetail: collaborator?.name ?? (data.sourceDetail || null),
+        collaboratorId: collaborator?.id ?? null,
         consultantId: data.consultantId || null,
         note: redactPhoneLikeText(data.note) || null,
         createdById: user.id,
@@ -205,6 +221,7 @@ async function doUpdateAppointment(formData: FormData, force: boolean): Promise<
     serviceInterest: formData.get("serviceInterest") ?? "",
     source: formData.get("source") ?? "OTHER",
     sourceDetail: formData.get("sourceDetail") ?? "",
+    collaboratorId: formData.get("collaboratorId") ?? "",
     consultantId: formData.get("consultantId") ?? "",
     note: formData.get("note") ?? "",
   });
@@ -212,14 +229,18 @@ async function doUpdateAppointment(formData: FormData, force: boolean): Promise<
     return { error: parsed.error.issues[0]?.message ?? "Dữ liệu không hợp lệ." };
   }
   const data = parsed.data;
+  const collaborator = data.source === "COLLABORATOR" && data.collaboratorId
+    ? await prisma.collaborator.findFirst({ where: { id: data.collaboratorId, active: true }, select: { id: true, name: true } })
+    : null;
+  if (data.source === "COLLABORATOR" && !collaborator) return { error: "Nguồn CTV bắt buộc phải chọn cộng tác viên đang hoạt động." };
 
   const when = new Date(data.scheduledAt);
   if (Number.isNaN(when.getTime())) return { error: "Ngày giờ hẹn không hợp lệ." };
 
   // Chống trùng lịch (bỏ qua chính lịch đang sửa).
   if (data.consultantId && !force) {
-    const msg = await consultantConflictMessage(data.consultantId, when, id);
-    if (msg) return { error: msg, conflict: true };
+    const conflict = await consultantConflictMessage(data.consultantId, when, id);
+    if (conflict) return { error: conflict.message, conflict: true, suggestions: conflict.suggestions };
   }
 
   // Nếu 5 số cuối khớp duy nhất một khách → liên kết lại hồ sơ (không tự gỡ liên kết cũ).
@@ -243,7 +264,8 @@ async function doUpdateAppointment(formData: FormData, force: boolean): Promise<
         type: data.type,
         serviceInterest: data.serviceInterest || null,
         source: data.source,
-        sourceDetail: data.sourceDetail || null,
+        sourceDetail: collaborator?.name ?? (data.sourceDetail || null),
+        collaboratorId: collaborator?.id ?? null,
         consultantId: data.consultantId || null,
         note: redactPhoneLikeText(data.note) || null,
         ...(customerId ? { customerId } : {}),
