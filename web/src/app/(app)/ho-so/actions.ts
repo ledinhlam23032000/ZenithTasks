@@ -15,6 +15,7 @@ import { isAllowedDocMime, docExt, safeStoredName, sniffImageExt, isDocumentBuff
 import { getUploadDir, getUploadStorageError } from "@/lib/upload-storage";
 import { canAccessCase, type CaseAccess, type CaseAccessUser } from "@/lib/case-access";
 import { validateAllocations, type AllocationRole } from "@/lib/revenue-attribution";
+import { defaultScreening, normalizeScreening } from "@/lib/consultation-sheet";
 import type { Prisma } from "@/generated/prisma/client";
 
 // Client dùng được cho cả prisma thường lẫn trong $transaction.
@@ -122,10 +123,6 @@ const infoSchema = z.object({
   note: z.string().trim().optional(),
 });
 
-const screeningItems = [
-  "Huyết áp", "Tim mạch", "Tiểu đường", "Hô hấp", "Bệnh truyền nhiễm", "Tuyến giáp", "Máu khó đông", "Dị ứng thuốc", "Dị ứng thức ăn/cao su", "Thuốc chống đông", "Thuốc nam/bắc/TPCN", "Thuốc lá/rượu bia", "Chất kích thích", "Phẫu thuật trước đây", "Biến chứng gây tê/gây mê", "Mang thai", "Cho con bú", "Kỳ kinh nguyệt",
-] as const;
-
 const consultationSchema = z.object({
   caseId: z.string().min(1),
   weightKg: z.coerce.number().min(0).max(500).optional(),
@@ -160,10 +157,9 @@ export async function saveConsultationRecord(_prev: CaseActionState, formData: F
   if (!(await hasCaseAccess(user, parsed.data.caseId, "clinical"))) return { error: CASE_ACCESS_MSG };
   if (await isLockedFor(parsed.data.caseId, user.role)) return { error: LOCKED_MSG };
 
-  let screening: Record<string, boolean> = {};
+  let screening: ReturnType<typeof defaultScreening>;
   try {
-    const raw = JSON.parse(parsed.data.screeningJson || "{}");
-    if (raw && typeof raw === "object" && !Array.isArray(raw)) screening = Object.fromEntries(screeningItems.map((key) => [key, raw[key] === true]));
+    screening = normalizeScreening(JSON.parse(parsed.data.screeningJson || "{}"));
   } catch {
     return { error: "Bảng sàng lọc không đúng định dạng." };
   }
@@ -187,6 +183,49 @@ export async function saveConsultationRecord(_prev: CaseActionState, formData: F
     await auditRequired(tx, user.id, lateEdit ? "LATE_UPDATE_CONSULTATION" : "UPDATE_CONSULTATION", { entity: "ConsultationRecord", entityId: saved.id, meta: { lateEdit, patientConfirmed: parsed.data.patientConfirmed } });
   });
   refresh(parsed.data.caseId);
+  return { ok: true, nonce: Date.now() };
+}
+
+const consultationPrintOverrideSchema = z.object({
+  caseId: z.string().min(1),
+  fullName: z.string().trim().min(1).max(200),
+  address: z.string().trim().max(300),
+  phoneLast5: z.string().regex(/^\d{5}$/, "Số điện thoại phải là 5 số cuối."),
+  wants: z.string().trim().max(3000),
+  currentCondition: z.string().trim().max(3000),
+  expectedResult: z.string().trim().max(3000),
+  doctorIndication: z.string().trim().max(3000),
+  extraNote: z.string().trim().max(3000),
+});
+
+export async function saveConsultationPrintOverrides(_prev: CaseActionState, formData: FormData): Promise<CaseActionState> {
+  const user = await requireCap("case.clinical");
+  const parsed = consultationPrintOverrideSchema.safeParse({
+    caseId: formData.get("caseId"),
+    fullName: formData.get("fullName") ?? "",
+    address: formData.get("address") ?? "",
+    phoneLast5: formData.get("phoneLast5") ?? "",
+    wants: formData.get("wants") ?? "",
+    currentCondition: formData.get("currentCondition") ?? "",
+    expectedResult: formData.get("expectedResult") ?? "",
+    doctorIndication: formData.get("doctorIndication") ?? "",
+    extraNote: formData.get("extraNote") ?? "",
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Nội dung phiếu chưa hợp lệ." };
+  const { caseId, ...printOverrides } = parsed.data;
+  if (!(await hasCaseAccess(user, caseId, "clinical"))) return { error: CASE_ACCESS_MSG };
+  if (await isLockedFor(caseId, user.role)) return { error: LOCKED_MSG };
+  const consultation = await prisma.consultationRecord.findUnique({ where: { caseId }, select: { id: true } });
+  if (!consultation) return { error: "Hồ sơ chưa có phiếu tư vấn mặc định. Hãy tải lại hồ sơ hoặc liên hệ quản trị." };
+
+  await withCaseLock(caseId, async (tx) => {
+    await tx.consultationRecord.update({
+      where: { id: consultation.id },
+      data: { printOverrides: { ...printOverrides, editedAt: new Date().toISOString(), editedById: user.id } satisfies Prisma.InputJsonValue },
+    });
+    await auditRequired(tx, user.id, "EDIT_CONSULTATION_PRINT", { entity: "ConsultationRecord", entityId: consultation.id, meta: { caseId, fields: Object.keys(printOverrides) } });
+  });
+  refresh(caseId);
   return { ok: true, nonce: Date.now() };
 }
 

@@ -8,6 +8,8 @@ import { requireUser } from "@/lib/auth";
 import { encryptPhone, normalizePhone, phoneLast5, hashPhone } from "@/lib/phone";
 import { nextCustomerCode, nextCaseCode, isUniqueViolation } from "@/lib/codes";
 import { auditRequired } from "@/lib/audit";
+import { defaultScreening } from "@/lib/consultation-sheet";
+import type { Prisma } from "@/generated/prisma/client";
 
 export type CustomerFormState = { ok?: boolean; error?: string };
 
@@ -66,9 +68,10 @@ export async function createCustomer(_prev: CustomerFormState, formData: FormDat
   }
 
   // Sinh mã + tạo, thử lại nếu mã bị trùng (đề phòng tạo đồng thời).
-  let customer: { id: string } | null = null;
+  let customer: { id: string; caseId: string } | null = null;
   for (let attempt = 0; attempt < 5; attempt++) {
     const code = await nextCustomerCode();
+    const caseCode = await nextCaseCode();
     try {
       customer = await prisma.$transaction(async (tx) => {
         const created = await tx.customer.create({
@@ -87,8 +90,26 @@ export async function createCustomer(_prev: CustomerFormState, formData: FormDat
             createdById: user.id,
           },
         });
-        await auditRequired(tx, user.id, "CREATE_CUSTOMER", { entity: "Customer", entityId: created.id });
-        return { id: created.id };
+        const record = await tx.caseRecord.create({
+          data: {
+            code: caseCode,
+            customerId: created.id,
+            status: "OPEN",
+            chiefComplaint: null,
+            note: "Hồ sơ nháp tự tạo khi tiếp nhận khách mới",
+            createdById: user.id,
+          },
+        });
+        const consultation = await tx.consultationRecord.create({
+          data: {
+            caseId: record.id,
+            screening: defaultScreening() satisfies Prisma.InputJsonValue,
+            serviceSnapshot: { autoCreatedFromCustomer: true } satisfies Prisma.InputJsonValue,
+            createdById: user.id,
+          },
+        });
+        await auditRequired(tx, user.id, "CREATE_CUSTOMER", { entity: "Customer", entityId: created.id, meta: { caseId: record.id, consultationId: consultation.id, consultationAutoCreated: true } });
+        return { id: created.id, caseId: record.id };
       });
       break;
     } catch (e) {
@@ -99,7 +120,9 @@ export async function createCustomer(_prev: CustomerFormState, formData: FormDat
   if (!customer) return { error: "Không tạo được hồ sơ khách. Vui lòng thử lại." };
 
   revalidatePath("/khach-hang");
-  redirect(`/khach-hang/${customer.id}`);
+  revalidatePath(`/khach-hang/${customer.id}`);
+  revalidatePath("/ho-so");
+  redirect(`/ho-so/${customer.caseId}`);
 }
 
 /**
@@ -132,7 +155,16 @@ export async function receiveCustomer(formData: FormData): Promise<void> {
             createdById: user.id,
           },
         });
-        await auditRequired(tx, user.id, "CREATE_CASE", { entity: "CaseRecord", entityId: record.id, meta: { customerId } });
+        const consultation = await tx.consultationRecord.create({
+          data: {
+            caseId: record.id,
+            screening: defaultScreening() satisfies Prisma.InputJsonValue,
+            wants: serviceInterest || null,
+            serviceSnapshot: serviceInterest ? { initialInterest: serviceInterest } satisfies Prisma.InputJsonValue : undefined,
+            createdById: user.id,
+          },
+        });
+        await auditRequired(tx, user.id, "CREATE_CASE", { entity: "CaseRecord", entityId: record.id, meta: { customerId, consultationId: consultation.id, consultationAutoCreated: true } });
         return { id: record.id };
       });
       break;

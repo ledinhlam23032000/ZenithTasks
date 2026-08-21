@@ -56,6 +56,12 @@ if [ -f /app/scripts/backfill-cash-payment-requests.ts ]; then
   ./node_modules/.bin/tsx /app/scripts/backfill-cash-payment-requests.ts || echo "⚠️ Backfill chứng từ cũ chưa hoàn tất; sẽ thử lại ở lần khởi động sau."
 fi
 
+# Tự bổ sung Phiếu tư vấn mặc định cho hồ sơ điều trị cũ chưa có ConsultationRecord.
+# Script idempotent: hồ sơ đã có phiếu sẽ được bỏ qua, lỗi không chặn app khởi động.
+if [ -f /app/scripts/backfill-consultation-sheets.ts ]; then
+  ./node_modules/.bin/tsx /app/scripts/backfill-consultation-sheets.ts || echo "⚠️ Backfill Phiếu tư vấn chưa hoàn tất; sẽ thử lại ở lần khởi động sau."
+fi
+
 # Nếu CSDL còn phoneEnc mà secret/biến môi trường bị mất thì dừng, không chạy
 # bằng khóa mới khiến dữ liệu cũ không thể giải mã. Chỉ tạo khóa tự động cho CSDL mới.
 if [ -z "$PHONE_ENC_KEY" ]; then

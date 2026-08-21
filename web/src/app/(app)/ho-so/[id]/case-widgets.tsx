@@ -11,6 +11,7 @@ import { MoneyInput } from "@/components/ui/money-input";
 import { formatVND } from "@/lib/money";
 import { compressImage } from "@/lib/compress-image";
 import { CASE_STATUS, CONSULT_RESULT, PAYMENT_LABEL } from "@/lib/status";
+import { CONSULTATION_SCREENING_ITEMS, defaultScreening, normalizeScreening, type ScreeningMap } from "@/lib/consultation-sheet";
 import {
   updateCaseInfo,
   addCaseService,
@@ -120,10 +121,6 @@ export function CaseInfoForm({
   );
 }
 
-const screeningItems = [
-  "Huyết áp", "Tim mạch", "Tiểu đường", "Hô hấp", "Bệnh truyền nhiễm", "Tuyến giáp", "Máu khó đông", "Dị ứng thuốc", "Dị ứng thức ăn/cao su", "Thuốc chống đông", "Thuốc nam/bắc/TPCN", "Thuốc lá/rượu bia", "Chất kích thích", "Phẫu thuật trước đây", "Biến chứng gây tê/gây mê", "Mang thai", "Cho con bú", "Kỳ kinh nguyệt",
-] as const;
-
 type ConsultationInitial = {
   weightKg: number | null;
   heightCm: number | null;
@@ -135,7 +132,7 @@ type ConsultationInitial = {
   temperatureC: number | null;
   respiratoryRate: number | null;
   spo2: number | null;
-  screening: Record<string, boolean>;
+  screening: unknown;
   patientConfirmed: boolean;
   wants: string | null;
   currentCondition: string | null;
@@ -146,8 +143,8 @@ type ConsultationInitial = {
 
 export function ConsultationBookForm({ caseId, initial }: { caseId: string; initial: ConsultationInitial | null }) {
   const [state, action, pending] = useFormAction(saveConsultationRecord);
-  const [screening, setScreening] = useState<Record<string, boolean>>(initial?.screening ?? Object.fromEntries(screeningItems.map((key) => [key, false])));
-  const toggleAll = (value: boolean) => setScreening(Object.fromEntries(screeningItems.map((key) => [key, value])));
+  const [screening, setScreening] = useState<ScreeningMap>(() => normalizeScreening(initial?.screening ?? defaultScreening()));
+  const toggleAll = (abnormal: boolean) => setScreening(Object.fromEntries(CONSULTATION_SCREENING_ITEMS.map(({ key }) => [key, { abnormal, note: "" }])) as ScreeningMap);
   return (
     <form action={action} className="space-y-5">
       <input type="hidden" name="caseId" value={caseId} />
@@ -176,13 +173,13 @@ export function ConsultationBookForm({ caseId, initial }: { caseId: string; init
         </div>
       </div>
       <div>
-        <div className="mb-2 flex flex-wrap items-center justify-between gap-2"><p className="text-sm font-semibold text-slate-800">III. Sàng lọc y tế</p><div className="flex gap-2"><button type="button" onClick={() => toggleAll(false)} className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700">Tích nhanh: Không ghi nhận bất thường</button><button type="button" onClick={() => toggleAll(true)} className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700">Đánh dấu cần xem lại</button></div></div>
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{screeningItems.map((item) => <label key={item} className="flex items-start gap-2 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-xs text-slate-700"><input type="checkbox" checked={screening[item] === true} onChange={(e) => setScreening((prev) => ({ ...prev, [item]: e.target.checked }))} /><span>{item} — có/đáng lưu ý</span></label>)}</div>
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2"><p className="text-sm font-semibold text-slate-800">III. Bảng câu hỏi sàng lọc y tế</p><div className="flex gap-2"><button type="button" onClick={() => toggleAll(false)} className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700">Mặc định: Bình thường</button><button type="button" onClick={() => toggleAll(true)} className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700">Đánh dấu bất thường</button></div></div>
+        <div className="overflow-x-auto rounded-lg border border-slate-100"><table className="min-w-[720px] w-full text-xs"><thead><tr className="bg-slate-50 text-left text-slate-500"><th className="w-8 px-2 py-2">#</th><th className="px-2 py-2">Nội dung sàng lọc</th><th className="w-20 px-2 py-2 text-center">Bình thường</th><th className="w-20 px-2 py-2 text-center">Bất thường</th><th className="w-64 px-2 py-2">Ghi chú nếu bất thường</th></tr></thead><tbody>{CONSULTATION_SCREENING_ITEMS.map(({ key, label }, index) => { const entry = screening[key] ?? { abnormal: false, note: "" }; return <tr key={key} className="border-t border-slate-100 align-top"><td className="px-2 py-2 text-slate-400">{index + 1}</td><td className="px-2 py-2 text-slate-700">{label}</td><td className="px-2 py-2 text-center"><input aria-label={`${label}: Bình thường`} type="radio" name={`screening-${index}`} checked={!entry.abnormal} onChange={() => setScreening((prev) => ({ ...prev, [key]: { ...entry, abnormal: false } }))} /></td><td className="px-2 py-2 text-center"><input aria-label={`${label}: Bất thường`} type="radio" name={`screening-${index}`} checked={entry.abnormal} onChange={() => setScreening((prev) => ({ ...prev, [key]: { ...entry, abnormal: true } }))} /></td><td className="px-2 py-2"><Input aria-label={`${label}: Ghi chú`} value={entry.note} onChange={(event) => setScreening((prev) => ({ ...prev, [key]: { ...entry, note: event.target.value } }))} placeholder="Mức độ, thời gian, thuốc…" /></td></tr>; })}</tbody></table></div>
       </div>
       <div className="grid gap-3 sm:grid-cols-2"><div><Label htmlFor="wants">Mong muốn của khách</Label><Textarea id="wants" name="wants" defaultValue={initial?.wants ?? ""} /></div><div><Label htmlFor="currentCondition">Tình trạng hiện tại</Label><Textarea id="currentCondition" name="currentCondition" defaultValue={initial?.currentCondition ?? ""} /></div><div><Label htmlFor="expectedResult">Kết quả dự tính</Label><Textarea id="expectedResult" name="expectedResult" defaultValue={initial?.expectedResult ?? ""} /></div><div><Label htmlFor="doctorIndication">Chỉ định của bác sĩ</Label><Textarea id="doctorIndication" name="doctorIndication" defaultValue={initial?.doctorIndication ?? ""} /></div></div>
       <label className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900"><input type="checkbox" name="patientConfirmed" defaultChecked={initial?.patientConfirmed ?? false} /> Khách đã xác nhận thông tin sàng lọc là đúng theo mẫu đã cung cấp.</label>
       {state.error && <p className="text-sm text-rose-600">{state.error}</p>}
-      <div className="flex flex-wrap items-center justify-end gap-3"><Saved nonce={state.nonce} /><a href={`/ho-so/${caseId}/consultation-export`} className="rounded-lg border border-slate-200 px-3.5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">In sổ tư vấn</a><button type="submit" disabled={pending} className={buttonVariants()}>{pending && <LoaderCircle className="h-4 w-4 animate-spin" />} Lưu sổ tư vấn</button></div>
+      <div className="flex flex-wrap items-center justify-end gap-3"><Saved nonce={state.nonce} /><a href={`/ho-so/${caseId}/consultation`} className="rounded-lg border border-slate-200 px-3.5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Xem / In Phiếu tư vấn</a><button type="submit" disabled={pending} className={buttonVariants()}>{pending && <LoaderCircle className="h-4 w-4 animate-spin" />} Lưu sổ tư vấn</button></div>
     </form>
   );
 }

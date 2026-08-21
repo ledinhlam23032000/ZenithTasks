@@ -1026,6 +1026,8 @@ model ConsultationRecord {
   expectedResult   String?
   doctorIndication String?
   serviceSnapshot  Json?
+  // Nội dung đè riêng cho bản in; không thay đổi dữ liệu y khoa/hồ sơ nguồn.
+  printOverrides   Json?
   createdById      String?
   createdBy        User?       @relation("ConsultationCreatedBy", fields: [createdById], references: [id])
   createdAt        DateTime    @default(now())

@@ -35,7 +35,7 @@ export function NewCustomerButton({
         open={open}
         onClose={() => setOpen(false)}
         title="Lập hồ sơ khách hàng"
-        description="Nhập thông tin cơ bản. Số điện thoại sẽ được mã hoá và ẩn 100%."
+        description="Nhập thông tin cơ bản. Sau khi lưu, hệ thống tự tạo hồ sơ tư vấn điện tử; số điện thoại được mã hoá và chỉ hiện 5 số cuối."
         size="lg"
       >
         <CustomerForm onCancel={() => setOpen(false)} prefill={prefill} />

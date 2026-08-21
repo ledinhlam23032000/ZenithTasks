@@ -223,6 +223,10 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
               }}
             />
             <div className="mt-6 border-t border-slate-100 pt-6">
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-brand-100 bg-brand-50/50 px-3 py-2">
+                <p className="text-xs text-brand-800">Phiếu tư vấn điện tử đã tự tạo theo mẫu. Có thể xem, chỉnh nội dung và in ký.</p>
+                <Link href={`/ho-so/${record.id}/consultation`} className={`${buttonVariants({ variant: "secondary", size: "sm" })} print-hide`}><Printer className="h-3.5 w-3.5" /> Xem / In Phiếu tư vấn</Link>
+              </div>
               <ConsultationBookForm
                 caseId={record.id}
                 initial={record.consultation ? {
@@ -236,7 +240,7 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
                   temperatureC: record.consultation.temperatureC ? Number(record.consultation.temperatureC) : null,
                   respiratoryRate: record.consultation.respiratoryRate,
                   spo2: record.consultation.spo2,
-                  screening: (record.consultation.screening && typeof record.consultation.screening === "object" && !Array.isArray(record.consultation.screening) ? record.consultation.screening : {}) as Record<string, boolean>,
+                  screening: record.consultation.screening,
                   patientConfirmed: record.consultation.patientConfirmed,
                   wants: record.consultation.wants,
                   currentCondition: record.consultation.currentCondition,
