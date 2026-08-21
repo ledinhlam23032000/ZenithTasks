@@ -2,7 +2,9 @@
 
 Tài liệu này ghi các thay đổi đã được đẩy lên nhánh `master`. Commit mới hơn nằm ở phía trên. Phiên bản mô tả đầy đủ hiện tại nằm trong [`VERSION.md`](VERSION.md).
 
-## 2026-08-21 — Hồ sơ dịch vụ thẩm mỹ và bản in sạch hơn
+## 2026-08-21 — `2026.08.21-r12`: Hồ sơ dịch vụ thẩm mỹ và bản in sạch hơn
+
+Commit master: [`d552e2b`](https://github.com/ledinhlam23032000/ZenithTasks/commit/d552e2bb5a1eb91e2a758c34166d3fdd1d460b13). Pull request: [#34](https://github.com/ledinhlam23032000/ZenithTasks/pull/34).
 
 ### Giấy tờ hồ sơ điều trị
 
@@ -13,7 +15,7 @@ Tài liệu này ghi các thay đổi đã được đẩy lên nhánh `master`.
 ### Mẫu in và kiểm tra
 
 - Bỏ đường dotted filler khỏi Giấy đề nghị thanh toán; giữ gạch chân Quốc hiệu theo đúng mẫu hành chính.
-- Ngày ghi nhận: **21/08/2026**. Prisma generate, TypeScript, ESLint các tệp thay đổi, **53 file/334 test** và Next production build đạt; PR/commit master sẽ được cập nhật sau khi merge.
+- Ngày ghi nhận: **21/08/2026**. Prisma generate, TypeScript, ESLint các tệp thay đổi, **53 file/334 test** và Next production build đạt; CI push/pull request của PR #34 đều xanh.
 
 ## 2026-08-21 — `2026.08.21-r11`
 
