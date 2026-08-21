@@ -22,10 +22,14 @@ Write-Host "Dang thu thap thong tin loi..." -ForegroundColor Cyan
 "==== NHAT KY LOI ZENITH ($(Get-Date)) ====" | Out-File -FilePath $Out -Encoding utf8
 
 "`n--- 1) TRANG THAI MIGRATION (CSDL) ---" | Out-File -FilePath $Out -Append -Encoding utf8
-docker compose exec -T app npx prisma migrate status *>> $Out
+$migrationStatus = & docker compose exec -T app npx prisma migrate status 2>&1
+$migrationStatus | Out-File -FilePath $Out -Append -Encoding utf8
+if ($LASTEXITCODE -ne 0) { "[XEM-LOI] docker compose exec prisma migrate status exit code: $LASTEXITCODE" | Out-File -FilePath $Out -Append -Encoding utf8 }
 
 "`n--- 2) LOG UNG DUNG (150 dong cuoi) ---" | Out-File -FilePath $Out -Append -Encoding utf8
-docker compose logs --tail=150 app *>> $Out
+$appLogs = & docker compose logs --tail=150 app 2>&1
+$appLogs | Out-File -FilePath $Out -Append -Encoding utf8
+if ($LASTEXITCODE -ne 0) { "[XEM-LOI] docker compose logs app exit code: $LASTEXITCODE" | Out-File -FilePath $Out -Append -Encoding utf8 }
 
 Write-Host ""
 Write-Host "Da luu thong tin loi ra file:" -ForegroundColor Green

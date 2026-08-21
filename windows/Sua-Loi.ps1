@@ -6,6 +6,7 @@
 $Repo   = "https://github.com/ledinhlam23032000/ZenithTasks.git"
 $Branch = "master"
 $Dir    = Join-Path $HOME "ZenithTasks"
+$Stamp  = Get-Date -Format "yyyyMMdd-HHmmss"
 
 function EndHere($code) { Write-Host ""; Read-Host "Nhan Enter de dong cua so"; exit $code }
 
@@ -28,27 +29,73 @@ if ($LASTEXITCODE -ne 0) {
 
 Write-Host "`n[1/4] Tai lai ma nguon moi nhat..." -ForegroundColor Cyan
 if (Test-Path $Dir) {
-  git -C $Dir fetch origin $Branch 2>&1 | Write-Host
-  git -C $Dir reset --hard "origin/$Branch" 2>&1 | Write-Host
+  $fetchOutput = & git -C $Dir fetch origin $Branch 2>&1
+  $fetchOutput | Write-Host
+  if ($LASTEXITCODE -ne 0) {
+    Write-Host "Khong tai duoc origin/$Branch; giu nguyen ban dang chay." -ForegroundColor Red
+    EndHere 1
+  }
+  # Dua branch local ve dung master. Khong git clean de khong xoa log/QA/.env cua owner.
+  $checkoutOutput = & git -C $Dir checkout -B $Branch "origin/$Branch" 2>&1
+  $checkoutOutput | Write-Host
+  if ($LASTEXITCODE -ne 0) {
+    Write-Host "Khong chuyen duoc branch local sang $Branch; giu nguyen ban dang chay." -ForegroundColor Red
+    EndHere 1
+  }
+  $resetOutput = & git -C $Dir reset --hard "origin/$Branch" 2>&1
+  $resetOutput | Write-Host
+  if ($LASTEXITCODE -ne 0) {
+    Write-Host "Khong reset duoc ma nguon ve origin/$Branch; giu nguyen ban dang chay." -ForegroundColor Red
+    EndHere 1
+  }
+  $untracked = & git -C $Dir status --short --untracked-files=all
+  if ($untracked) {
+    Write-Host "Canh bao: co file local chua theo doi; script khong tu dong xoa:" -ForegroundColor Yellow
+    $untracked | Select-Object -First 20 | Write-Host
+  }
 } else {
   git clone $Repo $Dir 2>&1 | Write-Host
+  if ($LASTEXITCODE -ne 0) { Write-Host "Clone that bai." -ForegroundColor Red; EndHere 1 }
   git -C $Dir checkout $Branch 2>&1 | Write-Host
+  if ($LASTEXITCODE -ne 0) { Write-Host "Checkout $Branch that bai." -ForegroundColor Red; EndHere 1 }
 }
 Set-Location $Dir
 
 Write-Host "`n[2/4] Dung lai ung dung tu dau (lau ~5-15 phut, vui long cho - dung tat)..." -ForegroundColor Cyan
-docker compose build --no-cache app
-if ($LASTEXITCODE -ne 0) {
+# Docker Compose ban moi co the chuyen build qua Bake. Tren mot so may Windows,
+# Bake bi ngat voi ma 0xc000013a du build chua xong. Tat Bake va gom ca stdout/stderr
+# vao log co timestamp de lay duoc loi that thay vi thong bao tong quat.
+$env:COMPOSE_BAKE = "false"
+$BuildLog = Join-Path $Dir "docker-build-$Stamp.log"
+Write-Host "Log build: $BuildLog" -ForegroundColor DarkGray
+$buildOutput = & docker compose build --no-cache app 2>&1
+$buildExit = $LASTEXITCODE
+$buildOutput | Tee-Object -FilePath $BuildLog
+if ($buildExit -ne 0) {
   Write-Host "`nBUILD THAT BAI - ung dung VAN chay ban cu (khong hong them)." -ForegroundColor Red
-  Write-Host "Thuong do may thieu RAM khi build. Dong bot ung dung roi chay lai, hoac bao ky thuat." -ForegroundColor Yellow
+  Write-Host "Ma loi build: $buildExit" -ForegroundColor Yellow
+  Write-Host "Log chi tiet: $BuildLog" -ForegroundColor Yellow
+  Write-Host "Neu ma loi la 0xc000013a, tien trinh build da bi ngat truoc khi Next.js bao loi; vui long khong dong cua so va chay lai sau khi Docker Desktop on dinh." -ForegroundColor Yellow
   EndHere 1
 }
 
 Write-Host "`n[3/4] Khoi dong lai + ap dung cap nhat co so du lieu..." -ForegroundColor Cyan
 docker compose up -d --force-recreate
+if ($LASTEXITCODE -ne 0) {
+  Write-Host "Khong khoi dong duoc container; ung dung ban cu van duoc giu nguyen." -ForegroundColor Red
+  EndHere 1
+}
 Start-Sleep -Seconds 10
 Write-Host "Ap dung migration:" -ForegroundColor Cyan
-docker compose exec -T app npx prisma migrate deploy 2>&1 | Write-Host
+$MigrationLog = Join-Path $Dir "docker-migrate-$Stamp.log"
+$migrationOutput = & docker compose exec -T app npx prisma migrate deploy 2>&1
+$migrationExit = $LASTEXITCODE
+$migrationOutput | Tee-Object -FilePath $MigrationLog
+if ($migrationExit -ne 0) {
+  Write-Host "Migration that bai (ma $migrationExit). Khong tiep tuc smoke test." -ForegroundColor Red
+  Write-Host "Log migration: $MigrationLog" -ForegroundColor Yellow
+  EndHere 1
+}
 
 Write-Host "`n[4/4] Kiem tra ung dung..." -ForegroundColor Cyan
 $ok = $false

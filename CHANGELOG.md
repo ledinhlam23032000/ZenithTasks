@@ -2,6 +2,14 @@
 
 Tài liệu này ghi các thay đổi đã được đẩy lên nhánh `master`. Commit mới hơn nằm ở phía trên. Phiên bản mô tả đầy đủ hiện tại nằm trong [`VERSION.md`](VERSION.md).
 
+## 2026-08-21 — Bản vá cập nhật Windows sau r12
+
+- `Sua-Loi.ps1` chuyển local về đúng nhánh `master` bằng `checkout -B master origin/master` rồi `reset --hard`; chỉ cảnh báo file untracked và không tự `git clean` để tránh xóa log/QA/.env của chủ máy.
+- Tắt Docker Compose Bake trong bước build và gom stdout/stderr vào log có timestamp, hiển thị mã lỗi thật. Trường hợp `0xc000013a` được nhận diện là tiến trình build bị ngắt giữa chừng, không kết luận nhầm là thiếu migration.
+- Kiểm tra exit code riêng cho fetch, checkout, reset, build, compose up và migration; nếu lỗi thì dừng an toàn, giữ container cũ.
+- `Xem-Loi.ps1` gom stdout/stderr thành text bình thường, chỉ ghi exit code khi lệnh thật sự thất bại; tránh khối `NativeCommandError` giả do PowerShell redirect stderr của Prisma.
+- Đối chiếu remote branch cho thấy các branch cũ đều đã nằm hoàn toàn trong `master`; không có PR mở cần gộp thêm.
+
 ## 2026-08-21 — `2026.08.21-r12`: Hồ sơ dịch vụ thẩm mỹ và bản in sạch hơn
 
 Commit master: [`c2f27f5`](https://github.com/ledinhlam23032000/ZenithTasks/commit/c2f27f50a75f86f1cc9ae47193ff76bf11bba321). Bản vá nghiệp vụ: [#34](https://github.com/ledinhlam23032000/ZenithTasks/pull/34); tài liệu release/checkpoint: [#35](https://github.com/ledinhlam23032000/ZenithTasks/pull/35), [#36](https://github.com/ledinhlam23032000/ZenithTasks/pull/36).
