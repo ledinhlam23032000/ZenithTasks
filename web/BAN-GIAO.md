@@ -427,6 +427,29 @@ Trong `/tro-ly`, nút kẹp giấy cho phép tải TXT, CSV, JSON, Word, Excel, 
 
 Mọi thao tác tiền, lương, chứng từ, dữ liệu y tế, sửa sổ sau hạn và thay đổi code đều phải có quyền phù hợp; AI chỉ tạo preview/đề xuất và ADMIN xác nhận. Khi triển khai migration trên máy phòng khám, backup trước và dùng `prisma migrate deploy`; tuyệt đối không dùng `prisma db push` hoặc reset database.
 
+## 13.6. Release r10 — Phiếu tư vấn điện tử và chứng từ nhập một lần
+
+### Phiếu tư vấn điện tử
+
+- `createCustomer` trong `tiep-nhan/actions.ts` tạo `Customer` + `CaseRecord` nháp + `ConsultationRecord` trong cùng transaction. `receiveCustomer` tạo `ConsultationRecord` cho hồ sơ điều trị mới nếu chưa có.
+- `ConsultationRecord.screening` hiện hỗ trợ dạng chuẩn `{ [key]: { abnormal: boolean; note: string } }`. `normalizeScreening()` đọc tương thích dữ liệu cũ dạng boolean. Mặc định dùng `defaultScreening()` với mọi mục Bình thường.
+- `lib/consultation-sheet.ts` là helper nguồn duy nhất để dựng dữ liệu và HTML bản in. Không tạo renderer thứ hai ở route khác. Route xem trước là `/ho-so/[id]/consultation`, route in là `/ho-so/[id]/consultation/print`, route tải Word là `/ho-so/[id]/consultation-export`.
+- `ConsultationRecord.printOverrides` chỉ dành cho nội dung hiển thị trên bản in. `saveConsultationPrintOverrides` kiểm quyền, kiểm hồ sơ khóa, giới hạn trường và ghi audit. Không dùng override để thay số điện thoại đầy đủ, số tiền hoặc dữ liệu nguồn y khoa.
+- `web/scripts/backfill-consultation-sheets.ts` chạy sau migration trong `docker-entrypoint.sh`, tìm `CaseRecord` thiếu phiếu và tạo bổ sung idempotent. Lỗi backfill không được làm app khởi động với trạng thái sai âm thầm; log phải rõ để lần restart sau thử lại.
+
+### Thu chi và Giấy đề nghị thanh toán
+
+- Khi tạo `CashTransaction` loại Chi, action tạo `PaymentRequest` liên kết và UI Thu chi hiện nhãn “Đề nghị thanh toán” cùng mã phiếu. Không quay lại thiết kế nhập phiếu thủ công nếu dữ liệu giao dịch đã có.
+- Khi PaymentRequest đã gắn CashTransaction, bước PAID chỉ cập nhật trạng thái/liên kết, không tạo CashTransaction thứ hai. Backfill lịch sử phải kiểm tra liên kết lương/hoa hồng và chạy lại không tạo trùng.
+- `payment-request.ts` là renderer dùng chung cho preview/print/export. Các trường ngắn dùng `payment-value-text` để đường chấm bám theo nội dung; không dùng border kéo dài toàn cột vì gây khoảng trắng xấu khi in. Mọi thay đổi CSS mẫu phải kiểm tra ít nhất một phiếu mới và một phiếu đã duyệt/đã thanh toán.
+
+### Quy trình cập nhật tài liệu sống
+
+- Mỗi bản vá nghiệp vụ cập nhật `CHANGELOG.md` và `web/DU-AN.md`; mỗi release cập nhật `VERSION.md` với commit master, migration, test và trạng thái production.
+- Khi một tính năng đủ lớn để người mới cần hiểu luồng, cập nhật `docs/PRODUCT-CAPABILITIES.md`, `docs/INDEX.md` và phần tương ứng trong `BAN-GIAO.md`. README phải trỏ tới tài liệu này.
+- Không ghi nhận “đã chạy production” nếu chưa có checkpoint/smoke test trên máy Windows. Các commit master đã merge chỉ chứng minh code đã phát hành vào repository, không chứng minh production đã được cập nhật.
+- Bản vá có migration phải giữ migration additive, chạy `prisma migrate deploy`, backup trước và cập nhật runbook nếu thay đổi quy trình vận hành.
+
 ## 14. TODO / lộ trình
 - **Zalo OA + Facebook Messenger** (Kênh giao tiếp — xem mục "Kênh giao tiếp (Omnichannel)" ở mục 7): **ĐÃ XÂY XONG PHẦN CỨNG** (webhook, gửi/nhận tin, hộp thư hợp nhất `/cham-soc/hop-thu`, trang kết nối `/cham-soc/ket-noi`) — còn THIẾU để chạy thật: (1) chủ phải lập **Zalo Official Account** tại oa.zalo.me (hiện đang dùng Zalo cá nhân, không có API — xem cảnh báo ngay trên trang Kết nối kênh) + tạo app tại developers.zalo.me lấy App ID/Secret; (2) tạo Facebook App + liên kết Fanpage lấy App Secret + Page Access Token (nên qua Meta Business Suite để không hết hạn). Sau khi có đủ, admin tự vào `/cham-soc/ket-noi` bấm kết nối — KHÔNG cần sửa code thêm.
 - **AI tự trả lời tự động** (không cần nhân viên bấm gửi) — CHƯA làm, mới có AI SOẠN NHÁP (`draftChannelReply`, nhân viên vẫn phải xem/sửa/bấm gửi) — cân nhắc thêm nếu chủ muốn (rủi ro: AI trả lời sai/hứa hẹn y khoa không kiểm soát được nếu tự động hoàn toàn).

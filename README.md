@@ -23,6 +23,7 @@ Có **cổng khách hàng** (link riêng) và **đặt lịch online**.
 | **[`web/BAN-GIAO.md`](web/BAN-GIAO.md)** | **BẮT ĐẦU KỸ THUẬT TỪ ĐÂY.** Kiến trúc, mô hình dữ liệu, phân quyền, logic nghiệp vụ, quy ước phát triển, bảo mật, cách chạy/kiểm thử và cạm bẫy đã gặp. |
 | **[`ROADMAP.md`](ROADMAP.md)** | **MUỐN LÀM TIẾP? ĐỌC ĐÂY.** Bảng theo dõi tiến độ A→E (✅ xong / ⏳ chưa / 🔑 cần khoá-tài khoản) + chi tiết từng đợt + việc còn lại + việc của chủ. Đây là nơi biết "nên làm gì tiếp theo". |
 | [`docs/INDEX.md`](docs/INDEX.md) | Chỉ mục nguồn sự thật và thứ tự đọc dành cho AI/người tiếp quản. |
+| [`docs/PRODUCT-CAPABILITIES.md`](docs/PRODUCT-CAPABILITIES.md) | Bản đồ năng lực sản phẩm, luồng tự động, ưu điểm vận hành và nơi sửa từng phân hệ. **Đọc khi cần hiểu nhanh thành quả dự án.** |
 | [`docs/AI-ADMIN-GATEWAY.md`](docs/AI-ADMIN-GATEWAY.md) | Registry AI, quyền, preview, approval, audit và workflow thay đổi code. |
 | [`docs/OPERATIONS-RUNBOOK.md`](docs/OPERATIONS-RUNBOOK.md) | Runbook backup, cập nhật Windows, migration, smoke test và xử lý sự cố. |
 | [`UPGRADE-HANDOFF-2026-08.md`](UPGRADE-HANDOFF-2026-08.md) | Biên bản nâng cấp chi tiết và bằng chứng các release production. |
@@ -32,7 +33,7 @@ Có **cổng khách hàng** (link riêng) và **đặt lịch online**.
 | [`AI-AGENT-RESEARCH.md`](AI-AGENT-RESEARCH.md) | Nền tảng thiết kế Trợ lý AI: tool whitelist, structured output, approval và giới hạn an toàn. |
 | [`PROJECT-OVERVIEW.md`](PROJECT-OVERVIEW.md) | Bản giới thiệu tổng quan dự án (số liệu quy mô đã kiểm chứng). |
 
-> Nếu bạn dùng AI coding agent: hãy đọc [`docs/INDEX.md`](docs/INDEX.md) trước, sau đó đọc `web/AGENTS.md` và tài liệu nền. `web/CLAUDE.md` vẫn mô tả các quy tắc nạp ngữ cảnh riêng cho Claude Code.
+> Nếu bạn dùng AI coding agent: hãy đọc [`docs/INDEX.md`](docs/INDEX.md) trước, sau đó đọc [`docs/PRODUCT-CAPABILITIES.md`](docs/PRODUCT-CAPABILITIES.md), `web/AGENTS.md` và tài liệu nền. `web/CLAUDE.md` vẫn mô tả các quy tắc nạp ngữ cảnh riêng cho Claude Code.
 
 ## 🔄 Cập nhật lên bản mới nhất
 

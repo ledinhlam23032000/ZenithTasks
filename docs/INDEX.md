@@ -10,6 +10,7 @@ Mã nguồn, Prisma schema và migration trên nhánh `master` là nguồn thự
 | Loại thông tin | File chuẩn | Cách sử dụng |
 |---|---|---|
 | Phiên bản, commit, migration, kiểm tra gần nhất | [`../VERSION.md`](../VERSION.md) | Đọc đầu tiên để biết bản nào là chuẩn. |
+| Năng lực sản phẩm và luồng tự động | [`PRODUCT-CAPABILITIES.md`](PRODUCT-CAPABILITIES.md) | Đọc ngay sau VERSION/CHANGELOG để hiểu các thành quả, ưu điểm vận hành và vị trí mã nguồn. |
 | Lịch sử thay đổi | [`../CHANGELOG.md`](../CHANGELOG.md) | Đọc các release mới nhất trước khi sửa. |
 | Kiến trúc và nghiệp vụ chi tiết | [`../web/BAN-GIAO.md`](../web/BAN-GIAO.md) | Tài liệu nền tảng của thư mục `web/`. |
 | Lịch sử nâng cấp và bàn giao | [`../UPGRADE-HANDOFF-2026-08.md`](../UPGRADE-HANDOFF-2026-08.md) | Đọc để hiểu quyết định của chủ dự án và bằng chứng production. |
@@ -21,7 +22,7 @@ Mã nguồn, Prisma schema và migration trên nhánh `master` là nguồn thự
 
 ## Thứ tự đọc bắt buộc
 
-Đối với một AI hoặc lập trình viên mới, hãy đọc `VERSION.md`, `CHANGELOG.md`, file `web/AGENTS.md`, `web/BAN-GIAO.md`, `AI-ADMIN-GATEWAY.md`, `OPERATIONS-RUNBOOK.md`, rồi mới mở các file nghiệp vụ cụ thể. Khi cần khôi phục một nhiệm vụ dài, đọc thêm `02_state.md`, `01_plan.md` và `03_decisions.md` theo đúng thứ tự của bộ nhớ dự án.
+Đối với một AI hoặc lập trình viên mới, hãy đọc `VERSION.md`, `CHANGELOG.md`, `PRODUCT-CAPABILITIES.md`, file `web/AGENTS.md`, `web/BAN-GIAO.md`, `AI-ADMIN-GATEWAY.md`, `OPERATIONS-RUNBOOK.md`, rồi mới mở các file nghiệp vụ cụ thể. Khi cần khôi phục một nhiệm vụ dài, đọc thêm `02_state.md`, `01_plan.md` và `03_decisions.md` theo đúng thứ tự của bộ nhớ dự án.
 
 ## Bản đồ mã nguồn nhanh
 
@@ -33,6 +34,7 @@ Mã nguồn, Prisma schema và migration trên nhánh `master` là nguồn thự
 | Phiên AI | `web/src/app/(app)/tro-ly/conversations.ts` và `conversation-actions.ts` | Lưu phiên, turn, archive, xóa phiên, khôi phục lịch sử và lọc approval stale. |
 | Chấm công AI | `web/src/app/(app)/tro-ly/attendance-intent.ts`, `web/src/app/(app)/cham-cong/actions.ts` | Parser nhiều lượt và bulk upsert Attendance. |
 | Hồ sơ khách | `web/src/app/(app)/khach-hang/actions.ts` | Cập nhật, mã hóa số điện thoại, xóa có hoàn kho. |
+| Phiếu tư vấn | `web/src/lib/consultation-sheet.ts`, `web/src/app/(app)/ho-so/[id]/consultation/` | Tự điền, checklist Bình thường/Bất thường, editor nội dung in, HTML A4/Word và backfill. |
 | Sổ tư vấn | `web/src/app/(app)/ho-so/actions.ts` | `saveConsultationRecord`, khóa 24 giờ và audit sửa muộn. |
 | Chứng từ | `web/src/app/(app)/ke-toan/de-nghi-thanh-toan/actions.ts` | PENDING → APPROVED/REJECTED → PAID và liên kết CashTransaction. |
 | Lương | `web/src/app/(app)/luong/actions.ts`, `web/src/lib/payroll.ts` | Lưu điều chỉnh lương; công thức thực thu và commission. |
@@ -40,7 +42,7 @@ Mã nguồn, Prisma schema và migration trên nhánh `master` là nguồn thự
 
 ## Trạng thái hiện tại cần nhớ
 
-Release code production gần nhất là `c7ffa76`, Docker Compose là `ee9c7b0`; commit tài liệu mới nhất phải được kiểm tra ở `VERSION.md`. Production dùng Docker trên máy Windows của phòng khám, PostgreSQL có 49 migration đã áp dụng và r7 không có migration mới. Không tự ý chạy thao tác ghi dữ liệu thật trong lúc kiểm tra AI; luôn dùng preview và chờ ADMIN xác nhận.
+Release code production gần nhất được ghi trong `VERSION.md`; commit tài liệu mới nhất phải được kiểm tra ở file đó. `PRODUCT-CAPABILITIES.md` là bản đồ thành quả hiện hành, còn `CHANGELOG.md` là lịch sử theo release. Production dùng Docker trên máy Windows của phòng khám, PostgreSQL có 49 migration đã áp dụng và r7 không có migration mới. Không tự ý chạy thao tác ghi dữ liệu thật trong lúc kiểm tra AI; luôn dùng preview và chờ ADMIN xác nhận.
 
 ## Quy tắc khi cập nhật tài liệu
 
