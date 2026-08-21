@@ -17,4 +17,20 @@ describe("turnsToPrompt", () => {
     expect(result).toContain("29:");
     expect(result).toContain("Các lượt cũ hơn đã được tóm tắt vào memory");
   });
+
+  it("loại lỗi AI tạm thời khỏi context nhưng giữ lượt người dùng mới nhất", () => {
+    const result = turnsToPrompt([
+      { role: "USER", content: "Xem doanh thu tháng này" },
+      { role: "ASSISTANT", content: "AI không trả về kế hoạch hợp lệ." },
+      { role: "ASSISTANT", content: "Lỗi tạm thời", metadata: { transientError: true } },
+      { role: "USER", content: "Hãy thử lại bằng phạm vi 30 ngày." },
+    ]);
+    expect(result).not.toContain("AI không trả về kế hoạch hợp lệ");
+    expect(result).not.toContain("Lỗi tạm thời");
+    expect(result).toContain("[2] ANH: Hãy thử lại bằng phạm vi 30 ngày.");
+  });
+
+  it("trả fallback trung thực khi không còn lượt đáng tin cậy", () => {
+    expect(turnsToPrompt([{ role: "ASSISTANT", content: "Không gọi được dịch vụ AI." }])).toBe("Chưa có lượt hội thoại đáng tin cậy gần đây.");
+  });
 });

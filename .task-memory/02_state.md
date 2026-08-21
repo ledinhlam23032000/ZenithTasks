@@ -1,8 +1,8 @@
 # Project State
 
-- Updated: 2026-08-19 01:10 GMT+7
+- Updated: 2026-08-21 16:50 GMT+7
 - Goal: Nâng cấp ZenithTasks từ trợ lý xử lý yêu cầu ngắn thành đồng nghiệp số có context dài, planner nhiều bước, câu trả lời tự nhiên, self-check và lifecycle conversation đúng.
-- Current phase: Phase 7 — stress test read-only trên production, pre-deploy checkpoint.
+- Current phase: P7 — local regression đã hoàn tất; chờ merge/deploy để chạy read-only smoke production.
 - Overall status: active
 
 ## Completed since last checkpoint
@@ -25,13 +25,13 @@ Giữ DeepSeek làm lõi, không thêm dịch vụ trả phí hoặc fine-tune k
 
 ## Open blockers/questions
 
-Cần commit/push branch, tạo và merge PR vào master, sau đó pull/build/restart đúng origin Windows `C:\Users\PC\ZenithTasks`. Sau deploy phải chạy lại các case read-only A01, A02, B01, E01, E06 và ghi kết quả. Cần xác nhận migration tự apply trong entrypoint production.
+Regression local đã pass nhưng chưa phải live evaluation. Cần commit/push branch mới, tạo và merge PR vào master, sau đó pull/build/restart đúng origin Windows `C:\Users\PC\ZenithTasks`. Sau deploy phải chạy lại các case read-only A01, A02, B01, E01, E06 và ghi prompt/output/action/latency/side-effect check. Không chạy write/destructive test trên production.
 
 ## Next 3 actions
 
-1. Commit toàn bộ thay đổi đã kiểm thử và push branch `ai-deep-upgrade`.
-2. Tạo PR, kiểm tra CI và merge vào `master`.
-3. Deploy trên origin Windows, rồi chạy stress test read-only và cập nhật checkpoint production.
+1. Commit test/evidence regression local của branch `feat/ai-regression-r8`, tạo PR và kiểm tra CI.
+2. Merge vào `master`, cập nhật máy Windows bằng `Sua-Loi.bat` sau khi owner chủ động chạy.
+3. Mở cuộc trò chuyện AI mới và chạy read-only A01, A02, B01, E01, E06; cập nhật production evidence và chốt P7/P8.
 
 ## Files to read first
 

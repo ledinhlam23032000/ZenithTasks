@@ -151,4 +151,51 @@ describe("generateStructured — tương thích provider", () => {
     expect(fetchSpy).toHaveBeenCalledTimes(2);
     expect(String(fetchSpy.mock.calls[1]?.[1]?.body)).not.toContain("response_format");
   });
+
+  it("retry một lần khi provider trả 429 rồi mới thành công", async () => {
+    vi.stubEnv("AI_API_KEY", "test-key");
+    vi.stubEnv("AI_BASE_URL", "https://provider.test/v1");
+    vi.stubEnv("AI_MODEL", "test-model");
+    vi.stubEnv("AI_MAX_RETRIES", "1");
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const fetchSpy = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response("rate limited", { status: 429 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: { content: '{"action":"none"}' } }] }), { status: 200 }));
+
+    const result = await generateStructured<{ action: string }>({
+      system: "Return JSON",
+      prompt: "test",
+      schemaName: "test_plan",
+      schema: { type: "object", properties: { action: { type: "string" } }, required: ["action"], additionalProperties: false },
+    });
+
+    expect(result).toEqual({ ok: true, data: { action: "none" } });
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it("trả lỗi ổn định khi model trả content rỗng hoặc JSON hỏng", async () => {
+    vi.stubEnv("AI_API_KEY", "test-key");
+    vi.stubEnv("AI_BASE_URL", "https://provider.test/v1");
+    vi.stubEnv("AI_MODEL", "test-model");
+    const fetchSpy = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: { content: "" } }] }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: { content: "{not-json}" } }] }), { status: 200 }));
+
+    const empty = await generateStructured<{ action: string }>({
+      system: "Return JSON",
+      prompt: "test",
+      schemaName: "test_plan",
+      schema: { type: "object", properties: { action: { type: "string" } }, required: ["action"], additionalProperties: false },
+    });
+    const malformed = await generateStructured<{ action: string }>({
+      system: "Return JSON",
+      prompt: "test",
+      schemaName: "test_plan",
+      schema: { type: "object", properties: { action: { type: "string" } }, required: ["action"], additionalProperties: false },
+    });
+
+    expect(empty).toEqual({ ok: false, error: "AI không trả về kế hoạch hợp lệ." });
+    expect(malformed).toEqual({ ok: false, error: "AI trả về dữ liệu không đúng định dạng." });
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+  });
 });
