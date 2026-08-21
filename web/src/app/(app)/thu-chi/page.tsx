@@ -217,7 +217,7 @@ export default async function CashPage({ searchParams }: { searchParams: Promise
                       <TD>
                         {t.paymentRequest ? (
                           <a href={`/ke-toan/de-nghi-thanh-toan/${t.paymentRequest.id}`} className="text-xs font-medium text-brand-700 hover:underline">
-                            {t.paymentRequest.requestNo}<span className="mt-0.5 block text-[11px] text-slate-400">{paymentRequestStatusLabel(t.paymentRequest.status)}</span>
+                            <span>Đề nghị thanh toán</span><span className="mt-0.5 block text-[11px] text-slate-400">{t.paymentRequest.requestNo} · {paymentRequestStatusLabel(t.paymentRequest.status)}</span>
                           </a>
                         ) : (
                           <span className="text-xs text-slate-400">Ghi trực tiếp</span>
@@ -275,7 +275,7 @@ export default async function CashPage({ searchParams }: { searchParams: Promise
                     <p className="mt-1 text-xs text-slate-400">
                       {fmtDate(t.occurredAt)} · {PAYMENT_LABEL[t.method]}
                       {t.vendor || t.note ? ` · ${[t.vendor, t.note].filter(Boolean).join(" · ")}` : ""}
-                      {t.paymentRequest ? <> · <Link href={`/ke-toan/de-nghi-thanh-toan/${t.paymentRequest.id}`} className="font-medium text-brand-700 hover:underline">{t.paymentRequest.requestNo} ({paymentRequestStatusLabel(t.paymentRequest.status)})</Link></> : ""}
+                      {t.paymentRequest ? <> · <Link href={`/ke-toan/de-nghi-thanh-toan/${t.paymentRequest.id}`} className="font-medium text-brand-700 hover:underline">Đề nghị thanh toán · {t.paymentRequest.requestNo} ({paymentRequestStatusLabel(t.paymentRequest.status)})</Link></> : ""}
                     </p>
                     {canManage && (
                     <div className="mt-2 flex items-center justify-end gap-0.5">
