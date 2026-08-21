@@ -3,6 +3,21 @@
 > Tài liệu bàn giao để các phiên Claude Code sau tiếp tục hiệu quả. Đọc file này + mã nguồn là nắm được bối cảnh.
 > **Kế hoạch nâng cấp dài hạn (A→E) + theo dõi tiến độ: xem `ROADMAP.md` ở gốc repo.**
 
+## Phiếu tư vấn điện tử tự sinh, checklist tiền sử và bản in chỉnh sửa — "Đợt 36"
+> Chủ yêu cầu sau khi nhập hồ sơ khách cơ bản thì hệ thống không được bắt nhân viên viết lại Phiếu tư vấn dịch vụ thẩm mỹ. Phiếu phải tự điền thông tin hành chính, có checklist tiền sử mặc định Bình thường, cho phép ghi chú khi bất thường, chỉnh sửa phần chữ và in ký theo mẫu DOCX.
+- **Tự sinh trong cùng transaction**: khi tạo khách mới, hệ thống tạo `Customer`, `CaseRecord` nháp và `ConsultationRecord`; khi tiếp nhận khách cũ, hồ sơ điều trị mới cũng tạo `ConsultationRecord` mặc định. Hồ sơ cũ thiếu phiếu được backfill idempotent sau migration qua `docker-entrypoint.sh`.
+- **Checklist tiền sử**: đổi từ boolean đơn giản sang `{ abnormal, note }`, tương thích dữ liệu boolean cũ. Tất cả mục mặc định `abnormal=false` (Bình thường); khi chọn Bất thường có ô ghi mức độ, thời gian, thuốc hoặc thông tin liên quan.
+- **Bản in theo DOCX**: thêm helper `consultation-sheet.ts`, trang xem trước `/ho-so/[id]/consultation`, route in A4/Lưu PDF và route tải Word. Phiếu tự điền họ tên, ngày sinh/tuổi, giới tính, mã khách, địa chỉ, 5 số cuối điện thoại, sinh hiệu, người tư vấn/bác sĩ, nhu cầu và dịch vụ quan tâm; có đăng ký dịch vụ, cam kết thủ thuật/phẫu thuật và vùng ký.
+- **Chỉnh sửa có kiểm soát**: phần chữ hiển thị được lưu trong `ConsultationRecord.printOverrides` qua migration additive; action có quyền lâm sàng, audit, không sửa số điện thoại đầy đủ hoặc số liệu nguồn ngoài ý muốn.
+- **Kiểm thử**: Prisma validate, TSC, ESLint, shell syntax, 52 file test/329 test và Next production build đều đạt. PR #29 đã merge vào `master` với merge commit `6b6510f`.
+
+## Hợp nhất Thu chi–Đề nghị thanh toán và chuẩn hóa bản in — "Đợt 35"
+> Chủ yêu cầu nhập khoản Chi một lần thì ngay trên dòng Thu chi có phiếu **Đề nghị thanh toán**, không tạo phiếu riêng rồi chép lại. Sau đó bổ sung backfill cho khoản Chi lịch sử, xóa tên người duyệt tự động và tinh chỉnh đường chấm trong mẫu để chữ và dòng kẻ cân đối.
+- **Nguồn dữ liệu duy nhất**: khoản Chi tự sinh `PaymentRequest`, hiện nhãn “Đề nghị thanh toán” và mã `DNT-...`; Kế toán mở, duyệt, in và xác nhận trên cùng liên kết. Khi đã gắn dòng Chi, bước PAID chỉ cập nhật trạng thái, không tạo giao dịch trùng.
+- **Backfill lịch sử**: các khoản Chi cũ thiếu `paymentRequestId` được bổ sung idempotent khi container khởi động; liên kết lương/hoa hồng được nhận diện để tránh tạo chứng từ vận hành thứ hai.
+- **Bản in ký**: tên tự động dưới “Thủ trưởng đơn vị” đã được loại bỏ; nội dung chữ ký để trống cho ký tay. Bản vá layout tiếp tục thay border kéo dài toàn dòng bằng đường chấm bám theo chiều dài nội dung, giảm khoảng trắng giữa Bằng chữ, ngày lập và vùng ký.
+- **Kiểm thử bản vá layout**: TypeScript, ESLint PaymentRequest, 5 unit test PaymentRequest và Next production build đạt. PR layout đang được cập nhật trong PR #30 trước khi merge master.
+
 ## Rà soát QA toàn diện + sửa 13 lỗi phát hiện — "Đợt 34"
 > Chủ gửi ảnh chụp lỗi "Nợ KH còn lại"/"DS chốt" ở Lương sai lệch so với Sổ công nợ, yêu cầu
 > tìm và liệt kê lỗi tương tự ở các phần khác trước, rồi mới sửa toàn bộ. Đã rà soát bằng 3

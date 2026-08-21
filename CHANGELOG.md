@@ -2,6 +2,30 @@
 
 Tài liệu này ghi các thay đổi đã được đẩy lên nhánh `master`. Commit mới hơn nằm ở phía trên. Phiên bản mô tả đầy đủ hiện tại nằm trong [`VERSION.md`](VERSION.md).
 
+## 2026-08-21 — `2026.08.21-r10`
+
+Commit master: [`983a447`](https://github.com/ledinhlam23032000/ZenithTasks/commit/983a447). PR liên quan: [#29](https://github.com/ledinhlam23032000/ZenithTasks/pull/29), [#30](https://github.com/ledinhlam23032000/ZenithTasks/pull/30).
+
+### Hồ sơ khách và Phiếu tư vấn điện tử
+
+- Khi tạo khách mới, hệ thống tạo cùng transaction hồ sơ khách, hồ sơ điều trị nháp và `ConsultationRecord`; khi tiếp nhận khách cũ, hồ sơ điều trị mới cũng tự sinh phiếu tư vấn.
+- Phiếu tự điền họ tên, mã khách, ngày sinh/tuổi, giới tính, địa chỉ, 5 số cuối điện thoại, sinh hiệu, người tư vấn/bác sĩ, nhu cầu và dịch vụ quan tâm. Checklist tiền sử mặc định **Bình thường**, cho phép chọn **Bất thường** và ghi chú từng mục; dữ liệu boolean cũ vẫn đọc tương thích.
+- Có xem trước, HTML A4/in-Lưu PDF, tải Word và editor nội dung in có audit. Nội dung chỉnh được lưu vào `ConsultationRecord.printOverrides`, không thay thế dữ liệu nguồn nhạy cảm.
+- Migration `20260821130000_consultation_print_overrides` và backfill idempotent bổ sung phiếu cho hồ sơ cũ thiếu chứng từ khi container khởi động; chạy lại không tạo trùng.
+
+### Thu chi và Đề nghị thanh toán
+
+- Một khoản Chi tự tạo PaymentRequest liên kết và hiển thị ngay trên cùng dòng Thu chi bằng nhãn **Đề nghị thanh toán** cùng mã `DNT-...`; Kế toán mở, duyệt, in và xác nhận trên một liên kết.
+- Backfill lịch sử bổ sung phiếu cho khoản Chi cũ thiếu liên kết; bước PAID nhận diện dòng Chi đã có để không tạo giao dịch trùng.
+- Bản in bỏ tên tự động dưới Thủ trưởng đơn vị. Layout mới thay border kéo dài toàn dòng bằng đường chấm bám theo chiều dài chữ, giảm khoảng trắng giữa các trường, ngày lập và vùng ký.
+
+### Kiểm tra và tài liệu tiếp quản
+
+- PR #29: Prisma validate, TypeScript, ESLint, shell syntax, **52 file test/329 test** và Next production build đạt.
+- PR #30: TypeScript, ESLint PaymentRequest, **5 unit test PaymentRequest** và Next production build đạt; CI push và pull request đều xanh.
+- Thêm [`docs/PRODUCT-CAPABILITIES.md`](docs/PRODUCT-CAPABILITIES.md), cập nhật README, `docs/INDEX.md`, `web/BAN-GIAO.md`, `web/DU-AN.md` và VERSION để mọi bản vá về sau có nguồn ghi nhận trên GitHub.
+- **Chưa xác nhận triển khai production** cho release này; máy Windows cần chạy `windows\\Sua-Loi.bat`, theo dõi migration/backfill và smoke test trước khi sử dụng thật.
+
 ## 2026-08-18 — `2026.08.18-r7`
 
 Commit code: [`c7ffa76`](https://github.com/ledinhlam23032000/ZenithTasks/commit/c7ffa76). Commit Docker Compose: [`ee9c7b0`](https://github.com/ledinhlam23032000/ZenithTasks/commit/ee9c7b0). Commit tài liệu/bàn giao: [`f531973`](https://github.com/ledinhlam23032000/ZenithTasks/commit/f531973).

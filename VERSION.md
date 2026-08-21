@@ -1,11 +1,10 @@
 # ZenithTasks — Trạng thái phiên bản hiện tại
 
-> **Phiên bản nội bộ:** `2026.08.18-r7`<br>
-> **Commit code:** [`c7ffa76`](https://github.com/ledinhlam23032000/ZenithTasks/commit/c7ffa76)<br>
-> **Commit Docker Compose:** [`ee9c7b0`](https://github.com/ledinhlam23032000/ZenithTasks/commit/ee9c7b0)<br>
-> **Commit tài liệu/bàn giao:** [`f531973`](https://github.com/ledinhlam23032000/ZenithTasks/commit/f531973)<br>
-> **Ngày cập nhật:** 18/08/2026<br>
-> **Trạng thái:** Đã validate/test/build và CI xanh. Production đã chạy bản Agent đồng nghiệp số: parser ưu tiên yêu cầu mới nhất, approval có trạng thái thật, xác nhận bằng lời ADMIN, timeline bước làm việc, xóa phiên, lập kế hoạch nhiệm vụ chính/phụ và `AI_AGENT_MODEL` reasoning riêng. Bộ tài liệu tiếp quản chuẩn nằm tại [`docs/INDEX.md`](docs/INDEX.md).
+> **Phiên bản nội bộ:** `2026.08.21-r10`<br>
+> **Commit master:** [`983a447`](https://github.com/ledinhlam23032000/ZenithTasks/commit/983a447)<br>
+> **PR gần nhất:** [#29](https://github.com/ledinhlam23032000/ZenithTasks/pull/29), [#30](https://github.com/ledinhlam23032000/ZenithTasks/pull/30)<br>
+> **Ngày cập nhật:** 21/08/2026<br>
+> **Trạng thái:** Code đã merge master, CI xanh, test/build đạt. Release này bổ sung Phiếu tư vấn điện tử tự sinh có checklist tiền sử và editor/in ấn, backfill dữ liệu lịch sử, hợp nhất Thu chi–Đề nghị thanh toán và bản in thanh toán được căn chỉnh thẩm mỹ. **Chưa xác nhận triển khai production**; cần chạy `windows\\Sua-Loi.bat` và smoke test trên máy vận hành. Bộ tài liệu tiếp quản chuẩn nằm tại [`docs/INDEX.md`](docs/INDEX.md), bản đồ năng lực nằm tại [`docs/PRODUCT-CAPABILITIES.md`](docs/PRODUCT-CAPABILITIES.md).
 
 ## Quy tắc đọc tài liệu
 
@@ -39,18 +38,19 @@
 | `20260817140000_assistant_approvals` | Lưu bản xem trước và trạng thái xác nhận thao tác của AI. |
 | `20260817160000_case_revenue_allocations` | Lưu phân bổ doanh thu theo hồ sơ, người, vai trò và tỷ lệ. |
 | `20260817170000_conversation_workflow` | Lưu trạng thái hội thoại, người phụ trách, thời điểm tin đến và hạn SLA. |
-| `20260818100000_finance_consultation_hr_ai` | Thêm hoa hồng điều chỉnh riêng, chứng từ thanh toán, sổ tư vấn điện tử, thỏa thuận nhân sự, file/feedback AI. **Đã áp dụng trên production ngày 18/08/2026.** |
+| `20260818100000_finance_consultation_hr_ai` | Thêm hoa hồng điều chỉnh riêng, chứng từ thanh toán, sổ tư vấn điện tử nền, thỏa thuận nhân sự, file/feedback AI. **Đã áp dụng trên production ngày 18/08/2026.** |
+| `20260821130000_consultation_print_overrides` | Lưu nội dung chỉnh riêng cho bản in Phiếu tư vấn; migration additive, không thay đổi dữ liệu nguồn. **Đã merge master, chưa xác nhận production.** |
 | `20260818120000_ai_admin_gateway` | Lưu AssistantConversation/AssistantMessage, liên kết approval với conversation và hỗ trợ chấm công hàng loạt qua AI. **Đã áp dụng trên production ngày 18/08/2026.** |
 
 Migration là **bổ sung dữ liệu, không được tự xóa hoặc reset database**. Khi triển khai production phải dùng `prisma migrate deploy`, không dùng `prisma db push`.
 
 ## Kiểm tra chất lượng gần nhất
 
-Commit code `c7ffa76` và Compose `ee9c7b0` đã được kiểm tra bằng Prisma generate, TypeScript, Vitest, Next production build và CI GitHub Actions. Lần kiểm tra cuối có **46 file test và 306/306 test đạt**, TypeScript và Next production build đạt. Production có 49 migration, schema up to date và `/login` HTTP 200. Khi sửa nghiệp vụ tiền, lương, công nợ, phân quyền hoặc webhook, phải bổ sung test hồi quy trước khi commit.
+Release r10 đã được kiểm tra bằng Prisma validate/generate, TypeScript, ESLint, Vitest, shell syntax, Next production build và CI GitHub Actions. PR #29 đạt **52 file test và 329/329 test**; PR #30 có **5 unit test PaymentRequest** và production build đạt. `origin/master` hiện ở merge commit `983a447`. Release này có migration mới cho nội dung in Phiếu tư vấn; chưa được xác nhận đã chạy trên máy production. Khi sửa nghiệp vụ tiền, lương, công nợ, phân quyền, hồ sơ y tế hoặc webhook, phải bổ sung test hồi quy trước khi commit.
 
 ## Quy trình cập nhật máy vận hành
 
-Trên máy Windows của phòng khám, sao lưu trước nếu bản cập nhật có migration; sau đó chạy `windows\\Sua-Loi.bat` và khởi động lại ứng dụng. Không chép file `.env` thật lên GitHub. Sau cập nhật cần kiểm tra tối thiểu: đăng nhập, một hồ sơ, bảng lương, QR, hộp thư, AI và backup status tại `/he-thong`.
+Trên máy Windows của phòng khám, sao lưu trước nếu bản cập nhật có migration; sau đó chạy `windows\\Sua-Loi.bat` và khởi động lại ứng dụng. Với r10, kiểm tra migration `20260821130000_consultation_print_overrides`, log backfill Phiếu tư vấn/Đề nghị thanh toán và smoke test: đăng nhập, tạo hồ sơ mới, checklist tiền sử, xem/in phiếu tư vấn, Thu chi, Kế toán, bảng lương, QR, hộp thư, AI và backup status tại `/he-thong`. Không chép file `.env` thật lên GitHub.
 
 ## Những phần chưa tự động hoàn toàn
 

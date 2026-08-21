@@ -17,10 +17,13 @@ Core business needs it covers:
 2. Reception: look up customer by **last 5 phone digits**, open/append a treatment record (Tiếp nhận).
 3. Customer + treatment records merged into one (Hồ sơ khách hàng): services, discounts, voucher, payments, debt.
 4. Materials usage, before/after photos, follow-ups.
-5. Customer care log (Chăm sóc KH) + optional AI message drafting (Claude API) + unified inbox for
+5. **Nhập một lần, sinh biểu mẫu tự động**: hồ sơ mới tự có Phiếu tư vấn dịch vụ thẩm mỹ; khoản Chi tự có Giấy đề nghị thanh toán liên kết.
+6. **Bản in có kiểm soát**: xem trước, in/Lưu PDF, tải Word, chỉnh phần chữ có audit; dữ liệu nguồn tiền/y tế vẫn được bảo vệ.
+7. **Backfill idempotent**: hồ sơ và khoản Chi lịch sử thiếu phiếu được bổ sung khi cập nhật, chạy lại không tạo trùng.
+8. Customer care log (Chăm sóc KH) + optional AI message drafting (Claude API) + unified inbox for
    Zalo OA and Facebook Messenger (`/cham-soc/hop-thu`, admin connects channels at `/cham-soc/ket-noi`).
-6. Reports & analytics, staff performance, collaborators (Báo cáo, Hiệu suất nhân sự, Cộng tác viên).
-7. Strict access control; **customer phone numbers are AES-256 encrypted** and only ADMIN/MANAGER can reveal the full number.
+9. Reports & analytics, staff performance, collaborators (Báo cáo, Hiệu suất nhân sự, Cộng tác viên).
+10. Strict access control; **customer phone numbers are AES-256 encrypted** and only ADMIN/MANAGER can reveal the full number.
 
 ---
 
@@ -162,14 +165,16 @@ Money math (`lib/.../ho-so/actions.ts recalc()`): `totalAmount = Σ finalPrice �
 ## 8. Feature modules (the `(app)` routes)
 - **dashboard** — KPIs, today's schedule, recent care, revenue chart.
 - **lich-hen** — appointments (create/edit/status); **dat-lich** = public self-booking.
-- **tiep-nhan** — reception: search by last-5, create customer, open case.
+- **tiep-nhan** — reception: search by last-5, create customer, open case and auto-create a consultation sheet.
 - **khach-hang** — merged customer + treatment records; status filter (done/not-done service); membership tier; phone reveal (audited).
-- **ho-so/[id]** — the treatment record: services, materials, photos, payments, voucher, follow-ups, printable invoice (`/hoa-don`).
+- **ho-so/[id]** — the treatment record: services, materials, photos, payments, voucher, follow-ups, consultation checklist, editable consultation print sheet and printable invoice (`/hoa-don`).
+- **ho-so/[id]/consultation** — preview/edit/print/download the auto-filled aesthetic consultation sheet.
+- **thu-chi** — operational cashbook (income/expense); an expense auto-links to a PaymentRequest shown as “Đề nghị thanh toán” with `DNT-...`.
+- **ke-toan/de-nghi-thanh-toan** — accounting review, approve/reject, print and mark linked requests paid without duplicating cashbook rows.
 - **cham-soc** — customer care messages (+ AI draft).
 - **bao-cao** — analytics: revenue, close rate, P&L, top services, consultant/doctor performance, sources; multi-type charts; export.
 - **hieu-suat** + **cong-tac-vien** — staff performance & collaborator performance (drill into individual cases; charts; export).
 - **luong** — payroll (base by attendance + manual commission/bonus) with performance column.
-- **thu-chi** — operational cashbook (income/expense). Revenue & P&L live in Báo cáo / Kế toán (not here).
 - **ke-toan** — accounting: one monthly P&L statement joining service revenue + cashbook + payroll;
   cash reconciliation by payment method; one-click salary & collaborator-commission payout (posts to the
   cashbook and marks the payroll row paid); receivables; month close/reopen (locks the month); Excel/Word export.
@@ -197,13 +202,16 @@ Money math (`lib/.../ho-so/actions.ts recalc()`): `totalAmount = Σ finalPrice �
 ---
 
 ## 10. Where to start reading (suggested order)
-1. `web/prisma/schema.prisma` — the data model (the whole domain in one file).
-2. `web/src/lib/permissions.ts` + `web/src/lib/auth.ts` — how access works.
-3. `web/src/app/(app)/layout.tsx` + `components/layout/app-shell.tsx` — the shell/nav.
-4. `web/src/app/(app)/ho-so/[id]/page.tsx` + `ho-so/actions.ts` — the richest feature (treatment record + money math).
-5. `web/src/app/(app)/khach-hang/[id]/page.tsx` — customer profile.
-6. `web/src/lib/dashboard.ts` / `reports.ts` / `performance.ts` — analytics.
-7. `web/DU-AN.md` — long Vietnamese changelog/handoff with deep rationale for most decisions.
+1. `VERSION.md` → `CHANGELOG.md` → `docs/PRODUCT-CAPABILITIES.md` → `docs/INDEX.md` — current release, history and capability map.
+2. `web/prisma/schema.prisma` — the data model (the whole domain in one file).
+3. `web/src/lib/permissions.ts` + `web/src/lib/auth.ts` — how access works.
+4. `web/src/app/(app)/layout.tsx` + `components/layout/app-shell.tsx` — the shell/nav.
+5. `web/src/app/(app)/ho-so/[id]/page.tsx` + `ho-so/actions.ts` — the richest feature (treatment record + money math).
+6. `web/src/lib/consultation-sheet.ts` + `web/src/app/(app)/ho-so/[id]/consultation/` — auto-filled consultation print flow.
+7. `web/src/lib/payment-request.ts` + `web/src/app/(app)/thu-chi/` + `ke-toan/de-nghi-thanh-toan/` — linked cashbook/payment-request flow.
+8. `web/src/app/(app)/khach-hang/[id]/page.tsx` — customer profile.
+9. `web/src/lib/dashboard.ts` / `reports.ts` / `performance.ts` — analytics.
+10. `web/DU-AN.md` — long Vietnamese changelog/handoff with deep rationale for most decisions.
 
 ---
 
