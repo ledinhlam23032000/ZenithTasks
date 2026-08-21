@@ -101,13 +101,27 @@ export async function markPaymentRequestPaid(_prev: PaymentRequestState, formDat
   const user = await requireCap("accounting.pay");
   const id = String(formData.get("id") ?? "");
   if (!id) return { error: "Thiếu mã chứng từ." };
-  const request = await prisma.paymentRequest.findUnique({ where: { id } });
+  const request = await prisma.paymentRequest.findUnique({
+    where: { id },
+    include: { cashTransaction: { select: { id: true, occurredAt: true, method: true, amount: true } } },
+  });
   if (!request) return { error: "Không tìm thấy chứng từ." };
   if (request.status !== "APPROVED") return { error: "Chỉ chứng từ đã được ADMIN duyệt mới được ghi sổ đã thanh toán." };
   if (request.month && await isMonthClosed(request.month)) return { error: `Tháng ${request.month} đã chốt sổ.` };
   const rawMethod = String(formData.get("method") ?? "TRANSFER");
   const method = (methods.has(rawMethod) ? rawMethod : "TRANSFER") as PaymentMethod;
   const occurredAt = parseDate(formData.get("occurredAt"));
+  if (request.cashTransaction) {
+    await prisma.$transaction(async (tx) => {
+      await tx.paymentRequest.update({ where: { id: request.id }, data: { status: "PAID", paidAt: new Date() } });
+      await auditRequired(tx, user.id, "PAY_PAYMENT_REQUEST", {
+        entity: "PaymentRequest",
+        entityId: request.id,
+        meta: { cashTxId: request.cashTransaction?.id, amount: request.amount, source: "THU_CHI", reusedExistingCashTransaction: true },
+      });
+    });
+    return { ok: true };
+  }
   const details = (request.details && typeof request.details === "object" && !Array.isArray(request.details) ? request.details : {}) as Record<string, unknown>;
   const category = typeof details.category === "string" ? details.category : "OTHER_EXP";
 

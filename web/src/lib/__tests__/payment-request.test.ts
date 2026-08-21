@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildCashbookPaymentRequestDetails, linkedCashTransactionGuard, paymentRequestNo, paymentRequestStatusLabel, paymentRequestTypeLabel } from "../payment-request";
+import { amountInVietnameseWords, buildCashbookPaymentRequestDetails, linkedCashTransactionGuard, paymentRequestDocument, paymentRequestNo, paymentRequestStatusLabel, paymentRequestTypeLabel, renderPaymentRequestHtml } from "../payment-request";
 
 describe("payment request helpers", () => {
   it("creates a readable unique request number", () => {
@@ -13,6 +13,33 @@ describe("payment request helpers", () => {
   it("builds traceable details for a small cashbook expense", () => {
     const details = buildCashbookPaymentRequestDetails({ category: "OFFICE", note: "Mua gói tăm 3.000đ", occurredAt: new Date("2026-08-18T08:00:00Z"), method: "CASH", vendor: "Cửa hàng gần viện" });
     expect(details).toEqual({ category: "OFFICE", note: "Mua gói tăm 3.000đ", source: "THU_CHI", occurredAt: "2026-08-18T08:00:00.000Z", method: "CASH", vendor: "Cửa hàng gần viện" });
+  });
+  it("writes Vietnamese amount text and auto-fills the print document", () => {
+    expect(amountInVietnameseWords(315000)).toBe("Ba trăm mười lăm nghìn đồng");
+    const document = paymentRequestDocument({
+      requestNo: "DNT-20260821-000001-ABCD",
+      type: "EXPENSE",
+      status: "PENDING",
+      payeeName: "Nhà cung cấp",
+      amount: 315000,
+      reason: "Mua văn phòng phẩm",
+      details: { recipient: "Ban lãnh đạo Bệnh viện" },
+      month: "2026-08",
+      requestedAt: new Date("2026-08-21T04:00:00Z"),
+      requester: { fullName: "Nguyễn Văn A", address: null },
+      approver: null,
+    });
+    expect(document.recipient).toBe("Ban lãnh đạo Bệnh viện");
+    expect(document.requesterName).toBe("Nguyễn Văn A");
+    expect(document.requesterAddress).toBe("Trung tâm Phẫu thuật Tạo hình Thẩm mỹ");
+    expect(document.amountText).toBe("Ba trăm mười lăm nghìn đồng");
+    const html = renderPaymentRequestHtml(document, true);
+    expect(html).toContain("GIẤY ĐỀ NGHỊ THANH TOÁN");
+    expect(html).toContain("Ban lãnh đạo Bệnh viện");
+    expect(html).toContain("Ba trăm mười lăm nghìn đồng");
+    expect(html).toContain("Thủ trưởng đơn vị");
+    expect(html).toContain("Kế toán trưởng");
+    expect(html).toContain("Người đề nghị");
   });
   it("blocks editing or deleting a cash row linked to a request", () => {
     expect(linkedCashTransactionGuard(null, "edit")).toBeNull();

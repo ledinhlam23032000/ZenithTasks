@@ -56,7 +56,7 @@ export const MODULES: ModuleDef[] = [
   // Kế toán gộp doanh thu + thu chi + lương thành một bảng kết quả kinh doanh.
   // KHÔNG mở cho Cổ đông vì có chi tiết lương từng nhân sự.
   { key: "ke-toan", href: "/ke-toan", label: "Kế toán", icon: "Calculator", group: "Vận hành", roles: ["ADMIN", "MANAGER"] },
-  { key: "de-nghi-thanh-toan", href: "/ke-toan/de-nghi-thanh-toan", label: "Đề nghị thanh toán", icon: "FileSignature", group: "Vận hành", roles: ["ADMIN", "MANAGER"] },
+  { key: "de-nghi-thanh-toan", href: "/ke-toan/de-nghi-thanh-toan", label: "Đề nghị thanh toán", icon: "FileSignature", group: "Vận hành", roles: ["ADMIN", "MANAGER"], hidden: true },
   { key: "danh-muc", href: "/danh-muc", label: "Danh mục dịch vụ", icon: "ListChecks", group: "Vận hành", roles: ["ADMIN", "MANAGER", "SHAREHOLDER"] },
   // Gộp chung tab với "Danh mục dịch vụ".
   { key: "kho", href: "/kho", label: "Kho vật tư", icon: "Boxes", group: "Vận hành", roles: ["ADMIN", "MANAGER", "SHAREHOLDER"], hidden: true },

@@ -38,9 +38,9 @@ export default async function PaymentRequestsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Giấy đề nghị thanh toán"
-        description="Mỗi khoản chi được lập thành chứng từ, ADMIN duyệt rồi mới ghi sổ thanh toán. Có thể in từng phiếu để lưu cùng hồ sơ kế toán."
+        description="Khoản Chi được tạo từ Sổ thu chi sẽ tự sinh phiếu tại đây; Kế toán xem, ADMIN duyệt/xác nhận và in từng phiếu để lưu ký hồ sơ."
         icon={<FileText className="h-5 w-5" />}
-        actions={<div className="flex flex-wrap gap-2"><Link href="/ke-toan" className={buttonVariants({ variant: "secondary" })}><ArrowLeft className="h-4 w-4" /> Về Kế toán</Link>{canApprove && <CreatePaymentRequestForm />}</div>}
+        actions={<div className="flex flex-wrap gap-2"><Link href="/ke-toan" className={buttonVariants({ variant: "secondary" })}><ArrowLeft className="h-4 w-4" /> Về Kế toán</Link>{canApprove && <CreatePaymentRequestForm /> }</div>}
       />
 
       <Card>
@@ -52,14 +52,14 @@ export default async function PaymentRequestsPage() {
               <tbody>
                 {requests.map((request) => (
                   <tr key={request.id} className="border-b border-slate-100 align-top hover:bg-slate-50/70">
-                    <td className="px-3 py-3"><a href={`/ke-toan/de-nghi-thanh-toan/${request.id}/export`} className="font-semibold text-brand-700 hover:underline">{request.requestNo}</a><div className="mt-1 text-xs text-slate-400">{request.month ?? "Không gắn tháng"}</div></td>
+                    <td className="px-3 py-3"><a href={`/ke-toan/de-nghi-thanh-toan/${request.id}`} className="font-semibold text-brand-700 hover:underline">{request.requestNo}</a><div className="mt-1 text-xs text-slate-400">{request.month ?? "Không gắn tháng"}</div></td>
                     <td className="px-3 py-3"><div className="font-medium text-slate-800">{request.payeeName}</div><div className="mt-1 text-xs text-slate-500">{paymentRequestTypeLabel(request.type)}</div></td>
                     <td className="max-w-[280px] px-3 py-3 text-slate-600"><div className="line-clamp-3">{request.reason}</div>{request.rejectionReason && <div className="mt-1 text-xs text-rose-600">Từ chối: {request.rejectionReason}</div>}</td>
                     <td className="px-3 py-3 text-right font-semibold tabular-nums text-slate-900">{formatVND(Number(request.amount))}</td>
                     <td className="px-3 py-3 text-xs text-slate-500">{request.requester.fullName}<div className="mt-1">{fmtDate(request.requestedAt)}</div>{request.approver && <div className="mt-1">Duyệt: {request.approver.fullName}</div>}</td>
                     <td className="px-3 py-3"><Badge tone={tone[request.status] ?? "gray"}>{paymentRequestStatusLabel(request.status)}</Badge>{request.paidAt && <div className="mt-1 text-xs text-emerald-600">{fmtDate(request.paidAt)}</div>}</td>
                     <td className="px-3 py-3">{request.cashTransaction ? <a href={`/thu-chi?month=${request.cashTransaction.occurredAt.toISOString().slice(0, 7)}&type=EXPENSE`} className="text-xs font-medium text-brand-700 hover:underline">Đã ghi sổ<br /><span className="font-normal text-slate-400">{fmtDate(request.cashTransaction.occurredAt)}</span></a> : <span className="text-xs text-slate-400">Chưa ghi sổ</span>}</td>
-                    <td className="px-3 py-3"><PaymentRequestActions id={request.id} status={request.status} amount={Number(request.amount)} canApprove={canApprove} canPay={canPay} /></td>
+                    <td className="px-3 py-3"><PaymentRequestActions id={request.id} status={request.status} amount={Number(request.amount)} canApprove={canApprove} canPay={canPay} hasCashTransaction={Boolean(request.cashTransaction)} /></td>
                   </tr>
                 ))}
               </tbody>
