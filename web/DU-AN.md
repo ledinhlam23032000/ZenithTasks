@@ -3,6 +3,14 @@
 > Tài liệu bàn giao để các phiên Claude Code sau tiếp tục hiệu quả. Đọc file này + mã nguồn là nắm được bối cảnh.
 > **Kế hoạch nâng cấp dài hạn (A→E) + theo dõi tiến độ: xem `ROADMAP.md` ở gốc repo.**
 
+## Gộp Quản trị thành Hệ thống, gỡ thư viện Mẫu phiếu đồng ý — "Đợt 37"
+> Chủ phản ánh sidebar có bốn mục quản trị rời nhau: Nhân sự, Nhật ký hệ thống, Tình trạng hệ thống, Kết nối kênh và Mẫu phiếu đồng ý; yêu cầu giảm rườm rà, gom phần vận hành vào Hệ thống và bỏ mẫu phiếu không dùng.
+- **Phương án đã duyệt**: giữ ba nghiệp vụ vì chúng không trùng nhau — `/he-thong` là tổng quan backup/bảo mật/dữ liệu, `/nhat-ky` là audit lọc/xuất đầy đủ, `/cham-soc/ket-noi` là cấu hình Zalo OA/Facebook. Chỉ sidebar được rút gọn còn một mục Hệ thống; route, bookmark và quyền server-side của Nhật ký/Kết nối vẫn giữ.
+- **Trung tâm Hệ thống**: trang tổng quan đổi nhãn thành Hệ thống, thêm ba thẻ Tổng quan vận hành/Nhật ký thao tác/Kết nối kênh và link xem toàn bộ nhật ký. App shell tô sáng Hệ thống cả khi đang ở route con.
+- **Mẫu phiếu đồng ý**: gỡ `mod:mau-phieu` khỏi `MODULES`, vì đây chỉ là thư viện CRUD mẫu; không xóa `ConsentRecord`/nội dung phiếu đã ghi. Luồng ghi Phiếu đồng ý trực tiếp trong hồ sơ vẫn có thể tiếp tục nếu cần.
+- **Knowledge map**: đổi mô tả Trợ lý AI từ Tình trạng hệ thống sang Hệ thống và bổ sung kết nối kênh giao tiếp.
+- **Kiểm thử cần có**: nav ADMIN chỉ còn Hệ thống, route con vẫn được cấp quyền, `mod:mau-phieu` bị chặn; kiểm tra TypeScript/ESLint, unit test quyền, production build và smoke test phân quyền.
+
 ## Phiếu tư vấn điện tử tự sinh, checklist tiền sử và bản in chỉnh sửa — "Đợt 36"
 > Chủ yêu cầu sau khi nhập hồ sơ khách cơ bản thì hệ thống không được bắt nhân viên viết lại Phiếu tư vấn dịch vụ thẩm mỹ. Phiếu phải tự điền thông tin hành chính, có checklist tiền sử mặc định Bình thường, cho phép ghi chú khi bất thường, chỉnh sửa phần chữ và in ký theo mẫu DOCX.
 - **Tự sinh trong cùng transaction**: khi tạo khách mới, hệ thống tạo `Customer`, `CaseRecord` nháp và `ConsultationRecord`; khi tiếp nhận khách cũ, hồ sơ điều trị mới cũng tạo `ConsultationRecord` mặc định. Hồ sơ cũ thiếu phiếu được backfill idempotent sau migration qua `docker-entrypoint.sh`.

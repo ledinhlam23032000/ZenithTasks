@@ -50,7 +50,15 @@ Các bản in hành chính được dựng từ dữ liệu đã chuẩn hóa, c
 
 Mọi thao tác ghi dùng Server Action và kiểm quyền ở server. Hồ sơ đã khóa chỉ ADMIN được mở lại hoặc sửa. Các migration phải additive, được chạy bằng `prisma migrate deploy`; tuyệt đối không chạy `prisma db push`, `migrate reset` hoặc xóa Docker volume trên dữ liệu thật. Khi triển khai bản có migration, sao lưu trước, chạy `windows\\Sua-Loi.bat`, xem log migration/backfill và thực hiện smoke test.
 
-## 5. Bản đồ tiếp quản nhanh
+## 5. Trung tâm Hệ thống
+
+Sidebar chỉ hiển thị một mục **Hệ thống** cho ADMIN. Trang `/he-thong` là trung tâm tổng quan gồm cảnh báo bảo mật, trạng thái backup, quy mô dữ liệu, dung lượng lưu trữ và hoạt động nhạy cảm gần đây; đồng thời có các lối vào rõ ràng tới `/nhat-ky` để lọc/xuất audit đầy đủ và `/cham-soc/ket-noi` để quản lý Zalo OA/Facebook Page. Hai route con và quyền server-side vẫn được giữ để không làm hỏng bookmark hoặc thao tác nội bộ, nhưng không còn chiếm ba dòng riêng trên sidebar.
+
+Thư viện quản trị **Mẫu phiếu đồng ý** không còn là module vận hành và đã được gỡ khỏi điều hướng/quyền module. Các phiếu đồng ý đã ghi trong hồ sơ khách vẫn giữ nguyên nội dung; dữ liệu lịch sử không bị xóa. Luồng ghi phiếu trong hồ sơ vẫn có thể lưu nội dung trực tiếp và không phụ thuộc vào việc còn màn hình quản lý thư viện mẫu.
+
+Định hướng mở rộng đã được phê duyệt ở mức giao diện là biến Hệ thống thành trung tâm kiểm soát vận hành: backup quá hạn, cảnh báo bảo mật, webhook chưa cấu hình và hoạt động nhạy cảm đều có thể hiện thành thẻ có mức độ và đường dẫn xử lý. Phần tự động hóa sâu hơn chỉ triển khai sau khi chủ dự án duyệt riêng.
+
+## 6. Bản đồ tiếp quản nhanh
 
 | Nếu muốn sửa… | Đọc trước |
 |---|---|
@@ -62,12 +70,12 @@ Mọi thao tác ghi dùng Server Action và kiểm quyền ở server. Hồ sơ 
 | Cập nhật máy Windows | `docs/OPERATIONS-RUNBOOK.md`, `windows/Sua-Loi.bat`, `windows/Sua-Loi.ps1` |
 | Lịch sử quyết định | `CHANGELOG.md`, `web/DU-AN.md`, `.task-memory/` |
 
-## 6. Quy tắc ghi nhận các bản vá về sau
+## 7. Quy tắc ghi nhận các bản vá về sau
 
 Mỗi bản vá phải ghi rõ vấn đề thực tế, nguyên nhân, thay đổi chính, ảnh hưởng dữ liệu, quyền liên quan, migration/backfill nếu có, test đã chạy và cách người vận hành cập nhật. Nếu là thay đổi nghiệp vụ, cập nhật `CHANGELOG.md` và `web/DU-AN.md`. Nếu là thay đổi kiến trúc hoặc vận hành, cập nhật thêm `VERSION.md`, `web/BAN-GIAO.md`, `docs/INDEX.md` hoặc `docs/OPERATIONS-RUNBOOK.md` tùy phạm vi.
 
 Không ghi nhận số liệu kiểm thử hoặc trạng thái production nếu chưa có bằng chứng từ lệnh/CI/checkpoint tương ứng. Không đưa dữ liệu khách thật, mật khẩu, API key, file `.env` hoặc backup vào GitHub.
 
-## 7. Tham chiếu
+## 8. Tham chiếu
 
 Đây là tài liệu mô tả nội bộ, không thay thế mã nguồn. Khi có mâu thuẫn, ưu tiên schema/migration và server action trên `master`, sau đó cập nhật tài liệu trong cùng release.

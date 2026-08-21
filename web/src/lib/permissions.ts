@@ -61,10 +61,13 @@ export const MODULES: ModuleDef[] = [
   // Gộp chung tab với "Danh mục dịch vụ".
   { key: "kho", href: "/kho", label: "Kho vật tư", icon: "Boxes", group: "Vận hành", roles: ["ADMIN", "MANAGER", "SHAREHOLDER"], hidden: true },
   { key: "nhan-su", href: "/nhan-su", label: "Nhân sự", icon: "Contact", group: "Quản trị", roles: ["ADMIN"] },
-  { key: "nhat-ky", href: "/nhat-ky", label: "Nhật ký hệ thống", icon: "ScrollText", group: "Quản trị", roles: ["ADMIN"] },
-  { key: "he-thong", href: "/he-thong", label: "Tình trạng hệ thống", icon: "ServerCog", group: "Quản trị", roles: ["ADMIN"] },
-  { key: "ket-noi-kenh", href: "/cham-soc/ket-noi", label: "Kết nối kênh", icon: "Plug", group: "Quản trị", roles: ["ADMIN"] },
-  { key: "mau-phieu", href: "/mau-phieu", label: "Mẫu phiếu đồng ý", icon: "FileSignature", group: "Quản trị", roles: ["ADMIN", "MANAGER"] },
+  // Trung tâm quản trị gộp: các route con vẫn tồn tại để giữ bookmark và quyền server-side,
+  // nhưng sidebar chỉ hiện một lối vào Hệ thống.
+  { key: "nhat-ky", href: "/nhat-ky", label: "Nhật ký hệ thống", icon: "ScrollText", group: "Quản trị", roles: ["ADMIN"], hidden: true },
+  { key: "he-thong", href: "/he-thong", label: "Hệ thống", icon: "ServerCog", group: "Quản trị", roles: ["ADMIN"] },
+  { key: "ket-noi-kenh", href: "/cham-soc/ket-noi", label: "Kết nối kênh", icon: "Plug", group: "Quản trị", roles: ["ADMIN"], hidden: true },
+  // Thư viện Mẫu phiếu đồng ý không còn là module vận hành. Các phiếu đã ghi trong hồ sơ
+  // vẫn được giữ nguyên; route quản trị cũ không còn quyền truy cập qua MODULES.
 ];
 
 export type CapDef = { key: string; label: string; group: string; roles: Role[] };

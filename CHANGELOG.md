@@ -2,6 +2,19 @@
 
 Tài liệu này ghi các thay đổi đã được đẩy lên nhánh `master`. Commit mới hơn nằm ở phía trên. Phiên bản mô tả đầy đủ hiện tại nằm trong [`VERSION.md`](VERSION.md).
 
+## 2026-08-21 — Quản trị gọn hơn: mục Hệ thống
+
+### Menu và vận hành quản trị
+
+- Gộp ba lối vào **Tình trạng hệ thống**, **Nhật ký hệ thống** và **Kết nối kênh** thành một mục sidebar **Hệ thống** dành cho ADMIN. Trang `/he-thong` hiện có các thẻ tổng quan, lối vào Nhật ký đầy đủ và lối vào cấu hình Zalo OA/Facebook Page.
+- Các route `/nhat-ky` và `/cham-soc/ket-noi` vẫn giữ nguyên, cùng quyền server-side, để bookmark và quy trình vận hành không bị hỏng; chỉ ẩn khỏi sidebar để giảm rườm rà. Hệ thống cũng giữ cảnh báo hoạt động nhạy cảm ngay trên tổng quan.
+- Gỡ module **Mẫu phiếu đồng ý** khỏi điều hướng và quyền module. Không xóa các phiếu đồng ý lịch sử hoặc nội dung đã ghi trong hồ sơ; nhân viên vẫn có thể ghi phiếu trực tiếp trong hồ sơ nếu nghiệp vụ cần.
+- Cập nhật knowledge map của Trợ lý AI để sử dụng tên Hệ thống mới.
+
+### Trạng thái phát hành
+
+- Thay đổi giao diện/quyền này cần chạy TypeScript, ESLint và test quyền; chưa tự động triển khai sâu hơn các thẻ cảnh báo ngoài phạm vi đã được duyệt.
+
 ## 2026-08-21 — `2026.08.21-r10`
 
 Commit master: [`983a447`](https://github.com/ledinhlam23032000/ZenithTasks/commit/983a447). PR liên quan: [#29](https://github.com/ledinhlam23032000/ZenithTasks/pull/29), [#30](https://github.com/ledinhlam23032000/ZenithTasks/pull/30).

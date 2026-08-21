@@ -1,4 +1,5 @@
-import { ServerCog, ShieldAlert, ShieldCheck, Database, Image as ImageIcon, HardDriveDownload, Users, FolderHeart, Wallet } from "lucide-react";
+import { ServerCog, ShieldAlert, ShieldCheck, Database, Image as ImageIcon, HardDriveDownload, Users, FolderHeart, Wallet, ScrollText, Plug } from "lucide-react";
+import Link from "next/link";
 import { requireCap } from "@/lib/auth";
 import { getSystemStatus, humanBytes } from "@/lib/system-status";
 import { fmtDateTime, fmtRelative } from "@/lib/format";
@@ -6,9 +7,9 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { StatCard } from "@/components/ui/stat-card";
 import { Badge } from "@/components/ui/badge";
-
+import { buttonVariants } from "@/components/ui/button";
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Tình trạng hệ thống" };
+export const metadata = { title: "Hệ thống" };
 
 export default async function SystemPage() {
   await requireCap("mod:he-thong");
@@ -17,10 +18,42 @@ export default async function SystemPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Tình trạng hệ thống"
-        description="Cảnh báo bảo mật, quy mô dữ liệu, dung lượng lưu trữ và sao lưu. Dành cho quản trị viên."
+        title="Hệ thống"
+        description="Trung tâm kiểm soát vận hành, bảo mật, nhật ký và kết nối kênh dành cho quản trị viên."
         icon={<ServerCog className="h-5 w-5" />}
       />
+
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card className="border-brand-100 bg-brand-50/40">
+          <CardContent className="flex h-full flex-col gap-3 p-4">
+            <div className="flex items-center gap-3">
+              <div className="rounded-xl bg-white p-2 text-brand-600 shadow-sm"><ServerCog className="h-5 w-5" /></div>
+              <div><p className="font-semibold text-slate-800">Tổng quan vận hành</p><p className="text-xs text-slate-500">Backup, bảo mật, dữ liệu và cảnh báo</p></div>
+            </div>
+            <p className="text-sm text-slate-600">Xem tình trạng máy chủ và các việc cần xử lý ngay bên dưới.</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex h-full flex-col gap-3 p-4">
+            <div className="flex items-center gap-3">
+              <div className="rounded-xl bg-slate-100 p-2 text-slate-600"><ScrollText className="h-5 w-5" /></div>
+              <div><p className="font-semibold text-slate-800">Nhật ký thao tác</p><p className="text-xs text-slate-500">Lọc và xuất lịch sử audit</p></div>
+            </div>
+            <p className="flex-1 text-sm text-slate-600">Theo dõi đăng nhập, sửa/xóa dữ liệu, tài chính và các hành động nhạy cảm.</p>
+            <Link href="/nhat-ky" className={buttonVariants({ variant: "secondary", size: "sm" })}>Mở nhật ký</Link>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex h-full flex-col gap-3 p-4">
+            <div className="flex items-center gap-3">
+              <div className="rounded-xl bg-slate-100 p-2 text-slate-600"><Plug className="h-5 w-5" /></div>
+              <div><p className="font-semibold text-slate-800">Kết nối kênh</p><p className="text-xs text-slate-500">Zalo OA và Facebook Page</p></div>
+            </div>
+            <p className="flex-1 text-sm text-slate-600">Kiểm tra trạng thái webhook, tài khoản đang kết nối và cấu hình nhận tin.</p>
+            <Link href="/cham-soc/ket-noi" className={buttonVariants({ variant: "secondary", size: "sm" })}>Mở kết nối kênh</Link>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Cảnh báo bảo mật */}
       {s.warnings.length > 0 ? (
@@ -90,7 +123,10 @@ export default async function SystemPage() {
       {/* Hoạt động gần đây (audit) */}
       <Card>
         <CardHeader>
-          <CardTitle>Hoạt động nhạy cảm gần đây</CardTitle>
+          <CardTitle className="flex items-center justify-between gap-3">
+            <span>Hoạt động nhạy cảm gần đây</span>
+            <Link href="/nhat-ky" className="text-xs font-medium text-brand-700 hover:underline">Xem toàn bộ nhật ký</Link>
+          </CardTitle>
         </CardHeader>
         <CardContent className="pt-0">
           {s.recentAudit.length === 0 ? (
