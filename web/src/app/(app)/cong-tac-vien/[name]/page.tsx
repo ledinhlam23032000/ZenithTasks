@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { ArrowLeft, Handshake, Users, Wallet, Coins, Receipt, Phone, Landmark, StickyNote } from "lucide-react";
+import { ArrowLeft, Handshake, Users, Wallet, Coins, Receipt, Phone, Landmark, StickyNote, FileText, Banknote } from "lucide-react";
 import { requireCap } from "@/lib/auth";
-import { isShareholder } from "@/lib/rbac";
 import { getCollaboratorDetail, getCollaboratorSeries, rangeBounds } from "@/lib/performance";
+import { prisma } from "@/lib/db";
 import { RangeChart } from "@/components/ui/range-chart";
 import { NewCollaboratorButton, EditCollaboratorButton } from "../ctv-forms";
 import { formatVND, toNum } from "@/lib/money";
@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { Table, THead, TH, TR, TD } from "@/components/ui/table";
 import { EmptyState } from "@/components/ui/empty-state";
+import { UploadCollaboratorDocumentButton, DeleteCollaboratorDocumentButton, RecordCollaboratorPayoutButton } from "../ctv-document-widgets";
 
 export const dynamic = "force-dynamic";
 
@@ -33,13 +34,27 @@ export default async function CollaboratorDetail({
   searchParams: Promise<{ range?: string }>;
 }) {
   const user = await requireCap("mod:cong-tac-vien");
-  const canManage = !isShareholder(user.role);
+  const canManage = user.role === "ADMIN" || user.role === "MANAGER";
   const identifier = decodeURIComponent((await params).name);
   const range = (await searchParams).range ?? "month";
   const { gte, lte, label } = rangeBounds(range);
   const [d, growth] = await Promise.all([getCollaboratorDetail(identifier, gte, lte), getCollaboratorSeries(identifier)]);
   const p = d.profile;
   const name = d.name;
+  const documents = p
+    ? await prisma.collaboratorDocument.findMany({
+        where: { collaboratorId: p.id },
+        orderBy: { createdAt: "desc" },
+        select: { id: true, title: true, fileName: true, url: true, mime: true, createdAt: true, uploadedBy: { select: { fullName: true } } },
+      })
+    : [];
+  const payoutRecords = p
+    ? await prisma.collaboratorPayoutRecord.findMany({
+        where: { collaboratorId: p.id },
+        orderBy: { paidAt: "desc" },
+        select: { id: true, amount: true, month: true, note: true, paidAt: true, paidBy: { select: { fullName: true } }, paymentRequest: { select: { requestNo: true } } },
+      })
+    : [];
 
   return (
     <div className="space-y-6">
@@ -115,6 +130,76 @@ export default async function CollaboratorDetail({
           )}
         </CardContent>
       </Card>
+
+      {p && (
+        <div className="grid gap-6 xl:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-4 w-4 text-brand-500" /> Tài liệu hồ sơ
+              </CardTitle>
+              {canManage && <UploadCollaboratorDocumentButton collaboratorId={p.id} />}
+            </CardHeader>
+            <CardContent className="pt-0">
+              {documents.length === 0 ? (
+                <EmptyState title="Chưa có tài liệu" description="Tải hợp đồng, cam kết, ảnh hoặc giấy tờ liên quan lên để tra cứu về sau." />
+              ) : (
+                <ul className="space-y-2.5">
+                  {documents.map((doc) => (
+                    <li key={doc.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-100 p-2.5">
+                      <div className="min-w-0">
+                        <p className="truncate font-medium text-slate-800">{doc.title}</p>
+                        <p className="truncate text-xs text-slate-500">{doc.fileName} · {fmtDate(doc.createdAt)}{doc.uploadedBy?.fullName ? ` · ${doc.uploadedBy.fullName}` : ""}</p>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <a href={doc.url} target="_blank" rel="noreferrer" className="rounded-md px-2 py-1 text-xs font-medium text-brand-600 hover:bg-brand-50">Xem</a>
+                        {canManage && <DeleteCollaboratorDocumentButton id={doc.id} collaboratorId={p.id} title={doc.title} />}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Banknote className="h-4 w-4 text-emerald-600" /> Lịch sử chi hoa hồng
+              </CardTitle>
+              {canManage && <RecordCollaboratorPayoutButton collaboratorId={p.id} />}
+            </CardHeader>
+            <CardContent className="overflow-x-auto pt-0">
+              {payoutRecords.length === 0 ? (
+                <EmptyState title="Chưa có khoản chi nào" description="Chỉ ghi nhận số tiền thực tế đã chuyển; hệ thống không tự tính lại hoa hồng." />
+              ) : (
+                <Table>
+                  <THead>
+                    <TR className="hover:bg-transparent">
+                      <TH>Kỳ</TH>
+                      <TH className="text-right">Số tiền</TH>
+                      <TH>Ngày chi</TH>
+                      <TH>Người ghi nhận</TH>
+                      <TH>Ghi chú</TH>
+                    </TR>
+                  </THead>
+                  <tbody>
+                    {payoutRecords.map((record) => (
+                      <TR key={record.id}>
+                        <TD className="font-medium text-slate-700">{record.month}</TD>
+                        <TD className="text-right font-semibold tabular-nums text-emerald-700">{formatVND(toNum(record.amount))}</TD>
+                        <TD className="whitespace-nowrap text-slate-500">{fmtDate(record.paidAt)}</TD>
+                        <TD className="text-slate-500">{record.paidBy?.fullName ?? "—"}{record.paymentRequest?.requestNo ? <span className="block text-xs text-slate-400">{record.paymentRequest.requestNo}</span> : null}</TD>
+                        <TD className="max-w-[16rem] whitespace-pre-wrap text-slate-500">{record.note || "—"}</TD>
+                      </TR>
+                    ))}
+                  </tbody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       <Card>
         <CardHeader>

@@ -287,6 +287,8 @@ model User {
   assistantFeedback         AssistantFeedback[]
   assistantFiles            AssistantFile[]
   collaboratorProfile       Collaborator?
+  collaboratorDocumentsUploaded CollaboratorDocument[] @relation("CollaboratorDocumentUploadedBy")
+  collaboratorPayoutRecordsPaid CollaboratorPayoutRecord[] @relation("CollaboratorPayoutRecordPaidBy")
   roleHistory               StaffRoleHistory[]      @relation("StaffRoleSubject")
   roleChangesMade           StaffRoleHistory[]      @relation("StaffRoleChangedBy")
 }
@@ -919,6 +921,42 @@ model CaseDocument {
   @@index([caseId])
 }
 
+// Tài liệu hồ sơ CTV: hợp đồng, cam kết, ảnh và các giấy tờ cần tra cứu.
+model CollaboratorDocument {
+  id             String       @id @default(cuid())
+  collaboratorId String
+  collaborator   Collaborator @relation(fields: [collaboratorId], references: [id], onDelete: Cascade)
+  title          String
+  fileName       String
+  url            String
+  mime           String
+  uploadedById   String?
+  uploadedBy     User?        @relation("CollaboratorDocumentUploadedBy", fields: [uploadedById], references: [id], onDelete: SetNull)
+  createdAt      DateTime     @default(now())
+
+  @@index([collaboratorId, createdAt])
+}
+
+// Lịch sử thực tế các khoản hoa hồng đã chuyển/chi cho CTV.
+// amount là số tiền đã ghi nhận tại thời điểm chi, không tự tính lại từ hồ sơ.
+model CollaboratorPayoutRecord {
+  id               String          @id @default(cuid())
+  collaboratorId   String
+  collaborator     Collaborator    @relation(fields: [collaboratorId], references: [id], onDelete: Restrict)
+  amount           Decimal         @db.Decimal(14, 0)
+  month            String
+  note             String?
+  paidAt           DateTime        @default(now())
+  paidById         String?
+  paidBy           User?           @relation("CollaboratorPayoutRecordPaidBy", fields: [paidById], references: [id], onDelete: SetNull)
+  paymentRequestId String?         @unique
+  paymentRequest   PaymentRequest? @relation("PaymentRequestCollaboratorPayoutRecord", fields: [paymentRequestId], references: [id], onDelete: SetNull)
+  createdAt        DateTime        @default(now())
+
+  @@index([collaboratorId, paidAt])
+  @@index([collaboratorId, month])
+}
+
 // Phân bổ doanh số nội bộ cho một hồ sơ giữa các nhân sự phối hợp.
 // shareBps: phần trăm theo điểm cơ bản, 10000 = 100%; tổng phải đúng 10000 khi hồ sơ chốt.
 model CaseRevenueAllocation {
@@ -1021,9 +1059,10 @@ model PaymentRequest {
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
 
-  payrollEntry     PayrollEntry?     @relation("PaymentRequestPayroll")
-  commissionPayout CommissionPayout? @relation("PaymentRequestCommission")
-  cashTransaction  CashTransaction?  @relation("PaymentRequestCashTransaction")
+  payrollEntry             PayrollEntry?             @relation("PaymentRequestPayroll")
+  commissionPayout         CommissionPayout?         @relation("PaymentRequestCommission")
+  collaboratorPayoutRecord CollaboratorPayoutRecord? @relation("PaymentRequestCollaboratorPayoutRecord")
+  cashTransaction          CashTransaction?          @relation("PaymentRequestCashTransaction")
 
   @@index([status, requestedAt])
   @@index([type, month])
@@ -1231,6 +1270,8 @@ model Collaborator {
   cases           CaseRecord[]
   payouts         CommissionPayout[]
   paymentRequests PaymentRequest[]
+  documents       CollaboratorDocument[]
+  payoutRecords   CollaboratorPayoutRecord[]
 }
 
 model StaffRoleHistory {
