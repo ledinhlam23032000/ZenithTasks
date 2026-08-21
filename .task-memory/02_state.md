@@ -53,3 +53,13 @@ Prompt dài không đồng nghĩa memory tốt; summary sai có thể làm AI b�
 Quality gate local đạt: targeted 2 file/19 test pass; full Vitest **53 file/338 test pass**; TypeScript, ESLint tệp thay đổi và Next production build pass. Không gọi model production, không dùng dữ liệu khách thật, không tạo approval, không ghi/xóa nghiệp vụ. PR #38 đã merge vào master lúc `2026-08-21T09:51:17Z`; merge commit hiện tại `749b00a`.
 
 P7/P8 vẫn chưa chốt release gate vì các case live read-only A01, A02, B01, E01, E06 chưa được chạy sau deploy trên máy Windows. Bước an toàn tiếp theo là owner chạy `Sua-Loi.bat`, mở cuộc trò chuyện AI mới, chạy đúng các case này và lưu prompt/output/steps/latency/side-effect check; các case D01–D06 ghi/xóa tiếp tục chỉ chạy preview/mock.
+
+## Windows update blocker và hợp nhất branch — 2026-08-21
+
+Đã đọc log `C:\Users\PC\ZenithTasks\docker-build-r4/r5/r6`. Log r5 dừng tại bước `RUN pnpm exec prisma generate && pnpm run build`, chưa có lỗi TypeScript/Next; stderr ghi `failed to execute bake: exit status 0xc000013a`. Mã này phù hợp với tiến trình Docker Bake bị ngắt giữa build, không phải bằng chứng thiếu migration. Log Xem-Lỗi ghi `NativeCommandError` vì PowerShell redirect trực tiếp stderr của native Prisma; bên dưới vẫn có `51 migrations found`, `Database schema is up to date` và app ready tại localhost:3000.
+
+Đã merge PR #41 `fix: lam on dinh script cap nhat Windows`: `Sua-Loi.ps1` buộc local về `master` bằng fetch/checkout/reset, không `git clean`; tắt Compose Bake bằng `COMPOSE_BAKE=false`; gom build stdout/stderr vào log timestamp; kiểm tra exit code fetch/checkout/reset/build/compose up/migrate deploy; không tiếp tục nếu lỗi và giữ bản đang chạy. `Xem-Loi.ps1` gom output thành text bình thường và chỉ ghi exit code khi lệnh thật sự thất bại.
+
+Đã kiểm tra PR #40 UX Phase 1, CI xanh, merge vào master rồi xóa branch. Các branch remote cũ khác đều được xác nhận fully contained trong master và đã xóa. Remote hiện chỉ còn `master`; master sau PR #40 là `2125751`. Các branch phụ không bị gộp mù.
+
+Việc còn lại: anh Lam chạy lại `windows\\Sua-Loi.bat` từ master mới, không đóng cửa sổ trong suốt bước build 5–15 phút. Nếu build vẫn lỗi, gửi file `docker-build-<timestamp>.log` mới; không cần gửi lại `Xem-Loi` nếu migration đã báo schema up to date.
