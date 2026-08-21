@@ -18,13 +18,32 @@ export type CtvProfile = {
   note: string;
 };
 
+function AccountFields() {
+  return (
+    <div className="rounded-xl border border-brand-100 bg-brand-50/40 p-4">
+      <p className="mb-3 text-sm font-semibold text-slate-800">Tài khoản đăng nhập CTV</p>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <Label>Tên đăng nhập *</Label>
+          <Input name="username" autoComplete="off" placeholder="VD: ctv.mylinh" required />
+        </div>
+        <div>
+          <Label>Mật khẩu *</Label>
+          <Input name="password" type="password" autoComplete="new-password" placeholder="Tối thiểu 12 ký tự" minLength={12} required />
+        </div>
+      </div>
+      <p className="mt-2 text-xs text-slate-500">Mật khẩu do quản trị viên đặt và có thể đặt lại trong phần Nhân sự nếu cần.</p>
+    </div>
+  );
+}
+
 function Fields({ ctv, lockName }: { ctv?: Partial<CtvProfile>; lockName?: boolean }) {
   return (
     <>
       <div>
         <Label>Tên cộng tác viên *</Label>
         <Input name="name" defaultValue={ctv?.name ?? ""} placeholder="VD: CTV Mỹ Linh" required readOnly={lockName} />
-        {lockName && <p className="mt-1 text-xs text-slate-400">Tên phải trùng với “Chi tiết nguồn” khi lập hồ sơ khách để gộp đúng hiệu suất.</p>}
+        {lockName && <p className="mt-1 text-xs text-slate-400">Tên là định danh hiển thị; khách cũ đã liên kết sẽ tự đồng bộ khi đổi thông tin.</p>}
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
@@ -62,6 +81,7 @@ export function NewCollaboratorButton({ defaultName }: { defaultName?: string })
       </Button>
       <Modal open={open} onClose={() => setOpen(false)} title="Thêm cộng tác viên" size="lg">
         <form action={action} className="space-y-4">
+          <AccountFields />
           <Fields ctv={defaultName ? { name: defaultName } : undefined} lockName={!!defaultName} />
           {state.error && <p className="text-sm text-rose-600">{state.error}</p>}
           <div className="flex justify-end gap-2">
@@ -94,7 +114,7 @@ export function EditCollaboratorButton({ ctv, small }: { ctv: CtvProfile; small?
         <form action={action} className="space-y-4">
           <input type="hidden" name="id" value={ctv.id} />
           <Fields ctv={ctv} />
-          <p className="-mt-2 text-xs text-slate-400">Đổi tên sẽ tự cập nhật nguồn CTV ở khách hàng, lead và lịch hẹn; số liệu hiệu suất vẫn được giữ nguyên.</p>
+          <p className="-mt-2 text-xs text-slate-400">Mọi tháng trước sẽ đồng bộ thông tin hiển thị; số tiền và hoa hồng đã lưu không bị tính lại.</p>
           {state.error && <p className="text-sm text-rose-600">{state.error}</p>}
           <div className="flex justify-end gap-2">
             <Button type="button" variant="secondary" onClick={() => setOpen(false)}>Hủy</Button>

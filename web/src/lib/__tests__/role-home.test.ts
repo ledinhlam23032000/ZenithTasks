@@ -13,6 +13,10 @@ describe("resolveRoleHome", () => {
     expect(resolveRoleHome({ role: "CARE" })).toBe("/viec-hom-nay");
   });
 
+  it("đưa CTV vào cổng khách hàng và hoa hồng riêng", () => {
+    expect(resolveRoleHome({ role: "COLLABORATOR" })).toBe("/cong-tac-vien-cua-toi");
+  });
+
   it("giữ dashboard cho quản trị, quản lý, cổ đông và điều dưỡng", () => {
     expect(resolveRoleHome({ role: "ADMIN" })).toBe("/dashboard");
     expect(resolveRoleHome({ role: "MANAGER" })).toBe("/dashboard");

@@ -17,6 +17,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { NewCustomerButton } from "../tiep-nhan/new-customer";
 import { PAGE_SIZE, parsePage, totalPagesOf } from "@/lib/pagination";
 import type { Prisma } from "@/generated/prisma/client";
+import { collaboratorCustomerWhere, collaboratorCaseWhere, requireCollaborator } from "@/lib/collaborator-access";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Hồ sơ khách hàng" };
@@ -25,14 +26,16 @@ const DONE_STATUSES = DONE_CASE_STATUSES;
 
 export default async function CustomersPage({ searchParams }: { searchParams: Promise<{ q?: string; loc?: string; page?: string }> }) {
   const user = await requireCap("mod:khach-hang");
+  const collaborator = user.role === "COLLABORATOR" ? await requireCollaborator(user.id) : null;
   const sp = await searchParams;
   const q = (sp.q ?? "").trim();
   const loc = sp.loc === "done" || sp.loc === "undone" ? sp.loc : "all";
   const page = parsePage(sp.page);
 
   const caseScope: Prisma.CaseRecordWhereInput =
-    user.role === "CONSULTANT" ? { consultantId: user.id } : user.role === "DOCTOR" ? { doctorId: user.id } : {};
+    user.role === "CONSULTANT" ? { consultantId: user.id } : user.role === "DOCTOR" ? { doctorId: user.id } : collaborator ? collaboratorCaseWhere(collaborator.id) : {};
   const filters: Prisma.CustomerWhereInput[] = [];
+  if (collaborator) filters.push(collaboratorCustomerWhere(collaborator.id));
   if (user.role === "CONSULTANT" || user.role === "DOCTOR") filters.push({ cases: { some: caseScope } });
   if (q) filters.push(isValidLast5(q) ? { phoneLast5: q } : { fullName: { contains: q, mode: "insensitive" } });
   // Phải gộp caseScope vào đây (không chỉ lọc theo status) — nếu không, Tư vấn viên/Bác

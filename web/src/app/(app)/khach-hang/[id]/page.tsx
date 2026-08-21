@@ -58,19 +58,21 @@ import { PhotoCompareButton } from "@/components/ui/photo-compare";
 import { CustomerNextActions } from "./customer-next-actions";
 import { MedicalAlert } from "@/components/ui/medical-alert";
 import type { Prisma } from "@/generated/prisma/client";
+import { collaboratorCaseWhere, collaboratorCustomerWhere, requireCollaborator } from "@/lib/collaborator-access";
 
 export const dynamic = "force-dynamic";
 
 export default async function CustomerDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireCap("mod:khach-hang");
   const { id } = await params;
+  const collaborator = user.role === "COLLABORATOR" ? await requireCollaborator(user.id) : null;
   const caseScope: Prisma.CaseRecordWhereInput =
-    user.role === "CONSULTANT" ? { consultantId: user.id } : user.role === "DOCTOR" ? { doctorId: user.id } : {};
-  const scopedClinical = user.role === "CONSULTANT" || user.role === "DOCTOR";
+    user.role === "CONSULTANT" ? { consultantId: user.id } : user.role === "DOCTOR" ? { doctorId: user.id } : collaborator ? collaboratorCaseWhere(collaborator.id) : {};
+  const scopedClinical = user.role === "CONSULTANT" || user.role === "DOCTOR" || user.role === "COLLABORATOR";
   const canViewClinical = userCan(user, "case.clinical");
 
-  const customer = await prisma.customer.findUnique({
-    where: { id },
+  const customer = await prisma.customer.findFirst({
+    where: collaborator ? { AND: [{ id }, collaboratorCustomerWhere(collaborator.id)] } : { id },
     include: {
       cases: {
         where: caseScope,
@@ -100,7 +102,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
   if (!customer) notFound();
 
   const canSeePhone = userCan(user, "phone.full");
-  const canConfirmFollowUp = !isShareholder(user.role);
+  const canConfirmFollowUp = !isShareholder(user.role) && user.role !== "COLLABORATOR";
 
   const caseFinancials = new Map(
     customer.cases.map((c) => [
