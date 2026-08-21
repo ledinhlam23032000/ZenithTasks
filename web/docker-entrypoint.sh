@@ -49,6 +49,13 @@ until npx prisma migrate deploy; do
   sleep 2
 done
 
+# Bổ sung idempotent Giấy đề nghị thanh toán cho các khoản Chi lịch sử chưa có chứng từ.
+# Chạy sau migration và không tạo trùng: dòng đã có paymentRequestId sẽ được bỏ qua.
+# Lỗi được ghi log nhưng không chặn app khởi động; lần restart sau sẽ tự thử lại.
+if [ -f /app/scripts/backfill-cash-payment-requests.ts ]; then
+  ./node_modules/.bin/tsx /app/scripts/backfill-cash-payment-requests.ts || echo "⚠️ Backfill chứng từ cũ chưa hoàn tất; sẽ thử lại ở lần khởi động sau."
+fi
+
 # Nếu CSDL còn phoneEnc mà secret/biến môi trường bị mất thì dừng, không chạy
 # bằng khóa mới khiến dữ liệu cũ không thể giải mã. Chỉ tạo khóa tự động cho CSDL mới.
 if [ -z "$PHONE_ENC_KEY" ]; then
