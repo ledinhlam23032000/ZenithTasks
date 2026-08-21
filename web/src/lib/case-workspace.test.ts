@@ -7,12 +7,13 @@ describe("case workspace presets", () => {
     expect(workspace.key).toBe("admin");
     expect(workspace.visibleTabs).toContain("phan-bo-doanh-so");
     expect(workspace.showFinancialRail).toBe(true);
+    expect(workspace.defaultTab).toBe("giay-to");
   });
 
   it("separates clinical and reception views", () => {
     const clinical = getCaseWorkspace("DOCTOR");
     const reception = getCaseWorkspace("RECEPTION");
-    expect(clinical.defaultTab).toBe("tu-van");
+    expect(clinical.defaultTab).toBe("giay-to");
     expect(clinical.visibleTabs).toContain("vat-tu");
     expect(clinical.visibleTabs).not.toContain("phan-bo-doanh-so");
     expect(clinical.showFinancialRail).toBe(false);

@@ -2,6 +2,13 @@
 
 Tài liệu này ghi các thay đổi đã được đẩy lên nhánh `master`. Commit mới hơn nằm ở phía trên. Phiên bản mô tả đầy đủ hiện tại nằm trong [`VERSION.md`](VERSION.md).
 
+## 2026-08-21 — Hồ sơ dịch vụ thẩm mỹ trong Giấy tờ và khóa tự động 24 giờ
+
+- Đưa toàn bộ form Hồ sơ dịch vụ thẩm mỹ khỏi tab Tư vấn vào khu vực **Giấy tờ**, cùng Phiếu đồng ý và tài liệu bổ sung; tab Tư vấn chỉ còn thông tin tư vấn cốt lõi.
+- Đặt tab Giấy tờ làm điểm vào mặc định cho workspace admin/lâm sàng; nút `+ Thêm giấy tờ` vẫn mở hồ sơ, ghi nhận Phiếu đồng ý hoặc upload tài liệu.
+- Thêm badge `Thiếu`, `Rà soát` và `Thiếu xác nhận` trên tab để dẫn next action mà không tự áp BOM vật tư.
+- Bổ sung auto-lock 24 giờ dựa trên `CaseRecord.updatedAt` ở cả UI và Server Actions; nhân viên chuyển sang chỉ xem, ADMIN vẫn có thể chỉnh/mở khóa. Không thêm migration và không xóa dữ liệu lịch sử.
+
 ## 2026-08-21 — Bản vá cập nhật Windows sau r12
 
 - `Sua-Loi.ps1` chuyển local về đúng nhánh `master` bằng `checkout -B master origin/master` rồi `reset --hard`; chỉ cảnh báo file untracked và không tự `git clean` để tránh xóa log/QA/.env của chủ máy.
