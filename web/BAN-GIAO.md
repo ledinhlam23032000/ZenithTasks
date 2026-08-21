@@ -451,6 +451,14 @@ Mọi thao tác tiền, lương, chứng từ, dữ liệu y tế, sửa sổ sa
 - Không ghi nhận “đã chạy production” nếu chưa có checkpoint/smoke test trên máy Windows. Các commit master đã merge chỉ chứng minh code đã phát hành vào repository, không chứng minh production đã được cập nhật.
 - Bản vá có migration phải giữ migration additive, chạy `prisma migrate deploy`, backup trước và cập nhật runbook nếu thay đổi quy trình vận hành.
 
+## 13.7. Quản trị gọn hơn — mục Hệ thống
+
+- Sidebar chỉ hiện `{ key: "he-thong", href: "/he-thong", label: "Hệ thống" }` cho ADMIN. Không tạo thêm mục sidebar riêng cho Nhật ký hoặc Kết nối kênh.
+- `/he-thong` là trung tâm tổng quan: `getSystemStatus()` vẫn cung cấp cảnh báo bảo mật, backup, quy mô dữ liệu, dung lượng và audit nhạy cảm; UI có thêm link tới `/nhat-ky` và `/cham-soc/ket-noi`.
+- `nhat-ky` và `ket-noi-kenh` vẫn nằm trong `MODULES` với `hidden: true` để giữ quyền server-side, bookmark và direct route. Khi đổi sidebar hoặc kiểm tra active route, `app-shell.tsx` phải coi cả hai route con là thuộc Hệ thống.
+- `mau-phieu` đã bị gỡ khỏi `MODULES`, vì vậy `requireCap("mod:mau-phieu")` chặn route quản lý thư viện mẫu. Không xóa `ConsentRecord`, `ConsentTemplate` khỏi schema hoặc nội dung phiếu đã ghi nếu chưa có yêu cầu phá dữ liệu riêng.
+- Nếu cần thêm tự động hóa cho Hệ thống, ưu tiên thẻ cảnh báo có mức độ và deep-link xử lý (backup quá hạn, webhook thiếu, hoạt động nhạy cảm) trước khi làm dashboard lớn. Mỗi thay đổi phải qua quyền ADMIN, audit và test.
+
 ## 14. TODO / lộ trình
 - **Zalo OA + Facebook Messenger** (Kênh giao tiếp — xem mục "Kênh giao tiếp (Omnichannel)" ở mục 7): **ĐÃ XÂY XONG PHẦN CỨNG** (webhook, gửi/nhận tin, hộp thư hợp nhất `/cham-soc/hop-thu`, trang kết nối `/cham-soc/ket-noi`) — còn THIẾU để chạy thật: (1) chủ phải lập **Zalo Official Account** tại oa.zalo.me (hiện đang dùng Zalo cá nhân, không có API — xem cảnh báo ngay trên trang Kết nối kênh) + tạo app tại developers.zalo.me lấy App ID/Secret; (2) tạo Facebook App + liên kết Fanpage lấy App Secret + Page Access Token (nên qua Meta Business Suite để không hết hạn). Sau khi có đủ, admin tự vào `/cham-soc/ket-noi` bấm kết nối — KHÔNG cần sửa code thêm.
 - **AI tự trả lời tự động** (không cần nhân viên bấm gửi) — CHƯA làm, mới có AI SOẠN NHÁP (`draftChannelReply`, nhân viên vẫn phải xem/sửa/bấm gửi) — cân nhắc thêm nếu chủ muốn (rủi ro: AI trả lời sai/hứa hẹn y khoa không kiểm soát được nếu tự động hoàn toàn).

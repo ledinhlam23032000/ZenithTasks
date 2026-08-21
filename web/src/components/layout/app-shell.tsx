@@ -156,7 +156,12 @@ export function AppShell({
     });
   };
 
-  const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
+  const isActive = (href: string) => {
+    if (href === "/he-thong") {
+      return pathname === "/he-thong" || pathname.startsWith("/he-thong/") || pathname === "/nhat-ky" || pathname.startsWith("/nhat-ky/") || pathname === "/cham-soc/ket-noi" || pathname.startsWith("/cham-soc/ket-noi/");
+    }
+    return pathname === href || pathname.startsWith(href + "/");
+  };
 
   const navGroups = nav.reduce<Record<string, NavItemData[]>>((groups, item) => {
     (groups[item.group] ??= []).push(item);

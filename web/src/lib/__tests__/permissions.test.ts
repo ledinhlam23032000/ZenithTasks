@@ -51,6 +51,18 @@ describe("userCan", () => {
     const item = navForUser({ role: "MANAGER" }).find((nav) => nav.href === "/ke-hoach");
     expect(item).toMatchObject({ label: "Kế hoạch", group: "Trợ Lý" });
   });
+  it("gộp Nhật ký và Kết nối kênh vào mục Hệ thống trên sidebar", () => {
+    const adminNav = navForUser({ role: "ADMIN" });
+    expect(adminNav.find((nav) => nav.href === "/he-thong")).toMatchObject({ label: "Hệ thống", group: "Quản trị" });
+    expect(adminNav.some((nav) => nav.href === "/nhat-ky")).toBe(false);
+    expect(adminNav.some((nav) => nav.href === "/cham-soc/ket-noi")).toBe(false);
+    expect(adminNav.some((nav) => nav.href === "/mau-phieu")).toBe(false);
+  });
+  it("giữ quyền server-side cho Nhật ký và Kết nối kênh, nhưng gỡ module Mẫu phiếu", () => {
+    expect(userCan({ role: "ADMIN" }, "mod:nhat-ky")).toBe(true);
+    expect(userCan({ role: "ADMIN" }, "mod:ket-noi-kenh")).toBe(true);
+    expect(userCan({ role: "ADMIN" }, "mod:mau-phieu")).toBe(false);
+  });
 });
 
 describe("diffFromDesired", () => {

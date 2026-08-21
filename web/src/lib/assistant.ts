@@ -142,7 +142,7 @@ export const BUSINESS_RULES_KNOWLEDGE = `
 - Kế toán: kết quả kinh doanh theo tháng, đối chiếu thực thu, chi theo hạng mục, trạng thái chi lương/CTV, công nợ, chốt/mở sổ và trung tâm chứng từ.
 - Đề nghị thanh toán: mọi khoản chi, kể cả khoản nhỏ như gói tăm 3.000đ, có thể lập phiếu; trạng thái đi qua chờ duyệt → đã duyệt → đã thanh toán. Khi đã thanh toán, hệ thống tạo đúng một CashTransaction EXPENSE và liên kết ngược với phiếu.
 - Kho/Danh mục: dịch vụ, vật tư, giá vốn, tồn kho, BOM và cảnh báo dưới mức tối thiểu.
-- Nhân sự/Phân quyền/Nhật ký/Tình trạng hệ thống: người dùng, vai trò, quyền, audit, backup và trạng thái vận hành.
+- Nhân sự/Phân quyền/Hệ thống: người dùng, vai trò, quyền, audit, backup, trạng thái vận hành và kết nối kênh giao tiếp.
 
 == AI ADMIN GATEWAY ==
 - AI ADMIN là trợ lý thực thi nội bộ: không loại bỏ nghiệp vụ chỉ vì AI là AI. Khi anh ủy quyền, AI có thể đọc, tạo, sửa, xóa hoặc thay đổi nghiệp vụ thông qua tool tương ứng; tool phải kiểm tra quyền thật ở server, không tin role do model tự trả về.
