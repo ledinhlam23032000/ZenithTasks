@@ -2,7 +2,7 @@
 
 - Updated: 2026-08-21 GMT+7
 - Goal: Hoàn thiện 35 task UX đã duyệt, loại trừ Task 11, kiểm thử từng mốc và phát hành qua PR.
-- Current phase: Phase 5 đã hoàn tất; PR #40 chứa toàn bộ UX task đã code, chờ CI/merge theo quy trình.
+- Current phase: Phase 6 tổng kiểm tra; PR #40 và #44 đã merge các phase đầu, PR #45 chứa phase 4–5 còn lại và CI đã xanh, chờ merge.
 - Overall status: active
 
 ## Completed since last checkpoint
@@ -19,13 +19,13 @@ Các task còn lại triển khai tuần tự theo dependency graph trong `NHIEM
 
 ## Open blockers/questions
 
-PR #40 đã được cập nhật sau phase 5 và cần CI xác nhận commit mới. Không còn task UX được duyệt nào khác ngoài Task 11; production deployment/migration vẫn cần backup và chạy trên máy vận hành riêng.
+PR #40 và #44 đã merge vào `origin/master`. PR #45 đã tạo cho phần còn lại, CI push/pull_request đều xanh nhưng chưa merge. Sau khi PR45 merge mới được đánh dấu toàn bộ task còn lại là Đã merge. Production deployment/migration vẫn cần backup và chạy trên máy vận hành riêng.
 
 ## Next 3 actions
 
-1. Commit và push phase 5, cập nhật body PR #40 và chờ CI.
-2. Cập nhật VERSION/CHANGELOG nếu owner muốn phát hành bản mới sau merge.
-3. Sau merge, fetch master và chạy smoke test có backup trên máy vận hành; không tuyên bố production đã triển khai trước khi có bằng chứng.
+1. Chờ owner/GitHub merge PR #45; không tự merge.
+2. Sau merge, fetch `origin/master`, chạy lại typecheck/test/build tối thiểu và cập nhật ledger thành Đã merge.
+3. Trên máy vận hành: backup, migrate deploy nếu cần, rồi smoke test ADMIN/MANAGER/nhân sự/CTV và backup status.
 
 ## Files to read first
 
