@@ -97,8 +97,8 @@ export async function toggleStaffActive(formData: FormData): Promise<void> {
   const me = await requireUser(["ADMIN"]);
   const id = String(formData.get("id") ?? "");
   if (!id || id === me.id) return; // không tự khoá chính mình
-  const u = await prisma.user.findUnique({ where: { id }, select: { active: true } });
-  if (!u) return;
+  const u = await prisma.user.findUnique({ where: { id }, select: { active: true, employmentStatus: true } });
+  if (!u || u.employmentStatus === "RETIRED") return;
   await prisma.user.update({ where: { id }, data: { active: !u.active } });
   revalidatePath("/nhan-su");
 }
@@ -112,6 +112,32 @@ export async function toggleStaffActive(formData: FormData): Promise<void> {
  * làm gì nữa). Nhân sự đã nghỉ việc nhưng còn lịch sử → dùng "Ngừng hoạt động"
  * (toggleStaffActive) để khóa tài khoản mà vẫn giữ nguyên toàn bộ dữ liệu liên quan.
  */
+export async function retireStaff(formData: FormData): Promise<void> {
+  const me = await requireUser(["ADMIN"]);
+  const id = String(formData.get("id") ?? "");
+  if (!id || id === me.id) return;
+  await prisma.$transaction(async (tx) => {
+    const target = await tx.user.findUnique({ where: { id }, select: { fullName: true, employmentStatus: true } });
+    if (!target || target.employmentStatus === "RETIRED") return;
+    await tx.user.update({ where: { id }, data: { employmentStatus: "RETIRED", active: false, retiredAt: new Date(), retiredById: me.id } });
+    await auditRequired(tx, me.id, "RETIRE_STAFF", { entity: "User", entityId: id, meta: { fullName: target.fullName } });
+  });
+  revalidatePath("/nhan-su", "layout");
+}
+
+export async function restoreStaff(formData: FormData): Promise<void> {
+  const me = await requireUser(["ADMIN"]);
+  const id = String(formData.get("id") ?? "");
+  if (!id || id === me.id) return;
+  await prisma.$transaction(async (tx) => {
+    const target = await tx.user.findUnique({ where: { id }, select: { employmentStatus: true } });
+    if (!target || target.employmentStatus !== "RETIRED") return;
+    await tx.user.update({ where: { id }, data: { employmentStatus: "ACTIVE", active: true, retiredAt: null, retiredById: null } });
+    await auditRequired(tx, me.id, "RESTORE_STAFF", { entity: "User", entityId: id });
+  });
+  revalidatePath("/nhan-su", "layout");
+}
+
 export async function deleteStaff(formData: FormData): Promise<void> {
   const me = await requireUser(["ADMIN"]);
   const id = String(formData.get("id") ?? "");
@@ -243,7 +269,7 @@ export async function updateStaff(_prev: StaffFormState, formData: FormData): Pr
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu không hợp lệ." };
   const d = parsed.data;
 
-  const current = await prisma.user.findUnique({ where: { id: d.id }, select: { fullName: true } });
+  const current = await prisma.user.findUnique({ where: { id: d.id }, select: { fullName: true, role: true, position: true, department: true } });
   if (!current) return { error: "Không tìm thấy nhân sự." };
 
   await prisma.$transaction(async (tx) => {
@@ -271,6 +297,27 @@ export async function updateStaff(_prev: StaffFormState, formData: FormData): Pr
         baseSalary: d.baseSalary,
       },
     });
+
+    if (current.role !== d.role || (current.position ?? "") !== (d.position ?? "") || (current.department ?? "") !== (d.department ?? "")) {
+      await tx.staffRoleHistory.create({
+        data: {
+          userId: d.id,
+          fromRole: current.role,
+          toRole: d.role,
+          fromPosition: current.position,
+          toPosition: d.position || null,
+          fromDepartment: current.department,
+          toDepartment: d.department || null,
+          note: String(formData.get("promotionNote") ?? "").trim() || null,
+          changedById: user.id,
+        },
+      });
+      await auditRequired(tx, user.id, "PROMOTE_STAFF", {
+        entity: "User",
+        entityId: d.id,
+        meta: { fromRole: current.role, toRole: d.role, fromPosition: current.position, toPosition: d.position || null, fromDepartment: current.department, toDepartment: d.department || null },
+      });
+    }
 
     // Chỉ đồng bộ chứng từ chưa chốt; PAID/REJECTED/CANCELLED giữ payeeName
     // như snapshot kế toán, còn các màn hình live vẫn lấy tên qua quan hệ User.

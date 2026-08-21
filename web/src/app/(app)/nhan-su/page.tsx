@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { format } from "date-fns";
-import { Contact, Power, KeyRound } from "lucide-react";
+import { Contact, Power, KeyRound, UserRoundX, UserRoundCheck } from "lucide-react";
 import { requireCap } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { ROLE_LABELS } from "@/lib/rbac";
@@ -17,18 +17,24 @@ import { NewStaffButton } from "./new-staff";
 import { ResetPasswordButton } from "./reset-password";
 import { PermissionEditorButton } from "./permission-editor";
 import { EditStaffButton, type EditableStaff } from "./[id]/staff-edit";
-import { toggleStaffActive, deleteStaff, adminDisable2FA } from "./actions";
+import { toggleStaffActive, retireStaff, restoreStaff, deleteStaff, adminDisable2FA } from "./actions";
 
 const ymd = (d: Date | null) => (d ? format(new Date(d), "yyyy-MM-dd") : "");
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Nhân sự" };
 
-export default async function StaffPage() {
+export default async function StaffPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   const me = await requireCap("mod:nhan-su");
+  const tab = (await searchParams).tab === "retired" ? "retired" : "active";
   const users = await prisma.user.findMany({
+    where: { employmentStatus: tab === "retired" ? "RETIRED" : "ACTIVE", role: { not: "COLLABORATOR" } },
     orderBy: [{ active: "desc" }, { role: "asc" }, { fullName: "asc" }],
   });
+  const [activeCount, retiredCount] = await Promise.all([
+    prisma.user.count({ where: { employmentStatus: "ACTIVE", role: { not: "COLLABORATOR" } } }),
+    prisma.user.count({ where: { employmentStatus: "RETIRED", role: { not: "COLLABORATOR" } } }),
+  ]);
   const catalog = permCatalog();
 
   const editableOf = (u: (typeof users)[number]): EditableStaff => ({
@@ -58,10 +64,15 @@ export default async function StaffPage() {
     <div className="space-y-6">
       <PageHeader
         title="Nhân sự"
-        description={`${users.length} tài khoản nhân viên. Phân quyền theo vai trò.`}
+        description="Quản lý tài khoản, chức vụ, quyền hạn và vòng đời làm việc trên cùng một hồ sơ."
         icon={<Contact className="h-5 w-5" />}
         actions={<NewStaffButton />}
       />
+
+      <div className="inline-flex rounded-lg bg-slate-100 p-1 text-sm font-medium">
+        <Link href="/nhan-su?tab=active" className={`rounded-md px-4 py-2 ${tab === "active" ? "bg-white text-brand-700 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>Đang làm ({activeCount})</Link>
+        <Link href="/nhan-su?tab=retired" className={`rounded-md px-4 py-2 ${tab === "retired" ? "bg-white text-brand-700 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>Đã nghỉ việc ({retiredCount})</Link>
+      </div>
 
       <Card>
         <CardContent className="pt-5">
@@ -92,7 +103,7 @@ export default async function StaffPage() {
                   <TD className="font-mono text-xs text-slate-500">@{u.username}</TD>
                   <TD className="text-slate-600">{ROLE_LABELS[u.role]}</TD>
                   <TD>
-                    {u.active ? <Badge tone="green" dot>Đang hoạt động</Badge> : <Badge tone="red" dot>Đã khóa</Badge>}
+                    {tab === "retired" ? <Badge tone="red" dot>Đã nghỉ việc</Badge> : u.active ? <Badge tone="green" dot>Đang hoạt động</Badge> : <Badge tone="amber" dot>Đang khóa</Badge>}
                   </TD>
                   <TD className="text-slate-500">{fmtDate(u.createdAt)}</TD>
                   <TD className="text-right">
@@ -118,7 +129,8 @@ export default async function StaffPage() {
                         </form>
                       )}
                       <ResetPasswordButton userId={u.id} name={u.fullName} />
-                      {u.id !== me.id && (
+                      {u.id !== me.id && tab === "active" && (
+                        <>
                         <form action={toggleStaffActive}>
                           <input type="hidden" name="id" value={u.id} />
                           <button
@@ -127,6 +139,17 @@ export default async function StaffPage() {
                           >
                             <Power className="h-3.5 w-3.5" /> {u.active ? "Khóa" : "Mở"}
                           </button>
+                        </form>
+                        <form action={retireStaff}>
+                          <input type="hidden" name="id" value={u.id} />
+                          <button className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-rose-600 hover:bg-rose-50" title="Chuyển sang Đã nghỉ việc"><UserRoundX className="h-3.5 w-3.5" /> Nghỉ việc</button>
+                        </form>
+                        </>
+                      )}
+                      {u.id !== me.id && tab === "retired" && (
+                        <form action={restoreStaff}>
+                          <input type="hidden" name="id" value={u.id} />
+                          <button className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-emerald-600 hover:bg-emerald-50" title="Khôi phục nhân sự"><UserRoundCheck className="h-3.5 w-3.5" /> Khôi phục</button>
                         </form>
                       )}
                       {u.id !== me.id && (

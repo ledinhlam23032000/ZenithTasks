@@ -15,6 +15,7 @@ export const ROLE_LABELS: Record<Role, string> = {
   NURSE: "Điều dưỡng",
   CARE: "Chăm sóc khách hàng",
   SHAREHOLDER: "Cổ đông",
+  COLLABORATOR: "Cộng tác viên",
 };
 
 export const ROLE_SHORT: Record<Role, string> = {
@@ -27,6 +28,7 @@ export const ROLE_SHORT: Record<Role, string> = {
   NURSE: "Điều dưỡng",
   CARE: "CSKH",
   SHAREHOLDER: "Cổ đông",
+  COLLABORATOR: "CTV",
 };
 
 export function isManagerial(role: Role): boolean {

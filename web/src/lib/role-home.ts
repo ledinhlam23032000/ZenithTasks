@@ -2,7 +2,7 @@ import type { Role } from "@/generated/prisma/client";
 import { userCan } from "./permissions";
 
 export type RoleHomeUser = { role: Role; permissions?: unknown };
-export type AppHome = "/dashboard" | "/viec-hom-nay" | "/dau-ca";
+export type AppHome = "/dashboard" | "/viec-hom-nay" | "/dau-ca" | "/cong-tac-vien-cua-toi";
 
 /**
  * Chọn màn hình bắt đầu theo mục tiêu công việc, nhưng không vượt qua module gate.
@@ -12,6 +12,9 @@ export type AppHome = "/dashboard" | "/viec-hom-nay" | "/dau-ca";
  * resolver sẽ rơi về dashboard an toàn thay vì redirect vào route bị chặn.
  */
 export function resolveRoleHome(user: RoleHomeUser): AppHome {
+  if (user.role === "COLLABORATOR" && userCan(user, "mod:cong-tac-vien-cua-toi")) {
+    return "/cong-tac-vien-cua-toi";
+  }
   if ((user.role === "RECEPTION" || user.role === "TELESALE") && userCan(user, "mod:dau-ca")) {
     return "/dau-ca";
   }

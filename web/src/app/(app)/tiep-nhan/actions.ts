@@ -46,6 +46,13 @@ export async function createCustomer(_prev: CustomerFormState, formData: FormDat
     return { error: parsed.error.issues[0]?.message ?? "Dữ liệu không hợp lệ." };
   }
   const data = parsed.data;
+  const collaborator = data.source === "COLLABORATOR" && data.sourceDetail
+    ? await prisma.collaborator.findFirst({ where: { name: data.sourceDetail, active: true }, select: { id: true } })
+    : null;
+  if (data.source === "COLLABORATOR" && !collaborator) {
+    return { error: "Vui lòng chọn đúng cộng tác viên đã được quản trị viên tạo trước." };
+  }
+  const collaboratorAssignedAt = collaborator ? new Date() : null;
 
   const normalized = normalizePhone(data.phone);
   if (normalized.length < 9 || normalized.length > 11) {
@@ -85,6 +92,8 @@ export async function createCustomer(_prev: CustomerFormState, formData: FormDat
             phoneHash: hashPhone(normalized),
             source: data.source,
             sourceDetail: data.sourceDetail || null,
+            collaboratorId: collaborator?.id ?? null,
+            collaboratorAssignedAt,
             address: data.address || null,
             note: data.note || null,
             createdById: user.id,
@@ -97,6 +106,8 @@ export async function createCustomer(_prev: CustomerFormState, formData: FormDat
             status: "OPEN",
             chiefComplaint: null,
             note: "Hồ sơ nháp tự tạo khi tiếp nhận khách mới",
+            collaboratorId: collaborator?.id ?? null,
+            collaboratorAssignedAt,
             createdById: user.id,
           },
         });

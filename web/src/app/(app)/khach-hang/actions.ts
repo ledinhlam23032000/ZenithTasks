@@ -66,8 +66,13 @@ export async function updateCustomer(_prev: EditCustomerState, formData: FormDat
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu không hợp lệ." };
   const d = parsed.data;
 
-  const existing = await prisma.customer.findUnique({ where: { id: d.customerId }, select: { id: true } });
+  const existing = await prisma.customer.findUnique({ where: { id: d.customerId }, select: { id: true, collaboratorId: true, collaboratorAssignedAt: true } });
   if (!existing) return { error: "Không tìm thấy khách hàng." };
+  const collaborator = d.source === "COLLABORATOR" && d.sourceDetail
+    ? await prisma.collaborator.findFirst({ where: { name: d.sourceDetail, active: true }, select: { id: true } })
+    : null;
+  if (d.source === "COLLABORATOR" && !collaborator) return { error: "Vui lòng chọn đúng cộng tác viên đã được quản trị viên tạo trước." };
+  const collaboratorAssignedAt = collaborator ? existing.collaboratorAssignedAt ?? new Date() : null;
 
   let dob: Date | null | undefined;
   if (d.dob) {
@@ -105,6 +110,8 @@ export async function updateCustomer(_prev: EditCustomerState, formData: FormDat
         dob,
         source: d.source,
         sourceDetail: d.sourceDetail || null,
+        collaboratorId: collaborator?.id ?? null,
+        collaboratorAssignedAt,
         address: d.address || null,
         note: d.note || null,
         allergies: d.allergies || null,
