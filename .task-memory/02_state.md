@@ -73,3 +73,11 @@ Việc còn lại: anh Lam chạy lại `windows\\Sua-Loi.bat` từ master mới
 Đã tiếp tục UX Task 12 bằng badge `Thiếu`, `Rà soát` và `Thiếu xác nhận` trên thanh tab, không tự áp BOM vật tư. Local quality gate đạt: targeted 10 test pass; full Vitest **58 file/354 test pass**; TypeScript, ESLint tệp thay đổi và Next production build pass. Branch hiện tại `fix/paperwork-tab-autolock` đang chờ commit/PR/CI/merge.
 
 Sau khi merge cần tiếp tục live smoke AI read-only A01/A02/B01/E01/E06; không chạy write/destructive test production.
+
+## Release sau PR #46 và #45 — 2026-08-21
+
+PR #46 đã đưa Hồ sơ dịch vụ thẩm mỹ vào tab Giấy tờ, auto-lock 24 giờ và badge UX Task 12 vào master. PR #45 sau đó đã được cập nhật theo master mới, giải quyết conflict tại `ho-so/[id]/page.tsx` bằng cách giữ đồng thời readiness badges của UX và auto-lock mới, rồi merge thành công.
+
+Quality gate sau khi hợp nhất: **66 file / 368 test pass**, TypeScript pass, Next production build pass; CI PR #45 push/pull request đều xanh. Master hiện tại là `697a19fd5051d92d07c200095460c7d29c02bcaa` và remote chỉ còn `master`; branch `fix/paperwork-tab-autolock` và `feat/ux-execution-1-10` đã được xóa sau khi merge.
+
+Trạng thái còn mở: live smoke AI read-only A01/A02/B01/E01/E06 cần owner chạy sau khi cập nhật Windows; không chạy D01–D06 ghi/xóa trên production. Bản cập nhật giấy tờ/auto-lock đã sẵn sàng để chạy `Sua-Loi.bat`.
