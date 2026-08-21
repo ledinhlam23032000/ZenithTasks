@@ -22,42 +22,42 @@
 
 | Task | Status | Branch/PR | Evidence | Notes |
 |---:|---|---|---|---|
-| 1 | review | feat/ux-execution-1-10 | checks/phase-1-2-quality-gate.md | Protocol/checkpoint đã tạo; chờ PR |
-| 2 | review | feat/ux-execution-1-10 | checks/phase-1-2-quality-gate.md | Global Search đã code; chờ PR |
-| 3 | review | feat/ux-execution-1-10 | checks/phase-1-2-quality-gate.md | Search cards đã code; chờ PR |
-| 4 | review | feat/ux-execution-1-10 | checks/phase-1-2-quality-gate.md | Customer 360 đã code; chờ PR |
-| 5 | review | feat/ux-execution-1-10 | checks/phase-1-2-quality-gate.md | Reception flow đã code; chờ PR |
-| 6 | review | feat/ux-execution-1-10 | checks/phase-1-2-quality-gate.md | CTV ID đã code; chờ PR |
-| 7 | review | feat/ux-execution-1-10 | checks/phase-1-2-quality-gate.md | Conflict slots đã code; chờ PR |
-| 8 | review | feat/ux-execution-1-10 | checks/phase-1-2-quality-gate.md | Work queue đã code; chờ PR |
-| 9 | review | feat/ux-execution-1-10 | checks/phase-1-2-quality-gate.md | Lock checklist đã code; chờ PR |
-| 10 | review | feat/ux-execution-1-10 / PR #40 | checks/phase-3-quality-gate.md | Case workspace theo role; chờ merge |
+| 1 | merged | master / PR #40 | checks/phase-1-2-quality-gate.md | Đã merge |
+| 2 | merged | master / PR #40 | checks/phase-1-2-quality-gate.md | Đã merge |
+| 3 | merged | master / PR #40 | checks/phase-1-2-quality-gate.md | Đã merge |
+| 4 | merged | master / PR #40 | checks/phase-1-2-quality-gate.md | Đã merge |
+| 5 | merged | master / PR #40 | checks/phase-1-2-quality-gate.md | Đã merge |
+| 6 | merged | master / PR #40 | checks/phase-1-2-quality-gate.md | Đã merge |
+| 7 | merged | master / PR #40 | checks/phase-1-2-quality-gate.md | Đã merge |
+| 8 | merged | master / PR #40 | checks/phase-1-2-quality-gate.md | Đã merge |
+| 9 | merged | master / PR #40 | checks/phase-1-2-quality-gate.md | Đã merge |
+| 10 | merged | master / PR #44 | checks/phase-3-quality-gate.md | Đã merge |
 | 11 | cancelled | — | — | Vật tư tự trừ thủ công |
-| 12 | not_started | — | — | Chờ Task 10 |
-| 13 | review | feat/ux-execution-1-10 | checks/phase-1-2-quality-gate.md | Audit formatter đã code; chờ PR |
-| 14 | review | feat/ux-execution-1-10 | checks/phase-1-2-quality-gate.md | Payment state machine đã code; chờ PR |
-| 15 | review | feat/ux-execution-1-10 | checks/phase-1-2-quality-gate.md | No reload đã code; chờ PR |
-| 16 | not_started | — | — | Chờ mở payment source actions |
-| 17 | not_started | — | — | Chờ mở payment rail |
-| 18 | review | feat/ux-execution-1-10 | checks/phase-1-2-quality-gate.md | Inbox rail đã code; chờ PR |
-| 19 | review | feat/ux-execution-1-10 | checks/phase-1-2-quality-gate.md | SLA assignment đã code; chờ PR |
-| 20 | not_started | — | — | Chờ inbox alternative actions |
-| 21 | review | feat/ux-execution-1-10 | checks/phase-1-2-quality-gate.md | Draft localStorage đã code; chờ PR |
-| 22 | review | feat/ux-execution-1-10 / PR #40 | checks/phase-3-quality-gate.md | Profile 4 khu vực; chờ merge |
-| 23 | not_started | — | — | Chờ Task 22 |
-| 24 | not_started | — | — | Chờ Task 22 |
-| 25 | not_started | — | — | Chờ Task 22/23 |
-| 26 | not_started | — | — | Chờ Task 22 |
-| 27 | not_started | — | — | Chờ Task 26 |
-| 28 | not_started | — | — | Chờ Task 26/27 |
-| 29 | review | feat/ux-execution-1-10 / PR #40 | checks/phase-3-quality-gate.md | Alias/breadcrumb permission-safe; chờ merge |
-| 30 | not_started | — | — | Chờ Task 29 |
-| 31 | review | feat/ux-execution-1-10 | checks/phase-1-2-quality-gate.md | Auto follow-up đã code; chờ PR |
-| 32 | not_started | — | — | Chờ Task 26 |
-| 33 | not_started | — | — | Chờ Task 29 |
-| 34 | not_started | — | — | Chờ telemetry contract |
-| 35 | not_started | — | — | Chờ toàn bộ task |
-| 36 | not_started | — | — | Chờ Task 35 |
+| 12 | review | feat/ux-execution-1-10 / PR #45 | checks/phase-4-quality-gate.md | Readiness badges; chờ merge |
+| 13 | merged | master / PR #40 | checks/phase-1-2-quality-gate.md | Đã merge |
+| 14 | merged | master / PR #40 | checks/phase-1-2-quality-gate.md | Đã merge |
+| 15 | merged | master / PR #40 | checks/phase-1-2-quality-gate.md | Đã merge |
+| 16 | review | feat/ux-execution-1-10 / PR #45 | checks/phase-5-quality-gate.md | Source buttons tạo PENDING; chờ merge |
+| 17 | review | feat/ux-execution-1-10 / PR #45 | checks/phase-5-quality-gate.md | Payroll/CTV/CashBook backlinks; chờ merge |
+| 18 | merged | master / PR #40 | checks/phase-1-2-quality-gate.md | Đã merge |
+| 19 | merged | master / PR #40 | checks/phase-1-2-quality-gate.md | Đã merge |
+| 20 | review | feat/ux-execution-1-10 / PR #45 | checks/phase-5-quality-gate.md | Alternative actions ngoài SLA; chờ merge |
+| 21 | merged | master / PR #40 | checks/phase-1-2-quality-gate.md | Đã merge |
+| 22 | merged | master / PR #44 | checks/phase-3-quality-gate.md | Đã merge |
+| 23 | review | feat/ux-execution-1-10 / PR #45 | checks/phase-4-quality-gate.md | Preset quyền + diff preview; chờ merge |
+| 24 | review | feat/ux-execution-1-10 / PR #45 | checks/phase-4-quality-gate.md | Handoff checklist + server confirm; chờ merge |
+| 25 | review | feat/ux-execution-1-10 / PR #45 | checks/phase-4-quality-gate.md | changedAt dùng làm effective date; test pass |
+| 26 | review | feat/ux-execution-1-10 / PR #45 | checks/phase-4-quality-gate.md | Profile/report ưu tiên collaboratorId; chờ merge |
+| 27 | review | feat/ux-execution-1-10 / PR #45 | checks/phase-4-quality-gate.md | Filter thiếu ID/chưa đăng ký; chờ merge |
+| 28 | review | feat/ux-execution-1-10 / PR #45 | checks/phase-4-quality-gate.md | Portal status/expiry/mask; chờ merge |
+| 29 | merged | master / PR #44 | checks/phase-3-quality-gate.md | Đã merge |
+| 30 | review | feat/ux-execution-1-10 / PR #45 | checks/phase-4-quality-gate.md | Mobile quick bar theo workload; chờ merge |
+| 31 | review | feat/ux-execution-1-10 / PR #45 | checks/phase-1-2-quality-gate.md | Auto follow-up đã code; chờ merge |
+| 32 | review | feat/ux-execution-1-10 / PR #45 | checks/phase-5-quality-gate.md | Data quality + admin reconcile ID; chờ merge |
+| 33 | review | feat/ux-execution-1-10 / PR #45 | checks/phase-4-quality-gate.md | Dashboard work queue role-aware; chờ merge |
+| 34 | review | feat/ux-execution-1-10 / PR #45 | checks/phase-5-quality-gate.md | Local telemetry workflow metrics; chờ merge |
+| 35 | review | feat/ux-execution-1-10 / PR #45 | checks/phase-5-quality-gate.md | UX QA matrix + hard gates; chờ merge |
+| 36 | review | feat/ux-execution-1-10 / PR #45 | checks/phase-5-quality-gate.md | UX_ROLLOUT feature flags; chờ merge |
 
 ## Quy tắc thực thi
 

@@ -126,6 +126,29 @@ export async function updateCollaborator(_prev: CtvState, formData: FormData): P
   return { ok: true };
 }
 
+export async function reconcileLegacyCollaborator(_prev: CtvState, formData: FormData): Promise<CtvState> {
+  const admin = await requireUser(["ADMIN"]);
+  const collaboratorId = String(formData.get("collaboratorId") ?? "");
+  const legacyName = String(formData.get("legacyName") ?? "").trim();
+  if (!collaboratorId || !legacyName) return { error: "Thiếu CTV hoặc tên legacy." };
+  const collaborator = await prisma.collaborator.findUnique({ where: { id: collaboratorId }, select: { id: true, name: true } });
+  if (!collaborator) return { error: "Không tìm thấy CTV đích." };
+  await prisma.$transaction(async (tx) => {
+    const sourceWhere = { source: "COLLABORATOR" as const, sourceDetail: legacyName };
+    const [customers, leads, appointments, cases, payouts, requests] = await Promise.all([
+      tx.customer.updateMany({ where: { OR: [{ collaboratorId: null, ...sourceWhere }, { collaboratorId: collaboratorId, sourceDetail: legacyName }] }, data: { collaboratorId, sourceDetail: collaborator.name, collaboratorAssignedAt: new Date() } }),
+      tx.lead.updateMany({ where: { OR: [{ collaboratorId: null, ...sourceWhere }, { collaboratorId: collaboratorId, sourceDetail: legacyName }] }, data: { collaboratorId, sourceDetail: collaborator.name } }),
+      tx.appointment.updateMany({ where: { OR: [{ collaboratorId: null, ...sourceWhere }, { collaboratorId: collaboratorId, sourceDetail: legacyName }] }, data: { collaboratorId, sourceDetail: collaborator.name } }),
+      tx.caseRecord.updateMany({ where: { collaboratorId: null, customer: sourceWhere }, data: { collaboratorId, collaboratorAssignedAt: new Date() } }),
+      tx.commissionPayout.updateMany({ where: { collaboratorId: null, name: legacyName }, data: { collaboratorId } }),
+      tx.paymentRequest.updateMany({ where: { payeeCollaboratorId: null, type: "COLLABORATOR", payeeName: legacyName }, data: { payeeCollaboratorId: collaboratorId } }),
+    ]);
+    await auditRequired(tx, admin.id, "RECONCILE_COLLABORATOR_ID", { entity: "Collaborator", entityId: collaboratorId, meta: { legacyName, customers: customers.count, leads: leads.count, appointments: appointments.count, cases: cases.count, payouts: payouts.count, requests: requests.count, moneyRecalculated: false } });
+  });
+  revalidatePath("/cong-tac-vien", "layout");
+  return { ok: true };
+}
+
 export async function deleteCollaborator(formData: FormData): Promise<void> {
   await requireUser([...ROLES]);
   const id = String(formData.get("id") ?? "");

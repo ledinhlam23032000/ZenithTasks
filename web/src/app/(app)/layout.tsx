@@ -8,6 +8,7 @@ import { AppShell } from "@/components/layout/app-shell";
 import { ToastProvider } from "@/components/ui/toast";
 import { pushPublicKey } from "@/lib/push";
 import { DismissibleBanner } from "@/components/ui/dismissible-banner";
+import { getWorkloadSummary } from "@/lib/workqueue-summary";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
@@ -15,7 +16,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // Cảnh báo bảo mật chỉ hiện cho ADMIN (người có thể xử lý).
   const warnings = user.role === "ADMIN" ? securityWarnings() : [];
   // Tài khoản bootstrap/QA được đánh dấu bắt buộc đổi mật khẩu trong JWT.
-  const session = await getSession();
+  const [session, workload] = await Promise.all([getSession(), getWorkloadSummary(user)]);
   const weakPassword = user.mustChangePassword || session?.weakPw === true || session?.mustChangePassword === true;
 
   return (
@@ -24,6 +25,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         user={{ fullName: user.fullName, role: user.role, roleLabel: ROLE_LABELS[user.role], username: user.username, avatarUrl: user.avatarUrl }}
         nav={nav}
         pushPublicKey={pushPublicKey()}
+        workload={workload}
       >
         {(warnings.length > 0 || weakPassword) && (
           <div className="mb-4 space-y-2">

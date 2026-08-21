@@ -12,6 +12,8 @@ import {
   GraduationCap,
   StickyNote,
   CalendarClock,
+  AlertTriangle,
+  CheckCircle2,
 } from "lucide-react";
 import { format } from "date-fns";
 import { requireCap } from "@/lib/auth";
@@ -27,6 +29,9 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { buttonVariants } from "@/components/ui/button";
 import { EditStaffButton, type EditableStaff } from "./staff-edit";
+import { ConfirmButton } from "@/components/ui/confirm-button";
+import { retireStaff } from "../actions";
+import { buildStaffHandoffChecklist, handoffHasBlockers } from "@/lib/staff-handoff";
 
 export const dynamic = "force-dynamic";
 
@@ -35,14 +40,38 @@ function ymd(d: Date | null): string {
 }
 
 export default async function StaffDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  await requireCap("mod:nhan-su");
+  const me = await requireCap("mod:nhan-su");
   const { id } = await params;
 
-  const u = await prisma.user.findUnique({ where: { id } });
+  const u = await prisma.user.findUnique({
+    where: { id },
+    include: {
+      _count: {
+        select: {
+          customersCreated: true,
+          appointmentsAssigned: true,
+          casesConsulted: true,
+          casesAsDoctor: true,
+          careMessages: true,
+          followUpsCreated: true,
+          plansCreated: true,
+        },
+      },
+    },
+  });
   if (!u) notFound();
 
   const permissionCount = effectiveKeys({ role: u.role, permissions: u.permissions }).length;
   const isRetired = u.employmentStatus === "RETIRED";
+  const handoffItems = buildStaffHandoffChecklist({
+    customers: u._count.customersCreated,
+    appointments: u._count.appointmentsAssigned,
+    clinicalCases: u._count.casesConsulted + u._count.casesAsDoctor,
+    careMessages: u._count.careMessages,
+    followUps: u._count.followUpsCreated,
+    plans: u._count.plansCreated,
+  });
+  const hasHandoffBlockers = handoffHasBlockers(handoffItems);
   const editable: EditableStaff = {
     id: u.id,
     fullName: u.fullName,
@@ -101,6 +130,34 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
         </div>
         <p className="mt-2 text-xs text-slate-400">Các thao tác khóa, nghỉ việc, reset mật khẩu và đổi quyền nằm trong vùng quản trị; không thay đổi chính sách phân quyền hiện tại.</p>
       </div>
+
+      {!isRetired && me.id !== u.id && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-amber-500" /> Checklist bàn giao trước nghỉ việc</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 pt-0">
+            <p className="text-xs text-slate-500">Nếu còn workload, quản trị viên cần bàn giao khách, lịch, hồ sơ và công việc cho người nhận trước khi khóa tài khoản. Lịch sử cũ vẫn được giữ nguyên.</p>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {handoffItems.map((item) => (
+                <div key={item.key} className={`rounded-lg border px-2.5 py-2 text-xs ${item.count > 0 ? "border-amber-200 bg-amber-50 text-amber-800" : "border-emerald-200 bg-emerald-50 text-emerald-800"}`}>
+                  <p className="font-semibold">{item.count > 0 ? <AlertTriangle className="mr-1 inline h-3.5 w-3.5" /> : <CheckCircle2 className="mr-1 inline h-3.5 w-3.5" />}{item.label}</p>
+                  <p className="mt-0.5">{item.count} mục {item.count > 0 ? "cần rà soát/bàn giao" : "— không có"}</p>
+                </div>
+              ))}
+            </div>
+            <ConfirmButton
+              action={retireStaff}
+              fields={{ id: u.id, handoffConfirmed: "yes" }}
+              confirmText={hasHandoffBlockers ? "Tôi đã rà soát và hoàn tất bàn giao các workload đang hiển thị. Chuyển nhân sự sang Đã nghỉ việc và khóa toàn bộ quyền?" : "Chuyển nhân sự sang Đã nghỉ việc và khóa toàn bộ quyền?"}
+              confirmLabel="Xác nhận nghỉ việc"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-rose-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-rose-700"
+            >
+              <AlertTriangle className="h-4 w-4" /> Nghỉ việc sau khi bàn giao
+            </ConfirmButton>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Card id="ho-so">

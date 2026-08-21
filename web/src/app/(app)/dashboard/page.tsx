@@ -44,13 +44,13 @@ export default async function DashboardPage() {
   const canViewWorkqueue = userCan(user, "mod:viec-hom-nay");
 
   if (!isManagerial(user.role)) {
-    const work = canViewWorkqueue ? await getWorkqueue() : null;
+    const work = canViewWorkqueue ? await getWorkqueue(user) : null;
     return <StaffDashboard user={user} greeting={greeting} work={work} />;
   }
 
   const [d, work] = await Promise.all([
     getAdminDashboard(),
-    canViewWorkqueue ? getWorkqueue() : Promise.resolve(null),
+    canViewWorkqueue ? getWorkqueue(user) : Promise.resolve(null),
   ]);
   const maxConsultRev = Math.max(1, ...d.consultants.map((c) => c.revenue));
   const statusBars = Object.entries(d.today.byStatus)

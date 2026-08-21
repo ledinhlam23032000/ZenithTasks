@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Handshake, ChevronRight, Users, Wallet, Coins } from "lucide-react";
 import { requireCap } from "@/lib/auth";
+import { prisma } from "@/lib/db";
 import { getCollaborators, getCollaboratorSeries, rangeBounds } from "@/lib/performance";
 import { formatVND } from "@/lib/money";
 import { PageHeader } from "@/components/ui/page-header";
@@ -17,6 +18,10 @@ import { ExportMenu } from "@/components/ui/export-menu";
 import { isShareholder } from "@/lib/rbac";
 import { performanceTabs } from "@/lib/nav-tabs";
 import { NewCollaboratorButton } from "./ctv-forms";
+import { CreateSourcePaymentRequestButton } from "../ke-toan/de-nghi-thanh-toan/payment-request-source-button";
+import { ReconcileLegacyButton } from "./reconcile-legacy-button";
+import { summarizeCollaboratorQuality } from "@/lib/collaborator-data-quality";
+import { isUxFeatureEnabled } from "@/lib/ux-feature-flags";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Cộng tác viên" };
@@ -28,16 +33,27 @@ const RANGES = [
   { key: "all", label: "Tất cả" },
 ];
 
-export default async function CollaboratorsPage({ searchParams }: { searchParams: Promise<{ range?: string }> }) {
+export default async function CollaboratorsPage({ searchParams }: { searchParams: Promise<{ range?: string; filter?: string }> }) {
   const user = await requireCap("mod:cong-tac-vien");
   const canManage = !isShareholder(user.role);
-  const range = (await searchParams).range ?? "month";
+  const sp = await searchParams;
+  const range = sp.range ?? "month";
+  const filter = sp.filter === "missing-id" || sp.filter === "unregistered" ? sp.filter : "all";
   const { gte, lte, label } = rangeBounds(range);
-  const [rows, growth] = await Promise.all([getCollaborators(gte, lte), getCollaboratorSeries()]);
+  const currentMonth = new Date().toISOString().slice(0, 7);
+  const [rows, growth, profiles] = await Promise.all([
+    getCollaborators(gte, lte),
+    getCollaboratorSeries(),
+    canManage ? prisma.collaborator.findMany({ where: { active: true }, select: { id: true, name: true }, orderBy: { name: "asc" } }) : Promise.resolve([] as { id: string; name: string }[]),
+  ]);
+  const quality = summarizeCollaboratorQuality(rows);
 
   const totalRevenue = rows.reduce((s, r) => s + r.revenue, 0);
   const totalCommission = rows.reduce((s, r) => s + r.commission, 0);
   const totalCustomers = rows.reduce((s, r) => s + r.customers, 0);
+  const missingIdCount = rows.filter((r) => !r.id).length;
+  const unregisteredCount = rows.filter((r) => Boolean(r.id) && !r.registered).length;
+  const visibleRows = rows.filter((r) => filter === "missing-id" ? !r.id : filter === "unregistered" ? Boolean(r.id) && !r.registered : true);
 
   return (
     <div className="space-y-6">
@@ -83,6 +99,12 @@ export default async function CollaboratorsPage({ searchParams }: { searchParams
         </CardContent>
       </Card>
 
+      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white p-3 text-xs">
+        <span className="font-semibold text-slate-600">Hàng chờ dữ liệu:</span>
+        {([['all', `Tất cả (${rows.length})`], ['missing-id', `Thiếu ID (${missingIdCount})`], ['unregistered', `Chưa đăng ký (${unregisteredCount})`]] as const).map(([key, labelText]) => <Link key={key} href={`/cong-tac-vien?range=${range}&filter=${key}`} className={`rounded-md px-2.5 py-1.5 font-medium ${filter === key ? "bg-brand-50 text-brand-700" : "text-slate-500 hover:bg-slate-50"}`}>{labelText}</Link>)}
+        <span className="ml-auto text-slate-400">Khỏe {quality.healthy} · Thiếu ID {quality.missingId} · Chưa đăng ký {quality.unregistered}</span>
+      </div>
+
       {rows.some((r) => r.revenue > 0) && (
         <Card>
           <CardHeader>
@@ -102,11 +124,11 @@ export default async function CollaboratorsPage({ searchParams }: { searchParams
 
       <Card>
         <CardContent className="overflow-x-auto pt-5">
-          {rows.length === 0 ? (
+          {visibleRows.length === 0 ? (
             <EmptyState
               icon={<Handshake className="h-6 w-6" />}
-              title="Chưa có cộng tác viên trong kỳ này"
-              description="CTV được ghi nhận khi khách có Nguồn = Cộng tác viên và điền tên ở 'Chi tiết nguồn'."
+              title={filter === "all" ? "Chưa có cộng tác viên trong kỳ này" : "Không có dòng phù hợp bộ lọc"}
+              description="Không tự động gán CTV theo tên gần giống; hãy mở từng dòng legacy để xác nhận ID an toàn."
             />
           ) : (
             <Table>
@@ -121,16 +143,17 @@ export default async function CollaboratorsPage({ searchParams }: { searchParams
                 </TR>
               </THead>
               <tbody>
-                {rows.map((r, i) => (
-                  <TR key={r.name}>
+                {visibleRows.map((r, i) => (
+                  <TR key={r.id ?? `legacy:${r.name}`}>
                     <TD>
                       <div className="flex items-center gap-2.5">
                         <span className="flex h-6 w-6 items-center justify-center rounded-md bg-brand-50 text-xs font-semibold text-brand-700">{i + 1}</span>
                         <Avatar name={r.name} className="h-8 w-8" />
-                        <Link href={`/cong-tac-vien/${encodeURIComponent(r.name)}?range=${range}`} className="font-medium text-slate-800 hover:text-brand-600 hover:underline">
+                        <Link href={`/cong-tac-vien/${encodeURIComponent(r.id ?? r.name)}?range=${range}`} className="font-medium text-slate-800 hover:text-brand-600 hover:underline">
                           {r.name}
                         </Link>
-                        {!r.registered && <Badge tone="amber">Chưa đăng ký</Badge>}
+                        {!r.id && <><Badge tone="red">Thiếu ID</Badge>{canManage && isUxFeatureEnabled("collaborator-id-reconcile") && <ReconcileLegacyButton legacyName={r.name} profiles={profiles} />}</>}
+                        {r.id && !r.registered && <Badge tone="amber">Chưa đăng ký</Badge>}
                       </div>
                     </TD>
                     <TD className="text-center tabular-nums text-slate-700">{r.customers}</TD>
@@ -138,9 +161,10 @@ export default async function CollaboratorsPage({ searchParams }: { searchParams
                     <TD className="text-right font-semibold tabular-nums text-slate-800">{formatVND(r.revenue)}</TD>
                     <TD className="text-right tabular-nums text-violet-600">{formatVND(r.commission)}</TD>
                     <TD className="text-right">
-                      <Link href={`/cong-tac-vien/${encodeURIComponent(r.name)}?range=${range}`} className="inline-flex items-center gap-0.5 text-xs font-medium text-brand-600 hover:underline">
+                      <Link href={`/cong-tac-vien/${encodeURIComponent(r.id ?? r.name)}?range=${range}`} className="inline-flex items-center gap-0.5 text-xs font-medium text-brand-600 hover:underline">
                         Chi tiết <ChevronRight className="h-3.5 w-3.5" />
                       </Link>
+                      {canManage && range === "month" && r.userId && r.commission > 0 && <CreateSourcePaymentRequestButton enabled={isUxFeatureEnabled("payment-source-requests")} type="COLLABORATOR" payeeName={r.name} payeeUserId={r.userId} payeeCollaboratorId={r.id} amount={r.commission} reason={`Đề nghị chi hoa hồng CTV ${r.name}`} month={currentMonth} category="COLLABORATOR" label="Đề nghị chi" />}
                     </TD>
                   </TR>
                 ))}

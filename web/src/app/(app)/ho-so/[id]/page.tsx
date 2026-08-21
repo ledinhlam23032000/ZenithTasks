@@ -78,6 +78,7 @@ import { PaymentQrButton } from "./payment-qr-button";
 import { RevenueAllocationEditor } from "./revenue-allocation-editor";
 import { buildCaseLockChecklist, canLockCase } from "@/lib/case-lock-checklist";
 import { getCaseWorkspace } from "@/lib/case-workspace";
+import { buildCaseReadinessBadges } from "@/lib/case-readiness";
 import { isCaseAutoLocked } from "@/lib/case-lock";
 
 export const dynamic = "force-dynamic";
@@ -163,6 +164,16 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
     financialAnomalyCount: financial.anomalies.length,
   });
   const lockAllowed = canLockCase(lockChecklist);
+  const readinessBadges = buildCaseReadinessBadges({
+    consultationExists: Boolean(record.consultation),
+    patientConfirmed: Boolean(record.consultation?.patientConfirmed),
+    serviceCount: record.services.length,
+    materialUsageCount: record.materials.length,
+    consentCount: record.consents.length,
+    documentCount: record.documents.length,
+    debt,
+    followUpCount: record.followUps.length,
+  }).filter(() => workspace.key !== "readonly");
 
   const commissionAmount = toNum(record.commissionAmount);
   const canVoidPayment = userCan(user, "payment.manage") && !lockedForMe;
@@ -670,6 +681,16 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
         )
       )}
 
+      {readinessBadges.length > 0 && (
+        <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="mr-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Cần xử lý tiếp</span>
+            {readinessBadges.map((badge) => <a key={`${badge.key}-${badge.label}`} href="#case-tabs" className={`rounded-md px-2 py-1 text-xs font-semibold ${badge.tone === "red" ? "bg-rose-50 text-rose-700" : "bg-amber-50 text-amber-700"}`}>{badge.label}</a>)}
+          </div>
+          <p className="mt-2 text-[11px] text-slate-400">Badge vật tư chỉ là nhắc rà soát và tự trừ theo ca thực tế; không tự động áp BOM và không chặn khóa.</p>
+        </div>
+      )}
+
       <div className="rounded-xl border border-brand-100 bg-brand-50/60 px-4 py-3">
         <p className="text-sm font-semibold text-brand-800">{workspace.label}</p>
         <p className="mt-0.5 text-xs text-brand-700/80">{workspace.description}</p>
@@ -705,7 +726,7 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
       )}
 
       <div className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2">
+        <div id="case-tabs" className="lg:col-span-2">
           <CaseSectionTabs tabs={tabs} defaultTab={defaultTab} />
         </div>
 

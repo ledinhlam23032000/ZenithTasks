@@ -15,6 +15,7 @@ const requestSchema = z.object({
   type: z.enum(["EXPENSE", "SALARY", "COLLABORATOR", "STAFF_OTHER"]),
   payeeName: z.string().trim().min(1).max(200),
   payeeUserId: z.string().trim().optional(),
+  payeeCollaboratorId: z.string().trim().optional(),
   amount: z.coerce.number().int().positive(),
   reason: z.string().trim().min(3).max(1000),
   month: z.string().regex(MONTH_RE).optional(),
@@ -43,6 +44,7 @@ export async function createPaymentRequest(_prev: PaymentRequestState, formData:
     type: formData.get("type"),
     payeeName: formData.get("payeeName"),
     payeeUserId: formData.get("payeeUserId") || undefined,
+    payeeCollaboratorId: formData.get("payeeCollaboratorId") || undefined,
     amount: formData.get("amount"),
     reason: formData.get("reason"),
     month: formData.get("month") || undefined,
@@ -59,18 +61,30 @@ export async function createPaymentRequest(_prev: PaymentRequestState, formData:
         type: parsed.data.type,
         status: "PENDING",
         requesterId: user.id,
-        payeeUserId: parsed.data.payeeUserId || null,
-        payeeName: parsed.data.payeeName,
+          payeeUserId: parsed.data.payeeUserId || null,
+          payeeCollaboratorId: parsed.data.payeeCollaboratorId || null,
+          payeeName: parsed.data.payeeName,
         amount: parsed.data.amount,
         reason: parsed.data.reason,
         month: parsed.data.month || null,
-        details: {
+          details: {
           category: parsed.data.category || "OTHER_EXP",
           note: parsed.data.note || null,
+          source: parsed.data.type === "SALARY" ? "PAYROLL" : parsed.data.type === "COLLABORATOR" ? "COMMISSION" : "EXPENSE",
         } satisfies Prisma.InputJsonValue,
       },
     });
-    await auditRequired(tx, user.id, "CREATE_PAYMENT_REQUEST", { entity: "PaymentRequest", entityId: created.id, meta: { requestNo: created.requestNo, amount: parsed.data.amount } });
+    let payrollLinked = 0;
+    let commissionLinked = 0;
+    if (parsed.data.type === "SALARY" && parsed.data.payeeUserId && parsed.data.month) {
+      const linked = await tx.payrollEntry.updateMany({ where: { userId: parsed.data.payeeUserId, month: parsed.data.month, paymentRequestId: null }, data: { paymentRequestId: created.id } });
+      payrollLinked = linked.count;
+    }
+    if (parsed.data.type === "COLLABORATOR" && parsed.data.payeeCollaboratorId && parsed.data.month) {
+      const linked = await tx.commissionPayout.updateMany({ where: { collaboratorId: parsed.data.payeeCollaboratorId, month: parsed.data.month, paymentRequestId: null }, data: { paymentRequestId: created.id } });
+      commissionLinked = linked.count;
+    }
+    await auditRequired(tx, user.id, "CREATE_PAYMENT_REQUEST", { entity: "PaymentRequest", entityId: created.id, meta: { requestNo: created.requestNo, amount: parsed.data.amount, payrollLinked, commissionLinked } });
     return created;
   });
   return { ok: true, id: request.id };

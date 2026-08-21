@@ -29,7 +29,7 @@ export default async function PaymentRequestsPage() {
   const requests = await prisma.paymentRequest.findMany({
     orderBy: { requestedAt: "desc" },
     take: 150,
-    include: { requester: { select: { fullName: true } }, approver: { select: { fullName: true } }, cashTransaction: { select: { id: true, occurredAt: true, amount: true } } },
+    include: { requester: { select: { fullName: true } }, approver: { select: { fullName: true } }, cashTransaction: { select: { id: true, occurredAt: true, amount: true } }, payrollEntry: { select: { month: true, userId: true } }, commissionPayout: { select: { month: true, collaboratorId: true } } },
   });
   const canApprove = user.role === "ADMIN";
   const canPay = user.role === "ADMIN";
@@ -48,12 +48,13 @@ export default async function PaymentRequestsPage() {
         <CardContent className="overflow-x-auto pt-0">
           {requests.length === 0 ? <EmptyState title="Chưa có giấy đề nghị thanh toán" description="Bấm Tạo đề nghị thanh toán để lập cả những khoản nhỏ như mua tăm, văn phòng phẩm hoặc chi phí vận hành." /> : (
             <table className="w-full min-w-[980px] text-sm">
-              <thead><tr className="border-b border-slate-200 text-left text-xs font-semibold uppercase tracking-wide text-slate-400"><th className="px-3 py-3">Số phiếu</th><th className="px-3 py-3">Loại / người nhận</th><th className="px-3 py-3">Lý do</th><th className="px-3 py-3 text-right">Số tiền</th><th className="px-3 py-3">Người lập / ngày</th><th className="px-3 py-3">Trạng thái</th><th className="px-3 py-3">Sổ thu–chi</th><th className="px-3 py-3 text-right">Xử lý</th></tr></thead>
+              <thead><tr className="border-b border-slate-200 text-left text-xs font-semibold uppercase tracking-wide text-slate-400"><th className="px-3 py-3">Số phiếu</th><th className="px-3 py-3">Loại / người nhận</th><th className="px-3 py-3">Nguồn liên kết</th><th className="px-3 py-3">Lý do</th><th className="px-3 py-3 text-right">Số tiền</th><th className="px-3 py-3">Người lập / ngày</th><th className="px-3 py-3">Trạng thái</th><th className="px-3 py-3">Sổ thu–chi</th><th className="px-3 py-3 text-right">Xử lý</th></tr></thead>
               <tbody>
                 {requests.map((request) => (
                   <tr key={request.id} className="border-b border-slate-100 align-top hover:bg-slate-50/70">
                     <td className="px-3 py-3"><a href={`/ke-toan/de-nghi-thanh-toan/${request.id}`} className="font-semibold text-brand-700 hover:underline">{request.requestNo}</a><div className="mt-1 text-xs text-slate-400">{request.month ?? "Không gắn tháng"}</div></td>
                     <td className="px-3 py-3"><div className="font-medium text-slate-800">{request.payeeName}</div><div className="mt-1 text-xs text-slate-500">{paymentRequestTypeLabel(request.type)}</div></td>
+                    <td className="px-3 py-3 text-xs text-slate-600">{request.payrollEntry ? <a href={`/luong?m=${request.payrollEntry.month}`} className="text-brand-700 hover:underline">Bảng lương {request.payrollEntry.month}</a> : request.commissionPayout ? <a href={`/cong-tac-vien/${request.commissionPayout.collaboratorId ?? ""}?range=month`} className="text-brand-700 hover:underline">Hoa hồng CTV</a> : request.cashTransaction ? <a href={`/thu-chi?month=${request.cashTransaction.occurredAt.toISOString().slice(0, 7)}&type=EXPENSE`} className="text-brand-700 hover:underline">Sổ thu–chi</a> : <span className="text-slate-400">Tạo thủ công</span>}</td>
                     <td className="max-w-[280px] px-3 py-3 text-slate-600"><div className="line-clamp-3">{request.reason}</div>{request.rejectionReason && <div className="mt-1 text-xs text-rose-600">Từ chối: {request.rejectionReason}</div>}</td>
                     <td className="px-3 py-3 text-right font-semibold tabular-nums text-slate-900">{formatVND(Number(request.amount))}</td>
                     <td className="px-3 py-3 text-xs text-slate-500">{request.requester.fullName}<div className="mt-1">{fmtDate(request.requestedAt)}</div>{request.approver && <div className="mt-1">Duyệt: {request.approver.fullName}</div>}</td>
