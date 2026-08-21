@@ -45,3 +45,11 @@ Regression local đã pass nhưng chưa phải live evaluation. Cần commit/pus
 ## Quality risks
 
 Prompt dài không đồng nghĩa memory tốt; summary sai có thể làm AI bịa. Multi-step loop bị giới hạn 4 bước và read-only để tránh latency/side effect. Production hiện chưa chứa migration memory và planner loop cho đến khi release được deploy. Xóa conversation là thao tác không hoàn tác ở lớp lịch sử, nhưng server action chỉ cascade assistant messages và set-null approval, không chạm dữ liệu nghiệp vụ.
+
+## AI regression r8 — 2026-08-21
+
+Đã bổ sung regression deterministic cho adapter AI và conversation context trong PR #38: retry khi provider trả 429; lỗi output rỗng/JSON hỏng phải dừng ổn định, không chạy action; stale AI error/transient error bị loại khỏi prompt; history chỉ còn lỗi dùng fallback trung thực. Evidence chi tiết nằm tại `checks/2026-08-21-ai-regression-local.md`.
+
+Quality gate local đạt: targeted 2 file/19 test pass; full Vitest **53 file/338 test pass**; TypeScript, ESLint tệp thay đổi và Next production build pass. Không gọi model production, không dùng dữ liệu khách thật, không tạo approval, không ghi/xóa nghiệp vụ. PR #38 đã merge vào master lúc `2026-08-21T09:51:17Z`; merge commit hiện tại `749b00a`.
+
+P7/P8 vẫn chưa chốt release gate vì các case live read-only A01, A02, B01, E01, E06 chưa được chạy sau deploy trên máy Windows. Bước an toàn tiếp theo là owner chạy `Sua-Loi.bat`, mở cuộc trò chuyện AI mới, chạy đúng các case này và lưu prompt/output/steps/latency/side-effect check; các case D01–D06 ghi/xóa tiếp tục chỉ chạy preview/mock.
