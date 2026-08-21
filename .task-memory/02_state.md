@@ -63,3 +63,13 @@ P7/P8 vẫn chưa chốt release gate vì các case live read-only A01, A02, B01
 Đã kiểm tra PR #40 UX Phase 1, CI xanh, merge vào master rồi xóa branch. Các branch remote cũ khác đều được xác nhận fully contained trong master và đã xóa. Remote hiện chỉ còn `master`; master sau PR #40 là `2125751`. Các branch phụ không bị gộp mù.
 
 Việc còn lại: anh Lam chạy lại `windows\\Sua-Loi.bat` từ master mới, không đóng cửa sổ trong suốt bước build 5–15 phút. Nếu build vẫn lỗi, gửi file `docker-build-<timestamp>.log` mới; không cần gửi lại `Xem-Loi` nếu migration đã báo schema up to date.
+
+## Hồ sơ dịch vụ thẩm mỹ trong Giấy tờ — 2026-08-21
+
+Đã tái cấu trúc `web/src/app/(app)/ho-so/[id]/page.tsx`: form Hồ sơ dịch vụ thẩm mỹ không còn nằm trong tab Tư vấn; tab Giấy tờ hiện chứa bản hồ sơ tự sinh, form chỉnh/lưu, Phiếu đồng ý và tài liệu upload. Nút `+ Thêm giấy tờ` tiếp tục dùng chung cho mở hồ sơ, ghi nhận consent và upload. Workspace admin/lâm sàng mở mặc định ở tab Giấy tờ.
+
+Đã thêm `web/src/lib/case-lock.ts` với mốc auto-lock 24 giờ. UI hiển thị cảnh báo tự khóa; Server Actions dùng cùng helper để chặn nhân viên sau hạn, trong khi ADMIN vẫn được chỉnh/mở khóa. Không thêm migration, không xóa lịch sử. Checklist đã đổi nhãn sang Hồ sơ dịch vụ thẩm mỹ.
+
+Đã tiếp tục UX Task 12 bằng badge `Thiếu`, `Rà soát` và `Thiếu xác nhận` trên thanh tab, không tự áp BOM vật tư. Local quality gate đạt: targeted 10 test pass; full Vitest **58 file/354 test pass**; TypeScript, ESLint tệp thay đổi và Next production build pass. Branch hiện tại `fix/paperwork-tab-autolock` đang chờ commit/PR/CI/merge.
+
+Sau khi merge cần tiếp tục live smoke AI read-only A01/A02/B01/E01/E06; không chạy write/destructive test production.

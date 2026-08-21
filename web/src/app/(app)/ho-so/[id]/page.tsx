@@ -78,6 +78,7 @@ import { PaymentQrButton } from "./payment-qr-button";
 import { RevenueAllocationEditor } from "./revenue-allocation-editor";
 import { buildCaseLockChecklist, canLockCase } from "@/lib/case-lock-checklist";
 import { getCaseWorkspace } from "@/lib/case-workspace";
+import { isCaseAutoLocked } from "@/lib/case-lock";
 
 export const dynamic = "force-dynamic";
 
@@ -125,7 +126,8 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
 
   const isAdmin = user.role === "ADMIN";
   const workspace = getCaseWorkspace(user.role);
-  const lockedForMe = record.locked && !isAdmin;
+  const autoLocked = isCaseAutoLocked(record.updatedAt);
+  const lockedForMe = (record.locked || autoLocked) && !isAdmin;
   const canClinical = userCan(user, "case.clinical") && !lockedForMe;
   const canPay = !lockedForMe && userCan(user, "payment.add");
 
@@ -165,6 +167,25 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
   const commissionAmount = toNum(record.commissionAmount);
   const canVoidPayment = userCan(user, "payment.manage") && !lockedForMe;
   const allocationPeople = [...new Map([...consultants, ...doctors, ...nurses].map((person) => [person.id, person])).values()];
+  const consultationInitial = record.consultation ? {
+    weightKg: record.consultation.weightKg ? Number(record.consultation.weightKg) : null,
+    heightCm: record.consultation.heightCm ? Number(record.consultation.heightCm) : null,
+    bloodType: record.consultation.bloodType,
+    emergencyName: record.consultation.emergencyName,
+    emergencyPhone: record.consultation.emergencyPhone,
+    pulse: record.consultation.pulse,
+    bloodPressure: record.consultation.bloodPressure,
+    temperatureC: record.consultation.temperatureC ? Number(record.consultation.temperatureC) : null,
+    respiratoryRate: record.consultation.respiratoryRate,
+    spo2: record.consultation.spo2,
+    screening: record.consultation.screening,
+    patientConfirmed: record.consultation.patientConfirmed,
+    wants: record.consultation.wants,
+    currentCondition: record.consultation.currentCondition,
+    expectedResult: record.consultation.expectedResult,
+    doctorIndication: record.consultation.doctorIndication,
+    updatedAt: record.consultation.updatedAt.toISOString(),
+  } : null;
 
   // ----- Hẹn nợ (trả góp) — tính lịch + trạng thái để hiển thị (lib/debt-plan.ts) -----
   const dp = record.debtPlan;
@@ -237,34 +258,7 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
                 note: record.note,
               }}
             />
-            <div className="mt-6 border-t border-slate-100 pt-6">
-              <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-brand-100 bg-brand-50/50 px-3 py-2">
-                <p className="text-xs text-brand-800">Hồ sơ dịch vụ thẩm mỹ đã tự tạo theo mẫu. Có thể xem, chỉnh nội dung và in ký.</p>
-                <Link href={`/ho-so/${record.id}/consultation`} className={`${buttonVariants({ variant: "secondary", size: "sm" })} print-hide`}><Printer className="h-3.5 w-3.5" /> Xem / In Hồ sơ dịch vụ thẩm mỹ</Link>
-              </div>
-              <ConsultationBookForm
-                caseId={record.id}
-                initial={record.consultation ? {
-                  weightKg: record.consultation.weightKg ? Number(record.consultation.weightKg) : null,
-                  heightCm: record.consultation.heightCm ? Number(record.consultation.heightCm) : null,
-                  bloodType: record.consultation.bloodType,
-                  emergencyName: record.consultation.emergencyName,
-                  emergencyPhone: record.consultation.emergencyPhone,
-                  pulse: record.consultation.pulse,
-                  bloodPressure: record.consultation.bloodPressure,
-                  temperatureC: record.consultation.temperatureC ? Number(record.consultation.temperatureC) : null,
-                  respiratoryRate: record.consultation.respiratoryRate,
-                  spo2: record.consultation.spo2,
-                  screening: record.consultation.screening,
-                  patientConfirmed: record.consultation.patientConfirmed,
-                  wants: record.consultation.wants,
-                  currentCondition: record.consultation.currentCondition,
-                  expectedResult: record.consultation.expectedResult,
-                  doctorIndication: record.consultation.doctorIndication,
-                  updatedAt: record.consultation.updatedAt.toISOString(),
-                } : null}
-              />
-            </div>
+
           </CardContent>
         </Card>
       ),
@@ -273,6 +267,7 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
       key: "dich-vu",
       label: "Dịch vụ",
       icon: <Receipt className="h-4 w-4" />,
+      badge: record.services.length === 0 ? { label: "Thiếu", tone: "danger" as const } : undefined,
       content: (
         <Card>
           <CardHeader>
@@ -357,6 +352,7 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
       key: "vat-tu",
       label: "Vật tư",
       icon: <Package className="h-4 w-4" />,
+      badge: record.services.length > 0 && record.materials.length === 0 ? { label: "Rà soát", tone: "warning" as const } : undefined,
       content: (
         <Card>
           <CardHeader>
@@ -447,6 +443,7 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
       key: "giay-to",
       label: "Giấy tờ",
       icon: <FileSignature className="h-4 w-4" />,
+      badge: !record.consultation || !record.consultation.patientConfirmed ? { label: "Thiếu xác nhận", tone: "warning" as const } : undefined,
       content: (
         <Card>
           <CardHeader>
@@ -477,11 +474,17 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
                   </Link>
                 </div>
                 {!record.consultation ? (
-                  <EmptyState title="Chưa có Hồ sơ dịch vụ thẩm mỹ" description="Hệ thống sẽ tự bổ sung hồ sơ mặc định khi cập nhật dữ liệu." />
+                  <>
+                    <EmptyState title="Chưa có Hồ sơ dịch vụ thẩm mỹ" description="Lưu biểu mẫu bên dưới để tạo hồ sơ mặc định ngay tại tab Giấy tờ." />
+                    {canClinical && <ConsultationBookForm caseId={record.id} initial={null} />}
+                  </>
                 ) : (
-                  <div className="rounded-lg border border-brand-100 bg-brand-50/40 px-3 py-2 text-sm text-brand-900">
-                    Đã có hồ sơ mặc định cho {record.customer.fullName}. Có thể mở để chỉnh nội dung, in hoặc tải Word.
-                  </div>
+                  <>
+                    <div className="mb-4 rounded-lg border border-brand-100 bg-brand-50/40 px-3 py-2 text-sm text-brand-900">
+                      Đã có hồ sơ mặc định cho {record.customer.fullName}. Có thể chỉnh nội dung tại đây, in hoặc tải Word.
+                    </div>
+                    {canClinical && <ConsultationBookForm caseId={record.id} initial={consultationInitial} />}
+                  </>
                 )}
               </section>
 
@@ -627,6 +630,12 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
               </button>
             </form>
           )}
+        </div>
+      ) : autoLocked ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+          <p className="inline-flex items-center gap-2 text-sm font-medium text-amber-800">
+            <Lock className="h-4 w-4" /> Hồ sơ đã tự khóa sau 24 giờ — nhân viên chỉ được xem. ADMIN vẫn có thể chỉnh sửa.
+          </p>
         </div>
       ) : (
         canClinical && (

@@ -3,7 +3,13 @@
 import { useState, type ReactNode } from "react";
 import { cn } from "@/lib/cn";
 
-export type CaseTab = { key: string; label: string; icon: ReactNode; content: ReactNode };
+export type CaseTab = {
+  key: string;
+  label: string;
+  icon: ReactNode;
+  content: ReactNode;
+  badge?: { label: string; tone: "warning" | "danger" | "info" };
+};
 
 /**
  * Chuyển các khối nội dung hồ sơ (Tư vấn/Dịch vụ/Vật tư/Ảnh/Giấy tờ) từ cuộn dài xếp chồng
@@ -36,6 +42,18 @@ export function CaseSectionTabs({ tabs, defaultTab }: { tabs: CaseTab[]; default
               )}
             >
               {t.icon} {t.label}
+              {t.badge && (
+                <span
+                  className={cn(
+                    "rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none",
+                    t.badge.tone === "danger" && "bg-rose-100 text-rose-700",
+                    t.badge.tone === "warning" && "bg-amber-100 text-amber-700",
+                    t.badge.tone === "info" && "bg-sky-100 text-sky-700",
+                  )}
+                >
+                  {t.badge.label}
+                </span>
+              )}
             </button>
           ))}
         </div>
