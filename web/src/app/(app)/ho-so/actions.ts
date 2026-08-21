@@ -16,6 +16,7 @@ import { getUploadDir, getUploadStorageError } from "@/lib/upload-storage";
 import { canAccessCase, type CaseAccess, type CaseAccessUser } from "@/lib/case-access";
 import { validateAllocations, type AllocationRole } from "@/lib/revenue-attribution";
 import { defaultScreening, normalizeScreening } from "@/lib/consultation-sheet";
+import { isCaseAutoLocked } from "@/lib/case-lock";
 import type { Prisma } from "@/generated/prisma/client";
 
 // Client dùng được cho cả prisma thường lẫn trong $transaction.
@@ -40,8 +41,8 @@ async function hasCaseAccess(
 /** Hồ sơ đã khóa thì chỉ ADMIN mới được sửa. */
 async function isLockedFor(caseId: string, role: string): Promise<boolean> {
   if (role === "ADMIN") return false;
-  const c = await prisma.caseRecord.findUnique({ where: { id: caseId }, select: { locked: true } });
-  return !!c?.locked;
+  const c = await prisma.caseRecord.findUnique({ where: { id: caseId }, select: { locked: true, updatedAt: true } });
+  return Boolean(c?.locked || (c?.updatedAt && isCaseAutoLocked(c.updatedAt)));
 }
 
 /**
@@ -165,7 +166,7 @@ export async function saveConsultationRecord(_prev: CaseActionState, formData: F
   }
 
   const existing = await prisma.consultationRecord.findUnique({ where: { caseId: parsed.data.caseId }, select: { id: true, updatedAt: true } });
-  const lateEdit = !!existing && Date.now() - existing.updatedAt.getTime() > 24 * 60 * 60 * 1000;
+  const lateEdit = !!existing && isCaseAutoLocked(existing.updatedAt);
   if (lateEdit && user.role !== "ADMIN") return { error: "Sổ tư vấn đã quá 24 giờ; chỉ ADMIN được sửa bổ sung." };
 
   const data = {
@@ -216,7 +217,7 @@ export async function saveConsultationPrintOverrides(_prev: CaseActionState, for
   if (!(await hasCaseAccess(user, caseId, "clinical"))) return { error: CASE_ACCESS_MSG };
   if (await isLockedFor(caseId, user.role)) return { error: LOCKED_MSG };
   const consultation = await prisma.consultationRecord.findUnique({ where: { caseId }, select: { id: true } });
-  if (!consultation) return { error: "Hồ sơ chưa có phiếu tư vấn mặc định. Hãy tải lại hồ sơ hoặc liên hệ quản trị." };
+  if (!consultation) return { error: "Hồ sơ chưa có Hồ sơ dịch vụ thẩm mỹ mặc định. Hãy tải lại hồ sơ hoặc liên hệ quản trị." };
 
   await withCaseLock(caseId, async (tx) => {
     await tx.consultationRecord.update({
@@ -1051,7 +1052,7 @@ export async function deletePhoto(formData: FormData): Promise<void> {
   if (caseId) refresh(caseId);
 }
 
-// ---- Giấy tờ hành chính: tải FILE lên (thay cho gõ tay phiếu đồng ý) ----
+// ---- Tài liệu hồ sơ: tải FILE lên (thay cho gõ tay) ----
 export async function uploadCaseDocument(_prev: CaseActionState, formData: FormData): Promise<CaseActionState> {
   const user = await requireCap("case.clinical");
   const caseId = String(formData.get("caseId") ?? "");

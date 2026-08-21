@@ -150,7 +150,7 @@ export function ConsultationBookForm({ caseId, initial }: { caseId: string; init
       <input type="hidden" name="caseId" value={caseId} />
       <input type="hidden" name="screeningJson" value={JSON.stringify(screening)} />
       <div className="rounded-xl border border-brand-100 bg-brand-50/40 p-3 text-xs text-slate-600">
-        <strong>Sổ tư vấn điện tử:</strong> các thông tin đã nhập được lưu theo hồ sơ. Có thể sửa trong 24 giờ; sau đó chỉ ADMIN sửa bổ sung. Nút dưới chỉ đánh dấu nhanh “không ghi nhận bất thường”, không thay cho đánh giá chuyên môn của bác sĩ.
+        <strong>Hồ sơ dịch vụ thẩm mỹ:</strong> các thông tin đã nhập được lưu theo hồ sơ. Có thể sửa trong 24 giờ; sau đó chỉ ADMIN sửa bổ sung. Nút dưới chỉ đánh dấu nhanh “không ghi nhận bất thường”, không thay cho đánh giá chuyên môn của bác sĩ.
       </div>
       <div>
         <p className="mb-2 text-sm font-semibold text-slate-800">I. Thông tin hành chính bổ sung</p>
@@ -179,7 +179,7 @@ export function ConsultationBookForm({ caseId, initial }: { caseId: string; init
       <div className="grid gap-3 sm:grid-cols-2"><div><Label htmlFor="wants">Mong muốn của khách</Label><Textarea id="wants" name="wants" defaultValue={initial?.wants ?? ""} /></div><div><Label htmlFor="currentCondition">Tình trạng hiện tại</Label><Textarea id="currentCondition" name="currentCondition" defaultValue={initial?.currentCondition ?? ""} /></div><div><Label htmlFor="expectedResult">Kết quả dự tính</Label><Textarea id="expectedResult" name="expectedResult" defaultValue={initial?.expectedResult ?? ""} /></div><div><Label htmlFor="doctorIndication">Chỉ định của bác sĩ</Label><Textarea id="doctorIndication" name="doctorIndication" defaultValue={initial?.doctorIndication ?? ""} /></div></div>
       <label className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900"><input type="checkbox" name="patientConfirmed" defaultChecked={initial?.patientConfirmed ?? false} /> Khách đã xác nhận thông tin sàng lọc là đúng theo mẫu đã cung cấp.</label>
       {state.error && <p className="text-sm text-rose-600">{state.error}</p>}
-      <div className="flex flex-wrap items-center justify-end gap-3"><Saved nonce={state.nonce} /><a href={`/ho-so/${caseId}/consultation`} className="rounded-lg border border-slate-200 px-3.5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Xem / In Phiếu tư vấn</a><button type="submit" disabled={pending} className={buttonVariants()}>{pending && <LoaderCircle className="h-4 w-4 animate-spin" />} Lưu sổ tư vấn</button></div>
+      <div className="flex flex-wrap items-center justify-end gap-3"><Saved nonce={state.nonce} /><a href={`/ho-so/${caseId}/consultation`} className="rounded-lg border border-slate-200 px-3.5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Xem / In Hồ sơ dịch vụ thẩm mỹ</a><button type="submit" disabled={pending} className={buttonVariants()}>{pending && <LoaderCircle className="h-4 w-4 animate-spin" />} Lưu sổ tư vấn</button></div>
     </form>
   );
 }

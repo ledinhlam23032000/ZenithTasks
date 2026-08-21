@@ -3,6 +3,14 @@
 > Tài liệu bàn giao để các phiên Claude Code sau tiếp tục hiệu quả. Đọc file này + mã nguồn là nắm được bối cảnh.
 > **Kế hoạch nâng cấp dài hạn (A→E) + theo dõi tiến độ: xem `ROADMAP.md` ở gốc repo.**
 
+## Kho Hồ sơ dịch vụ thẩm mỹ và làm sạch bản in — "Đợt 38" (21/08/2026)
+> Chủ yêu cầu bỏ các dấu chấm trong Giấy đề nghị thanh toán vì đường kẻ kéo dài làm mẫu in mất thẩm mỹ; đổi tên Phiếu tư vấn dịch vụ thẩm mỹ thành Hồ sơ dịch vụ thẩm mỹ và tập trung 100% giấy tờ hành chính của khách trong tab Giấy tờ.
+- **Bản in thanh toán**: bỏ dotted border khỏi các trường nội dung trong `payment-request.ts`; không thay đổi số tiền, trạng thái, dữ liệu lịch sử hoặc vùng ký.
+- **Đổi tên đồng bộ**: helper render, trang xem trước, route in, route Word, editor và CTA trong tab Tư vấn dùng tên **Hồ sơ dịch vụ thẩm mỹ**; URL `/ho-so/[id]/consultation` được giữ nguyên.
+- **Kho giấy tờ duy nhất**: tab Giấy tờ nay chỉ còn một card **Hồ sơ dịch vụ thẩm mỹ**, gồm bản hồ sơ tự sinh, Phiếu đồng ý đã ghi nhận và tài liệu bổ sung. Nút **+ Thêm giấy tờ** mở Hồ sơ dịch vụ, ghi nhận Phiếu đồng ý hoặc tải xét nghiệm/PDF/ảnh/Word/Excel.
+- **An toàn dữ liệu**: giữ nguyên `ConsultationRecord`, `CaseConsent`, `ConsentTemplate`, `CaseDocument` và mọi bản ghi lịch sử; không có migration, không dùng `prisma db push`.
+- **Kiểm thử**: Prisma generate, TypeScript, ESLint các tệp thay đổi, **53 file/334 test** và Next production build đều đạt. PR/commit master sẽ được bổ sung vào `VERSION.md` sau khi merge.
+
 ## Gộp Quản trị thành Hệ thống, gỡ thư viện Mẫu phiếu đồng ý — "Đợt 37"
 > Chủ phản ánh sidebar có bốn mục quản trị rời nhau: Nhân sự, Nhật ký hệ thống, Tình trạng hệ thống, Kết nối kênh và Mẫu phiếu đồng ý; yêu cầu giảm rườm rà, gom phần vận hành vào Hệ thống và bỏ mẫu phiếu không dùng.
 - **Phương án đã duyệt**: giữ ba nghiệp vụ vì chúng không trùng nhau — `/he-thong` là tổng quan backup/bảo mật/dữ liệu, `/nhat-ky` là audit lọc/xuất đầy đủ, `/cham-soc/ket-noi` là cấu hình Zalo OA/Facebook. Chỉ sidebar được rút gọn còn một mục Hệ thống; route, bookmark và quyền server-side của Nhật ký/Kết nối vẫn giữ.

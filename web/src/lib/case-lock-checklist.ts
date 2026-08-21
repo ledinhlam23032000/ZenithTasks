@@ -33,10 +33,10 @@ export function buildCaseLockChecklist(input: CaseLockChecklistInput): CaseLockC
     },
     {
       key: "consultation",
-      label: "Phiếu tư vấn đã xác nhận",
+      label: "Hồ sơ dịch vụ thẩm mỹ đã xác nhận",
       done: input.consultationExists && input.patientConfirmed,
       blocking: true,
-      hint: "Cần lưu phiếu tư vấn và xác nhận thông tin với khách.",
+      hint: "Cần lưu Hồ sơ dịch vụ thẩm mỹ và xác nhận thông tin với khách.",
     },
     {
       key: "service",

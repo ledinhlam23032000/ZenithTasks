@@ -34,8 +34,8 @@ Mã nguồn, Prisma schema và migration trên nhánh `master` là nguồn thự
 | Phiên AI | `web/src/app/(app)/tro-ly/conversations.ts` và `conversation-actions.ts` | Lưu phiên, turn, archive, xóa phiên, khôi phục lịch sử và lọc approval stale. |
 | Chấm công AI | `web/src/app/(app)/tro-ly/attendance-intent.ts`, `web/src/app/(app)/cham-cong/actions.ts` | Parser nhiều lượt và bulk upsert Attendance. |
 | Hồ sơ khách | `web/src/app/(app)/khach-hang/actions.ts` | Cập nhật, mã hóa số điện thoại, xóa có hoàn kho. |
-| Phiếu tư vấn | `web/src/lib/consultation-sheet.ts`, `web/src/app/(app)/ho-so/[id]/consultation/` | Tự điền, checklist Bình thường/Bất thường, editor nội dung in, HTML A4/Word và backfill. |
-| Sổ tư vấn | `web/src/app/(app)/ho-so/actions.ts` | `saveConsultationRecord`, khóa 24 giờ và audit sửa muộn. |
+| Hồ sơ dịch vụ thẩm mỹ | `web/src/lib/consultation-sheet.ts`, `web/src/app/(app)/ho-so/[id]/consultation/`, `web/src/app/(app)/ho-so/[id]/page.tsx` | Tự điền, checklist Bình thường/Bất thường, editor nội dung in, HTML A4/Word và kho Giấy tờ thống nhất. |
+| Bản ghi tư vấn | `web/src/app/(app)/ho-so/actions.ts` | `saveConsultationRecord`, khóa 24 giờ và audit sửa muộn; đây là dữ liệu nguồn của Hồ sơ dịch vụ thẩm mỹ. |
 | Chứng từ | `web/src/app/(app)/ke-toan/de-nghi-thanh-toan/actions.ts` | PENDING → APPROVED/REJECTED → PAID và liên kết CashTransaction. |
 | Lương | `web/src/app/(app)/luong/actions.ts`, `web/src/lib/payroll.ts` | Lưu điều chỉnh lương; công thức thực thu và commission. |
 | Kế toán/Thu–chi | `web/src/app/(app)/ke-toan/actions.ts`, `web/src/app/(app)/thu-chi/actions.ts` | Ghi sổ, P&L, liên kết chứng từ và chống ghi trùng. |

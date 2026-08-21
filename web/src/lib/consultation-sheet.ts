@@ -1,6 +1,9 @@
 import { format } from "date-fns";
 import { GENDER_LABEL } from "@/lib/status";
 
+export const CONSULTATION_DOCUMENT_TITLE = "Hồ sơ dịch vụ thẩm mỹ";
+export const CONSULTATION_DOCUMENT_TITLE_UPPER = "HỒ SƠ DỊCH VỤ THẨM MỸ";
+
 export const CONSULTATION_SCREENING_ITEMS = [
   { key: "Huyết áp", label: "Cao huyết áp hoặc huyết áp thấp" },
   { key: "Tim mạch", label: "Các bệnh về tim mạch (hở van tim, rối loạn nhịp tim...)" },
@@ -201,7 +204,7 @@ export const CONSULTATION_PRINT_CSS = `
   .consultation-table .center { text-align: center; }
   .consultation-table .narrow { width: 34px; }
   .consultation-table .note { min-width: 150px; }
-  .consultation-lines { white-space: pre-wrap; min-height: 46px; border-bottom: 1px dotted #64748b; padding: 4px; }
+  .consultation-lines { white-space: pre-wrap; min-height: 46px; padding: 4px; }
   .consultation-signatures { width: 100%; table-layout: fixed; border-collapse: collapse; margin-top: 30px; page-break-inside: avoid; }
   .consultation-signatures td { width: 33.33%; text-align: center; vertical-align: top; font-size: 12px; font-weight: 700; padding: 0 6px; }
   .consultation-signatures .hint { display: block; margin-top: 6px; font-weight: 400; }
@@ -218,7 +221,7 @@ export function renderConsultationPaper(document: ConsultationPrintDocument): st
     : `<tr><td colspan="4" class="center">Chưa đăng ký dịch vụ</td></tr>`;
   const field = (label: string, value: string) => `<div><strong>${escapeHtml(label)}:</strong> ${escapeHtml(value)}</div>`;
   return `<section class="consultation-paper">
-    <h1>PHIẾU TƯ VẤN DỊCH VỤ THẨM MỸ</h1>
+    <h1>${CONSULTATION_DOCUMENT_TITLE_UPPER}</h1>
     <p class="consultation-meta">Trung tâm Phẫu thuật Tạo hình Thẩm mỹ — Bệnh viện Đa khoa Hồng Phúc · Hồ sơ ${escapeHtml(document.code)} · Ngày ${escapeHtml(dateText)}</p>
     <h2>I. Thông tin hành chính</h2>
     <table class="consultation-table"><tbody>
@@ -251,5 +254,5 @@ export function renderConsultationPaper(document: ConsultationPrintDocument): st
 
 export function renderConsultationHtml(document: ConsultationPrintDocument, includeActions = false): string {
   const actions = includeActions ? `<div class="consultation-screen-actions"><button onclick="window.print()">In / Lưu PDF</button></div>` : "";
-  return `<!doctype html><html lang="vi"><head><meta charset="utf-8"><title>Phiếu tư vấn ${escapeHtml(document.code)}</title><style>${CONSULTATION_PRINT_CSS}.consultation-screen-actions button{border:1px solid #cbd5e1;border-radius:8px;background:#fff;padding:8px 12px;cursor:pointer}</style></head><body>${actions}${renderConsultationPaper(document)}</body></html>`;
+  return `<!doctype html><html lang="vi"><head><meta charset="utf-8"><title>${CONSULTATION_DOCUMENT_TITLE} ${escapeHtml(document.code)}</title><style>${CONSULTATION_PRINT_CSS}.consultation-screen-actions button{border:1px solid #cbd5e1;border-radius:8px;background:#fff;padding:8px 12px;cursor:pointer}</style></head><body>${actions}${renderConsultationPaper(document)}</body></html>`;
 }

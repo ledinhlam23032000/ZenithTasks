@@ -14,10 +14,10 @@ ZenithTasks là ứng dụng web nội bộ vận hành trên máy chủ Docker 
 | Năng lực | Giá trị vận hành | Nơi cần đọc trong mã nguồn |
 |---|---|---|
 | Tiếp nhận khách theo 5 số cuối | Tra cứu nhanh nhưng không phơi bày số điện thoại đầy đủ. | `web/src/app/(app)/tiep-nhan/`, `web/src/lib/phone.ts` |
-| Hồ sơ điều trị thống nhất | Một hồ sơ liên kết dịch vụ, vật tư, thanh toán, ảnh, tái khám, đồng ý và tư vấn. | `web/src/app/(app)/ho-so/`, `web/prisma/schema.prisma` |
-| Phiếu tư vấn tự sinh | Tạo khách mới hoặc tiếp nhận khách sẽ có ngay hồ sơ tư vấn mặc định; dữ liệu hành chính được tự điền. | `web/src/lib/consultation-sheet.ts`, `web/src/app/(app)/tiep-nhan/actions.ts` |
+| Hồ sơ điều trị thống nhất | Một hồ sơ liên kết dịch vụ, vật tư, thanh toán, ảnh, tái khám và **Hồ sơ dịch vụ thẩm mỹ**; toàn bộ tài liệu khách được tập trung tại tab Giấy tờ. | `web/src/app/(app)/ho-so/`, `web/prisma/schema.prisma` |
+| Hồ sơ dịch vụ thẩm mỹ tự sinh | Tạo khách mới hoặc tiếp nhận khách sẽ có ngay hồ sơ mặc định; dữ liệu hành chính được tự điền và hồ sơ nằm trong kho Giấy tờ chung. | `web/src/lib/consultation-sheet.ts`, `web/src/app/(app)/tiep-nhan/actions.ts`, `web/src/app/(app)/ho-so/[id]/page.tsx` |
 | Tiền sử dạng checklist | Mỗi mục có **Bình thường/Bất thường**; mặc định Bình thường và có ô ghi chú nếu bất thường. | `web/src/app/(app)/ho-so/[id]/case-widgets.tsx`, `web/src/lib/consultation-sheet.ts` |
-| Phiếu tư vấn có thể chỉnh và in | Nhân sự có quyền lâm sàng sửa phần chữ hiển thị, xem trước, in/Lưu PDF hoặc tải Word; dữ liệu nguồn vẫn được bảo vệ. | `web/src/app/(app)/ho-so/[id]/consultation/`, `web/src/app/(app)/ho-so/actions.ts` |
+| Hồ sơ dịch vụ thẩm mỹ có thể chỉnh và in | Nhân sự có quyền lâm sàng sửa phần chữ hiển thị, xem trước, in/Lưu PDF hoặc tải Word; dữ liệu nguồn vẫn được bảo vệ. | `web/src/app/(app)/ho-so/[id]/consultation/`, `web/src/app/(app)/ho-so/actions.ts` |
 | Thu chi gắn Đề nghị thanh toán | Một khoản Chi tự sinh phiếu đề nghị thanh toán; kế toán duyệt/xác nhận trên cùng liên kết, chống tạo dòng chi trùng. | `web/src/app/(app)/thu-chi/`, `web/src/app/(app)/ke-toan/de-nghi-thanh-toan/`, `web/src/lib/payment-request.ts` |
 | Backfill lịch sử | Dữ liệu cũ thiếu phiếu được bổ sung idempotent khi container khởi động; chạy lại không tạo trùng. | `web/scripts/backfill-cash-payment-requests.ts`, `web/scripts/backfill-consultation-sheets.ts`, `web/docker-entrypoint.sh` |
 | Sổ tư vấn có kiểm soát thời gian | Sau 24 giờ chỉ ADMIN được sửa bổ sung; thao tác sửa muộn có audit. | `web/src/app/(app)/ho-so/actions.ts`, `ConsultationRecord` |
@@ -28,7 +28,7 @@ ZenithTasks là ứng dụng web nội bộ vận hành trên máy chủ Docker 
 
 ## 3. Các luồng tự động quan trọng
 
-### 3.1. Từ khách hàng đến Phiếu tư vấn
+### 3.1. Từ khách hàng đến Hồ sơ dịch vụ thẩm mỹ
 
 Khi nhân viên tạo khách mới, hệ thống tạo trong cùng transaction một `Customer`, một `CaseRecord` nháp và một `ConsultationRecord`. Khi nhân viên tiếp nhận khách đã tồn tại, hệ thống tạo `CaseRecord` và `ConsultationRecord` nếu hồ sơ điều trị mới chưa có phiếu. `ConsultationRecord` được khởi tạo với checklist tiền sử ở trạng thái Bình thường; nhu cầu dịch vụ và dịch vụ quan tâm được lưu snapshot để dùng cho bản in.
 
@@ -50,7 +50,11 @@ Các bản in hành chính được dựng từ dữ liệu đã chuẩn hóa, c
 
 Mọi thao tác ghi dùng Server Action và kiểm quyền ở server. Hồ sơ đã khóa chỉ ADMIN được mở lại hoặc sửa. Các migration phải additive, được chạy bằng `prisma migrate deploy`; tuyệt đối không chạy `prisma db push`, `migrate reset` hoặc xóa Docker volume trên dữ liệu thật. Khi triển khai bản có migration, sao lưu trước, chạy `windows\\Sua-Loi.bat`, xem log migration/backfill và thực hiện smoke test.
 
-## 5. Trung tâm Hệ thống
+## 5. Kho giấy tờ trong hồ sơ điều trị
+
+Tab **Giấy tờ** chỉ còn một khu vực **Hồ sơ dịch vụ thẩm mỹ**. Khu vực này chứa bản hồ sơ điện tử tự sinh, các Phiếu đồng ý đã ghi nhận và mọi tài liệu bổ sung như xét nghiệm, ảnh, PDF, Word hoặc Excel. Nút **+ Thêm giấy tờ** mở các thao tác tương ứng mà không xóa hay di chuyển dữ liệu lịch sử.
+
+## 6. Trung tâm Hệ thống
 
 Sidebar chỉ hiển thị một mục **Hệ thống** cho ADMIN. Trang `/he-thong` là trung tâm tổng quan gồm cảnh báo bảo mật, trạng thái backup, quy mô dữ liệu, dung lượng lưu trữ và hoạt động nhạy cảm gần đây; đồng thời có các lối vào rõ ràng tới `/nhat-ky` để lọc/xuất audit đầy đủ và `/cham-soc/ket-noi` để quản lý Zalo OA/Facebook Page. Hai route con và quyền server-side vẫn được giữ để không làm hỏng bookmark hoặc thao tác nội bộ, nhưng không còn chiếm ba dòng riêng trên sidebar.
 
@@ -58,11 +62,11 @@ Thư viện quản trị **Mẫu phiếu đồng ý** không còn là module v�
 
 Định hướng mở rộng đã được phê duyệt ở mức giao diện là biến Hệ thống thành trung tâm kiểm soát vận hành: backup quá hạn, cảnh báo bảo mật, webhook chưa cấu hình và hoạt động nhạy cảm đều có thể hiện thành thẻ có mức độ và đường dẫn xử lý. Phần tự động hóa sâu hơn chỉ triển khai sau khi chủ dự án duyệt riêng.
 
-## 6. Bản đồ tiếp quản nhanh
+## 7. Bản đồ tiếp quản nhanh
 
 | Nếu muốn sửa… | Đọc trước |
 |---|---|
-| Phiếu tư vấn, checklist, bản in | `web/src/lib/consultation-sheet.ts`, `web/src/app/(app)/ho-so/actions.ts`, `web/src/app/(app)/ho-so/[id]/consultation/` |
+| Hồ sơ dịch vụ thẩm mỹ, checklist, bản in | `web/src/lib/consultation-sheet.ts`, `web/src/app/(app)/ho-so/actions.ts`, `web/src/app/(app)/ho-so/[id]/consultation/` |
 | Đề nghị thanh toán, Thu chi, Kế toán | `web/src/lib/payment-request.ts`, `web/src/app/(app)/thu-chi/`, `web/src/app/(app)/ke-toan/de-nghi-thanh-toan/` |
 | Dữ liệu và migration | `web/prisma/schema.prisma`, `web/prisma/migrations/` |
 | AI và approval | `docs/AI-ADMIN-GATEWAY.md`, `web/src/app/(app)/tro-ly/agent.ts` |
@@ -70,12 +74,12 @@ Thư viện quản trị **Mẫu phiếu đồng ý** không còn là module v�
 | Cập nhật máy Windows | `docs/OPERATIONS-RUNBOOK.md`, `windows/Sua-Loi.bat`, `windows/Sua-Loi.ps1` |
 | Lịch sử quyết định | `CHANGELOG.md`, `web/DU-AN.md`, `.task-memory/` |
 
-## 7. Quy tắc ghi nhận các bản vá về sau
+## 8. Quy tắc ghi nhận các bản vá về sau
 
 Mỗi bản vá phải ghi rõ vấn đề thực tế, nguyên nhân, thay đổi chính, ảnh hưởng dữ liệu, quyền liên quan, migration/backfill nếu có, test đã chạy và cách người vận hành cập nhật. Nếu là thay đổi nghiệp vụ, cập nhật `CHANGELOG.md` và `web/DU-AN.md`. Nếu là thay đổi kiến trúc hoặc vận hành, cập nhật thêm `VERSION.md`, `web/BAN-GIAO.md`, `docs/INDEX.md` hoặc `docs/OPERATIONS-RUNBOOK.md` tùy phạm vi.
 
 Không ghi nhận số liệu kiểm thử hoặc trạng thái production nếu chưa có bằng chứng từ lệnh/CI/checkpoint tương ứng. Không đưa dữ liệu khách thật, mật khẩu, API key, file `.env` hoặc backup vào GitHub.
 
-## 8. Tham chiếu
+## 9. Tham chiếu
 
 Đây là tài liệu mô tả nội bộ, không thay thế mã nguồn. Khi có mâu thuẫn, ưu tiên schema/migration và server action trên `master`, sau đó cập nhật tài liệu trong cùng release.

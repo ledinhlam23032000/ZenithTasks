@@ -2,6 +2,37 @@
 
 Tài liệu này ghi các thay đổi đã được đẩy lên nhánh `master`. Commit mới hơn nằm ở phía trên. Phiên bản mô tả đầy đủ hiện tại nằm trong [`VERSION.md`](VERSION.md).
 
+## 2026-08-21 — Hồ sơ dịch vụ thẩm mỹ trong Giấy tờ và khóa tự động 24 giờ
+
+- Đưa toàn bộ form Hồ sơ dịch vụ thẩm mỹ khỏi tab Tư vấn vào khu vực **Giấy tờ**, cùng Phiếu đồng ý và tài liệu bổ sung; tab Tư vấn chỉ còn thông tin tư vấn cốt lõi.
+- Đặt tab Giấy tờ làm điểm vào mặc định cho workspace admin/lâm sàng; nút `+ Thêm giấy tờ` vẫn mở hồ sơ, ghi nhận Phiếu đồng ý hoặc upload tài liệu.
+- Thêm badge `Thiếu`, `Rà soát` và `Thiếu xác nhận` trên tab để dẫn next action mà không tự áp BOM vật tư.
+- Bổ sung auto-lock 24 giờ dựa trên `CaseRecord.updatedAt` ở cả UI và Server Actions; nhân viên chuyển sang chỉ xem, ADMIN vẫn có thể chỉnh/mở khóa. Không thêm migration và không xóa dữ liệu lịch sử.
+
+## 2026-08-21 — Bản vá cập nhật Windows sau r12
+
+- `Sua-Loi.ps1` chuyển local về đúng nhánh `master` bằng `checkout -B master origin/master` rồi `reset --hard`; chỉ cảnh báo file untracked và không tự `git clean` để tránh xóa log/QA/.env của chủ máy.
+- Tắt Docker Compose Bake trong bước build và gom stdout/stderr vào log có timestamp, hiển thị mã lỗi thật. Trường hợp `0xc000013a` được nhận diện là tiến trình build bị ngắt giữa chừng, không kết luận nhầm là thiếu migration.
+- Kiểm tra exit code riêng cho fetch, checkout, reset, build, compose up và migration; nếu lỗi thì dừng an toàn, giữ container cũ.
+- `Xem-Loi.ps1` gom stdout/stderr thành text bình thường, chỉ ghi exit code khi lệnh thật sự thất bại; tránh khối `NativeCommandError` giả do PowerShell redirect stderr của Prisma.
+- Đối chiếu remote branch cho thấy các branch cũ đều đã nằm hoàn toàn trong `master`; không có PR mở cần gộp thêm.
+- **Nguyên nhân build exit code 1 đã xác định**: file untracked `web/pnpm-workspace.yaml` trên máy Windows chỉ có `allowBuilds` nhưng thiếu `packages`; Docker Compose build context là `./web`, nên `COPY . .` đưa file này vào build stage và `pnpm exec` báo `packages field missing or empty`. Script dọn file này trước build; `.gitignore` và `.dockerignore` cũng chặn tái diễn.
+
+## 2026-08-21 — `2026.08.21-r12`: Hồ sơ dịch vụ thẩm mỹ và bản in sạch hơn
+
+Commit master: [`c2f27f5`](https://github.com/ledinhlam23032000/ZenithTasks/commit/c2f27f50a75f86f1cc9ae47193ff76bf11bba321). Bản vá nghiệp vụ: [#34](https://github.com/ledinhlam23032000/ZenithTasks/pull/34); tài liệu release/checkpoint: [#35](https://github.com/ledinhlam23032000/ZenithTasks/pull/35), [#36](https://github.com/ledinhlam23032000/ZenithTasks/pull/36).
+
+### Giấy tờ hồ sơ điều trị
+
+- Đổi tên **Phiếu tư vấn dịch vụ thẩm mỹ** thành **Hồ sơ dịch vụ thẩm mỹ** trên bản xem trước, bản in, Word, editor và các CTA; URL `/ho-so/[id]/consultation` vẫn giữ để không hỏng liên kết.
+- Gộp bản hồ sơ tự sinh, Phiếu đồng ý và tài liệu bổ sung vào một khu vực duy nhất trong tab **Giấy tờ**. Nút **+ Thêm giấy tờ** mở Hồ sơ dịch vụ, ghi nhận Phiếu đồng ý hoặc tải xét nghiệm/PDF/ảnh/Word/Excel.
+- Giữ nguyên `ConsultationRecord`, `CaseConsent`, `ConsentTemplate`, `CaseDocument` và dữ liệu lịch sử; không thêm migration và không xóa dữ liệu.
+
+### Mẫu in và kiểm tra
+
+- Bỏ đường dotted filler khỏi Giấy đề nghị thanh toán; giữ gạch chân Quốc hiệu theo đúng mẫu hành chính.
+- Ngày ghi nhận: **21/08/2026**. Prisma generate, TypeScript, ESLint các tệp thay đổi, **53 file/334 test** và Next production build đạt; CI push/pull request của PR #34 đều xanh.
+
 ## 2026-08-21 — `2026.08.21-r11`
 
 Commit master: [`d31e564`](https://github.com/ledinhlam23032000/ZenithTasks/commit/d31e564). Pull request: [#32](https://github.com/ledinhlam23032000/ZenithTasks/pull/32).

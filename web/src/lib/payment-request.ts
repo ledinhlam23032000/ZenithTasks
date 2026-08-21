@@ -224,7 +224,7 @@ export const PAYMENT_REQUEST_PRINT_CSS = `
   .payment-field { display: grid; grid-template-columns: 116px 16px minmax(0, 1fr); align-items: end; min-height: 31px; font-size: 17px; line-height: 1.45; }
   .payment-field-label { white-space: nowrap; }
   .payment-field-value { min-width: 0; min-height: 25px; padding: 0 0 4px; }
-  .payment-value-text { display: inline; padding: 0 5px 3px; border-bottom: 1px dotted #64748b; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+  .payment-value-text { display: inline; padding: 0 5px 3px; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
   .payment-field-long { min-height: 42px; align-items: start; }
   .payment-field-long .payment-field-value { padding-top: 2px; line-height: 1.55; }
   .payment-date { margin: 18px 0 22px; text-align: right; font-size: 16px; font-style: italic; }

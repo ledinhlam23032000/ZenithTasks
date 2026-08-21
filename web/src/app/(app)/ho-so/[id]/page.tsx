@@ -69,9 +69,8 @@ import {
   applyServiceBom,
 } from "../actions";
 import { deleteConsent } from "../consent-actions";
-import { AddConsentButton } from "./consent-widgets";
 import { deleteCaseDocument } from "../actions";
-import { UploadDocumentButton } from "./case-document-widgets";
+import { PaperworkAddMenu } from "./paperwork-widgets";
 import { DebtPlanCard } from "./debt-plan-widgets";
 import { debtPlanStatus } from "@/lib/debt-plan";
 import { photoSrc } from "@/lib/media";
@@ -80,6 +79,7 @@ import { RevenueAllocationEditor } from "./revenue-allocation-editor";
 import { buildCaseLockChecklist, canLockCase } from "@/lib/case-lock-checklist";
 import { getCaseWorkspace } from "@/lib/case-workspace";
 import { buildCaseReadinessBadges } from "@/lib/case-readiness";
+import { isCaseAutoLocked } from "@/lib/case-lock";
 
 export const dynamic = "force-dynamic";
 
@@ -127,7 +127,8 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
 
   const isAdmin = user.role === "ADMIN";
   const workspace = getCaseWorkspace(user.role);
-  const lockedForMe = record.locked && !isAdmin;
+  const autoLocked = isCaseAutoLocked(record.updatedAt);
+  const lockedForMe = (record.locked || autoLocked) && !isAdmin;
   const canClinical = userCan(user, "case.clinical") && !lockedForMe;
   const canPay = !lockedForMe && userCan(user, "payment.add");
 
@@ -177,6 +178,25 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
   const commissionAmount = toNum(record.commissionAmount);
   const canVoidPayment = userCan(user, "payment.manage") && !lockedForMe;
   const allocationPeople = [...new Map([...consultants, ...doctors, ...nurses].map((person) => [person.id, person])).values()];
+  const consultationInitial = record.consultation ? {
+    weightKg: record.consultation.weightKg ? Number(record.consultation.weightKg) : null,
+    heightCm: record.consultation.heightCm ? Number(record.consultation.heightCm) : null,
+    bloodType: record.consultation.bloodType,
+    emergencyName: record.consultation.emergencyName,
+    emergencyPhone: record.consultation.emergencyPhone,
+    pulse: record.consultation.pulse,
+    bloodPressure: record.consultation.bloodPressure,
+    temperatureC: record.consultation.temperatureC ? Number(record.consultation.temperatureC) : null,
+    respiratoryRate: record.consultation.respiratoryRate,
+    spo2: record.consultation.spo2,
+    screening: record.consultation.screening,
+    patientConfirmed: record.consultation.patientConfirmed,
+    wants: record.consultation.wants,
+    currentCondition: record.consultation.currentCondition,
+    expectedResult: record.consultation.expectedResult,
+    doctorIndication: record.consultation.doctorIndication,
+    updatedAt: record.consultation.updatedAt.toISOString(),
+  } : null;
 
   // ----- Hẹn nợ (trả góp) — tính lịch + trạng thái để hiển thị (lib/debt-plan.ts) -----
   const dp = record.debtPlan;
@@ -249,34 +269,7 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
                 note: record.note,
               }}
             />
-            <div className="mt-6 border-t border-slate-100 pt-6">
-              <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-brand-100 bg-brand-50/50 px-3 py-2">
-                <p className="text-xs text-brand-800">Phiếu tư vấn điện tử đã tự tạo theo mẫu. Có thể xem, chỉnh nội dung và in ký.</p>
-                <Link href={`/ho-so/${record.id}/consultation`} className={`${buttonVariants({ variant: "secondary", size: "sm" })} print-hide`}><Printer className="h-3.5 w-3.5" /> Xem / In Phiếu tư vấn</Link>
-              </div>
-              <ConsultationBookForm
-                caseId={record.id}
-                initial={record.consultation ? {
-                  weightKg: record.consultation.weightKg ? Number(record.consultation.weightKg) : null,
-                  heightCm: record.consultation.heightCm ? Number(record.consultation.heightCm) : null,
-                  bloodType: record.consultation.bloodType,
-                  emergencyName: record.consultation.emergencyName,
-                  emergencyPhone: record.consultation.emergencyPhone,
-                  pulse: record.consultation.pulse,
-                  bloodPressure: record.consultation.bloodPressure,
-                  temperatureC: record.consultation.temperatureC ? Number(record.consultation.temperatureC) : null,
-                  respiratoryRate: record.consultation.respiratoryRate,
-                  spo2: record.consultation.spo2,
-                  screening: record.consultation.screening,
-                  patientConfirmed: record.consultation.patientConfirmed,
-                  wants: record.consultation.wants,
-                  currentCondition: record.consultation.currentCondition,
-                  expectedResult: record.consultation.expectedResult,
-                  doctorIndication: record.consultation.doctorIndication,
-                  updatedAt: record.consultation.updatedAt.toISOString(),
-                } : null}
-              />
-            </div>
+
           </CardContent>
         </Card>
       ),
@@ -285,6 +278,7 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
       key: "dich-vu",
       label: "Dịch vụ",
       icon: <Receipt className="h-4 w-4" />,
+      badge: record.services.length === 0 ? { label: "Thiếu", tone: "danger" as const } : undefined,
       content: (
         <Card>
           <CardHeader>
@@ -369,6 +363,7 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
       key: "vat-tu",
       label: "Vật tư",
       icon: <Package className="h-4 w-4" />,
+      badge: record.services.length > 0 && record.materials.length === 0 ? { label: "Rà soát", tone: "warning" as const } : undefined,
       content: (
         <Card>
           <CardHeader>
@@ -459,110 +454,142 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
       key: "giay-to",
       label: "Giấy tờ",
       icon: <FileSignature className="h-4 w-4" />,
+      badge: !record.consultation || !record.consultation.patientConfirmed ? { label: "Thiếu xác nhận", tone: "warning" as const } : undefined,
       content: (
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileSignature className="h-4 w-4 text-brand-500" /> Phiếu đồng ý
-              </CardTitle>
-              {canClinical && (
-                <AddConsentButton
-                  caseId={record.id}
-                  customerName={record.customer.fullName}
-                  caseCode={record.code}
-                  services={record.services.map((s) => s.name).join(", ")}
-                  templates={consentTemplates}
-                  todayLocal={toDatetimeLocal(new Date()).slice(0, 10)}
-                />
-              )}
-            </CardHeader>
-            <CardContent className="pt-0">
-              {record.consents.length === 0 ? (
-                <EmptyState title="Chưa có phiếu đồng ý" description="Ghi nhận phiếu đồng ý/cam kết khách đã ký (in ra cho khách ký tay)." />
-              ) : (
-                <ul className="space-y-2.5">
-                  {record.consents.map((c) => (
-                    <li key={c.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-100 p-2.5">
-                      <div className="min-w-0">
-                        <p className="font-medium text-slate-800">{c.title}</p>
-                        <p className="text-xs text-slate-500">
-                          Người ký: {c.signerName}{c.relationship ? ` (${c.relationship})` : ""} · {fmtDate(c.signedAt)}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Link
-                          href={`/ho-so/${record.id}/consent/${c.id}`}
-                          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-brand-600 hover:bg-brand-50"
-                        >
-                          <Printer className="h-3.5 w-3.5" /> In phiếu
-                        </Link>
-                        {canClinical && (
-                          <ConfirmButton
-                            action={deleteConsent}
-                            fields={{ id: c.id, caseId: record.id }}
-                            confirmText={`Xóa phiếu đồng ý "${c.title}"?`}
-                            className="text-slate-300 hover:text-rose-500"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </ConfirmButton>
-                        )}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </CardContent>
-          </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileSignature className="h-4 w-4 text-brand-500" /> Hồ sơ dịch vụ thẩm mỹ
+            </CardTitle>
+            {canClinical && (
+              <PaperworkAddMenu
+                caseId={record.id}
+                customerName={record.customer.fullName}
+                caseCode={record.code}
+                services={record.services.map((s) => s.name).join(", ")}
+                templates={consentTemplates}
+                todayLocal={toDatetimeLocal(new Date()).slice(0, 10)}
+              />
+            )}
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="space-y-5">
+              <section>
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <p className="font-semibold text-slate-800">Bản hồ sơ điện tử</p>
+                    <p className="text-xs text-slate-500">Phiếu được tự điền từ thông tin khách hàng, sinh hiệu, sàng lọc và dịch vụ.</p>
+                  </div>
+                  <Link href={`/ho-so/${record.id}/consultation`} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-brand-600 hover:bg-brand-50">
+                    <Printer className="h-3.5 w-3.5" /> Xem / In
+                  </Link>
+                </div>
+                {!record.consultation ? (
+                  <>
+                    <EmptyState title="Chưa có Hồ sơ dịch vụ thẩm mỹ" description="Lưu biểu mẫu bên dưới để tạo hồ sơ mặc định ngay tại tab Giấy tờ." />
+                    {canClinical && <ConsultationBookForm caseId={record.id} initial={null} />}
+                  </>
+                ) : (
+                  <>
+                    <div className="mb-4 rounded-lg border border-brand-100 bg-brand-50/40 px-3 py-2 text-sm text-brand-900">
+                      Đã có hồ sơ mặc định cho {record.customer.fullName}. Có thể chỉnh nội dung tại đây, in hoặc tải Word.
+                    </div>
+                    {canClinical && <ConsultationBookForm caseId={record.id} initial={consultationInitial} />}
+                  </>
+                )}
+              </section>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="h-4 w-4 text-brand-500" /> Giấy tờ hành chính
-              </CardTitle>
-              {canClinical && <UploadDocumentButton caseId={record.id} />}
-            </CardHeader>
-            <CardContent className="pt-0">
-              {record.documents.length === 0 ? (
-                <EmptyState title="Chưa có giấy tờ" description="Tải file đã soạn/đã ký sẵn (PDF, ảnh, Word…) lên rồi bấm Xem — khỏi gõ tay." />
-              ) : (
-                <ul className="space-y-2.5">
-                  {record.documents.map((doc) => (
-                    <li key={doc.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-100 p-2.5">
-                      <div className="min-w-0">
-                        <p className="truncate font-medium text-slate-800">{doc.title}</p>
-                        <p className="truncate text-xs text-slate-500">
-                          {doc.fileName} · {fmtDate(doc.createdAt)}
-                          {doc.uploadedBy?.fullName ? ` · ${doc.uploadedBy.fullName}` : ""}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <a
-                          href={photoSrc(doc.url)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-brand-600 hover:bg-brand-50"
-                        >
-                          <ExternalLink className="h-3.5 w-3.5" /> Xem
-                        </a>
-                        {canClinical && (
-                          <ConfirmButton
-                            action={deleteCaseDocument}
-                            fields={{ id: doc.id, caseId: record.id }}
-                            confirmText={`Xóa giấy tờ "${doc.title}"?`}
-                            className="text-slate-300 hover:text-rose-500"
+              <div className="border-t border-slate-100" />
+
+              <section>
+                <div className="mb-3 flex items-center gap-2">
+                  <FileSignature className="h-4 w-4 text-brand-500" />
+                  <p className="font-semibold text-slate-800">Phiếu đồng ý đã ghi nhận</p>
+                </div>
+                {record.consents.length === 0 ? (
+                  <EmptyState title="Chưa có Phiếu đồng ý" description="Dùng nút + để ghi nhận phiếu đồng ý hoặc cam kết khách đã ký." />
+                ) : (
+                  <ul className="space-y-2.5">
+                    {record.consents.map((c) => (
+                      <li key={c.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-100 p-2.5">
+                        <div className="min-w-0">
+                          <p className="font-medium text-slate-800">{c.title}</p>
+                          <p className="text-xs text-slate-500">
+                            Người ký: {c.signerName}{c.relationship ? ` (${c.relationship})` : ""} · {fmtDate(c.signedAt)}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Link
+                            href={`/ho-so/${record.id}/consent/${c.id}`}
+                            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-brand-600 hover:bg-brand-50"
                           >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </ConfirmButton>
-                        )}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+                            <Printer className="h-3.5 w-3.5" /> In phiếu
+                          </Link>
+                          {canClinical && (
+                            <ConfirmButton
+                              action={deleteConsent}
+                              fields={{ id: c.id, caseId: record.id }}
+                              confirmText={`Xóa phiếu đồng ý "${c.title}"?`}
+                              className="text-slate-300 hover:text-rose-500"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </ConfirmButton>
+                          )}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+
+              <div className="border-t border-slate-100" />
+
+              <section>
+                <div className="mb-3 flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-brand-500" />
+                  <p className="font-semibold text-slate-800">Tài liệu bổ sung</p>
+                </div>
+                {record.documents.length === 0 ? (
+                  <EmptyState title="Chưa có tài liệu bổ sung" description="Dùng nút + để tải xét nghiệm, giấy tờ hành chính, ảnh, PDF, Word hoặc Excel vào cùng hồ sơ." />
+                ) : (
+                  <ul className="space-y-2.5">
+                    {record.documents.map((doc) => (
+                      <li key={doc.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-100 p-2.5">
+                        <div className="min-w-0">
+                          <p className="truncate font-medium text-slate-800">{doc.title}</p>
+                          <p className="truncate text-xs text-slate-500">
+                            {doc.fileName} · {fmtDate(doc.createdAt)}
+                            {doc.uploadedBy?.fullName ? ` · ${doc.uploadedBy.fullName}` : ""}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <a
+                            href={photoSrc(doc.url)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-brand-600 hover:bg-brand-50"
+                          >
+                            <ExternalLink className="h-3.5 w-3.5" /> Xem
+                          </a>
+                          {canClinical && (
+                            <ConfirmButton
+                              action={deleteCaseDocument}
+                              fields={{ id: doc.id, caseId: record.id }}
+                              confirmText={`Xóa tài liệu "${doc.title}"?`}
+                              className="text-slate-300 hover:text-rose-500"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </ConfirmButton>
+                          )}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+            </div>
+          </CardContent>
+        </Card>
       ),
     },
   ];
@@ -614,6 +641,12 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
               </button>
             </form>
           )}
+        </div>
+      ) : autoLocked ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+          <p className="inline-flex items-center gap-2 text-sm font-medium text-amber-800">
+            <Lock className="h-4 w-4" /> Hồ sơ đã tự khóa sau 24 giờ — nhân viên chỉ được xem. ADMIN vẫn có thể chỉnh sửa.
+          </p>
         </div>
       ) : (
         canClinical && (

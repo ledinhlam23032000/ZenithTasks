@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { FilePlus2, LoaderCircle } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -19,6 +19,7 @@ export function AddConsentButton({
   services,
   templates,
   todayLocal,
+  trigger,
 }: {
   caseId: string;
   customerName: string;
@@ -26,6 +27,7 @@ export function AddConsentButton({
   services: string;
   templates: Template[];
   todayLocal: string; // yyyy-MM-dd
+  trigger?: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const [state, action, pending] = useFormAction(addConsent, () => setOpen(false));
@@ -46,9 +48,19 @@ export function AddConsentButton({
 
   return (
     <>
-      <Button size="sm" variant="secondary" onClick={() => setOpen(true)}>
-        <FilePlus2 className="h-4 w-4" /> Ghi nhận đồng ý
-      </Button>
+      {trigger ? (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+        >
+          {trigger}
+        </button>
+      ) : (
+        <Button size="sm" variant="secondary" onClick={() => setOpen(true)}>
+          <FilePlus2 className="h-4 w-4" /> Ghi nhận đồng ý
+        </Button>
+      )}
       <Modal open={open} onClose={() => setOpen(false)} title="Ghi nhận phiếu đồng ý" size="lg">
         <form action={action} className="space-y-4">
           <input type="hidden" name="caseId" value={caseId} />

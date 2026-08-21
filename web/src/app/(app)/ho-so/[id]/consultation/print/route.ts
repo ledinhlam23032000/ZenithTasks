@@ -16,7 +16,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
       services: { orderBy: { createdAt: "asc" }, select: { name: true, quantity: true, finalPrice: true } },
     },
   });
-  if (!record || !record.consultation || !canAccessCase(user, record, "read")) return new Response("Không tìm thấy phiếu tư vấn", { status: 404 });
+  if (!record || !record.consultation || !canAccessCase(user, record, "read")) return new Response("Không tìm thấy Hồ sơ dịch vụ thẩm mỹ", { status: 404 });
   const document = consultationPrintDocument(record);
   return new Response(renderConsultationHtml(document, true), { headers: { "Content-Type": "text/html; charset=utf-8" } });
 }
