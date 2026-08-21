@@ -215,9 +215,6 @@ export const PAYMENT_REQUEST_PRINT_CSS = `
 
 export function renderPaymentRequestPaper(document: PaymentRequestDocument): string {
   const dateText = format(document.requestDate, "dd/MM/yyyy");
-  const signedApprover = document.approverName
-    ? `<span class="signed-name">${escapeHtml(document.approverName)}</span>`
-    : `<span class="signed-name"></span>`;
   return `<section class="payment-paper">
   <header class="payment-header">
     <div><strong>${PAYMENT_REQUEST_HOSPITAL}</strong><br><small>${PAYMENT_REQUEST_HOSPITAL_ADDRESS}</small></div>
@@ -233,7 +230,7 @@ export function renderPaymentRequestPaper(document: PaymentRequestDocument): str
   <div class="payment-field payment-field-long"><span class="payment-field-label">Bằng chữ</span><span>:</span><span class="payment-field-value">${escapeHtml(document.amountText)}</span></div>
   <p class="payment-date">${escapeHtml(document.location)}, ngày ${escapeHtml(dateText)}</p>
   <table class="payment-signatures"><tbody><tr>
-    <td>Thủ trưởng đơn vị<span class="hint">(Ký, họ tên)</span>${signedApprover}</td>
+    <td>Thủ trưởng đơn vị<span class="hint">(Ký, họ tên)</span><span class="signed-name"></span></td>
     <td>Kế toán trưởng<span class="hint">(Ký, họ tên)</span><span class="signed-name"></span></td>
     <td>Kế toán<span class="hint">(Ký, họ tên)</span><span class="signed-name"></span></td>
     <td>Người đề nghị<span class="hint">(Ký, họ tên)</span><span class="signed-name"></span></td>
