@@ -1,12 +1,17 @@
 "use server";
 
+import fs from "node:fs/promises";
+import path from "node:path";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireUser, hashPassword } from "@/lib/auth";
 import { auditRequired } from "@/lib/audit";
+import { syncCollaboratorIdentity } from "@/lib/collaborator-sync";
+import { isAllowedDocMime, docExt, safeStoredName, isDocumentBufferValid } from "@/lib/upload";
+import { getUploadDir, getUploadStorageError } from "@/lib/upload-storage";
 
-export type CtvState = { ok?: boolean; error?: string };
+export type CtvState = { ok?: boolean; error?: string; nonce?: number };
 
 const ROLES = ["ADMIN", "MANAGER"] as const;
 
@@ -22,6 +27,15 @@ const profileSchema = z.object({
 const accountSchema = z.object({
   username: z.string().trim().min(3, "Tên đăng nhập tối thiểu 3 ký tự.").regex(/^[a-z0-9_.]+$/i, "Tên đăng nhập chỉ gồm chữ, số, dấu chấm hoặc gạch dưới."),
   password: z.string().min(12, "Mật khẩu tối thiểu 12 ký tự."),
+});
+
+const payoutSchema = z.object({
+  collaboratorId: z.string().trim().min(1, "Thiếu cộng tác viên."),
+  amount: z.coerce.number().int().positive("Số tiền phải lớn hơn 0."),
+  month: z.string().trim().regex(/^\d{4}-(0[1-9]|1[0-2])$/, "Kỳ hoa hồng phải có dạng YYYY-MM."),
+  note: z.string().trim().max(500, "Ghi chú tối đa 500 ký tự.").optional(),
+  paymentRequestId: z.string().trim().optional(),
+  paidAt: z.string().trim().optional(),
 });
 
 function parse(formData: FormData) {
@@ -86,43 +100,23 @@ export async function updateCollaborator(_prev: CtvState, formData: FormData): P
   const current = await prisma.collaborator.findUnique({ where: { id }, select: { name: true, userId: true } });
   if (!current) return { error: "Không tìm thấy cộng tác viên." };
 
-  // Đổi tên CTV: phải cập nhật luôn "Chi tiết nguồn" của các khách đã gắn CTV này
-  // (hiệu suất CTV được gộp theo TÊN) — làm trong 1 giao dịch để không lệch dữ liệu.
   await prisma.$transaction(async (tx) => {
-    let customersUpdated = 0;
-    let leadsUpdated = 0;
-    let appointmentsUpdated = 0;
-    let payoutsUpdated = 0;
-    let requestsUpdated = 0;
-    if (current.name !== d.name) {
-      const sourceWhere = { source: "COLLABORATOR" as const, sourceDetail: current.name };
-      const [customers, leads, appointments, payouts, requests] = await Promise.all([
-        tx.customer.updateMany({ where: { OR: [{ collaboratorId: id }, sourceWhere] }, data: { collaboratorId: id, sourceDetail: d.name } }),
-        tx.lead.updateMany({ where: { OR: [{ collaboratorId: id }, sourceWhere] }, data: { collaboratorId: id, sourceDetail: d.name } }),
-        tx.appointment.updateMany({ where: { OR: [{ collaboratorId: id }, sourceWhere] }, data: { collaboratorId: id, sourceDetail: d.name } }),
-        tx.commissionPayout.updateMany({ where: { OR: [{ collaboratorId: id }, { name: current.name }] }, data: { collaboratorId: id, name: d.name } }),
-        tx.paymentRequest.updateMany({ where: { OR: [{ payeeCollaboratorId: id }, { payeeName: current.name, type: "COLLABORATOR" }] }, data: { payeeCollaboratorId: id, payeeName: d.name } }),
-      ]);
-      customersUpdated = customers.count;
-      leadsUpdated = leads.count;
-      appointmentsUpdated = appointments.count;
-      payoutsUpdated = payouts.count;
-      requestsUpdated = requests.count;
-      await tx.caseRecord.updateMany({ where: { OR: [{ collaboratorId: id }, { customer: { collaboratorId: id } }] }, data: { collaboratorId: id } });
-    }
+    const counts = await syncCollaboratorIdentity(tx, { collaboratorId: id, legacyName: current.name, displayName: d.name });
     await tx.collaborator.update({
       where: { id },
       data: { name: d.name, phone: d.phone || null, bankAccount: d.bankAccount || null, bankName: d.bankName || null, bankHolder: d.bankHolder || null, note: d.note || null },
     });
-    if (current.name !== d.name) {
-      await auditRequired(tx, user.id, "RENAME_COLLABORATOR", {
-        entity: "Collaborator",
-        entityId: id,
-        meta: { from: current.name, to: d.name, customersUpdated, leadsUpdated, appointmentsUpdated, payoutsUpdated, requestsUpdated },
-      });
+    if (current.userId) {
+      await tx.user.update({ where: { id: current.userId }, data: { fullName: d.name } });
     }
+    await auditRequired(tx, user.id, current.name !== d.name ? "RENAME_COLLABORATOR" : "SYNC_COLLABORATOR_IDENTITY", {
+      entity: "Collaborator",
+      entityId: id,
+      meta: { from: current.name, to: d.name, ...counts, moneyRecalculated: false },
+    });
   });
   revalidatePath("/cong-tac-vien", "layout");
+  revalidatePath(`/cong-tac-vien/${encodeURIComponent(id)}`);
   return { ok: true };
 }
 
@@ -134,18 +128,15 @@ export async function reconcileLegacyCollaborator(_prev: CtvState, formData: For
   const collaborator = await prisma.collaborator.findUnique({ where: { id: collaboratorId }, select: { id: true, name: true } });
   if (!collaborator) return { error: "Không tìm thấy CTV đích." };
   await prisma.$transaction(async (tx) => {
-    const sourceWhere = { source: "COLLABORATOR" as const, sourceDetail: legacyName };
-    const [customers, leads, appointments, cases, payouts, requests] = await Promise.all([
-      tx.customer.updateMany({ where: { OR: [{ collaboratorId: null, ...sourceWhere }, { collaboratorId: collaboratorId, sourceDetail: legacyName }] }, data: { collaboratorId, sourceDetail: collaborator.name, collaboratorAssignedAt: new Date() } }),
-      tx.lead.updateMany({ where: { OR: [{ collaboratorId: null, ...sourceWhere }, { collaboratorId: collaboratorId, sourceDetail: legacyName }] }, data: { collaboratorId, sourceDetail: collaborator.name } }),
-      tx.appointment.updateMany({ where: { OR: [{ collaboratorId: null, ...sourceWhere }, { collaboratorId: collaboratorId, sourceDetail: legacyName }] }, data: { collaboratorId, sourceDetail: collaborator.name } }),
-      tx.caseRecord.updateMany({ where: { collaboratorId: null, customer: sourceWhere }, data: { collaboratorId, collaboratorAssignedAt: new Date() } }),
-      tx.commissionPayout.updateMany({ where: { collaboratorId: null, name: legacyName }, data: { collaboratorId } }),
-      tx.paymentRequest.updateMany({ where: { payeeCollaboratorId: null, type: "COLLABORATOR", payeeName: legacyName }, data: { payeeCollaboratorId: collaboratorId } }),
-    ]);
-    await auditRequired(tx, admin.id, "RECONCILE_COLLABORATOR_ID", { entity: "Collaborator", entityId: collaboratorId, meta: { legacyName, customers: customers.count, leads: leads.count, appointments: appointments.count, cases: cases.count, payouts: payouts.count, requests: requests.count, moneyRecalculated: false } });
+    const counts = await syncCollaboratorIdentity(tx, { collaboratorId, legacyName, displayName: collaborator.name });
+    await auditRequired(tx, admin.id, "RECONCILE_COLLABORATOR_ID", {
+      entity: "Collaborator",
+      entityId: collaboratorId,
+      meta: { legacyName, ...counts, moneyRecalculated: false },
+    });
   });
   revalidatePath("/cong-tac-vien", "layout");
+  revalidatePath(`/cong-tac-vien/${encodeURIComponent(collaboratorId)}`);
   return { ok: true };
 }
 
@@ -154,4 +145,113 @@ export async function deleteCollaborator(formData: FormData): Promise<void> {
   const id = String(formData.get("id") ?? "");
   if (id) await prisma.collaborator.delete({ where: { id } }).catch(() => {});
   revalidatePath("/cong-tac-vien", "layout");
+}
+
+export async function uploadCollaboratorDocument(_prev: CtvState, formData: FormData): Promise<CtvState> {
+  const user = await requireUser([...ROLES]);
+  const collaboratorId = String(formData.get("collaboratorId") ?? "").trim();
+  const title = String(formData.get("title") ?? "").trim();
+  const file = formData.get("file");
+  if (!collaboratorId) return { error: "Thiếu cộng tác viên." };
+  if (!title) return { error: "Vui lòng nhập tên tài liệu." };
+  if (title.length > 200) return { error: "Tên tài liệu tối đa 200 ký tự." };
+  if (!(file instanceof File) || file.size === 0) return { error: "Vui lòng chọn tệp." };
+  if (file.size > 15 * 1024 * 1024) return { error: "Tệp tối đa 15MB." };
+  if (!isAllowedDocMime(file.type)) return { error: "Định dạng không hỗ trợ (chỉ PDF, ảnh JPG/PNG/WEBP, Word, Excel)." };
+  const collaborator = await prisma.collaborator.findUnique({ where: { id: collaboratorId }, select: { id: true } });
+  if (!collaborator) return { error: "Không tìm thấy cộng tác viên." };
+
+  const buffer = Buffer.from(await file.arrayBuffer());
+  if (!isDocumentBufferValid(buffer, file.type)) return { error: "Nội dung tệp không khớp định dạng đã chọn." };
+  const storageError = getUploadStorageError();
+  if (storageError) return { error: storageError };
+
+  const storedName = safeStoredName(`ctv-${collaboratorId}`, docExt(file.type, file.name));
+  const dir = getUploadDir();
+  const storedPath = path.join(dir, storedName);
+  await fs.mkdir(dir, { recursive: true });
+  await fs.writeFile(storedPath, buffer);
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      const document = await tx.collaboratorDocument.create({
+        data: { collaboratorId, title, fileName: file.name.slice(0, 200), url: `/media/${storedName}`, mime: file.type, uploadedById: user.id },
+      });
+      await auditRequired(tx, user.id, "UPLOAD_COLLABORATOR_DOCUMENT", { entity: "CollaboratorDocument", entityId: document.id, meta: { collaboratorId, title, mime: file.type } });
+    });
+  } catch {
+    await fs.rm(storedPath, { force: true }).catch(() => {});
+    return { error: "Không thể lưu tài liệu lúc này. Vui lòng thử lại." };
+  }
+
+  revalidatePath(`/cong-tac-vien/${encodeURIComponent(collaboratorId)}`);
+  return { ok: true, nonce: Date.now() };
+}
+
+export async function deleteCollaboratorDocument(formData: FormData): Promise<void> {
+  const user = await requireUser([...ROLES]);
+  const id = String(formData.get("id") ?? "").trim();
+  const collaboratorId = String(formData.get("collaboratorId") ?? "").trim();
+  if (!id || !collaboratorId) return;
+
+  const document = await prisma.collaboratorDocument.findFirst({ where: { id, collaboratorId }, select: { id: true, url: true } });
+  if (!document) return;
+  await prisma.$transaction(async (tx) => {
+    await tx.collaboratorDocument.delete({ where: { id: document.id } });
+    await auditRequired(tx, user.id, "DELETE_COLLABORATOR_DOCUMENT", { entity: "CollaboratorDocument", entityId: document.id, meta: { collaboratorId } });
+  });
+  const storedName = path.basename(document.url);
+  await fs.rm(path.join(getUploadDir(), storedName), { force: true }).catch(() => {});
+  revalidatePath(`/cong-tac-vien/${encodeURIComponent(collaboratorId)}`);
+}
+
+export async function recordCollaboratorPayout(_prev: CtvState, formData: FormData): Promise<CtvState> {
+  const user = await requireUser([...ROLES]);
+  const parsed = payoutSchema.safeParse({
+    collaboratorId: formData.get("collaboratorId") ?? "",
+    amount: formData.get("amount") ?? "",
+    month: formData.get("month") ?? "",
+    note: formData.get("note") ?? "",
+    paymentRequestId: formData.get("paymentRequestId") ?? "",
+    paidAt: formData.get("paidAt") ?? "",
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu chi hoa hồng không hợp lệ." };
+  const d = parsed.data;
+  const collaborator = await prisma.collaborator.findUnique({ where: { id: d.collaboratorId }, select: { id: true, name: true } });
+  if (!collaborator) return { error: "Không tìm thấy cộng tác viên." };
+
+  let paidAt = new Date();
+  if (d.paidAt) {
+    const candidate = new Date(`${d.paidAt}T12:00:00`);
+    if (Number.isNaN(candidate.getTime())) return { error: "Ngày chuyển khoản không hợp lệ." };
+    paidAt = candidate;
+  }
+
+  const paymentRequestId = d.paymentRequestId || null;
+  if (paymentRequestId) {
+    const request = await prisma.paymentRequest.findUnique({ where: { id: paymentRequestId }, select: { type: true, status: true, amount: true, payeeCollaboratorId: true } });
+    if (!request) return { error: "Không tìm thấy đề nghị thanh toán." };
+    if (request.type !== "COLLABORATOR" || request.status !== "PAID") return { error: "Chỉ được liên kết đề nghị thanh toán hoa hồng đã ở trạng thái Đã chi." };
+    if (request.payeeCollaboratorId !== d.collaboratorId) return { error: "Đề nghị thanh toán không thuộc CTV này." };
+    if (Number(request.amount) !== d.amount) return { error: "Số tiền phải khớp với đề nghị thanh toán đã chi." };
+  }
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      const record = await tx.collaboratorPayoutRecord.create({
+        data: { collaboratorId: d.collaboratorId, amount: d.amount, month: d.month, note: d.note || null, paidAt, paidById: user.id, paymentRequestId },
+      });
+      await auditRequired(tx, user.id, "RECORD_COLLABORATOR_PAYOUT", {
+        entity: "CollaboratorPayoutRecord",
+        entityId: record.id,
+        meta: { collaboratorId: d.collaboratorId, amount: d.amount, month: d.month, paymentRequestId, moneyRecalculated: false },
+      });
+    });
+  } catch {
+    return { error: "Không thể ghi nhận khoản chi. Kiểm tra đề nghị thanh toán có thể đã được ghi nhận trước đó." };
+  }
+
+  revalidatePath(`/cong-tac-vien/${encodeURIComponent(d.collaboratorId)}`);
+  revalidatePath("/cong-tac-vien", "layout");
+  return { ok: true, nonce: Date.now() };
 }

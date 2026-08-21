@@ -241,6 +241,7 @@ export async function payCtvCommission(_prev: AccState, formData: FormData): Pro
 
   const existing = await prisma.commissionPayout.findUnique({ where: { name_month: { name, month } } });
   if (existing) return { error: `Đã ghi sổ chi hoa hồng cho ${name} rồi.` };
+  const collaborator = await prisma.collaborator.findUnique({ where: { name }, select: { id: true } });
 
   const when = payDate(formData.get("occurredAt"), month);
   const method = payMethod(formData.get("method"));
@@ -253,6 +254,7 @@ export async function payCtvCommission(_prev: AccState, formData: FormData): Pro
         status: "PAID",
         requesterId: user.id,
         approverId: user.id,
+        payeeCollaboratorId: collaborator?.id ?? null,
         payeeName: name,
         amount: ctv.amount,
         reason: `Thanh toán hoa hồng cộng tác viên tháng ${format(monthDate(month), "MM/yyyy")}`,
@@ -275,12 +277,18 @@ export async function payCtvCommission(_prev: AccState, formData: FormData): Pro
         paymentRequestId: request.id,
       },
     });
-    await tx.commissionPayout.create({
-      data: { name, month, amount: ctv.amount, cashTxId: cashTx.id, paymentRequestId: request.id },
+    const payout = await tx.commissionPayout.create({
+      data: { collaboratorId: collaborator?.id ?? null, name, month, amount: ctv.amount, cashTxId: cashTx.id, paymentRequestId: request.id },
     });
+    if (collaborator) {
+      await tx.collaboratorPayoutRecord.create({
+        data: { collaboratorId: collaborator.id, amount: ctv.amount, month, paidAt: when, paidById: user.id, paymentRequestId: request.id },
+      });
+    }
     await auditRequired(tx, user.id, "PAY_COMMISSION", {
       entity: "CommissionPayout",
-      meta: { month, name, amount: ctv.amount },
+      entityId: payout.id,
+      meta: { month, name, amount: ctv.amount, collaboratorId: collaborator?.id ?? null, payoutHistoryRecorded: !!collaborator, moneyRecalculated: false },
     });
   });
   return { ok: true };
@@ -298,6 +306,9 @@ export async function undoCtvCommission(_prev: AccState, formData: FormData): Pr
   if (!payout) return { error: "Khoản hoa hồng này chưa được ghi sổ." };
 
   await prisma.$transaction(async (tx) => {
+    if (payout.paymentRequestId) {
+      await tx.collaboratorPayoutRecord.deleteMany({ where: { paymentRequestId: payout.paymentRequestId } });
+    }
     await tx.commissionPayout.delete({ where: { id: payout.id } });
     if (payout.cashTxId) {
       const cashTx = await tx.cashTransaction.findUnique({ where: { id: payout.cashTxId }, select: { paymentRequestId: true } });
