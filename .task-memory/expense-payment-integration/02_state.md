@@ -57,6 +57,6 @@
 
 Nội dung đã có trên master: bỏ dotted filler khỏi Giấy đề nghị thanh toán; đổi nhãn Phiếu tư vấn dịch vụ thẩm mỹ thành Hồ sơ dịch vụ thẩm mỹ trên preview/in/Word/editor/CTA; gộp bản hồ sơ tự sinh, Phiếu đồng ý và tài liệu bổ sung vào một khu vực duy nhất trong tab Giấy tờ; thêm nút + để mở hồ sơ, ghi nhận Phiếu đồng ý hoặc tải tài liệu; giữ nguyên URL consultation và dữ liệu lịch sử; không có migration mới.
 
-Kiểm tra đã đạt: Prisma generate, TypeScript, ESLint tệp thay đổi, Vitest 53 file/334 test, Next production build; CI PR #34 và #35 đều xanh. Release tài liệu là `2026.08.21-r12`, ngày 21/08/2026, master `31df247` sau docs merge. Chưa smoke test trên máy Windows production/local của anh Lam.
+Kiểm tra đã đạt: Prisma generate, TypeScript, ESLint tệp thay đổi, Vitest 53 file/334 test, Next production build; CI PR #34 và #35 đều xanh. Release tài liệu là `2026.08.21-r12`, ngày 21/08/2026, master hiện tại `c2f27f5` sau PR #36 checkpoint merge. Chưa smoke test trên máy Windows production/local của anh Lam.
 
 Việc tiếp theo: anh Lam chạy `windows\\Sua-Loi.bat` bằng Run as administrator để script pull `origin/master` hiện tại, rebuild/restart Docker; sau đó test tab Giấy tờ, nút +, upload tài liệu, xem/in Hồ sơ dịch vụ thẩm mỹ và mẫu Giấy đề nghị thanh toán. Không chạy `prisma db push`; dữ liệu lịch sử được giữ nguyên.

@@ -1,8 +1,8 @@
 # ZenithTasks — Trạng thái phiên bản hiện tại
 
 > **Phiên bản nội bộ:** `2026.08.21-r12`<br>
-> **Commit master:** [`d552e2b`](https://github.com/ledinhlam23032000/ZenithTasks/commit/d552e2bb5a1eb91e2a758c34166d3fdd1d460b13)<br>
-> **PR gần nhất:** [#34](https://github.com/ledinhlam23032000/ZenithTasks/pull/34)<br>
+> **Commit master:** [`c2f27f5`](https://github.com/ledinhlam23032000/ZenithTasks/commit/c2f27f50a75f86f1cc9ae47193ff76bf11bba321)<br>
+> **PR gần nhất:** [#36](https://github.com/ledinhlam23032000/ZenithTasks/pull/36)<br>
 > **Ngày cập nhật:** 21/08/2026<br>
 > **Trạng thái:** Bản vá Hồ sơ dịch vụ thẩm mỹ và bản in sạch hơn đã merge master, CI xanh, test/build đạt. Gộp toàn bộ giấy tờ hồ sơ vào tab Giấy tờ, bỏ dotted filler trong Giấy đề nghị thanh toán, không thêm migration. **Chưa xác nhận triển khai production**; máy vận hành cần chạy `Sua-Loi.bat` và smoke test trước khi dùng thật. Bộ tài liệu tiếp quản chuẩn nằm tại [`docs/INDEX.md`](docs/INDEX.md), bản đồ năng lực nằm tại [`docs/PRODUCT-CAPABILITIES.md`](docs/PRODUCT-CAPABILITIES.md).
 
@@ -47,7 +47,7 @@ Migration là **bổ sung dữ liệu, không được tự xóa hoặc reset da
 
 ## Kiểm tra chất lượng gần nhất
 
-Release r12 đã được kiểm tra bằng Prisma generate, TypeScript, Vitest **53 file / 334 test**, Next production build và CI GitHub Actions của PR #34; CI push/pull request đều thành công. `origin/master` hiện ở commit `d552e2b`. Release này không có migration mới và chưa được xác nhận đã chạy trên máy production. Khi sửa nghiệp vụ tiền, lương, công nợ, phân quyền, hồ sơ y tế hoặc webhook, phải bổ sung test hồi quy trước khi commit.
+Release r12 đã được kiểm tra bằng Prisma generate, TypeScript, Vitest **53 file / 334 test**, Next production build và CI GitHub Actions của PR #34; CI push/pull request đều thành công. `origin/master` hiện ở commit `c2f27f5`; PR #34 là bản vá nghiệp vụ, PR #35/#36 là cập nhật release và checkpoint. Release này không có migration mới và chưa được xác nhận đã chạy trên máy production. Khi sửa nghiệp vụ tiền, lương, công nợ, phân quyền, hồ sơ y tế hoặc webhook, phải bổ sung test hồi quy trước khi commit.
 
 ## Quy trình cập nhật máy vận hành
 
