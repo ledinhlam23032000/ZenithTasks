@@ -201,11 +201,13 @@ export const PAYMENT_REQUEST_PRINT_CSS = `
   .payment-header-right em { display: block; font-weight: 700; text-decoration: underline; }
   .payment-title { margin: 45px 0 18px; text-align: center; font-size: 25px; font-weight: 700; }
   .payment-number { margin: -10px 0 22px; text-align: center; font-size: 11px; color: #64748b; letter-spacing: .04em; }
-  .payment-field { display: grid; grid-template-columns: 116px 16px 1fr; min-height: 29px; font-size: 17px; line-height: 1.45; }
+  .payment-field { display: grid; grid-template-columns: 116px 16px minmax(0, 1fr); align-items: end; min-height: 31px; font-size: 17px; line-height: 1.45; }
   .payment-field-label { white-space: nowrap; }
-  .payment-field-value { border-bottom: 1px dotted #374151; min-height: 25px; padding: 0 4px 2px; }
-  .payment-field-long { min-height: 54px; }
-  .payment-date { margin: 28px 0 28px; text-align: right; font-size: 16px; font-style: italic; }
+  .payment-field-value { min-width: 0; min-height: 25px; padding: 0 0 4px; }
+  .payment-value-text { display: inline; padding: 0 5px 3px; border-bottom: 1px dotted #64748b; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+  .payment-field-long { min-height: 42px; align-items: start; }
+  .payment-field-long .payment-field-value { padding-top: 2px; line-height: 1.55; }
+  .payment-date { margin: 18px 0 22px; text-align: right; font-size: 16px; font-style: italic; }
   .payment-signatures { width: 100%; table-layout: fixed; border-collapse: collapse; text-align: center; }
   .payment-signatures td { width: 25%; padding: 0 5px; vertical-align: top; font-size: 16px; font-weight: 700; }
   .payment-signatures .hint { display: block; margin-top: 8px; font-weight: 400; font-size: 15px; }
@@ -227,12 +229,12 @@ export function renderPaymentRequestPaper(document: PaymentRequestDocument): str
   </header>
   <h1 class="payment-title">GIẤY ĐỀ NGHỊ THANH TOÁN</h1>
   <div class="payment-number">Số phiếu: ${escapeHtml(document.requestNo)} · ${escapeHtml(paymentRequestStatusLabel(document.status))}</div>
-  <div class="payment-field"><span class="payment-field-label">Kính gửi</span><span>:</span><span class="payment-field-value">${escapeHtml(document.recipient)}</span></div>
-  <div class="payment-field"><span class="payment-field-label">Họ và Tên</span><span>:</span><span class="payment-field-value">${escapeHtml(document.requesterName)}</span></div>
-  <div class="payment-field"><span class="payment-field-label">Địa chỉ</span><span>:</span><span class="payment-field-value">${escapeHtml(document.requesterAddress)}</span></div>
-  <div class="payment-field payment-field-long"><span class="payment-field-label">Lý do</span><span>:</span><span class="payment-field-value">${escapeHtml(document.reason)}</span></div>
-  <div class="payment-field"><span class="payment-field-label">Số tiền</span><span>:</span><span class="payment-field-value">${escapeHtml(new Intl.NumberFormat("vi-VN").format(document.amount))} đồng</span></div>
-  <div class="payment-field payment-field-long"><span class="payment-field-label">Bằng chữ</span><span>:</span><span class="payment-field-value">${escapeHtml(document.amountText)}</span></div>
+  <div class="payment-field"><span class="payment-field-label">Kính gửi</span><span>:</span><span class="payment-field-value"><span class="payment-value-text">${escapeHtml(document.recipient)}</span></span></div>
+  <div class="payment-field"><span class="payment-field-label">Họ và Tên</span><span>:</span><span class="payment-field-value"><span class="payment-value-text">${escapeHtml(document.requesterName)}</span></span></div>
+  <div class="payment-field"><span class="payment-field-label">Địa chỉ</span><span>:</span><span class="payment-field-value"><span class="payment-value-text">${escapeHtml(document.requesterAddress)}</span></span></div>
+  <div class="payment-field payment-field-long"><span class="payment-field-label">Lý do</span><span>:</span><span class="payment-field-value"><span class="payment-value-text">${escapeHtml(document.reason)}</span></span></div>
+  <div class="payment-field"><span class="payment-field-label">Số tiền</span><span>:</span><span class="payment-field-value"><span class="payment-value-text">${escapeHtml(new Intl.NumberFormat("vi-VN").format(document.amount))} đồng</span></span></div>
+  <div class="payment-field payment-field-long"><span class="payment-field-label">Bằng chữ</span><span>:</span><span class="payment-field-value"><span class="payment-value-text">${escapeHtml(document.amountText)}</span></span></div>
   <p class="payment-date">${escapeHtml(document.location)}, ngày ${escapeHtml(dateText)}</p>
   <table class="payment-signatures"><tbody><tr>
     <td>Thủ trưởng đơn vị<span class="hint">(Ký, họ tên)</span><span class="signed-name"></span></td>
