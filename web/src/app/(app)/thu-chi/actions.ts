@@ -9,7 +9,7 @@ import { isShareholder } from "@/lib/rbac";
 import { CATEGORY_LABEL } from "@/lib/finance";
 import { isMonthClosed } from "@/lib/accounting";
 import { auditRequired } from "@/lib/audit";
-import { buildCashbookPaymentRequestDetails, linkedCashTransactionGuard, paymentRequestNo } from "@/lib/payment-request";
+import { buildCashbookPaymentRequestDetails, linkedCashTransactionGuard, paymentRequestNo, PAYMENT_REQUEST_DEFAULT_RECIPIENT } from "@/lib/payment-request";
 
 export type CashState = { ok?: boolean; error?: string; requestId?: string; message?: string };
 
@@ -54,34 +54,56 @@ export async function createCashTransaction(_prev: CashState, formData: FormData
   if (Number.isNaN(when.getTime())) return { error: "Ngày không hợp lệ." };
   if (await isMonthClosed(format(when, "yyyy-MM"))) return { error: closedMsg(when) };
 
-  if (d.createPaymentRequest) {
-    if (d.type !== "EXPENSE") return { error: "Chỉ khoản chi mới lập được Đề nghị thanh toán." };
-    const accountingUser = await requireCap("accounting.pay");
-    const request = await prisma.$transaction(async (tx) => {
-      const created = await tx.paymentRequest.create({
+  const result = await prisma.$transaction(async (tx) => {
+    let requestId: string | undefined;
+    let requestNo: string | undefined;
+    if (d.type === "EXPENSE") {
+      const reason = d.note || `Mua ${CATEGORY_LABEL[d.category] ?? d.category}${d.vendor ? ` tại ${d.vendor}` : ""}`;
+      const request = await tx.paymentRequest.create({
         data: {
           requestNo: paymentRequestNo(),
           type: "EXPENSE",
           status: "PENDING",
-          requesterId: accountingUser.id,
+          requesterId: user.id,
           payeeName: d.vendor || "Nhà cung cấp",
           amount: Math.round(d.amount),
-          reason: d.note || `Chi ${CATEGORY_LABEL[d.category] ?? d.category}`,
+          reason,
           month: format(when, "yyyy-MM"),
-          details: buildCashbookPaymentRequestDetails({ category: d.category, note: d.note, occurredAt: when, method: d.method, vendor: d.vendor }),
+          details: {
+            ...buildCashbookPaymentRequestDetails({ category: d.category, note: d.note || reason, occurredAt: when, method: d.method, vendor: d.vendor }),
+            recipient: PAYMENT_REQUEST_DEFAULT_RECIPIENT,
+          },
         },
       });
-      await auditRequired(tx, accountingUser.id, "CREATE_PAYMENT_REQUEST_FROM_CASHBOOK", {
+      requestId = request.id;
+      requestNo = request.requestNo;
+      await auditRequired(tx, user.id, "CREATE_PAYMENT_REQUEST_FROM_CASHBOOK", {
         entity: "PaymentRequest",
-        entityId: created.id,
-        meta: { requestNo: created.requestNo, amount: Math.round(d.amount), category: d.category },
+        entityId: request.id,
+        meta: { requestNo: request.requestNo, amount: Math.round(d.amount), category: d.category, source: "THU_CHI" },
       });
-      return created;
-    });
-    return { ok: true, requestId: request.id, message: `Đã lập ${request.requestNo} — đang chờ ADMIN duyệt, chưa ghi dòng chi.` };
-  }
 
-  await prisma.$transaction(async (tx) => {
+      const cash = await tx.cashTransaction.create({
+        data: {
+          type: d.type,
+          category: d.category,
+          amount: Math.round(d.amount),
+          occurredAt: when,
+          method: d.method,
+          vendor: d.vendor || null,
+          note: d.note || null,
+          createdById: user.id,
+          paymentRequestId: request.id,
+        },
+      });
+      await auditRequired(tx, user.id, "CREATE_CASH_TRANSACTION_WITH_PAYMENT_REQUEST", {
+        entity: "CashTransaction",
+        entityId: cash.id,
+        meta: { type: d.type, category: d.category, amount: Math.round(d.amount), occurredAt: when.toISOString(), requestId: request.id },
+      });
+      return { requestId, requestNo };
+    }
+
     const cash = await tx.cashTransaction.create({
       data: {
         type: d.type,
@@ -99,8 +121,11 @@ export async function createCashTransaction(_prev: CashState, formData: FormData
       entityId: cash.id,
       meta: { type: d.type, category: d.category, amount: Math.round(d.amount), occurredAt: when.toISOString() },
     });
+    return { requestId: undefined, requestNo: undefined };
   });
-  return { ok: true };
+  return result.requestId
+    ? { ok: true, requestId: result.requestId, message: `Đã ghi sổ và tạo ${result.requestNo}. Mở chứng từ để xem hoặc in ký.` }
+    : { ok: true };
 }
 
 export async function updateCashTransaction(_prev: CashState, formData: FormData): Promise<CashState> {
@@ -114,9 +139,14 @@ export async function updateCashTransaction(_prev: CashState, formData: FormData
   const when = new Date(d.occurredAt);
   if (Number.isNaN(when.getTime())) return { error: "Ngày không hợp lệ." };
 
-  const current = await prisma.cashTransaction.findUnique({ where: { id }, select: { occurredAt: true, paymentRequestId: true } });
+  const current = await prisma.cashTransaction.findUnique({
+    where: { id },
+    select: { occurredAt: true, paymentRequestId: true, paymentRequest: { select: { status: true } } },
+  });
   if (!current) return { error: "Không tìm thấy giao dịch." };
-  const editGuard = linkedCashTransactionGuard(current.paymentRequestId, "edit");
+  if (current.paymentRequestId && d.type !== "EXPENSE") return { error: "Giao dịch đã gắn Giấy đề nghị thanh toán nên vẫn phải là khoản Chi." };
+  const lockedByRequest = current.paymentRequest?.status === "APPROVED" || current.paymentRequest?.status === "PAID";
+  const editGuard = lockedByRequest ? linkedCashTransactionGuard(current.paymentRequestId, "edit") : null;
   if (editGuard) return { error: editGuard };
   // Chặn cả tháng CŨ lẫn tháng MỚI: không được rút giao dịch ra khỏi / đẩy vào một tháng đã chốt.
   if (await isMonthClosed(format(current.occurredAt, "yyyy-MM"))) return { error: closedMsg(current.occurredAt) };
@@ -135,6 +165,27 @@ export async function updateCashTransaction(_prev: CashState, formData: FormData
         note: d.note || null,
       },
     });
+    if (current.paymentRequestId) {
+      const reason = d.note || `Mua ${CATEGORY_LABEL[d.category] ?? d.category}${d.vendor ? ` tại ${d.vendor}` : ""}`;
+      await tx.paymentRequest.update({
+        where: { id: current.paymentRequestId },
+        data: {
+          status: current.paymentRequest?.status === "REJECTED" ? "PENDING" : undefined,
+          approverId: current.paymentRequest?.status === "REJECTED" ? null : undefined,
+          approvedAt: current.paymentRequest?.status === "REJECTED" ? null : undefined,
+          rejectedAt: current.paymentRequest?.status === "REJECTED" ? null : undefined,
+          rejectionReason: current.paymentRequest?.status === "REJECTED" ? null : undefined,
+          payeeName: d.vendor || "Nhà cung cấp",
+          amount: Math.round(d.amount),
+          reason,
+          month: format(when, "yyyy-MM"),
+          details: {
+            ...buildCashbookPaymentRequestDetails({ category: d.category, note: d.note || reason, occurredAt: when, method: d.method, vendor: d.vendor }),
+            recipient: PAYMENT_REQUEST_DEFAULT_RECIPIENT,
+          },
+        },
+      });
+    }
     await auditRequired(tx, user.id, "UPDATE_CASH_TRANSACTION", {
       entity: "CashTransaction",
       entityId: id,

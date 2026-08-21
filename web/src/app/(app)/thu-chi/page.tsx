@@ -9,7 +9,6 @@ import { fmtDate } from "@/lib/format";
 import { PAYMENT_LABEL } from "@/lib/status";
 import { CASH_TYPE, categoryLabel, INVESTMENT_CATEGORY_CODE } from "@/lib/finance";
 import { isShareholder } from "@/lib/rbac";
-import { userCan } from "@/lib/permissions";
 import { paymentRequestStatusLabel } from "@/lib/payment-request";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -117,7 +116,7 @@ export default async function CashPage({ searchParams }: { searchParams: Promise
               ]}
             />
             <Link href="/ke-toan/de-nghi-thanh-toan" className={buttonVariants({ variant: "secondary" })}><FileText className="h-4 w-4" /> Đề nghị thanh toán</Link>
-            {canManage && <NewCashButton defaultDate={today} canCreatePaymentRequest={userCan(user, "accounting.pay")} />}
+            {canManage && <NewCashButton defaultDate={today} />}
           </div>
         }
       />
@@ -217,7 +216,7 @@ export default async function CashPage({ searchParams }: { searchParams: Promise
                       <TD className="text-slate-500">{PAYMENT_LABEL[t.method]}</TD>
                       <TD>
                         {t.paymentRequest ? (
-                          <a href={`/ke-toan/de-nghi-thanh-toan/${t.paymentRequest.id}/export`} className="text-xs font-medium text-brand-700 hover:underline">
+                          <a href={`/ke-toan/de-nghi-thanh-toan/${t.paymentRequest.id}`} className="text-xs font-medium text-brand-700 hover:underline">
                             {t.paymentRequest.requestNo}<span className="mt-0.5 block text-[11px] text-slate-400">{paymentRequestStatusLabel(t.paymentRequest.status)}</span>
                           </a>
                         ) : (
@@ -276,7 +275,7 @@ export default async function CashPage({ searchParams }: { searchParams: Promise
                     <p className="mt-1 text-xs text-slate-400">
                       {fmtDate(t.occurredAt)} · {PAYMENT_LABEL[t.method]}
                       {t.vendor || t.note ? ` · ${[t.vendor, t.note].filter(Boolean).join(" · ")}` : ""}
-                      {t.paymentRequest ? ` · ${t.paymentRequest.requestNo} (${paymentRequestStatusLabel(t.paymentRequest.status)})` : ""}
+                      {t.paymentRequest ? <> · <Link href={`/ke-toan/de-nghi-thanh-toan/${t.paymentRequest.id}`} className="font-medium text-brand-700 hover:underline">{t.paymentRequest.requestNo} ({paymentRequestStatusLabel(t.paymentRequest.status)})</Link></> : ""}
                     </p>
                     {canManage && (
                     <div className="mt-2 flex items-center justify-end gap-0.5">

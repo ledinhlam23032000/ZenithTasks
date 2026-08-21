@@ -34,7 +34,7 @@ export function CreatePaymentRequestForm() {
   const [state, run, pending] = useFormAction<PaymentRequestState>(createPaymentRequest, () => { setOpen(false); window.location.reload(); });
   return (
     <>
-      <Button onClick={() => setOpen(true)}><FilePlus2 className="h-4 w-4" /> Tạo đề nghị thanh toán</Button>
+      <Button onClick={() => setOpen(true)}><FilePlus2 className="h-4 w-4" /> Tạo thủ công</Button>
       <Modal open={open} onClose={() => !pending && setOpen(false)} title="Tạo giấy đề nghị thanh toán" size="lg">
         <form action={run} className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
@@ -58,14 +58,14 @@ export function CreatePaymentRequestForm() {
   );
 }
 
-export function PaymentRequestActions({ id, status, amount, canApprove, canPay }: { id: string; status: string; amount: number; canApprove: boolean; canPay: boolean }) {
+export function PaymentRequestActions({ id, status, amount, canApprove, canPay, hasCashTransaction = false }: { id: string; status: string; amount: number; canApprove: boolean; canPay: boolean; hasCashTransaction?: boolean }) {
   const [rejectOpen, setRejectOpen] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
   const [rejectState, rejectRun, rejectPending] = useFormAction<PaymentRequestState>(rejectPaymentRequest, () => { setRejectOpen(false); window.location.reload(); });
   const [payState, payRun, payPending] = useFormAction<PaymentRequestState>(markPaymentRequestPaid, () => { setPayOpen(false); window.location.reload(); });
   return (
     <div className="flex flex-wrap justify-end gap-1.5">
-      <a href={`/ke-toan/de-nghi-thanh-toan/${id}/export`} className={buttonVariants({ variant: "secondary", size: "sm" })}><Printer className="h-3.5 w-3.5" /> In</a>
+      <a href={`/ke-toan/de-nghi-thanh-toan/${id}`} className={buttonVariants({ variant: "secondary", size: "sm" })}><Printer className="h-3.5 w-3.5" /> Xem / In</a>
       {canApprove && status === "PENDING" && <>
         <ActionButton label="Duyệt" action={approvePaymentRequest} hidden={{ id }} />
         <button type="button" onClick={() => setRejectOpen(true)} className="inline-flex items-center gap-1 rounded-md border border-rose-200 px-2 py-1 text-xs font-medium text-rose-700 hover:bg-rose-50"><X className="h-3.5 w-3.5" /> Từ chối</button>
@@ -75,7 +75,7 @@ export function PaymentRequestActions({ id, status, amount, canApprove, canPay }
         <form action={rejectRun} className="space-y-4"><input type="hidden" name="id" value={id} /><div><Label htmlFor={`reject-${id}`}>Lý do từ chối</Label><Textarea id={`reject-${id}`} name="reason" required minLength={3} /></div>{rejectState.error && <p className="text-sm text-rose-600">{rejectState.error}</p>}<div className="flex justify-end gap-2"><Button type="button" variant="secondary" onClick={() => setRejectOpen(false)}>Hủy</Button><button type="submit" disabled={rejectPending} className={buttonVariants({ variant: "danger" })}>{rejectPending && <LoaderCircle className="h-4 w-4 animate-spin" />} Từ chối</button></div></form>
       </Modal>
       <Modal open={payOpen} onClose={() => !payPending && setPayOpen(false)} title="Ghi sổ đã thanh toán" size="sm">
-        <form action={payRun} className="space-y-4"><input type="hidden" name="id" value={id} /><p className="text-sm text-slate-600">Khoản chi: <strong>{formatVND(amount)}</strong>. Hệ thống sẽ tạo dòng chi trong Sổ thu chi và gắn với chứng từ này.</p><div className="grid gap-3 sm:grid-cols-2"><div><Label htmlFor={`paid-date-${id}`}>Ngày chi</Label><Input id={`paid-date-${id}`} name="occurredAt" type="date" defaultValue={new Date().toISOString().slice(0, 10)} /></div><div><Label htmlFor={`paid-method-${id}`}>Hình thức</Label><Select id={`paid-method-${id}`} name="method" defaultValue="TRANSFER"><option value="TRANSFER">Chuyển khoản</option><option value="CASH">Tiền mặt</option><option value="CARD">Thẻ</option><option value="EWALLET">Ví điện tử</option></Select></div></div>{payState.error && <p className="text-sm text-rose-600">{payState.error}</p>}<div className="flex justify-end gap-2"><Button type="button" variant="secondary" onClick={() => setPayOpen(false)}>Hủy</Button><button type="submit" disabled={payPending} className={buttonVariants()}>{payPending && <LoaderCircle className="h-4 w-4 animate-spin" />} Ghi sổ {formatVND(amount)}</button></div></form>
+        <form action={payRun} className="space-y-4"><input type="hidden" name="id" value={id} /><p className="text-sm text-slate-600">Khoản chi: <strong>{formatVND(amount)}</strong>.</p>{hasCashTransaction ? <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">Dòng chi đã có sẵn trong Sổ thu chi và được liên kết với phiếu này. Hệ thống chỉ cập nhật trạng thái, không tạo thêm dòng mới.</p> : <div className="grid gap-3 sm:grid-cols-2"><div><Label htmlFor={`paid-date-${id}`}>Ngày chi</Label><Input id={`paid-date-${id}`} name="occurredAt" type="date" defaultValue={new Date().toISOString().slice(0, 10)} /></div><div><Label htmlFor={`paid-method-${id}`}>Hình thức</Label><Select id={`paid-method-${id}`} name="method" defaultValue="TRANSFER"><option value="TRANSFER">Chuyển khoản</option><option value="CASH">Tiền mặt</option><option value="CARD">Thẻ</option><option value="EWALLET">Ví điện tử</option></Select></div></div>}{payState.error && <p className="text-sm text-rose-600">{payState.error}</p>}<div className="flex justify-end gap-2"><Button type="button" variant="secondary" onClick={() => setPayOpen(false)}>Hủy</Button><button type="submit" disabled={payPending} className={buttonVariants()}>{payPending && <LoaderCircle className="h-4 w-4 animate-spin" />} {hasCashTransaction ? "Xác nhận đã thanh toán" : `Ghi sổ ${formatVND(amount)}`}</button></div></form>
       </Modal>
     </div>
   );

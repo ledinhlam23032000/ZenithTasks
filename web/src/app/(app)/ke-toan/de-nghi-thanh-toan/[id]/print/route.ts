@@ -14,10 +14,10 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
   });
   if (!item) return new Response("Không tìm thấy chứng từ", { status: 404 });
 
-  return new Response("\ufeff" + renderPaymentRequestHtml(paymentRequestDocument(item)), {
+  return new Response(renderPaymentRequestHtml(paymentRequestDocument(item), true), {
     headers: {
-      "Content-Type": "application/msword; charset=utf-8",
-      "Content-Disposition": `attachment; filename="giay-de-nghi-${item.requestNo}.doc"`,
+      "Content-Type": "text/html; charset=utf-8",
+      "Content-Disposition": `inline; filename="giay-de-nghi-${item.requestNo}.html"`,
     },
   });
 }
