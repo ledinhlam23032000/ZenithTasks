@@ -77,6 +77,7 @@ import { photoSrc } from "@/lib/media";
 import { PaymentQrButton } from "./payment-qr-button";
 import { RevenueAllocationEditor } from "./revenue-allocation-editor";
 import { buildCaseLockChecklist, canLockCase } from "@/lib/case-lock-checklist";
+import { getCaseWorkspace } from "@/lib/case-workspace";
 
 export const dynamic = "force-dynamic";
 
@@ -123,6 +124,7 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
   const bomCountMap = new Map(bomCounts.map((b) => [b.serviceId, b._count._all]));
 
   const isAdmin = user.role === "ADMIN";
+  const workspace = getCaseWorkspace(user.role);
   const lockedForMe = record.locked && !isAdmin;
   const canClinical = userCan(user, "case.clinical") && !lockedForMe;
   const canPay = !lockedForMe && userCan(user, "payment.add");
@@ -577,7 +579,8 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
       ),
     },
   ];
-  const tabs: CaseTab[] = rawTabs.filter((t): t is CaseTab => !!t);
+  const tabs: CaseTab[] = rawTabs.filter((t): t is CaseTab => t !== false && workspace.visibleTabs.includes(t.key));
+  const defaultTab = tabs.some((tab) => tab.key === workspace.defaultTab) ? workspace.defaultTab : tabs[0]?.key;
 
   return (
     <div className="space-y-6">
@@ -658,6 +661,11 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
         )
       )}
 
+      <div className="rounded-xl border border-brand-100 bg-brand-50/60 px-4 py-3">
+        <p className="text-sm font-semibold text-brand-800">{workspace.label}</p>
+        <p className="mt-0.5 text-xs text-brand-700/80">{workspace.description}</p>
+      </div>
+
       {/* Thẻ khách */}
       <Card>
         <CardContent className="flex flex-wrap items-center gap-4 py-4">
@@ -689,12 +697,13 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          <CaseSectionTabs tabs={tabs} defaultTab={canClinical ? "tu-van" : "dich-vu"} />
+          <CaseSectionTabs tabs={tabs} defaultTab={defaultTab} />
         </div>
 
         {/* Cột phải: tài chính + tái khám — luôn hiện sẵn (cần xem cùng lúc lúc thao tác dịch vụ/thanh toán) */}
         <div className="space-y-6">
-          <Card>
+          {workspace.showFinancialRail && (
+            <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Wallet className="h-4 w-4 text-brand-500" /> Tài chính
@@ -780,6 +789,7 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
               )}
             </CardContent>
           </Card>
+          )}
 
           <Card>
             <CardHeader>

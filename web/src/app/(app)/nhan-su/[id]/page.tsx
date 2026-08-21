@@ -17,6 +17,7 @@ import { format } from "date-fns";
 import { requireCap } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { ROLE_LABELS } from "@/lib/rbac";
+import { effectiveKeys } from "@/lib/permissions";
 import { GENDER_LABEL } from "@/lib/status";
 import { toNum, formatVND } from "@/lib/money";
 import { fmtDate } from "@/lib/format";
@@ -40,6 +41,8 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
   const u = await prisma.user.findUnique({ where: { id } });
   if (!u) notFound();
 
+  const permissionCount = effectiveKeys({ role: u.role, permissions: u.permissions }).length;
+  const isRetired = u.employmentStatus === "RETIRED";
   const editable: EditableStaff = {
     id: u.id,
     fullName: u.fullName,
@@ -88,7 +91,49 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
         }
       />
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <span className="mr-1 font-semibold text-slate-700">Workspace nhân sự</span>
+          <a href="#ho-so" className="rounded-md bg-slate-50 px-2.5 py-1.5 text-slate-600 hover:bg-brand-50 hover:text-brand-700">Hồ sơ</a>
+          <a href="#quyen" className="rounded-md bg-slate-50 px-2.5 py-1.5 text-slate-600 hover:bg-brand-50 hover:text-brand-700">Quyền</a>
+          <a href="#vong-doi" className="rounded-md bg-slate-50 px-2.5 py-1.5 text-slate-600 hover:bg-brand-50 hover:text-brand-700">Vòng đời</a>
+          <a href="#bao-mat" className="rounded-md bg-slate-50 px-2.5 py-1.5 text-slate-600 hover:bg-brand-50 hover:text-brand-700">Bảo mật</a>
+        </div>
+        <p className="mt-2 text-xs text-slate-400">Các thao tác khóa, nghỉ việc, reset mật khẩu và đổi quyền nằm trong vùng quản trị; không thay đổi chính sách phân quyền hiện tại.</p>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <Card id="ho-so">
+          <CardContent className="pt-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Hồ sơ</p>
+            <p className="mt-2 font-semibold text-slate-800">{u.fullName}</p>
+            <p className="mt-1 text-xs text-slate-500">{u.code ?? "Chưa có mã"} · {u.phone ?? "Chưa có SĐT"}</p>
+          </CardContent>
+        </Card>
+        <Card id="quyen">
+          <CardContent className="pt-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Quyền</p>
+            <p className="mt-2 font-semibold text-slate-800">{ROLE_LABELS[u.role]}</p>
+            <p className="mt-1 text-xs text-slate-500">{permissionCount} quyền hiệu lực · quản trị viên kiểm soát</p>
+          </CardContent>
+        </Card>
+        <Card id="vong-doi">
+          <CardContent className="pt-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Vòng đời</p>
+            <p className={`mt-2 font-semibold ${isRetired ? "text-rose-600" : "text-emerald-600"}`}>{isRetired ? "Đã nghỉ việc" : "Đang làm việc"}</p>
+            <p className="mt-1 text-xs text-slate-500">Ngày vào làm: {u.hireDate ? fmtDate(u.hireDate) : "Chưa có"}</p>
+          </CardContent>
+        </Card>
+        <Card id="bao-mat">
+          <CardContent className="pt-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Bảo mật</p>
+            <p className="mt-2 font-semibold text-slate-800">@{u.username}</p>
+            <p className="mt-1 text-xs text-slate-500">2FA: {u.totpEnabled ? "Đã bật" : "Chưa bật"} · {u.active ? "Tài khoản mở" : "Tài khoản khóa"}</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid scroll-mt-24 gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle>

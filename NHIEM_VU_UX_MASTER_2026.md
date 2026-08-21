@@ -35,37 +35,37 @@ Khi nhận lệnh thực hiện, Manus phải đọc file này, đọc trạng t
 
 | STT | Tên nhiệm vụ | Ưu tiên | Nhóm | Phụ thuộc chính | Trạng thái |
 |---:|---|---|---|---|---|
-| 1 | Chuẩn hóa quy trình triển khai theo task và quality gate | P0 | Nền tảng | — | Chờ kiểm thử |
-| 2 | Mở rộng Global Search thành tìm kiếm nghiệp vụ toàn hệ thống | P0 | Tìm kiếm | 1 | Chờ kiểm thử |
-| 3 | Tạo kết quả tìm kiếm dạng Customer/Work 360 có hành động tiếp theo | P0 | Tìm kiếm | 2 | Chờ kiểm thử |
-| 4 | Tạo Customer 360 dùng chung cho toàn hệ thống | P0 | Khách hàng | 3 | Chờ kiểm thử |
-| 5 | Xây Reception Flow hợp nhất tìm khách–tiếp nhận–đặt lịch | P1 | Lễ tân | 2, 4 | Chờ kiểm thử |
-| 6 | Chuẩn hóa chọn nguồn khách và CTV bằng ID | P1 | Dữ liệu | 4 | Chờ kiểm thử |
-| 7 | Nâng cấp xử lý trùng lịch và gợi ý giờ trống | P1 | Lịch hẹn | 5 | Chờ kiểm thử |
-| 8 | Tạo Next Action và work queue theo vai trò | P0 | Điều phối | 3, 4 | Chờ kiểm thử |
-| 9 | Tạo checklist an toàn trước khi khóa hồ sơ điều trị | P0 | Hồ sơ | 4 | Chờ kiểm thử |
-| 10 | Tách workspace hồ sơ điều trị theo vai trò | P1 | Hồ sơ | 9 | Đã duyệt |
+| 1 | Chuẩn hóa quy trình triển khai theo task và quality gate | P0 | Nền tảng | — | Chờ merge |
+| 2 | Mở rộng Global Search thành tìm kiếm nghiệp vụ toàn hệ thống | P0 | Tìm kiếm | 1 | Chờ merge |
+| 3 | Tạo kết quả tìm kiếm dạng Customer/Work 360 có hành động tiếp theo | P0 | Tìm kiếm | 2 | Chờ merge |
+| 4 | Tạo Customer 360 dùng chung cho toàn hệ thống | P0 | Khách hàng | 3 | Chờ merge |
+| 5 | Xây Reception Flow hợp nhất tìm khách–tiếp nhận–đặt lịch | P1 | Lễ tân | 2, 4 | Chờ merge |
+| 6 | Chuẩn hóa chọn nguồn khách và CTV bằng ID | P1 | Dữ liệu | 4 | Chờ merge |
+| 7 | Nâng cấp xử lý trùng lịch và gợi ý giờ trống | P1 | Lịch hẹn | 5 | Chờ merge |
+| 8 | Tạo Next Action và work queue theo vai trò | P0 | Điều phối | 3, 4 | Chờ merge |
+| 9 | Tạo checklist an toàn trước khi khóa hồ sơ điều trị | P0 | Hồ sơ | 4 | Chờ merge |
+| 10 | Tách workspace hồ sơ điều trị theo vai trò | P1 | Hồ sơ | 9 | Chờ merge |
 | 11 | Tự động áp BOM vật tư khi thêm dịch vụ | P1 | Hồ sơ/Kho | 10 | Tạm dừng |
 | 12 | Thêm badge trạng thái thiếu và luồng next action trong hồ sơ | P1 | Hồ sơ | 9, 10 | Đã duyệt |
-| 13 | Tạo activity log ngắn và lịch sử thay đổi dễ đọc | P2 | Audit | 9 | Chờ kiểm thử |
-| 14 | Chuẩn hóa state machine cho đề nghị thanh toán | P1 | Kế toán | 1 | Chờ kiểm thử |
-| 15 | Bỏ reload toàn trang sau xử lý PaymentRequest | P1 | Kế toán | 14 | Chờ kiểm thử |
+| 13 | Tạo activity log ngắn và lịch sử thay đổi dễ đọc | P2 | Audit | 9 | Chờ merge |
+| 14 | Chuẩn hóa state machine cho đề nghị thanh toán | P1 | Kế toán | 1 | Chờ merge |
+| 15 | Bỏ reload toàn trang sau xử lý PaymentRequest | P1 | Kế toán | 14 | Chờ merge |
 | 16 | Tự tạo đề nghị thanh toán từ lương/CTV/chi phí | P1 | Kế toán | 14 | Đã duyệt |
 | 17 | Liên kết hai chiều payment rail giữa hồ sơ và kế toán | P1 | Kế toán | 4, 14 | Đã duyệt |
-| 18 | Tạo action rail cho hộp thư CSKH | P1 | CSKH | 3, 4 | Chờ kiểm thử |
-| 19 | Tự phân công inbox và nhắc SLA | P1 | CSKH | 18 | Chờ kiểm thử |
+| 18 | Tạo action rail cho hộp thư CSKH | P1 | CSKH | 3, 4 | Chờ merge |
+| 19 | Tự phân công inbox và nhắc SLA | P1 | CSKH | 18 | Chờ merge |
 | 20 | Tạo action thay thế khi ngoài khung phản hồi | P2 | CSKH | 18, 19 | Đã duyệt |
-| 21 | Lưu bản nháp trả lời và cảnh báo rời hội thoại | P2 | CSKH | 18 | Chờ kiểm thử |
-| 22 | Tạo profile workspace Nhân sự | P1 | Nhân sự | 1 | Đã duyệt |
+| 21 | Lưu bản nháp trả lời và cảnh báo rời hội thoại | P2 | CSKH | 18 | Chờ merge |
+| 22 | Tạo profile workspace Nhân sự | P1 | Nhân sự | 1 | Chờ merge |
 | 23 | Preset quyền theo chức danh và preview quyền | P1 | Phân quyền | 22 | Đã duyệt |
 | 24 | Quy trình nghỉ việc có checklist bàn giao | P1 | Nhân sự | 22 | Đã duyệt |
 | 25 | Quy trình thăng chức có diff quyền và ngày hiệu lực | P1 | Nhân sự | 22, 23 | Đã duyệt |
 | 26 | Profile CTV hợp nhất hồ sơ–tài khoản–khách–hoa hồng | P1 | CTV | 3, 4, 22 | Đã duyệt |
 | 27 | Bộ lọc CTV theo phạm vi 6 tháng và dữ liệu lỗi | P1 | CTV | 26 | Đã duyệt |
 | 28 | CTV portal có trạng thái khách và ngày hết phạm vi | P1 | CTV | 26, 27 | Đã duyệt |
-| 29 | Điều hướng theo nhiệm vụ và alias cho module ẩn | P1 | IA/Mobile | 2, 8 | Đã duyệt |
+| 29 | Điều hướng theo nhiệm vụ và alias cho module ẩn | P1 | IA/Mobile | 2, 8 | Chờ merge |
 | 30 | Thanh truy cập nhanh mobile theo workload trong ngày | P2 | Mobile | 8, 29 | Đã duyệt |
-| 31 | Tự động tạo follow-up sau hoàn tất dịch vụ | P1 | Tự động hóa | 8, 10 | Chờ kiểm thử |
+| 31 | Tự động tạo follow-up sau hoàn tất dịch vụ | P1 | Tự động hóa | 8, 10 | Chờ merge |
 | 32 | Tự động phát hiện và xử lý dữ liệu CTV không khớp | P1 | Dữ liệu | 6, 26 | Đã duyệt |
 | 33 | Dashboard vận hành theo vai trò, ưu tiên việc cần làm | P1 | Dashboard | 8, 29 | Đã duyệt |
 | 34 | Bộ telemetry đo số bước, thời gian và điểm bỏ dở | P2 | Đo lường | 1, 8 | Đã duyệt |

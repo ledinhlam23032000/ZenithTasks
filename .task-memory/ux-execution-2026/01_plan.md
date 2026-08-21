@@ -31,7 +31,7 @@
 | 7 | review | feat/ux-execution-1-10 | checks/phase-1-2-quality-gate.md | Conflict slots đã code; chờ PR |
 | 8 | review | feat/ux-execution-1-10 | checks/phase-1-2-quality-gate.md | Work queue đã code; chờ PR |
 | 9 | review | feat/ux-execution-1-10 | checks/phase-1-2-quality-gate.md | Lock checklist đã code; chờ PR |
-| 10 | not_started | — | — | Chờ mở workspace role |
+| 10 | review | feat/ux-execution-1-10 / PR #40 | checks/phase-3-quality-gate.md | Case workspace theo role; chờ merge |
 | 11 | cancelled | — | — | Vật tư tự trừ thủ công |
 | 12 | not_started | — | — | Chờ Task 10 |
 | 13 | review | feat/ux-execution-1-10 | checks/phase-1-2-quality-gate.md | Audit formatter đã code; chờ PR |
@@ -43,14 +43,14 @@
 | 19 | review | feat/ux-execution-1-10 | checks/phase-1-2-quality-gate.md | SLA assignment đã code; chờ PR |
 | 20 | not_started | — | — | Chờ inbox alternative actions |
 | 21 | review | feat/ux-execution-1-10 | checks/phase-1-2-quality-gate.md | Draft localStorage đã code; chờ PR |
-| 22 | not_started | — | — | Chờ staff profile workspace |
+| 22 | review | feat/ux-execution-1-10 / PR #40 | checks/phase-3-quality-gate.md | Profile 4 khu vực; chờ merge |
 | 23 | not_started | — | — | Chờ Task 22 |
 | 24 | not_started | — | — | Chờ Task 22 |
 | 25 | not_started | — | — | Chờ Task 22/23 |
 | 26 | not_started | — | — | Chờ Task 22 |
 | 27 | not_started | — | — | Chờ Task 26 |
 | 28 | not_started | — | — | Chờ Task 26/27 |
-| 29 | not_started | — | — | Chờ alias/navigation |
+| 29 | review | feat/ux-execution-1-10 / PR #40 | checks/phase-3-quality-gate.md | Alias/breadcrumb permission-safe; chờ merge |
 | 30 | not_started | — | — | Chờ Task 29 |
 | 31 | review | feat/ux-execution-1-10 | checks/phase-1-2-quality-gate.md | Auto follow-up đã code; chờ PR |
 | 32 | not_started | — | — | Chờ Task 26 |

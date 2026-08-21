@@ -87,6 +87,15 @@ const ICONS: Record<string, LucideIcon> = {
 export type NavItemData = { href: string; label: string; icon: string; group: string };
 export type ShellUser = { fullName: string; role: Role; roleLabel: string; username: string; avatarUrl?: string | null };
 
+type RouteAlias = { prefix: string; label: string; parentHref: string; parentLabel: string };
+
+const ROUTE_ALIASES: readonly RouteAlias[] = [
+  { prefix: "/ke-toan/de-nghi-thanh-toan", label: "Đề nghị thanh toán", parentHref: "/ke-toan", parentLabel: "Kế toán" },
+  { prefix: "/cham-soc/hop-thu", label: "Hộp thư CSKH", parentHref: "/cham-soc", parentLabel: "Chăm sóc KH" },
+  { prefix: "/ho-so", label: "Hồ sơ điều trị", parentHref: "/khach-hang", parentLabel: "Hồ sơ khách hàng" },
+  { prefix: "/lich-hen", label: "Lịch hẹn / tái khám", parentHref: "/lich-hen", parentLabel: "Lịch hẹn" },
+];
+
 export function AppShell({
   user,
   nav,
@@ -185,7 +194,15 @@ export function AppShell({
   }
 
   const groupEntries = Object.entries(navGroups);
-  const activeNav = [...nav].sort((a, b) => b.href.length - a.href.length).find((item) => isActive(item.href));
+  const directActiveNav = [...nav].sort((a, b) => b.href.length - a.href.length).find((item) => isActive(item.href));
+  const activeAlias = ROUTE_ALIASES.find((alias) => pathname === alias.prefix || pathname.startsWith(`${alias.prefix}/`));
+  const aliasParentAllowed = activeAlias ? nav.some((item) => item.href === activeAlias.parentHref) : false;
+  const activeNav = directActiveNav ?? (activeAlias && aliasParentAllowed ? {
+    href: activeAlias.prefix,
+    label: activeAlias.label,
+    icon: "Compass",
+    group: "Khách hàng",
+  } : undefined);
 
   const navList = (
     <nav className="flex-1 min-h-0 space-y-1 overflow-y-auto px-3 py-4">

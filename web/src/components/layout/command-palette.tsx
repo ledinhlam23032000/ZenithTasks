@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Search, CornerDownLeft, Compass } from "lucide-react";
 import { globalSearch, type SearchResult } from "@/lib/search-actions";
 import type { NavItemData } from "./app-shell";
-import { getQuickStartItems } from "@/lib/quick-starts";
+import { getAliasItems, getQuickStartItems } from "@/lib/quick-starts";
 
 type Item = SearchResult;
 
@@ -56,6 +56,7 @@ export function CommandPalette({ nav, open, onOpenChange }: { nav: NavItemData[]
   }, [query]);
 
   const quickActions = useMemo<Item[]>(() => getQuickStartItems(nav, query), [nav, query]);
+  const aliasMatches = useMemo<Item[]>(() => getAliasItems(nav, query), [nav, query]);
 
   const navMatches = useMemo<Item[]>(() => {
     const q = query.trim().toLowerCase();
@@ -65,7 +66,7 @@ export function CommandPalette({ nav, open, onOpenChange }: { nav: NavItemData[]
       .map((n) => ({ id: n.href, title: n.label, href: n.href, group: "Điều hướng" }));
   }, [nav, query]);
 
-  const items = useMemo(() => [...quickActions, ...navMatches, ...remote], [quickActions, navMatches, remote]);
+  const items = useMemo(() => [...quickActions, ...aliasMatches, ...navMatches, ...remote], [quickActions, aliasMatches, navMatches, remote]);
 
   useEffect(() => {
     const frame = requestAnimationFrame(() => setActive(0));
