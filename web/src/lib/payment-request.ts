@@ -163,23 +163,28 @@ export type PaymentRequestDocument = {
 
 export function paymentRequestDocument(item: PaymentRequestRecordForPrint): PaymentRequestDocument {
   const details = asRecord(item.details);
+  const printOverrides = asRecord(details.printOverrides);
+  const textOverride = (key: string, fallback: string) => {
+    const value = printOverrides[key];
+    return typeof value === "string" && value.trim() ? value.trim() : fallback;
+  };
   const amount = Math.round(Number(item.amount) || 0);
-  const recipient = typeof details.recipient === "string" && details.recipient.trim()
-    ? details.recipient
-    : PAYMENT_REQUEST_DEFAULT_RECIPIENT;
-  const requesterAddress = item.requester.address?.trim() || PAYMENT_REQUEST_UNIT;
-  const reason = item.reason.trim() || (typeof details.note === "string" ? details.note : "Đề nghị thanh toán khoản chi phát sinh");
+  const recipient = textOverride("recipient", typeof details.recipient === "string" && details.recipient.trim() ? details.recipient : PAYMENT_REQUEST_DEFAULT_RECIPIENT);
+  const requesterName = textOverride("requesterName", item.requester.fullName);
+  const requesterAddress = textOverride("requesterAddress", item.requester.address?.trim() || PAYMENT_REQUEST_UNIT);
+  const reason = textOverride("reason", item.reason.trim() || (typeof details.note === "string" ? details.note : "Đề nghị thanh toán khoản chi phát sinh"));
+  const location = textOverride("location", PAYMENT_REQUEST_LOCATION);
   return {
     requestNo: item.requestNo,
     recipient,
-    requesterName: item.requester.fullName,
+    requesterName,
     requesterAddress,
     reason,
     amount,
     amountText: amountInVietnameseWords(amount),
     requestDate: item.requestedAt,
-    location: PAYMENT_REQUEST_LOCATION,
-    approverName: item.approver?.fullName ?? "",
+    location,
+    approverName: "",
     status: item.status,
   };
 }
