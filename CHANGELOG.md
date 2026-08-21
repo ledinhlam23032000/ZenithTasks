@@ -9,6 +9,7 @@ Tài liệu này ghi các thay đổi đã được đẩy lên nhánh `master`.
 - Kiểm tra exit code riêng cho fetch, checkout, reset, build, compose up và migration; nếu lỗi thì dừng an toàn, giữ container cũ.
 - `Xem-Loi.ps1` gom stdout/stderr thành text bình thường, chỉ ghi exit code khi lệnh thật sự thất bại; tránh khối `NativeCommandError` giả do PowerShell redirect stderr của Prisma.
 - Đối chiếu remote branch cho thấy các branch cũ đều đã nằm hoàn toàn trong `master`; không có PR mở cần gộp thêm.
+- **Nguyên nhân build exit code 1 đã xác định**: file untracked `web/pnpm-workspace.yaml` trên máy Windows chỉ có `allowBuilds` nhưng thiếu `packages`; Docker Compose build context là `./web`, nên `COPY . .` đưa file này vào build stage và `pnpm exec` báo `packages field missing or empty`. Script dọn file này trước build; `.gitignore` và `.dockerignore` cũng chặn tái diễn.
 
 ## 2026-08-21 — `2026.08.21-r12`: Hồ sơ dịch vụ thẩm mỹ và bản in sạch hơn
 

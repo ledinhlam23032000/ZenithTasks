@@ -61,6 +61,17 @@ if (Test-Path $Dir) {
 }
 Set-Location $Dir
 
+# pnpm tren Windows co the tao workspace metadata tam khi can allowBuilds.
+# Repo nay la mot package duy nhat; file nay khong thuoc source master va lam
+# pnpm exec o build stage bao "packages field missing or empty".
+foreach ($strayName in @("pnpm-workspace.yaml", "pnpm-workspace.yml")) {
+  $strayWorkspace = Join-Path (Join-Path $Dir "web") $strayName
+  if (Test-Path $strayWorkspace) {
+    Write-Host "Xoa workspace metadata khong thuoc repo: $strayWorkspace" -ForegroundColor Yellow
+    Remove-Item -LiteralPath $strayWorkspace -Force -ErrorAction Stop
+  }
+}
+
 Write-Host "`n[2/4] Dung lai ung dung tu dau (lau ~5-15 phut, vui long cho - dung tat)..." -ForegroundColor Cyan
 # Docker Compose ban moi co the chuyen build qua Bake. Tren mot so may Windows,
 # Bake bi ngat voi ma 0xc000013a du build chua xong. Tat Bake va gom ca stdout/stderr
