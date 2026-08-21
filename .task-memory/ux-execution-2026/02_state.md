@@ -2,16 +2,16 @@
 
 - Updated: 2026-08-21 GMT+7
 - Goal: Hoàn thiện 35 task UX đã duyệt, loại trừ Task 11, kiểm thử từng mốc và phát hành qua PR.
-- Current phase: Phase 4 đã hoàn tất; chờ CI/merge PR #40, Task 25 cần chốt effective date trước khi đóng.
+- Current phase: Phase 5 đã hoàn tất; PR #40 chứa toàn bộ UX task đã code, chờ CI/merge theo quy trình.
 - Overall status: active
 
 ## Completed since last checkpoint
 
-Đã hoàn thiện nhóm task 1–9, 10, 13–15, 18–19, 21, 22, 29 và 31 trên nhánh `feat/ux-execution-1-10`. Đã tích hợp `formatAuditMeta` vào trang nhật ký và route export. Đã sửa lỗi production build do `globalSearch` bị kéo nhầm auth/Prisma/pg vào client bundle bằng server-action boundary; đồng thời thêm case workspace theo role, profile workspace Nhân sự, alias nghiệp vụ/breadcrumb, readiness badges, handoff checklist, preset quyền, CTV ID/filter/portal, mobile workload quick bar và dashboard role-aware.
+Đã hoàn thiện toàn bộ task 1–10, 12–36 ngoại trừ Task 11 trên nhánh `feat/ux-execution-1-10`. Phase 5 bổ sung PaymentRequest source buttons/link hai chiều, action thay thế ngoài SLA, CTV data-quality/reconcile ID có audit, telemetry local-only, ma trận QA và feature flags rollout. Task 11 vẫn tạm dừng theo quyết định vật tư thủ công.
 
 ## Verified facts
 
-`pnpm exec tsc --noEmit`, full `pnpm test` và `pnpm build` đều pass ở phase 4; targeted tests pass 5 files / 12 tests. Task 25 vẫn mở vì effective date promotion cần flow/test riêng. Task 11 vẫn bị hủy theo quyết định nghiệp vụ: không tự động áp BOM vật tư; nhân sự tự chọn và tự trừ theo ca thực tế.
+Quality gate cuối phase 5: `pnpm exec tsc --noEmit` PASS; `pnpm test` PASS 65 files / 360 tests; `pnpm build` PASS; `git diff --check` PASS. Targeted tests phase 5 PASS. Task 25 dùng `StaffRoleHistory.changedAt` làm effective date và đã có test. Task 11 vẫn bị hủy: không tự động áp BOM vật tư; nhân sự tự chọn và tự trừ theo ca thực tế.
 
 ## Active assumptions
 
@@ -19,13 +19,13 @@ Các task còn lại triển khai tuần tự theo dependency graph trong `NHIEM
 
 ## Open blockers/questions
 
-PR #40 đã tạo từ `feat/ux-execution-1-10` và cần chạy CI lại sau commit phase 4. Task 25 cần bổ sung effective date promotion; Tasks 16–17, 20, 32, 34–36 còn chưa triển khai.
+PR #40 đã được cập nhật sau phase 5 và cần CI xác nhận commit mới. Không còn task UX được duyệt nào khác ngoài Task 11; production deployment/migration vẫn cần backup và chạy trên máy vận hành riêng.
 
 ## Next 3 actions
 
-1. Hoàn thiện effective date + test cho Task 25.
-2. Triển khai Tasks 16–17, 20, 32 và 34 theo dependency.
-3. Xây ma trận QA/feature flag Tasks 35–36, rồi chạy release gate cuối.
+1. Commit và push phase 5, cập nhật body PR #40 và chờ CI.
+2. Cập nhật VERSION/CHANGELOG nếu owner muốn phát hành bản mới sau merge.
+3. Sau merge, fetch master và chạy smoke test có backup trên máy vận hành; không tuyên bố production đã triển khai trước khi có bằng chứng.
 
 ## Files to read first
 
@@ -35,10 +35,12 @@ PR #40 đã tạo từ `feat/ux-execution-1-10` và cần chạy CI lại sau co
 - `.task-memory/ux-execution-2026/checks/phase-1-2-quality-gate.md`
 - `.task-memory/ux-execution-2026/checks/phase-3-quality-gate.md`
 - `.task-memory/ux-execution-2026/checks/phase-4-quality-gate.md`
+- `.task-memory/ux-execution-2026/checks/phase-5-quality-gate.md`
+- `UX_QA_MATRIX_2026.md`
 - `web/src/app/(app)/ho-so/[id]/page.tsx`
 - `web/src/app/(app)/nhan-su/page.tsx`
 - `web/src/components/layout/app-shell.tsx`
 
 ## Quality risks
 
-Production build đã từng fail do server/client boundary; regression hiện đã pass sau sửa. Cần thêm test cho formatter audit và tiếp tục kiểm tra không đưa PII/Prisma vào Client Component.
+Production build đã từng fail do server/client boundary; regression hiện đã pass sau sửa. Cần review source-link actions với dữ liệu production và smoke test các role thật; telemetry chỉ local-only, không đưa PII/Prisma vào Client Component.

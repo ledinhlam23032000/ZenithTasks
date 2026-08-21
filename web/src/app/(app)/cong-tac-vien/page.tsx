@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Handshake, ChevronRight, Users, Wallet, Coins } from "lucide-react";
 import { requireCap } from "@/lib/auth";
+import { prisma } from "@/lib/db";
 import { getCollaborators, getCollaboratorSeries, rangeBounds } from "@/lib/performance";
 import { formatVND } from "@/lib/money";
 import { PageHeader } from "@/components/ui/page-header";
@@ -17,6 +18,10 @@ import { ExportMenu } from "@/components/ui/export-menu";
 import { isShareholder } from "@/lib/rbac";
 import { performanceTabs } from "@/lib/nav-tabs";
 import { NewCollaboratorButton } from "./ctv-forms";
+import { CreateSourcePaymentRequestButton } from "../ke-toan/de-nghi-thanh-toan/payment-request-source-button";
+import { ReconcileLegacyButton } from "./reconcile-legacy-button";
+import { summarizeCollaboratorQuality } from "@/lib/collaborator-data-quality";
+import { isUxFeatureEnabled } from "@/lib/ux-feature-flags";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Cộng tác viên" };
@@ -35,7 +40,13 @@ export default async function CollaboratorsPage({ searchParams }: { searchParams
   const range = sp.range ?? "month";
   const filter = sp.filter === "missing-id" || sp.filter === "unregistered" ? sp.filter : "all";
   const { gte, lte, label } = rangeBounds(range);
-  const [rows, growth] = await Promise.all([getCollaborators(gte, lte), getCollaboratorSeries()]);
+  const currentMonth = new Date().toISOString().slice(0, 7);
+  const [rows, growth, profiles] = await Promise.all([
+    getCollaborators(gte, lte),
+    getCollaboratorSeries(),
+    canManage ? prisma.collaborator.findMany({ where: { active: true }, select: { id: true, name: true }, orderBy: { name: "asc" } }) : Promise.resolve([] as { id: string; name: string }[]),
+  ]);
+  const quality = summarizeCollaboratorQuality(rows);
 
   const totalRevenue = rows.reduce((s, r) => s + r.revenue, 0);
   const totalCommission = rows.reduce((s, r) => s + r.commission, 0);
@@ -91,7 +102,7 @@ export default async function CollaboratorsPage({ searchParams }: { searchParams
       <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white p-3 text-xs">
         <span className="font-semibold text-slate-600">Hàng chờ dữ liệu:</span>
         {([['all', `Tất cả (${rows.length})`], ['missing-id', `Thiếu ID (${missingIdCount})`], ['unregistered', `Chưa đăng ký (${unregisteredCount})`]] as const).map(([key, labelText]) => <Link key={key} href={`/cong-tac-vien?range=${range}&filter=${key}`} className={`rounded-md px-2.5 py-1.5 font-medium ${filter === key ? "bg-brand-50 text-brand-700" : "text-slate-500 hover:bg-slate-50"}`}>{labelText}</Link>)}
-        <span className="ml-auto text-slate-400">Mọi số liệu vẫn lấy theo collaboratorId; legacy chỉ hiện để rà soát.</span>
+        <span className="ml-auto text-slate-400">Khỏe {quality.healthy} · Thiếu ID {quality.missingId} · Chưa đăng ký {quality.unregistered}</span>
       </div>
 
       {rows.some((r) => r.revenue > 0) && (
@@ -141,7 +152,7 @@ export default async function CollaboratorsPage({ searchParams }: { searchParams
                         <Link href={`/cong-tac-vien/${encodeURIComponent(r.id ?? r.name)}?range=${range}`} className="font-medium text-slate-800 hover:text-brand-600 hover:underline">
                           {r.name}
                         </Link>
-                        {!r.id && <Badge tone="red">Thiếu ID</Badge>}
+                        {!r.id && <><Badge tone="red">Thiếu ID</Badge>{canManage && isUxFeatureEnabled("collaborator-id-reconcile") && <ReconcileLegacyButton legacyName={r.name} profiles={profiles} />}</>}
                         {r.id && !r.registered && <Badge tone="amber">Chưa đăng ký</Badge>}
                       </div>
                     </TD>
@@ -153,6 +164,7 @@ export default async function CollaboratorsPage({ searchParams }: { searchParams
                       <Link href={`/cong-tac-vien/${encodeURIComponent(r.id ?? r.name)}?range=${range}`} className="inline-flex items-center gap-0.5 text-xs font-medium text-brand-600 hover:underline">
                         Chi tiết <ChevronRight className="h-3.5 w-3.5" />
                       </Link>
+                      {canManage && range === "month" && r.userId && r.commission > 0 && <CreateSourcePaymentRequestButton enabled={isUxFeatureEnabled("payment-source-requests")} type="COLLABORATOR" payeeName={r.name} payeeUserId={r.userId} payeeCollaboratorId={r.id} amount={r.commission} reason={`Đề nghị chi hoa hồng CTV ${r.name}`} month={currentMonth} category="COLLABORATOR" label="Đề nghị chi" />}
                     </TD>
                   </TR>
                 ))}

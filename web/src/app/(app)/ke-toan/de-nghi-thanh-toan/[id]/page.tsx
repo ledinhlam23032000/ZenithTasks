@@ -18,6 +18,8 @@ export default async function PaymentRequestPreviewPage({ params }: { params: Pr
       requester: { select: { fullName: true, address: true } },
       approver: { select: { fullName: true } },
       cashTransaction: { select: { id: true, occurredAt: true, amount: true } },
+      payrollEntry: { select: { month: true } },
+      commissionPayout: { select: { month: true, collaboratorId: true } },
     },
   });
   if (!item) return <div className="rounded-xl border border-rose-200 bg-rose-50 p-6 text-rose-700">Không tìm thấy chứng từ.</div>;
@@ -36,9 +38,11 @@ export default async function PaymentRequestPreviewPage({ params }: { params: Pr
         </div>
       </div>
       <div dangerouslySetInnerHTML={{ __html: renderPaymentRequestPaper(document) }} />
-      {item.cashTransaction && (
+      {(item.cashTransaction || item.payrollEntry || item.commissionPayout) && (
         <div className="mx-auto mt-4 max-w-[794px] rounded-lg border border-slate-200 bg-white px-4 py-3 text-xs text-slate-500 font-sans">
-          Phiếu này liên kết với dòng Thu chi ngày {item.cashTransaction.occurredAt.toLocaleDateString("vi-VN")} · <Link className="font-medium text-brand-700 hover:underline" href={`/thu-chi?month=${item.cashTransaction.occurredAt.toISOString().slice(0, 7)}&type=EXPENSE`}>Mở Sổ thu chi</Link>
+          {item.payrollEntry && <>Phiếu này liên kết với bảng lương tháng {item.payrollEntry.month} · <Link className="font-medium text-brand-700 hover:underline" href={`/luong?m=${item.payrollEntry.month}`}>Mở bảng lương</Link></>}
+          {item.commissionPayout && <>Phiếu này liên kết với hoa hồng CTV tháng {item.commissionPayout.month} · <Link className="font-medium text-brand-700 hover:underline" href={`/cong-tac-vien/${item.commissionPayout.collaboratorId ?? ""}?range=month`}>Mở CTV</Link></>}
+          {item.cashTransaction && <>Phiếu này liên kết với dòng Thu chi ngày {item.cashTransaction.occurredAt.toLocaleDateString("vi-VN")} · <Link className="font-medium text-brand-700 hover:underline" href={`/thu-chi?month=${item.cashTransaction.occurredAt.toISOString().slice(0, 7)}&type=EXPENSE`}>Mở Sổ thu chi</Link></>}
         </div>
       )}
     </div>

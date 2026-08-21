@@ -50,11 +50,11 @@ Khi nhận lệnh thực hiện, Manus phải đọc file này, đọc trạng t
 | 13 | Tạo activity log ngắn và lịch sử thay đổi dễ đọc | P2 | Audit | 9 | Chờ merge |
 | 14 | Chuẩn hóa state machine cho đề nghị thanh toán | P1 | Kế toán | 1 | Chờ merge |
 | 15 | Bỏ reload toàn trang sau xử lý PaymentRequest | P1 | Kế toán | 14 | Chờ merge |
-| 16 | Tự tạo đề nghị thanh toán từ lương/CTV/chi phí | P1 | Kế toán | 14 | Đã duyệt |
-| 17 | Liên kết hai chiều payment rail giữa hồ sơ và kế toán | P1 | Kế toán | 4, 14 | Đã duyệt |
+| 16 | Tự tạo đề nghị thanh toán từ lương/CTV/chi phí | P1 | Kế toán | 14 | Chờ merge |
+| 17 | Liên kết hai chiều payment rail giữa hồ sơ và kế toán | P1 | Kế toán | 4, 14 | Chờ merge |
 | 18 | Tạo action rail cho hộp thư CSKH | P1 | CSKH | 3, 4 | Chờ merge |
 | 19 | Tự phân công inbox và nhắc SLA | P1 | CSKH | 18 | Chờ merge |
-| 20 | Tạo action thay thế khi ngoài khung phản hồi | P2 | CSKH | 18, 19 | Đã duyệt |
+| 20 | Tạo action thay thế khi ngoài khung phản hồi | P2 | CSKH | 18, 19 | Chờ merge |
 | 21 | Lưu bản nháp trả lời và cảnh báo rời hội thoại | P2 | CSKH | 18 | Chờ merge |
 | 22 | Tạo profile workspace Nhân sự | P1 | Nhân sự | 1 | Chờ merge |
 | 23 | Preset quyền theo chức danh và preview quyền | P1 | Phân quyền | 22 | Chờ merge |
@@ -66,11 +66,11 @@ Khi nhận lệnh thực hiện, Manus phải đọc file này, đọc trạng t
 | 29 | Điều hướng theo nhiệm vụ và alias cho module ẩn | P1 | IA/Mobile | 2, 8 | Chờ merge |
 | 30 | Thanh truy cập nhanh mobile theo workload trong ngày | P2 | Mobile | 8, 29 | Chờ merge |
 | 31 | Tự động tạo follow-up sau hoàn tất dịch vụ | P1 | Tự động hóa | 8, 10 | Chờ merge |
-| 32 | Tự động phát hiện và xử lý dữ liệu CTV không khớp | P1 | Dữ liệu | 6, 26 | Đã duyệt |
+| 32 | Tự động phát hiện và xử lý dữ liệu CTV không khớp | P1 | Dữ liệu | 6, 26 | Chờ merge |
 | 33 | Dashboard vận hành theo vai trò, ưu tiên việc cần làm | P1 | Dashboard | 8, 29 | Chờ merge |
-| 34 | Bộ telemetry đo số bước, thời gian và điểm bỏ dở | P2 | Đo lường | 1, 8 | Đã duyệt |
-| 35 | Ma trận QA theo vai trò và kiểm thử hồi quy release | P0 | Chất lượng | 1–34 theo từng nhóm | Đã duyệt |
-| 36 | Rollout có feature flag, backup gate và checklist production | P0 | Vận hành | 35 | Đã duyệt |
+| 34 | Bộ telemetry đo số bước, thời gian và điểm bỏ dở | P2 | Đo lường | 1, 8 | Chờ merge |
+| 35 | Ma trận QA theo vai trò và kiểm thử hồi quy release | P0 | Chất lượng | 1–34 theo từng nhóm | Chờ merge |
+| 36 | Rollout có feature flag, backup gate và checklist production | P0 | Vận hành | 35 | Chờ merge |
 
 ---
 

@@ -6,6 +6,7 @@ import { Input, Textarea } from "@/components/ui/field";
 import { buttonVariants } from "@/components/ui/button";
 import { useFormAction } from "@/lib/use-form-action";
 import { sendChannelReply, draftChannelReply } from "../actions";
+import { completeUxWorkflow, recordUxEvent, startUxWorkflow } from "@/lib/ux-telemetry-client";
 
 const QUICK_REPLIES = [
   { label: "Chào khách mới", text: "Chào anh/chị, cảm ơn anh/chị đã quan tâm đến Trung tâm Phẫu thuật Tạo hình Thẩm mỹ Hồng Phúc. Anh/chị đang quan tâm dịch vụ nào để em hỗ trợ nhanh hơn ạ?" },
@@ -35,6 +36,18 @@ export function MessageComposer({ conversationId, aiEnabled, disabled, disabledR
     const saved = window.localStorage.getItem(draftKey);
     if (saved) setText(saved);
   }, [draftKey]);
+
+  useEffect(() => {
+    const workflow = `inbox-reply:${conversationId}`;
+    startUxWorkflow(workflow, "inbox");
+    const onUnload = () => recordUxEvent("workflow_abandon", { workflow, step: "composer", surface: "inbox" });
+    window.addEventListener("beforeunload", onUnload);
+    return () => window.removeEventListener("beforeunload", onUnload);
+  }, [conversationId]);
+
+  useEffect(() => {
+    if (state.ok) completeUxWorkflow(`inbox-reply:${conversationId}`, "send");
+  }, [conversationId, state.ok]);
 
   useEffect(() => {
     if (text.trim()) window.localStorage.setItem(draftKey, text);
@@ -94,7 +107,7 @@ export function MessageComposer({ conversationId, aiEnabled, disabled, disabledR
 
       <div className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-100 bg-slate-50/70 px-2.5 py-2">
         <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Trả lời nhanh</span>
-        <select aria-label="Chọn mẫu trả lời nhanh" defaultValue="" onChange={(event) => { const reply = QUICK_REPLIES.find((item) => item.label === event.target.value); if (reply) setText(reply.text); event.currentTarget.value = ""; }} className="h-8 min-w-[10rem] rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-700 outline-none focus:border-brand-500">
+        <select aria-label="Chọn mẫu trả lời nhanh" defaultValue="" onChange={(event) => { const reply = QUICK_REPLIES.find((item) => item.label === event.target.value); if (reply) { setText(reply.text); recordUxEvent("workflow_step", { workflow: `inbox-reply:${conversationId}`, step: "quick-reply", surface: "inbox" }); } event.currentTarget.value = ""; }} className="h-8 min-w-[10rem] rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-700 outline-none focus:border-brand-500">
           <option value="">Chọn mẫu…</option>
           {QUICK_REPLIES.map((item) => <option key={item.label} value={item.label}>{item.label}</option>)}
         </select>

@@ -19,6 +19,8 @@ import { MultiChart } from "@/components/ui/multi-chart";
 import { PayrollEditButton } from "./payroll-edit";
 import { PayrollBulkEditor } from "./payroll-bulk-edit";
 import { DismissibleBanner } from "@/components/ui/dismissible-banner";
+import { CreateSourcePaymentRequestButton } from "../ke-toan/de-nghi-thanh-toan/payment-request-source-button";
+import { isUxFeatureEnabled } from "@/lib/ux-feature-flags";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Lương & hoa hồng" };
@@ -198,6 +200,7 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
                         suggested={suggested}
                         suggestedNote={suggestedNote}
                       />
+                      <CreateSourcePaymentRequestButton enabled={isUxFeatureEnabled("payment-source-requests")} type="SALARY" payeeName={r.name} payeeUserId={r.id} amount={r.total} reason={`Đề nghị chi lương và hoa hồng tháng ${monthValue} cho ${r.name}`} month={monthValue} category="SALARY" label="Đề nghị chi" />
                     </TD>
                   )}
                 </TR>

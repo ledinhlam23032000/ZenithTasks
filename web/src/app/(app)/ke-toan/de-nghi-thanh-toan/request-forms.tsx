@@ -29,16 +29,16 @@ function ActionButton({ label, action, hidden, variant = "secondary" }: { label:
   );
 }
 
-export function CreatePaymentRequestForm() {
+export function CreatePaymentRequestForm({ defaultType = "EXPENSE", defaultCategory = "OTHER_EXP", label = "Tạo thủ công" }: { defaultType?: "EXPENSE" | "SALARY" | "COLLABORATOR" | "STAFF_OTHER"; defaultCategory?: string; label?: string } = {}) {
   const [open, setOpen] = useState(false);
   const [state, run, pending] = useFormAction<PaymentRequestState>(createPaymentRequest, () => setOpen(false));
   return (
     <>
-      <Button onClick={() => setOpen(true)}><FilePlus2 className="h-4 w-4" /> Tạo thủ công</Button>
+      <Button onClick={() => setOpen(true)}><FilePlus2 className="h-4 w-4" /> {label}</Button>
       <Modal open={open} onClose={() => !pending && setOpen(false)} title="Tạo giấy đề nghị thanh toán" size="lg">
         <form action={run} className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
-            <div><Label htmlFor="request-type">Loại khoản chi</Label><Select id="request-type" name="type" defaultValue="EXPENSE"><option value="EXPENSE">Chi phí vận hành</option><option value="SALARY">Chi lương nhân sự</option><option value="COLLABORATOR">Hoa hồng cộng tác viên</option><option value="STAFF_OTHER">Khoản chi khác cho nhân sự</option></Select></div>
+            <div><Label htmlFor="request-type">Loại khoản chi</Label><Select id="request-type" name="type" defaultValue={defaultType}><option value="EXPENSE">Chi phí vận hành</option><option value="SALARY">Chi lương nhân sự</option><option value="COLLABORATOR">Hoa hồng cộng tác viên</option><option value="STAFF_OTHER">Khoản chi khác cho nhân sự</option></Select></div>
             <div><Label htmlFor="request-month">Tháng hạch toán</Label><Input id="request-month" name="month" type="month" /></div>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -46,7 +46,7 @@ export function CreatePaymentRequestForm() {
             <div><Label htmlFor="request-amount">Số tiền (VND)</Label><Input id="request-amount" name="amount" type="number" min={1} step={1000} required /></div>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
-            <div><Label htmlFor="request-category">Hạng mục sổ thu chi</Label><Select id="request-category" name="category" defaultValue="OTHER_EXP"><option value="OTHER_EXP">Chi khác</option><option value="OFFICE">Văn phòng phẩm</option><option value="MATERIAL">Vật tư y tế</option><option value="MARKETING">Marketing & quảng cáo</option><option value="UTILITIES">Điện, nước</option><option value="TAX">Thuế & phí</option><option value="TRAINING">Đào tạo nhân sự</option></Select></div>
+            <div><Label htmlFor="request-category">Hạng mục sổ thu chi</Label><Select id="request-category" name="category" defaultValue={defaultCategory}><option value="OTHER_EXP">Chi khác</option><option value="INVESTMENT">Chi phí đầu tư</option><option value="OFFICE">Văn phòng phẩm</option><option value="MATERIAL">Vật tư y tế</option><option value="MARKETING">Marketing & quảng cáo</option><option value="UTILITIES">Điện, nước</option><option value="TAX">Thuế & phí</option><option value="TRAINING">Đào tạo nhân sự</option></Select></div>
             <div><Label htmlFor="request-note">Ghi chú</Label><Input id="request-note" name="note" placeholder="Số hóa đơn, cửa hàng, đợt mua…" /></div>
           </div>
           <div><Label htmlFor="request-reason">Lý do và nội dung thanh toán</Label><Textarea id="request-reason" name="reason" required placeholder="VD: Mua 2 hộp tăm phục vụ khu vực tiếp khách ngày…" /></div>

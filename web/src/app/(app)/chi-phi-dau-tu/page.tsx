@@ -17,6 +17,7 @@ import { ExportMenu } from "@/components/ui/export-menu";
 import { DeleteButton } from "@/components/ui/delete-button";
 import { deleteCashTransaction } from "../thu-chi/actions";
 import { NewInvestmentButton, EditInvestmentButton } from "./investment-forms";
+import { CreatePaymentRequestForm } from "../ke-toan/de-nghi-thanh-toan/request-forms";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Chi phí đầu tư" };
@@ -62,6 +63,7 @@ export default async function InvestmentPage({ searchParams }: { searchParams: P
               wordHref="/chi-phi-dau-tu/export?format=doc"
               csvHref="/chi-phi-dau-tu/export?format=csv"
             />
+            {canManage && <CreatePaymentRequestForm defaultCategory="INVESTMENT" label="Tạo đề nghị chi đầu tư" />}
             {canManage && <NewInvestmentButton defaultDate={today} />}
           </div>
         }

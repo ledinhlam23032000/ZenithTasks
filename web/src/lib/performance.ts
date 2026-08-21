@@ -226,6 +226,7 @@ export async function getStaffDetail(userId: string, monthDate: Date) {
 
 export type CollaboratorRow = {
   id: string | null;
+  userId: string | null;
   name: string;
   registered: boolean;
   customers: number;
@@ -247,17 +248,17 @@ export async function getCollaborators(gte: Date, lte: Date): Promise<Collaborat
         services: { select: { listPrice: true, unitPrice: true, quantity: true, discount: true, finalPrice: true } },
       },
     }),
-    prisma.collaborator.findMany({ where: { active: true }, select: { id: true, name: true } }),
+    prisma.collaborator.findMany({ where: { active: true }, select: { id: true, userId: true, name: true } }),
   ]);
   const profileById = new Map(profiles.map((p) => [p.id, p]));
   const profileByName = new Map(profiles.map((p) => [p.name.trim(), p]));
-  const map = new Map<string, { id: string | null; name: string; customers: Set<string>; cases: number; revenue: number; commission: number }>();
+  const map = new Map<string, { id: string | null; userId: string | null; name: string; customers: Set<string>; cases: number; revenue: number; commission: number }>();
   for (const c of cases) {
     const collaboratorId = c.collaboratorId ?? c.customer?.collaboratorId ?? null;
     const legacyName = c.customer?.sourceDetail?.trim() || "CTV chưa ghi tên";
     const profile = collaboratorId ? profileById.get(collaboratorId) : profileByName.get(legacyName);
     const key = collaboratorId ?? `legacy:${legacyName}`;
-    const e = map.get(key) ?? { id: profile?.id ?? collaboratorId, name: profile?.name ?? legacyName, customers: new Set<string>(), cases: 0, revenue: 0, commission: 0 };
+    const e = map.get(key) ?? { id: profile?.id ?? collaboratorId, userId: profile?.userId ?? null, name: profile?.name ?? legacyName, customers: new Set<string>(), cases: 0, revenue: 0, commission: 0 };
     e.customers.add(c.customerId);
     e.cases += 1;
     e.revenue += summarizeCase({ services: c.services, payments: [], voucherAmount: c.voucherAmount }).total;
@@ -266,11 +267,12 @@ export async function getCollaborators(gte: Date, lte: Date): Promise<Collaborat
   }
   for (const profile of profiles) {
     const key = profile.id;
-    if (!map.has(key)) map.set(key, { id: profile.id, name: profile.name, customers: new Set<string>(), cases: 0, revenue: 0, commission: 0 });
+    if (!map.has(key)) map.set(key, { id: profile.id, userId: profile.userId, name: profile.name, customers: new Set<string>(), cases: 0, revenue: 0, commission: 0 });
   }
   return [...map.values()]
     .map((e) => ({
       id: e.id,
+      userId: e.userId,
       name: e.name,
       registered: Boolean(e.id && profileById.has(e.id)),
       customers: e.customers.size,
