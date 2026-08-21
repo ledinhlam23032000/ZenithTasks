@@ -11,3 +11,6 @@ npm-debug.log*
 Dockerfile
 .dockerignore
 DEPLOY.md
+# Workspace metadata tạm do pnpm tạo trên máy Windows; app này không phải monorepo.
+pnpm-workspace.yaml
+pnpm-workspace.yml
