@@ -23,15 +23,23 @@ describe("payment request helpers", () => {
       payeeName: "Nhà cung cấp",
       amount: 315000,
       reason: "Mua văn phòng phẩm",
-      details: { recipient: "Ban lãnh đạo Bệnh viện" },
+      details: {
+        recipient: "Ban lãnh đạo Bệnh viện",
+        printOverrides: {
+          requesterName: "Người nhập đã sửa",
+          reason: "Nội dung đã được ADMIN rà soát",
+          location: "Hải Phòng",
+        },
+      },
       month: "2026-08",
       requestedAt: new Date("2026-08-21T04:00:00Z"),
       requester: { fullName: "Nguyễn Văn A", address: null },
-      approver: null,
+      approver: { fullName: "Lê Đình Lam" },
     });
     expect(document.recipient).toBe("Ban lãnh đạo Bệnh viện");
-    expect(document.requesterName).toBe("Nguyễn Văn A");
+    expect(document.requesterName).toBe("Người nhập đã sửa");
     expect(document.requesterAddress).toBe("Trung tâm Phẫu thuật Tạo hình Thẩm mỹ");
+    expect(document.reason).toBe("Nội dung đã được ADMIN rà soát");
     expect(document.amountText).toBe("Ba trăm mười lăm nghìn đồng");
     const html = renderPaymentRequestHtml(document, true);
     expect(html).toContain("GIẤY ĐỀ NGHỊ THANH TOÁN");
@@ -40,6 +48,7 @@ describe("payment request helpers", () => {
     expect(html).toContain("Thủ trưởng đơn vị");
     expect(html).toContain("Kế toán trưởng");
     expect(html).toContain("Người đề nghị");
+    expect(html).not.toContain("Lê Đình Lam");
   });
   it("blocks editing or deleting a cash row linked to a request", () => {
     expect(linkedCashTransactionGuard(null, "edit")).toBeNull();

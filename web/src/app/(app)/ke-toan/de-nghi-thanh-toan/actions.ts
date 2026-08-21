@@ -24,6 +24,14 @@ const requestSchema = z.object({
 
 const methods = new Set(["CASH", "CARD", "TRANSFER", "EWALLET"]);
 
+const printOverrideSchema = z.object({
+  recipient: z.string().trim().min(1).max(300),
+  requesterName: z.string().trim().min(1).max(200),
+  requesterAddress: z.string().trim().min(1).max(300),
+  reason: z.string().trim().min(3).max(1000),
+  location: z.string().trim().min(1).max(100),
+});
+
 function parseDate(raw: FormDataEntryValue | null): Date {
   const parsed = new Date(String(raw ?? ""));
   return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
@@ -66,6 +74,44 @@ export async function createPaymentRequest(_prev: PaymentRequestState, formData:
     return created;
   });
   return { ok: true, id: request.id };
+}
+
+export async function updatePaymentRequestPrintOverrides(_prev: PaymentRequestState, formData: FormData): Promise<PaymentRequestState> {
+  const user = await requireUser(["ADMIN"]);
+  const id = String(formData.get("id") ?? "");
+  if (!id) return { error: "Thiếu mã chứng từ." };
+  const parsed = printOverrideSchema.safeParse({
+    recipient: formData.get("recipient"),
+    requesterName: formData.get("requesterName"),
+    requesterAddress: formData.get("requesterAddress"),
+    reason: formData.get("reason"),
+    location: formData.get("location"),
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Nội dung phiếu chưa hợp lệ." };
+
+  const request = await prisma.paymentRequest.findUnique({ where: { id }, select: { id: true, status: true, details: true, amount: true } });
+  if (!request) return { error: "Không tìm thấy chứng từ." };
+  const details = (request.details && typeof request.details === "object" && !Array.isArray(request.details) ? request.details : {}) as Record<string, unknown>;
+  const previousOverrides = (details.printOverrides && typeof details.printOverrides === "object" && !Array.isArray(details.printOverrides) ? details.printOverrides : {}) as Record<string, unknown>;
+  const nextDetails = {
+    ...details,
+    printOverrides: {
+      ...previousOverrides,
+      ...parsed.data,
+      editedAt: new Date().toISOString(),
+      editedById: user.id,
+    },
+  } satisfies Prisma.InputJsonValue;
+
+  await prisma.$transaction(async (tx) => {
+    await tx.paymentRequest.update({ where: { id }, data: { details: nextDetails } });
+    await auditRequired(tx, user.id, "EDIT_PAYMENT_REQUEST_PRINT", {
+      entity: "PaymentRequest",
+      entityId: id,
+      meta: { status: request.status, amount: request.amount, fields: Object.keys(parsed.data) },
+    });
+  });
+  return { ok: true };
 }
 
 export async function approvePaymentRequest(_prev: PaymentRequestState, formData: FormData): Promise<PaymentRequestState> {
