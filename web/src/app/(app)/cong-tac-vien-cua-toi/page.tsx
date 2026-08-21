@@ -1,9 +1,11 @@
 import Link from "next/link";
-import { Handshake, Users, Coins, Wallet } from "lucide-react";
+import { Handshake, Users, Coins, Wallet, CalendarClock } from "lucide-react";
 import { requireCap } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { formatVND } from "@/lib/money";
 import { fmtDate } from "@/lib/format";
+import { addMonths } from "date-fns";
+import { CASE_STATUS } from "@/lib/status";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatCard } from "@/components/ui/stat-card";
@@ -41,7 +43,7 @@ export default async function CollaboratorWorkspace({ searchParams }: { searchPa
         phoneLast5: true,
         gender: true,
         collaboratorAssignedAt: true,
-        cases: { where: { collaboratorId: collaborator.id }, select: { status: true, commissionAmount: true } },
+        cases: { where: { collaboratorId: collaborator.id }, select: { status: true, commissionAmount: true, appointment: { select: { scheduledAt: true, status: true } } } },
       },
     }),
     prisma.customer.count({ where }),
@@ -72,10 +74,11 @@ export default async function CollaboratorWorkspace({ searchParams }: { searchPa
 
       <Card>
         <CardHeader>
-          <CardTitle>Khách hàng của tôi</CardTitle>
-          <span className="text-xs text-slate-500">Sau 6 tháng, khách tự động chuyển khỏi danh sách CTV và thuộc phạm vi trung tâm.</span>
+          <CardTitle className="flex items-center gap-2"><CalendarClock className="h-4 w-4 text-brand-500" /> Khách hàng của tôi</CardTitle>
+          <span className="text-xs text-slate-500">Sau 6 tháng tính từ ngày phụ trách, khách tự động chuyển khỏi danh sách CTV; dữ liệu cũ không bị xóa.</span>
         </CardHeader>
         <CardContent>
+          <p className="mb-3 text-xs text-slate-500">Ngày hết phạm vi từng khách được tính độc lập từ ngày phụ trách; sau thời điểm đó khách không còn hiện ở đây.</p>
           <form action="/cong-tac-vien-cua-toi" className="mb-4 flex gap-2">
             <input name="q" defaultValue={q} placeholder="Tìm theo tên khách hàng…" className="h-10 flex-1 rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-brand-500" />
             <button className="rounded-lg bg-brand-600 px-4 text-sm font-medium text-white hover:bg-brand-700">Tìm</button>
@@ -84,15 +87,17 @@ export default async function CollaboratorWorkspace({ searchParams }: { searchPa
             <EmptyState icon={<Users className="h-6 w-6" />} title="Chưa có khách trong phạm vi hiện tại" description="Khách quá 6 tháng sẽ không còn hiện trong danh sách này; dữ liệu hoa hồng cũ vẫn được giữ." />
           ) : (
             <Table>
-              <THead><TR className="hover:bg-transparent"><TH>Khách hàng</TH><TH>Mã khách</TH><TH>Số điện thoại</TH><TH>Ngày phụ trách</TH><TH>Số hồ sơ</TH><TH /></TR></THead>
+              <THead><TR className="hover:bg-transparent"><TH>Khách hàng</TH><TH>Mã khách</TH><TH>Số điện thoại</TH><TH>Trạng thái / lịch gần nhất</TH><TH>Hết phạm vi</TH><TH /></TR></THead>
               <tbody>
                 {customers.map((customer) => (
                   <TR key={customer.id}>
                     <TD><Link href={`/khach-hang/${customer.id}`} className="font-medium text-slate-800 hover:text-brand-600 hover:underline">{customer.fullName}</Link></TD>
                     <TD><Badge tone="slate">{customer.code}</Badge></TD>
                     <TD className="font-mono text-xs text-slate-600">•••{customer.phoneLast5}</TD>
-                    <TD className="text-sm text-slate-600">{customer.collaboratorAssignedAt ? fmtDate(customer.collaboratorAssignedAt) : "—"}</TD>
-                    <TD className="text-center tabular-nums">{customer.cases.length}</TD>
+                    <TD className="text-sm text-slate-600">
+                      {customer.cases.length === 0 ? <Badge tone="slate">Chưa có hồ sơ</Badge> : <div className="space-y-1">{customer.cases.slice(0, 2).map((c) => <div key={c.status}><Badge tone={CASE_STATUS[c.status].tone}>{CASE_STATUS[c.status].label}</Badge>{c.appointment?.scheduledAt && <span className="ml-1 text-xs text-slate-400">· {fmtDate(c.appointment.scheduledAt)}</span>}</div>)}</div>}
+                    </TD>
+                    <TD className="text-sm text-slate-600">{customer.collaboratorAssignedAt ? fmtDate(addMonths(customer.collaboratorAssignedAt, 6)) : "—"}</TD>
                     <TD className="text-right"><Link href={`/khach-hang/${customer.id}`} className="text-xs font-medium text-brand-600 hover:underline">Xem đầy đủ</Link></TD>
                   </TR>
                 ))}

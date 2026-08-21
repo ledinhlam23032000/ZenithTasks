@@ -86,6 +86,7 @@ const ICONS: Record<string, LucideIcon> = {
 
 export type NavItemData = { href: string; label: string; icon: string; group: string };
 export type ShellUser = { fullName: string; role: Role; roleLabel: string; username: string; avatarUrl?: string | null };
+export type WorkloadSummary = { total: number; followUps: number; appointments: number; newCustomers: number; debts: number };
 
 type RouteAlias = { prefix: string; label: string; parentHref: string; parentLabel: string };
 
@@ -101,11 +102,13 @@ export function AppShell({
   nav,
   children,
   pushPublicKey,
+  workload,
 }: {
   user: ShellUser;
   nav: NavItemData[];
   children: React.ReactNode;
   pushPublicKey: string;
+  workload: WorkloadSummary;
 }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -178,13 +181,15 @@ export function AppShell({
   }, {});
   // Trợ lý AI đứng ngay thanh đáy nếu tài khoản có quyền (đặc biệt cho Cổ đông).
   const preferredMobileHrefs =
-    user.role === "RECEPTION" || user.role === "TELESALE"
-      ? ["/dau-ca", "/tiep-nhan", "/lich-hen", "/viec-hom-nay"]
-      : user.role === "DOCTOR" || user.role === "CONSULTANT"
-        ? ["/viec-hom-nay", "/lich-hen", "/ho-so", "/khach-hang"]
-        : user.role === "CARE"
-          ? ["/viec-hom-nay", "/cham-soc", "/cham-soc/hop-thu", "/khach-hang"]
-          : ["/dashboard", "/tro-ly", "/viec-hom-nay", "/lich-hen"];
+    workload.total > 0 && nav.some((item) => item.href === "/viec-hom-nay")
+      ? ["/viec-hom-nay", "/lich-hen", "/khach-hang", "/dashboard"]
+      : user.role === "RECEPTION" || user.role === "TELESALE"
+        ? ["/dau-ca", "/tiep-nhan", "/lich-hen", "/viec-hom-nay"]
+        : user.role === "DOCTOR" || user.role === "CONSULTANT"
+          ? ["/viec-hom-nay", "/lich-hen", "/ho-so", "/khach-hang"]
+          : user.role === "CARE"
+            ? ["/viec-hom-nay", "/cham-soc", "/cham-soc/hop-thu", "/khach-hang"]
+            : ["/dashboard", "/tro-ly", "/viec-hom-nay", "/lich-hen"];
   const mobileNav = preferredMobileHrefs
     .map((href) => nav.find((item) => item.href === href))
     .filter((item): item is NavItemData => Boolean(item));

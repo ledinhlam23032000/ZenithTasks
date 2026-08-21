@@ -8,6 +8,7 @@ import { diffFromDesired, ALL_PERM_KEYS } from "@/lib/permissions";
 import { auditRequired } from "@/lib/audit";
 import type { Role } from "@/generated/prisma/client";
 import { hasStaffHistory } from "@/lib/staff-history";
+import { promotionChanged, promotionDiff, resolveEffectiveDate } from "@/lib/staff-promotion";
 
 export type StaffFormState = { ok?: boolean; error?: string };
 
@@ -115,12 +116,13 @@ export async function toggleStaffActive(formData: FormData): Promise<void> {
 export async function retireStaff(formData: FormData): Promise<void> {
   const me = await requireUser(["ADMIN"]);
   const id = String(formData.get("id") ?? "");
-  if (!id || id === me.id) return;
+  const handoffConfirmed = String(formData.get("handoffConfirmed") ?? "") === "yes";
+  if (!id || id === me.id || !handoffConfirmed) return;
   await prisma.$transaction(async (tx) => {
     const target = await tx.user.findUnique({ where: { id }, select: { fullName: true, employmentStatus: true } });
     if (!target || target.employmentStatus === "RETIRED") return;
     await tx.user.update({ where: { id }, data: { employmentStatus: "RETIRED", active: false, retiredAt: new Date(), retiredById: me.id } });
-    await auditRequired(tx, me.id, "RETIRE_STAFF", { entity: "User", entityId: id, meta: { fullName: target.fullName } });
+    await auditRequired(tx, me.id, "RETIRE_STAFF", { entity: "User", entityId: id, meta: { fullName: target.fullName, handoffConfirmed: true } });
   });
   revalidatePath("/nhan-su", "layout");
 }
@@ -268,6 +270,7 @@ export async function updateStaff(_prev: StaffFormState, formData: FormData): Pr
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu không hợp lệ." };
   const d = parsed.data;
+  const effectiveAt = resolveEffectiveDate(String(formData.get("effectiveDate") ?? ""));
 
   const current = await prisma.user.findUnique({ where: { id: d.id }, select: { fullName: true, role: true, position: true, department: true } });
   if (!current) return { error: "Không tìm thấy nhân sự." };
@@ -298,24 +301,22 @@ export async function updateStaff(_prev: StaffFormState, formData: FormData): Pr
       },
     });
 
-    if (current.role !== d.role || (current.position ?? "") !== (d.position ?? "") || (current.department ?? "") !== (d.department ?? "")) {
+    const currentSnapshot = { role: current.role, position: current.position, department: current.department };
+    const nextSnapshot = { role: d.role, position: d.position || null, department: d.department || null };
+    if (promotionChanged(currentSnapshot, nextSnapshot)) {
       await tx.staffRoleHistory.create({
         data: {
           userId: d.id,
-          fromRole: current.role,
-          toRole: d.role,
-          fromPosition: current.position,
-          toPosition: d.position || null,
-          fromDepartment: current.department,
-          toDepartment: d.department || null,
+          ...promotionDiff(currentSnapshot, nextSnapshot),
           note: String(formData.get("promotionNote") ?? "").trim() || null,
           changedById: user.id,
+          changedAt: effectiveAt,
         },
       });
       await auditRequired(tx, user.id, "PROMOTE_STAFF", {
         entity: "User",
         entityId: d.id,
-        meta: { fromRole: current.role, toRole: d.role, fromPosition: current.position, toPosition: d.position || null, fromDepartment: current.department, toDepartment: d.department || null },
+        meta: { ...promotionDiff(currentSnapshot, nextSnapshot), effectiveAt: effectiveAt.toISOString() },
       });
     }
 

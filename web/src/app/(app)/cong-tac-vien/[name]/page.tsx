@@ -34,11 +34,12 @@ export default async function CollaboratorDetail({
 }) {
   const user = await requireCap("mod:cong-tac-vien");
   const canManage = !isShareholder(user.role);
-  const name = decodeURIComponent((await params).name);
+  const identifier = decodeURIComponent((await params).name);
   const range = (await searchParams).range ?? "month";
   const { gte, lte, label } = rangeBounds(range);
-  const [d, growth] = await Promise.all([getCollaboratorDetail(name, gte, lte), getCollaboratorSeries(name)]);
+  const [d, growth] = await Promise.all([getCollaboratorDetail(identifier, gte, lte), getCollaboratorSeries(identifier)]);
   const p = d.profile;
+  const name = d.name;
 
   return (
     <div className="space-y-6">
@@ -48,14 +49,14 @@ export default async function CollaboratorDetail({
 
       <PageHeader
         title={name}
-        description={`Cộng tác viên · ${label}`}
+        description={`Cộng tác viên · ${label}${p ? ` · ID ${p.id}` : " · dữ liệu legacy"}`}
         icon={<Avatar name={name} className="h-11 w-11 text-base" />}
         actions={
           <div className="inline-flex rounded-lg bg-slate-100 p-0.5 text-xs font-medium">
             {RANGES.map((r) => (
               <Link
                 key={r.key}
-                href={`/cong-tac-vien/${encodeURIComponent(name)}?range=${r.key}`}
+                href={`/cong-tac-vien/${encodeURIComponent(p?.id ?? identifier)}?range=${r.key}`}
                 className={`rounded-md px-3 py-1 ${range === r.key ? "bg-white text-brand-700 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
               >
                 {r.label}

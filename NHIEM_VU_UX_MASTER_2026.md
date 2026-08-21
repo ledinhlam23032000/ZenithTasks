@@ -46,7 +46,7 @@ Khi nhận lệnh thực hiện, Manus phải đọc file này, đọc trạng t
 | 9 | Tạo checklist an toàn trước khi khóa hồ sơ điều trị | P0 | Hồ sơ | 4 | Chờ merge |
 | 10 | Tách workspace hồ sơ điều trị theo vai trò | P1 | Hồ sơ | 9 | Chờ merge |
 | 11 | Tự động áp BOM vật tư khi thêm dịch vụ | P1 | Hồ sơ/Kho | 10 | Tạm dừng |
-| 12 | Thêm badge trạng thái thiếu và luồng next action trong hồ sơ | P1 | Hồ sơ | 9, 10 | Đã duyệt |
+| 12 | Thêm badge trạng thái thiếu và luồng next action trong hồ sơ | P1 | Hồ sơ | 9, 10 | Chờ merge |
 | 13 | Tạo activity log ngắn và lịch sử thay đổi dễ đọc | P2 | Audit | 9 | Chờ merge |
 | 14 | Chuẩn hóa state machine cho đề nghị thanh toán | P1 | Kế toán | 1 | Chờ merge |
 | 15 | Bỏ reload toàn trang sau xử lý PaymentRequest | P1 | Kế toán | 14 | Chờ merge |
@@ -57,17 +57,17 @@ Khi nhận lệnh thực hiện, Manus phải đọc file này, đọc trạng t
 | 20 | Tạo action thay thế khi ngoài khung phản hồi | P2 | CSKH | 18, 19 | Đã duyệt |
 | 21 | Lưu bản nháp trả lời và cảnh báo rời hội thoại | P2 | CSKH | 18 | Chờ merge |
 | 22 | Tạo profile workspace Nhân sự | P1 | Nhân sự | 1 | Chờ merge |
-| 23 | Preset quyền theo chức danh và preview quyền | P1 | Phân quyền | 22 | Đã duyệt |
-| 24 | Quy trình nghỉ việc có checklist bàn giao | P1 | Nhân sự | 22 | Đã duyệt |
-| 25 | Quy trình thăng chức có diff quyền và ngày hiệu lực | P1 | Nhân sự | 22, 23 | Đã duyệt |
-| 26 | Profile CTV hợp nhất hồ sơ–tài khoản–khách–hoa hồng | P1 | CTV | 3, 4, 22 | Đã duyệt |
-| 27 | Bộ lọc CTV theo phạm vi 6 tháng và dữ liệu lỗi | P1 | CTV | 26 | Đã duyệt |
-| 28 | CTV portal có trạng thái khách và ngày hết phạm vi | P1 | CTV | 26, 27 | Đã duyệt |
+| 23 | Preset quyền theo chức danh và preview quyền | P1 | Phân quyền | 22 | Chờ merge |
+| 24 | Quy trình nghỉ việc có checklist bàn giao | P1 | Nhân sự | 22 | Chờ merge |
+| 25 | Quy trình thăng chức có diff quyền và ngày hiệu lực | P1 | Nhân sự | 22, 23 | Chờ merge |
+| 26 | Profile CTV hợp nhất hồ sơ–tài khoản–khách–hoa hồng | P1 | CTV | 3, 4, 22 | Chờ merge |
+| 27 | Bộ lọc CTV theo phạm vi 6 tháng và dữ liệu lỗi | P1 | CTV | 26 | Chờ merge |
+| 28 | CTV portal có trạng thái khách và ngày hết phạm vi | P1 | CTV | 26, 27 | Chờ merge |
 | 29 | Điều hướng theo nhiệm vụ và alias cho module ẩn | P1 | IA/Mobile | 2, 8 | Chờ merge |
-| 30 | Thanh truy cập nhanh mobile theo workload trong ngày | P2 | Mobile | 8, 29 | Đã duyệt |
+| 30 | Thanh truy cập nhanh mobile theo workload trong ngày | P2 | Mobile | 8, 29 | Chờ merge |
 | 31 | Tự động tạo follow-up sau hoàn tất dịch vụ | P1 | Tự động hóa | 8, 10 | Chờ merge |
 | 32 | Tự động phát hiện và xử lý dữ liệu CTV không khớp | P1 | Dữ liệu | 6, 26 | Đã duyệt |
-| 33 | Dashboard vận hành theo vai trò, ưu tiên việc cần làm | P1 | Dashboard | 8, 29 | Đã duyệt |
+| 33 | Dashboard vận hành theo vai trò, ưu tiên việc cần làm | P1 | Dashboard | 8, 29 | Chờ merge |
 | 34 | Bộ telemetry đo số bước, thời gian và điểm bỏ dở | P2 | Đo lường | 1, 8 | Đã duyệt |
 | 35 | Ma trận QA theo vai trò và kiểm thử hồi quy release | P0 | Chất lượng | 1–34 theo từng nhóm | Đã duyệt |
 | 36 | Rollout có feature flag, backup gate và checklist production | P0 | Vận hành | 35 | Đã duyệt |

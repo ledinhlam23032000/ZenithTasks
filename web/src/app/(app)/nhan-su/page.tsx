@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { Table, THead, TH, TR, TD } from "@/components/ui/table";
 import { DeleteButton } from "@/components/ui/delete-button";
+import { ConfirmButton } from "@/components/ui/confirm-button";
 import { NewStaffButton } from "./new-staff";
 import { ResetPasswordButton } from "./reset-password";
 import { PermissionEditorButton } from "./permission-editor";
@@ -113,6 +114,7 @@ export default async function StaffPage({ searchParams }: { searchParams: Promis
                         <PermissionEditorButton
                           userId={u.id}
                           name={u.fullName}
+                          role={u.role}
                           granted={effectiveKeys({ role: u.role, permissions: u.permissions })}
                           catalog={catalog}
                         />
@@ -140,10 +142,15 @@ export default async function StaffPage({ searchParams }: { searchParams: Promis
                             <Power className="h-3.5 w-3.5" /> {u.active ? "Khóa" : "Mở"}
                           </button>
                         </form>
-                        <form action={retireStaff}>
-                          <input type="hidden" name="id" value={u.id} />
-                          <button className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-rose-600 hover:bg-rose-50" title="Chuyển sang Đã nghỉ việc"><UserRoundX className="h-3.5 w-3.5" /> Nghỉ việc</button>
-                        </form>
+                        <ConfirmButton
+                          action={retireStaff}
+                          fields={{ id: u.id, handoffConfirmed: "yes" }}
+                          confirmText={`Tôi đã rà soát workload của ${u.fullName}. Chuyển sang Đã nghỉ việc và khóa toàn bộ quyền?`}
+                          confirmLabel="Xác nhận nghỉ việc"
+                          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-rose-600 hover:bg-rose-50"
+                        >
+                          <UserRoundX className="h-3.5 w-3.5" /> Nghỉ việc
+                        </ConfirmButton>
                         </>
                       )}
                       {u.id !== me.id && tab === "retired" && (
