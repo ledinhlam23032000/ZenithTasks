@@ -216,7 +216,7 @@ export async function saveConsultationPrintOverrides(_prev: CaseActionState, for
   if (!(await hasCaseAccess(user, caseId, "clinical"))) return { error: CASE_ACCESS_MSG };
   if (await isLockedFor(caseId, user.role)) return { error: LOCKED_MSG };
   const consultation = await prisma.consultationRecord.findUnique({ where: { caseId }, select: { id: true } });
-  if (!consultation) return { error: "Hồ sơ chưa có phiếu tư vấn mặc định. Hãy tải lại hồ sơ hoặc liên hệ quản trị." };
+  if (!consultation) return { error: "Hồ sơ chưa có Hồ sơ dịch vụ thẩm mỹ mặc định. Hãy tải lại hồ sơ hoặc liên hệ quản trị." };
 
   await withCaseLock(caseId, async (tx) => {
     await tx.consultationRecord.update({
@@ -1037,7 +1037,7 @@ export async function deletePhoto(formData: FormData): Promise<void> {
   if (caseId) refresh(caseId);
 }
 
-// ---- Giấy tờ hành chính: tải FILE lên (thay cho gõ tay phiếu đồng ý) ----
+// ---- Tài liệu hồ sơ: tải FILE lên (thay cho gõ tay) ----
 export async function uploadCaseDocument(_prev: CaseActionState, formData: FormData): Promise<CaseActionState> {
   const user = await requireCap("case.clinical");
   const caseId = String(formData.get("caseId") ?? "");

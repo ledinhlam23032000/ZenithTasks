@@ -45,6 +45,7 @@ describe("payment request helpers", () => {
     expect(html).toContain("GIẤY ĐỀ NGHỊ THANH TOÁN");
     expect(html).toContain("Ban lãnh đạo Bệnh viện");
     expect(html).toContain("Ba trăm mười lăm nghìn đồng");
+    expect(html).not.toContain("border-bottom: 1px dotted");
     expect(html).toContain("Thủ trưởng đơn vị");
     expect(html).toContain("Kế toán trưởng");
     expect(html).toContain("Người đề nghị");

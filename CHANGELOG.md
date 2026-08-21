@@ -2,6 +2,19 @@
 
 Tài liệu này ghi các thay đổi đã được đẩy lên nhánh `master`. Commit mới hơn nằm ở phía trên. Phiên bản mô tả đầy đủ hiện tại nằm trong [`VERSION.md`](VERSION.md).
 
+## 2026-08-21 — Hồ sơ dịch vụ thẩm mỹ và bản in sạch hơn
+
+### Giấy tờ hồ sơ điều trị
+
+- Đổi tên **Phiếu tư vấn dịch vụ thẩm mỹ** thành **Hồ sơ dịch vụ thẩm mỹ** trên bản xem trước, bản in, Word, editor và các CTA; URL `/ho-so/[id]/consultation` vẫn giữ để không hỏng liên kết.
+- Gộp bản hồ sơ tự sinh, Phiếu đồng ý và tài liệu bổ sung vào một khu vực duy nhất trong tab **Giấy tờ**. Nút **+ Thêm giấy tờ** mở Hồ sơ dịch vụ, ghi nhận Phiếu đồng ý hoặc tải xét nghiệm/PDF/ảnh/Word/Excel.
+- Giữ nguyên `ConsultationRecord`, `CaseConsent`, `ConsentTemplate`, `CaseDocument` và dữ liệu lịch sử; không thêm migration và không xóa dữ liệu.
+
+### Mẫu in và kiểm tra
+
+- Bỏ đường dotted filler khỏi Giấy đề nghị thanh toán; giữ gạch chân Quốc hiệu theo đúng mẫu hành chính.
+- Ngày ghi nhận: **21/08/2026**. Prisma generate, TypeScript, ESLint các tệp thay đổi, **53 file/334 test** và Next production build đạt; PR/commit master sẽ được cập nhật sau khi merge.
+
 ## 2026-08-21 — `2026.08.21-r11`
 
 Commit master: [`d31e564`](https://github.com/ledinhlam23032000/ZenithTasks/commit/d31e564). Pull request: [#32](https://github.com/ledinhlam23032000/ZenithTasks/pull/32).

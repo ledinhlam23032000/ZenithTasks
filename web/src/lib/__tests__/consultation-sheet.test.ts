@@ -46,7 +46,7 @@ describe("consultation sheet", () => {
     expect(document.fullName).toBe("Nguyễn Thị A đã rà soát");
     expect(document.phoneLast5).toBe("12345");
     expect(document.screening.find((item) => item.label.startsWith("Dị ứng thuốc"))).toMatchObject({ abnormal: true, note: "Dị ứng penicillin" });
-    expect(renderConsultationHtml(document)).toContain("PHIẾU TƯ VẤN DỊCH VỤ THẨM MỸ");
+    expect(renderConsultationHtml(document)).toContain("HỒ SƠ DỊCH VỤ THẨM MỸ");
     expect(renderConsultationHtml(document)).toContain("Bổ sung khi in");
   });
 });

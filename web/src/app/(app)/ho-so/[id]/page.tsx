@@ -69,9 +69,8 @@ import {
   applyServiceBom,
 } from "../actions";
 import { deleteConsent } from "../consent-actions";
-import { AddConsentButton } from "./consent-widgets";
 import { deleteCaseDocument } from "../actions";
-import { UploadDocumentButton } from "./case-document-widgets";
+import { PaperworkAddMenu } from "./paperwork-widgets";
 import { DebtPlanCard } from "./debt-plan-widgets";
 import { debtPlanStatus } from "@/lib/debt-plan";
 import { photoSrc } from "@/lib/media";
@@ -224,8 +223,8 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
             />
             <div className="mt-6 border-t border-slate-100 pt-6">
               <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-brand-100 bg-brand-50/50 px-3 py-2">
-                <p className="text-xs text-brand-800">Phiếu tư vấn điện tử đã tự tạo theo mẫu. Có thể xem, chỉnh nội dung và in ký.</p>
-                <Link href={`/ho-so/${record.id}/consultation`} className={`${buttonVariants({ variant: "secondary", size: "sm" })} print-hide`}><Printer className="h-3.5 w-3.5" /> Xem / In Phiếu tư vấn</Link>
+                <p className="text-xs text-brand-800">Hồ sơ dịch vụ thẩm mỹ đã tự tạo theo mẫu. Có thể xem, chỉnh nội dung và in ký.</p>
+                <Link href={`/ho-so/${record.id}/consultation`} className={`${buttonVariants({ variant: "secondary", size: "sm" })} print-hide`}><Printer className="h-3.5 w-3.5" /> Xem / In Hồ sơ dịch vụ thẩm mỹ</Link>
               </div>
               <ConsultationBookForm
                 caseId={record.id}
@@ -433,109 +432,134 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
       label: "Giấy tờ",
       icon: <FileSignature className="h-4 w-4" />,
       content: (
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileSignature className="h-4 w-4 text-brand-500" /> Phiếu đồng ý
-              </CardTitle>
-              {canClinical && (
-                <AddConsentButton
-                  caseId={record.id}
-                  customerName={record.customer.fullName}
-                  caseCode={record.code}
-                  services={record.services.map((s) => s.name).join(", ")}
-                  templates={consentTemplates}
-                  todayLocal={toDatetimeLocal(new Date()).slice(0, 10)}
-                />
-              )}
-            </CardHeader>
-            <CardContent className="pt-0">
-              {record.consents.length === 0 ? (
-                <EmptyState title="Chưa có phiếu đồng ý" description="Ghi nhận phiếu đồng ý/cam kết khách đã ký (in ra cho khách ký tay)." />
-              ) : (
-                <ul className="space-y-2.5">
-                  {record.consents.map((c) => (
-                    <li key={c.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-100 p-2.5">
-                      <div className="min-w-0">
-                        <p className="font-medium text-slate-800">{c.title}</p>
-                        <p className="text-xs text-slate-500">
-                          Người ký: {c.signerName}{c.relationship ? ` (${c.relationship})` : ""} · {fmtDate(c.signedAt)}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Link
-                          href={`/ho-so/${record.id}/consent/${c.id}`}
-                          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-brand-600 hover:bg-brand-50"
-                        >
-                          <Printer className="h-3.5 w-3.5" /> In phiếu
-                        </Link>
-                        {canClinical && (
-                          <ConfirmButton
-                            action={deleteConsent}
-                            fields={{ id: c.id, caseId: record.id }}
-                            confirmText={`Xóa phiếu đồng ý "${c.title}"?`}
-                            className="text-slate-300 hover:text-rose-500"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </ConfirmButton>
-                        )}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </CardContent>
-          </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileSignature className="h-4 w-4 text-brand-500" /> Hồ sơ dịch vụ thẩm mỹ
+            </CardTitle>
+            {canClinical && (
+              <PaperworkAddMenu
+                caseId={record.id}
+                customerName={record.customer.fullName}
+                caseCode={record.code}
+                services={record.services.map((s) => s.name).join(", ")}
+                templates={consentTemplates}
+                todayLocal={toDatetimeLocal(new Date()).slice(0, 10)}
+              />
+            )}
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="space-y-5">
+              <section>
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <p className="font-semibold text-slate-800">Bản hồ sơ điện tử</p>
+                    <p className="text-xs text-slate-500">Phiếu được tự điền từ thông tin khách hàng, sinh hiệu, sàng lọc và dịch vụ.</p>
+                  </div>
+                  <Link href={`/ho-so/${record.id}/consultation`} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-brand-600 hover:bg-brand-50">
+                    <Printer className="h-3.5 w-3.5" /> Xem / In
+                  </Link>
+                </div>
+                {!record.consultation ? (
+                  <EmptyState title="Chưa có Hồ sơ dịch vụ thẩm mỹ" description="Hệ thống sẽ tự bổ sung hồ sơ mặc định khi cập nhật dữ liệu." />
+                ) : (
+                  <div className="rounded-lg border border-brand-100 bg-brand-50/40 px-3 py-2 text-sm text-brand-900">
+                    Đã có hồ sơ mặc định cho {record.customer.fullName}. Có thể mở để chỉnh nội dung, in hoặc tải Word.
+                  </div>
+                )}
+              </section>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="h-4 w-4 text-brand-500" /> Giấy tờ hành chính
-              </CardTitle>
-              {canClinical && <UploadDocumentButton caseId={record.id} />}
-            </CardHeader>
-            <CardContent className="pt-0">
-              {record.documents.length === 0 ? (
-                <EmptyState title="Chưa có giấy tờ" description="Tải file đã soạn/đã ký sẵn (PDF, ảnh, Word…) lên rồi bấm Xem — khỏi gõ tay." />
-              ) : (
-                <ul className="space-y-2.5">
-                  {record.documents.map((doc) => (
-                    <li key={doc.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-100 p-2.5">
-                      <div className="min-w-0">
-                        <p className="truncate font-medium text-slate-800">{doc.title}</p>
-                        <p className="truncate text-xs text-slate-500">
-                          {doc.fileName} · {fmtDate(doc.createdAt)}
-                          {doc.uploadedBy?.fullName ? ` · ${doc.uploadedBy.fullName}` : ""}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <a
-                          href={photoSrc(doc.url)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-brand-600 hover:bg-brand-50"
-                        >
-                          <ExternalLink className="h-3.5 w-3.5" /> Xem
-                        </a>
-                        {canClinical && (
-                          <ConfirmButton
-                            action={deleteCaseDocument}
-                            fields={{ id: doc.id, caseId: record.id }}
-                            confirmText={`Xóa giấy tờ "${doc.title}"?`}
-                            className="text-slate-300 hover:text-rose-500"
+              <div className="border-t border-slate-100" />
+
+              <section>
+                <div className="mb-3 flex items-center gap-2">
+                  <FileSignature className="h-4 w-4 text-brand-500" />
+                  <p className="font-semibold text-slate-800">Phiếu đồng ý đã ghi nhận</p>
+                </div>
+                {record.consents.length === 0 ? (
+                  <EmptyState title="Chưa có Phiếu đồng ý" description="Dùng nút + để ghi nhận phiếu đồng ý hoặc cam kết khách đã ký." />
+                ) : (
+                  <ul className="space-y-2.5">
+                    {record.consents.map((c) => (
+                      <li key={c.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-100 p-2.5">
+                        <div className="min-w-0">
+                          <p className="font-medium text-slate-800">{c.title}</p>
+                          <p className="text-xs text-slate-500">
+                            Người ký: {c.signerName}{c.relationship ? ` (${c.relationship})` : ""} · {fmtDate(c.signedAt)}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Link
+                            href={`/ho-so/${record.id}/consent/${c.id}`}
+                            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-brand-600 hover:bg-brand-50"
                           >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </ConfirmButton>
-                        )}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+                            <Printer className="h-3.5 w-3.5" /> In phiếu
+                          </Link>
+                          {canClinical && (
+                            <ConfirmButton
+                              action={deleteConsent}
+                              fields={{ id: c.id, caseId: record.id }}
+                              confirmText={`Xóa phiếu đồng ý "${c.title}"?`}
+                              className="text-slate-300 hover:text-rose-500"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </ConfirmButton>
+                          )}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+
+              <div className="border-t border-slate-100" />
+
+              <section>
+                <div className="mb-3 flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-brand-500" />
+                  <p className="font-semibold text-slate-800">Tài liệu bổ sung</p>
+                </div>
+                {record.documents.length === 0 ? (
+                  <EmptyState title="Chưa có tài liệu bổ sung" description="Dùng nút + để tải xét nghiệm, giấy tờ hành chính, ảnh, PDF, Word hoặc Excel vào cùng hồ sơ." />
+                ) : (
+                  <ul className="space-y-2.5">
+                    {record.documents.map((doc) => (
+                      <li key={doc.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-100 p-2.5">
+                        <div className="min-w-0">
+                          <p className="truncate font-medium text-slate-800">{doc.title}</p>
+                          <p className="truncate text-xs text-slate-500">
+                            {doc.fileName} · {fmtDate(doc.createdAt)}
+                            {doc.uploadedBy?.fullName ? ` · ${doc.uploadedBy.fullName}` : ""}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <a
+                            href={photoSrc(doc.url)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-brand-600 hover:bg-brand-50"
+                          >
+                            <ExternalLink className="h-3.5 w-3.5" /> Xem
+                          </a>
+                          {canClinical && (
+                            <ConfirmButton
+                              action={deleteCaseDocument}
+                              fields={{ id: doc.id, caseId: record.id }}
+                              confirmText={`Xóa tài liệu "${doc.title}"?`}
+                              className="text-slate-300 hover:text-rose-500"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </ConfirmButton>
+                          )}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+            </div>
+          </CardContent>
+        </Card>
       ),
     },
   ];

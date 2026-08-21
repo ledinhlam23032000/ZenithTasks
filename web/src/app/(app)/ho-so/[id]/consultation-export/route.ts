@@ -16,12 +16,12 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
       services: { orderBy: { createdAt: "asc" }, select: { name: true, quantity: true, finalPrice: true } },
     },
   });
-  if (!record || !record.consultation || !canAccessCase(user, record, "read")) return new Response("Không tìm thấy phiếu tư vấn", { status: 404 });
+  if (!record || !record.consultation || !canAccessCase(user, record, "read")) return new Response("Không tìm thấy Hồ sơ dịch vụ thẩm mỹ", { status: 404 });
   const document = consultationPrintDocument(record);
   return new Response("﻿" + renderConsultationHtml(document), {
     headers: {
       "Content-Type": "application/msword; charset=utf-8",
-      "Content-Disposition": `attachment; filename="phieu-tu-van-${record.code}.doc"`,
+      "Content-Disposition": `attachment; filename="ho-so-dich-vu-tham-my-${record.code}.doc"`,
     },
   });
 }
