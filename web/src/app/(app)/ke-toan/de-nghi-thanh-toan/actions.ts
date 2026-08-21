@@ -5,7 +5,7 @@ import { prisma } from "@/lib/db";
 import { requireCap, requireUser } from "@/lib/auth";
 import { auditRequired } from "@/lib/audit";
 import { isMonthClosed } from "@/lib/accounting";
-import { paymentRequestNo } from "@/lib/payment-request";
+import { paymentRequestNo, paymentRequestTransitionError } from "@/lib/payment-request";
 import type { Prisma, PaymentMethod } from "@/generated/prisma/client";
 
 export type PaymentRequestState = { ok?: boolean; error?: string; id?: string };
@@ -120,7 +120,8 @@ export async function approvePaymentRequest(_prev: PaymentRequestState, formData
   if (!id) return { error: "Thiếu mã chứng từ." };
   const request = await prisma.paymentRequest.findUnique({ where: { id } });
   if (!request) return { error: "Không tìm thấy chứng từ." };
-  if (request.status !== "PENDING") return { error: "Chứng từ không còn ở trạng thái chờ duyệt." };
+  const transitionError = paymentRequestTransitionError(request.status, "APPROVED");
+  if (transitionError) return { error: transitionError };
   if (request.month && await isMonthClosed(request.month)) return { error: `Tháng ${request.month} đã chốt sổ.` };
   await prisma.$transaction(async (tx) => {
     await tx.paymentRequest.update({ where: { id }, data: { status: "APPROVED", approverId: user.id, approvedAt: new Date(), rejectedAt: null, rejectionReason: null } });
@@ -135,7 +136,9 @@ export async function rejectPaymentRequest(_prev: PaymentRequestState, formData:
   const reason = String(formData.get("reason") ?? "").trim();
   if (!id || reason.length < 3) return { error: "Cần mã chứng từ và lý do từ chối." };
   const request = await prisma.paymentRequest.findUnique({ where: { id } });
-  if (!request || request.status !== "PENDING") return { error: "Chứng từ không tồn tại hoặc không còn chờ duyệt." };
+  if (!request) return { error: "Không tìm thấy chứng từ." };
+  const transitionError = paymentRequestTransitionError(request.status, "REJECTED");
+  if (transitionError) return { error: transitionError };
   await prisma.$transaction(async (tx) => {
     await tx.paymentRequest.update({ where: { id }, data: { status: "REJECTED", approverId: user.id, rejectedAt: new Date(), rejectionReason: reason } });
     await auditRequired(tx, user.id, "REJECT_PAYMENT_REQUEST", { entity: "PaymentRequest", entityId: id, meta: { reason } });
@@ -152,7 +155,8 @@ export async function markPaymentRequestPaid(_prev: PaymentRequestState, formDat
     include: { cashTransaction: { select: { id: true, occurredAt: true, method: true, amount: true } } },
   });
   if (!request) return { error: "Không tìm thấy chứng từ." };
-  if (request.status !== "APPROVED") return { error: "Chỉ chứng từ đã được ADMIN duyệt mới được ghi sổ đã thanh toán." };
+  const transitionError = paymentRequestTransitionError(request.status, "PAID");
+  if (transitionError) return { error: transitionError };
   if (request.month && await isMonthClosed(request.month)) return { error: `Tháng ${request.month} đã chốt sổ.` };
   const rawMethod = String(formData.get("method") ?? "TRANSFER");
   const method = (methods.has(rawMethod) ? rawMethod : "TRANSFER") as PaymentMethod;

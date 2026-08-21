@@ -39,6 +39,7 @@ const schema = z.object({
   dob: z.string().trim().optional(),
   source: z.enum(["MARKETING", "COLLABORATOR", "WALK_IN", "REFERRAL", "HOTLINE", "FACEBOOK", "ZALO", "TIKTOK", "OTHER"]),
   sourceDetail: z.string().trim().optional(),
+  collaboratorId: z.string().trim().optional(),
   address: z.string().trim().optional(),
   note: z.string().trim().optional(),
   allergies: z.string().trim().optional(),
@@ -57,6 +58,7 @@ export async function updateCustomer(_prev: EditCustomerState, formData: FormDat
     dob: formData.get("dob") ?? "",
     source: formData.get("source") ?? "OTHER",
     sourceDetail: formData.get("sourceDetail") ?? "",
+    collaboratorId: formData.get("collaboratorId") ?? "",
     address: formData.get("address") ?? "",
     note: formData.get("note") ?? "",
     allergies: formData.get("allergies") ?? "",
@@ -68,10 +70,10 @@ export async function updateCustomer(_prev: EditCustomerState, formData: FormDat
 
   const existing = await prisma.customer.findUnique({ where: { id: d.customerId }, select: { id: true, collaboratorId: true, collaboratorAssignedAt: true } });
   if (!existing) return { error: "Không tìm thấy khách hàng." };
-  const collaborator = d.source === "COLLABORATOR" && d.sourceDetail
-    ? await prisma.collaborator.findFirst({ where: { name: d.sourceDetail, active: true }, select: { id: true } })
+  const collaborator = d.source === "COLLABORATOR" && d.collaboratorId
+    ? await prisma.collaborator.findFirst({ where: { id: d.collaboratorId, active: true }, select: { id: true, name: true } })
     : null;
-  if (d.source === "COLLABORATOR" && !collaborator) return { error: "Vui lòng chọn đúng cộng tác viên đã được quản trị viên tạo trước." };
+  if (d.source === "COLLABORATOR" && !collaborator) return { error: "Nguồn CTV bắt buộc phải chọn cộng tác viên đang hoạt động." };
   const collaboratorAssignedAt = collaborator ? existing.collaboratorAssignedAt ?? new Date() : null;
 
   let dob: Date | null | undefined;
@@ -109,7 +111,7 @@ export async function updateCustomer(_prev: EditCustomerState, formData: FormDat
         gender: d.gender ?? null,
         dob,
         source: d.source,
-        sourceDetail: d.sourceDetail || null,
+        sourceDetail: collaborator?.name ?? (d.sourceDetail || null),
         collaboratorId: collaborator?.id ?? null,
         collaboratorAssignedAt,
         address: d.address || null,

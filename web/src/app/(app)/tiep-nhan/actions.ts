@@ -25,6 +25,7 @@ const customerSchema = z.object({
   dob: z.string().trim().optional(),
   source: z.enum(["MARKETING", "COLLABORATOR", "WALK_IN", "REFERRAL", "HOTLINE", "FACEBOOK", "ZALO", "TIKTOK", "OTHER"]),
   sourceDetail: z.string().trim().optional(),
+  collaboratorId: z.string().trim().optional(),
   address: z.string().trim().optional(),
   note: z.string().trim().optional(),
 });
@@ -39,6 +40,7 @@ export async function createCustomer(_prev: CustomerFormState, formData: FormDat
     dob: formData.get("dob") ?? "",
     source: formData.get("source") ?? "WALK_IN",
     sourceDetail: formData.get("sourceDetail") ?? "",
+    collaboratorId: formData.get("collaboratorId") ?? "",
     address: formData.get("address") ?? "",
     note: formData.get("note") ?? "",
   });
@@ -46,11 +48,14 @@ export async function createCustomer(_prev: CustomerFormState, formData: FormDat
     return { error: parsed.error.issues[0]?.message ?? "Dữ liệu không hợp lệ." };
   }
   const data = parsed.data;
-  const collaborator = data.source === "COLLABORATOR" && data.sourceDetail
-    ? await prisma.collaborator.findFirst({ where: { name: data.sourceDetail, active: true }, select: { id: true } })
+  const collaborator = data.source === "COLLABORATOR" && data.collaboratorId
+    ? await prisma.collaborator.findFirst({ where: { id: data.collaboratorId, active: true }, select: { id: true, name: true } })
     : null;
   if (data.source === "COLLABORATOR" && !collaborator) {
     return { error: "Vui lòng chọn đúng cộng tác viên đã được quản trị viên tạo trước." };
+  }
+  if (data.source === "COLLABORATOR" && !data.collaboratorId) {
+    return { error: "Nguồn CTV bắt buộc phải chọn cộng tác viên từ danh sách." };
   }
   const collaboratorAssignedAt = collaborator ? new Date() : null;
 
@@ -91,7 +96,7 @@ export async function createCustomer(_prev: CustomerFormState, formData: FormDat
             phoneLast5: phoneLast5(normalized),
             phoneHash: hashPhone(normalized),
             source: data.source,
-            sourceDetail: data.sourceDetail || null,
+            sourceDetail: collaborator?.name ?? (data.sourceDetail || null),
             collaboratorId: collaborator?.id ?? null,
             collaboratorAssignedAt,
             address: data.address || null,

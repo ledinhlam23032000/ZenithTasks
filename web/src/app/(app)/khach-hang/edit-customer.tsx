@@ -5,10 +5,13 @@ import { Pencil, LoaderCircle, ShieldCheck, ShieldAlert } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input, Label, Select, Textarea, FieldHint } from "@/components/ui/field";
+import { Combobox, type ComboOption } from "@/components/ui/combobox";
 import { SOURCE_LABEL, GENDER_LABEL } from "@/lib/status";
 import { useFormAction } from "@/lib/use-form-action";
 import { updateCustomer } from "./actions";
 import type { Gender, CustomerSource } from "@/generated/prisma/client";
+
+export type CollaboratorOption = { id: string; name: string };
 
 export type EditableCustomer = {
   id: string;
@@ -17,6 +20,7 @@ export type EditableCustomer = {
   dob: string | null; // yyyy-MM-dd
   source: CustomerSource;
   sourceDetail: string | null;
+  collaboratorId: string | null;
   address: string | null;
   note: string | null;
   allergies: string | null;
@@ -25,7 +29,7 @@ export type EditableCustomer = {
   phoneLast5: string;
 };
 
-export function EditCustomerButton({ customer }: { customer: EditableCustomer }) {
+export function EditCustomerButton({ customer, collaborators = [] }: { customer: EditableCustomer; collaborators?: CollaboratorOption[] }) {
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -33,13 +37,13 @@ export function EditCustomerButton({ customer }: { customer: EditableCustomer })
         <Pencil className="h-4 w-4" /> Sửa thông tin
       </Button>
       <Modal open={open} onClose={() => setOpen(false)} title="Cập nhật hồ sơ khách hàng" size="lg">
-        <EditForm customer={customer} onDone={() => setOpen(false)} />
+        <EditForm customer={customer} collaborators={collaborators} onDone={() => setOpen(false)} />
       </Modal>
     </>
   );
 }
 
-function EditForm({ customer, onDone }: { customer: EditableCustomer; onDone: () => void }) {
+function EditForm({ customer, collaborators, onDone }: { customer: EditableCustomer; collaborators: CollaboratorOption[]; onDone: () => void }) {
   const [state, action, pending] = useFormAction(updateCustomer, onDone);
 
   return (
@@ -87,8 +91,17 @@ function EditForm({ customer, onDone }: { customer: EditableCustomer; onDone: ()
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
-          <Label htmlFor="e-sourceDetail">Chi tiết nguồn</Label>
+          <Label htmlFor="e-sourceDetail">Chi tiết nguồn / chiến dịch</Label>
           <Input id="e-sourceDetail" name="sourceDetail" defaultValue={customer.sourceDetail ?? ""} />
+        </div>
+        <div>
+          <Label>Chọn cộng tác viên nếu nguồn là CTV</Label>
+          <Combobox
+            name="collaboratorId"
+            defaultValue={customer.collaboratorId ?? ""}
+            placeholder="— Không chọn CTV —"
+            options={[{ value: "", label: "— Không chọn CTV —" }, ...collaborators.map((c): ComboOption => ({ value: c.id, label: c.name }))]}
+          />
         </div>
         <div>
           <Label htmlFor="e-address">Địa chỉ</Label>

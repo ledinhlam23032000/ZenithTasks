@@ -16,7 +16,7 @@ import {
 } from "./actions";
 
 function ActionButton({ label, action, hidden, variant = "secondary" }: { label: string; action: (prev: PaymentRequestState, fd: FormData) => Promise<PaymentRequestState>; hidden: Record<string, string>; variant?: "secondary" | "danger" }) {
-  const [state, run, pending] = useFormAction<PaymentRequestState>(action, () => window.location.reload());
+  const [state, run, pending] = useFormAction<PaymentRequestState>(action);
   return (
     <form action={run} className="inline-flex items-center gap-1">
       {Object.entries(hidden).map(([key, value]) => <input key={key} type="hidden" name={key} value={value} />)}
@@ -31,7 +31,7 @@ function ActionButton({ label, action, hidden, variant = "secondary" }: { label:
 
 export function CreatePaymentRequestForm() {
   const [open, setOpen] = useState(false);
-  const [state, run, pending] = useFormAction<PaymentRequestState>(createPaymentRequest, () => { setOpen(false); window.location.reload(); });
+  const [state, run, pending] = useFormAction<PaymentRequestState>(createPaymentRequest, () => setOpen(false));
   return (
     <>
       <Button onClick={() => setOpen(true)}><FilePlus2 className="h-4 w-4" /> Tạo thủ công</Button>
@@ -61,8 +61,8 @@ export function CreatePaymentRequestForm() {
 export function PaymentRequestActions({ id, status, amount, canApprove, canPay, hasCashTransaction = false }: { id: string; status: string; amount: number; canApprove: boolean; canPay: boolean; hasCashTransaction?: boolean }) {
   const [rejectOpen, setRejectOpen] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
-  const [rejectState, rejectRun, rejectPending] = useFormAction<PaymentRequestState>(rejectPaymentRequest, () => { setRejectOpen(false); window.location.reload(); });
-  const [payState, payRun, payPending] = useFormAction<PaymentRequestState>(markPaymentRequestPaid, () => { setPayOpen(false); window.location.reload(); });
+  const [rejectState, rejectRun, rejectPending] = useFormAction<PaymentRequestState>(rejectPaymentRequest, () => setRejectOpen(false));
+  const [payState, payRun, payPending] = useFormAction<PaymentRequestState>(markPaymentRequestPaid, () => setPayOpen(false));
   return (
     <div className="flex flex-wrap justify-end gap-1.5">
       <a href={`/ke-toan/de-nghi-thanh-toan/${id}`} className={buttonVariants({ variant: "secondary", size: "sm" })}><Printer className="h-3.5 w-3.5" /> Xem / In</a>

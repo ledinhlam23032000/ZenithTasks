@@ -5,14 +5,18 @@ import { UserPlus, LoaderCircle, ShieldCheck } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input, Label, Select, Textarea, FieldHint } from "@/components/ui/field";
+import { Combobox, type ComboOption } from "@/components/ui/combobox";
 import { SOURCE_LABEL, GENDER_LABEL } from "@/lib/status";
 import { createCustomer, type CustomerFormState } from "./actions";
+
+export type CollaboratorOption = { id: string; name: string };
 
 export type CustomerPrefill = {
   fullName?: string;
   phone?: string;
   source?: string;
   sourceDetail?: string;
+  collaboratorId?: string;
   note?: string;
 };
 
@@ -20,10 +24,12 @@ export function NewCustomerButton({
   label = "Tạo hồ sơ khách mới",
   variant = "primary",
   prefill,
+  collaborators = [],
 }: {
   label?: string;
   variant?: "primary" | "secondary";
   prefill?: CustomerPrefill;
+  collaborators?: CollaboratorOption[];
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -38,13 +44,13 @@ export function NewCustomerButton({
         description="Nhập thông tin cơ bản. Sau khi lưu, hệ thống tự tạo hồ sơ tư vấn điện tử; số điện thoại được mã hoá và chỉ hiện 5 số cuối."
         size="lg"
       >
-        <CustomerForm onCancel={() => setOpen(false)} prefill={prefill} />
+        <CustomerForm onCancel={() => setOpen(false)} prefill={prefill} collaborators={collaborators} />
       </Modal>
     </>
   );
 }
 
-function CustomerForm({ onCancel, prefill }: { onCancel: () => void; prefill?: CustomerPrefill }) {
+function CustomerForm({ onCancel, prefill, collaborators }: { onCancel: () => void; prefill?: CustomerPrefill; collaborators: CollaboratorOption[] }) {
   const [state, action, pending] = useActionState<CustomerFormState, FormData>(createCustomer, {});
 
   return (
@@ -93,10 +99,20 @@ function CustomerForm({ onCancel, prefill }: { onCancel: () => void; prefill?: C
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <div>
-          <Label htmlFor="sourceDetail">Chi tiết nguồn</Label>
-          <Input id="sourceDetail" name="sourceDetail" defaultValue={prefill?.sourceDetail ?? ""} placeholder="VD: CTV Ngọc Hân…" />
-        </div>
+          <div>
+            <Label htmlFor="sourceDetail">Chi tiết nguồn / chiến dịch</Label>
+            <Input id="sourceDetail" name="sourceDetail" defaultValue={prefill?.sourceDetail ?? ""} placeholder="VD: Chiến dịch Hè, Facebook Ads…" />
+          </div>
+          <div>
+            <Label>Chọn cộng tác viên nếu nguồn là CTV</Label>
+            <Combobox
+              name="collaboratorId"
+              defaultValue={prefill?.collaboratorId ?? ""}
+              placeholder="— Không chọn CTV —"
+              options={[{ value: "", label: "— Không chọn CTV —" }, ...collaborators.map((c): ComboOption => ({ value: c.id, label: c.name }))]}
+            />
+            <FieldHint>Không nhập tên CTV vào ô chi tiết nguồn; hệ thống sẽ tự đồng bộ theo ID.</FieldHint>
+          </div>
         <div>
           <Label htmlFor="address">Địa chỉ</Label>
           <Input id="address" name="address" placeholder="Quận/Huyện, Tỉnh/TP" />

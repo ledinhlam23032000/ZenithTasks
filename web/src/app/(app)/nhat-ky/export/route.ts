@@ -4,18 +4,10 @@ import { prisma } from "@/lib/db";
 import { fmtDateTime } from "@/lib/format";
 import { xlsxResponse, wordResponse, csvResponse, type Cell } from "@/lib/export";
 import { AUDIT_ACTION_LABEL } from "@/lib/status";
+import { formatAuditMeta } from "@/lib/audit-meta";
 import type { Prisma } from "@/generated/prisma/client";
 
 export const dynamic = "force-dynamic";
-
-function metaText(meta: unknown): string {
-  if (!meta || typeof meta !== "object") return "";
-  const o = meta as Record<string, unknown>;
-  const parts: string[] = [];
-  if (o.amount != null) parts.push(`Số tiền: ${Number(o.amount).toLocaleString("vi-VN")} đ`);
-  if (o.code) parts.push(`Mã: ${String(o.code)}`);
-  return parts.join(" · ");
-}
 
 /** Xuất nhật ký hệ thống (đúng bộ lọc đang xem, TOÀN BỘ bản ghi khớp): ?format=xlsx (mặc định) | doc | csv. */
 export async function GET(request: Request) {
@@ -50,7 +42,7 @@ export async function GET(request: Request) {
     l.actor?.fullName ?? "",
     AUDIT_ACTION_LABEL[l.action]?.label ?? l.action,
     l.entity ?? "",
-    metaText(l.meta),
+    formatAuditMeta(l.meta),
     l.ip ?? "",
   ]);
 

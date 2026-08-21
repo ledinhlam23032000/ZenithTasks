@@ -25,6 +25,7 @@ import { userCan } from "@/lib/permissions";
 import { isShareholder } from "@/lib/rbac";
 import { tierFor, pointsFor, nextTier } from "@/lib/loyalty";
 import { prisma } from "@/lib/db";
+import { getActiveCollaborators } from "@/lib/lookups";
 import { maskPhone } from "@/lib/phone";
 import { aiConfigured } from "@/lib/ai";
 import { formatVND } from "@/lib/money";
@@ -96,10 +97,12 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
         : { orderBy: { scheduledAt: "desc" }, take: 8 },
       conversations: { orderBy: { lastMessageAt: "desc" }, take: 20, include: { channelAccount: { select: { kind: true, label: true, externalName: true } } } },
       createdBy: { select: { fullName: true } },
+      collaborator: { select: { id: true, name: true } },
     },
   });
 
   if (!customer) notFound();
+  const collaborators = await getActiveCollaborators();
 
   const canSeePhone = userCan(user, "phone.full");
   const canConfirmFollowUp = !isShareholder(user.role) && user.role !== "COLLABORATOR";
@@ -220,6 +223,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
                   dob: customer.dob ? format(customer.dob, "yyyy-MM-dd") : null,
                   source: customer.source,
                   sourceDetail: customer.sourceDetail,
+                  collaboratorId: customer.collaboratorId,
                   address: customer.address,
                   note: customer.note,
                   allergies: customer.allergies,
@@ -227,6 +231,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
                   contraindications: customer.contraindications,
                   phoneLast5: customer.phoneLast5,
                 }}
+                collaborators={collaborators}
               />
             )}
             {canReceive && (

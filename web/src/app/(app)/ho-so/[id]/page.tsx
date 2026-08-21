@@ -76,6 +76,7 @@ import { debtPlanStatus } from "@/lib/debt-plan";
 import { photoSrc } from "@/lib/media";
 import { PaymentQrButton } from "./payment-qr-button";
 import { RevenueAllocationEditor } from "./revenue-allocation-editor";
+import { buildCaseLockChecklist, canLockCase } from "@/lib/case-lock-checklist";
 
 export const dynamic = "force-dynamic";
 
@@ -146,6 +147,19 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
     INVALID_VOUCHER: "Voucher đang lớn hơn giá trị dịch vụ.",
     INVALID_PAYMENT: "Có khoản thanh toán không hợp lệ.",
   };
+  const lockChecklist = buildCaseLockChecklist({
+    customerName: record.customer.fullName,
+    phoneLast5: record.customer.phoneLast5,
+    consultationExists: Boolean(record.consultation),
+    patientConfirmed: Boolean(record.consultation?.patientConfirmed),
+    serviceCount: record.services.length,
+    materialUsageCount: record.materials.length,
+    consentCount: record.consents.length,
+    documentCount: record.documents.length,
+    financialAnomalyCount: financial.anomalies.length,
+  });
+  const lockAllowed = canLockCase(lockChecklist);
+
   const commissionAmount = toNum(record.commissionAmount);
   const canVoidPayment = userCan(user, "payment.manage") && !lockedForMe;
   const allocationPeople = [...new Map([...consultants, ...doctors, ...nurses].map((person) => [person.id, person])).values()];
@@ -613,20 +627,33 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
         </div>
       ) : (
         canClinical && (
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-            <p className="text-sm text-slate-500">
-              Hoàn tất rồi? Bấm <b>Lưu &amp; khóa</b> để chốt số liệu — sau khi khóa, nhân viên sẽ không sửa được nữa.
-            </p>
-            <ConfirmButton
-              action={lockCase}
-              fields={{ caseId: record.id }}
-              confirmText="Sau khi LƯU & KHÓA, nhân viên sẽ KHÔNG thể chỉnh sửa hồ sơ này nữa (chỉ quản trị viên mở lại được). Tiếp tục?"
-              confirmLabel="Khóa hồ sơ"
-              danger={false}
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-900"
-            >
-              <Lock className="h-4 w-4" /> Lưu &amp; khóa hồ sơ
-            </ConfirmButton>
+          <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-slate-700">Kiểm tra trước khi khóa hồ sơ</p>
+                <p className="text-xs text-slate-500">Vật tư là mục nhắc tự rà và tự trừ theo ca, không tự động áp BOM và không chặn khóa.</p>
+              </div>
+              {lockAllowed ? (
+                <ConfirmButton
+                  action={lockCase}
+                  fields={{ caseId: record.id }}
+                  confirmText="Sau khi LƯU & KHÓA, nhân viên sẽ KHÔNG thể chỉnh sửa hồ sơ này nữa (chỉ quản trị viên mở lại được). Tiếp tục?"
+                  confirmLabel="Khóa hồ sơ"
+                  danger={false}
+                  className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-900"
+                >
+                  <Lock className="h-4 w-4" /> Lưu &amp; khóa hồ sơ
+                </ConfirmButton>
+              ) : <span className="rounded-lg bg-rose-50 px-2.5 py-1.5 text-xs font-semibold text-rose-700">Chưa đủ điều kiện khóa</span>}
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+              {lockChecklist.map((item) => (
+                <div key={item.key} className={`rounded-lg border px-2.5 py-2 text-xs ${item.done ? "border-emerald-200 bg-emerald-50 text-emerald-800" : item.blocking ? "border-rose-200 bg-rose-50 text-rose-800" : "border-amber-200 bg-amber-50 text-amber-800"}`}>
+                  <p className="font-semibold">{item.done ? "✓" : item.blocking ? "!" : "○"} {item.label}</p>
+                  <p className="mt-0.5 opacity-80">{item.hint}</p>
+                </div>
+              ))}
+            </div>
           </div>
         )
       )}

@@ -148,8 +148,17 @@ export function CommandPalette({ nav, open, onOpenChange }: { nav: NavItemData[]
                       <span className="min-w-0">
                         <span className="block truncate font-medium">{it.title}</span>
                         {it.subtitle && <span className="block truncate text-xs text-slate-400">{it.subtitle}</span>}
+                        {(it.status || it.nextAction) && (
+                          <span className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5 text-[10px] font-medium">
+                            {it.status && <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-slate-500">{it.status}</span>}
+                            {it.nextAction && <span className="rounded-md bg-brand-50 px-1.5 py-0.5 text-brand-700">Tiếp theo: {it.nextAction}</span>}
+                          </span>
+                        )}
                       </span>
-                      {i === active && <CornerDownLeft className="h-3.5 w-3.5 shrink-0 text-brand-400" />}
+                      <span className="flex shrink-0 items-center gap-2">
+                        {it.entityType && <span className="hidden text-[10px] uppercase tracking-wide text-slate-300 sm:inline">{it.entityType}</span>}
+                        {i === active && <CornerDownLeft className="h-3.5 w-3.5 text-brand-400" />}
+                      </span>
                     </button>
                   );
                 })}

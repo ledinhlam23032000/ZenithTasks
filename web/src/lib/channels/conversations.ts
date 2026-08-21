@@ -34,6 +34,22 @@ export async function findActiveChannelAccount(kind: ChannelKind, externalId: st
  * rời 2 bước, 2 request có thể cùng vượt qua bước kiểm tra rồi cùng tạo trùng).
  * Trả `null` nếu tin đã ghi nhận trước đó (bỏ qua, không phải lỗi).
  */
+async function pickInboundAssignee(tx: Prisma.TransactionClient): Promise<string | null> {
+  const candidates = await tx.user.findMany({
+    where: { active: true, role: "CARE" },
+    select: { id: true },
+    orderBy: { fullName: "asc" },
+  });
+  if (candidates.length === 0) return null;
+  const counts = await tx.conversation.groupBy({
+    by: ["assignedToId"],
+    where: { assignedToId: { in: candidates.map((candidate) => candidate.id) }, status: { in: ["OPEN", "IN_PROGRESS"] } },
+    _count: { _all: true },
+  });
+  const countById = new Map(counts.map((row) => [row.assignedToId, row._count._all]));
+  return [...candidates].sort((a, b) => (countById.get(a.id) ?? 0) - (countById.get(b.id) ?? 0) || a.id.localeCompare(b.id))[0]?.id ?? null;
+}
+
 export async function recordInboundMessage(opts: {
   channelAccount: ChannelAccount;
   externalUserId: string;
@@ -50,6 +66,11 @@ export async function recordInboundMessage(opts: {
 
   try {
     return await prisma.$transaction(async (tx) => {
+      const existing = await tx.conversation.findUnique({
+        where: { channelAccountId_externalUserId: { channelAccountId: channelAccount.id, externalUserId } },
+        select: { id: true, assignedToId: true },
+      });
+      const assignedToId = existing?.assignedToId ?? await pickInboundAssignee(tx);
       const conversation = await tx.conversation.upsert({
         where: { channelAccountId_externalUserId: { channelAccountId: channelAccount.id, externalUserId } },
         create: {
@@ -63,6 +84,7 @@ export async function recordInboundMessage(opts: {
           lastDirection: "IN",
           unreadCount: 1,
           status: "OPEN",
+          assignedToId,
           lastInboundAt: occurredAt,
           slaDueAt,
         },
@@ -74,6 +96,7 @@ export async function recordInboundMessage(opts: {
           lastDirection: "IN",
           unreadCount: { increment: 1 },
           status: "OPEN",
+          assignedToId,
           lastInboundAt: occurredAt,
           slaDueAt,
         },

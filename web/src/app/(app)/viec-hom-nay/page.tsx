@@ -36,7 +36,7 @@ const ICONS: Record<string, LucideIcon> = {
 export default async function WorkqueuePage() {
   const user = await requireCap("mod:viec-hom-nay");
   const canCollect = userCan(user, "payment.add");
-  const { sections, total } = await getWorkqueue();
+  const { sections, total } = await getWorkqueue(user);
   const active = sections.filter((s) => s.count > 0);
 
   return (
@@ -104,7 +104,8 @@ export default async function WorkqueuePage() {
                             </span>
                             <span className="flex shrink-0 items-center gap-1.5">
                               {it.badge && <Badge tone={s.tone}>{it.badge}</Badge>}
-                              {it.href && !showCollect && !showArrive && <ChevronRight className="h-4 w-4 text-slate-300" />}
+                              {it.nextAction && <Link href={it.nextAction.href} className="rounded-md bg-brand-50 px-1.5 py-0.5 text-[10px] font-semibold text-brand-700 hover:bg-brand-100" onClick={(event) => event.stopPropagation()}>{it.nextAction.label}</Link>}
+                              {it.href && !showCollect && !showArrive && !it.nextAction && <ChevronRight className="h-4 w-4 text-slate-300" />}
                             </span>
                           </span>
                         );

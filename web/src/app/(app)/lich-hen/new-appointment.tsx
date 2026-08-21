@@ -12,6 +12,7 @@ import { createAppointment, updateAppointment, createAppointmentForced, updateAp
 
 type ServiceOpt = { id: string; name: string };
 type ConsultantOpt = { id: string; fullName: string };
+type CollaboratorOpt = { id: string; name: string };
 
 export type EditableAppointment = {
   id: string;
@@ -22,6 +23,7 @@ export type EditableAppointment = {
   serviceInterest: string;
   source: string;
   sourceDetail: string;
+  collaboratorId: string;
   consultantId: string;
   note: string;
 };
@@ -29,10 +31,12 @@ export type EditableAppointment = {
 export function NewAppointmentButton({
   services,
   consultants,
+  collaborators,
   defaultDateTime,
 }: {
   services: ServiceOpt[];
   consultants: ConsultantOpt[];
+  collaborators: CollaboratorOpt[];
   defaultDateTime: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -45,6 +49,7 @@ export function NewAppointmentButton({
         <AppointmentForm
           services={services}
           consultants={consultants}
+          collaborators={collaborators}
           defaultDateTime={defaultDateTime}
           onSuccess={() => setOpen(false)}
         />
@@ -57,10 +62,12 @@ export function EditAppointmentButton({
   appointment,
   services,
   consultants,
+  collaborators,
 }: {
   appointment: EditableAppointment;
   services: ServiceOpt[];
   consultants: ConsultantOpt[];
+  collaborators: CollaboratorOpt[];
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -78,6 +85,7 @@ export function EditAppointmentButton({
         <AppointmentForm
           services={services}
           consultants={consultants}
+          collaborators={collaborators}
           defaultDateTime={appointment.scheduledAt}
           appointment={appointment}
           onSuccess={() => setOpen(false)}
@@ -90,18 +98,20 @@ export function EditAppointmentButton({
 function AppointmentForm({
   services,
   consultants,
+  collaborators,
   defaultDateTime,
   appointment,
   onSuccess,
 }: {
   services: ServiceOpt[];
   consultants: ConsultantOpt[];
+  collaborators: CollaboratorOpt[];
   defaultDateTime: string;
   appointment?: EditableAppointment;
   onSuccess: () => void;
 }) {
   const isEdit = !!appointment;
-  const [advancedOpen, setAdvancedOpen] = useState(() => Boolean(appointment?.sourceDetail || appointment?.consultantId || appointment?.note));
+  const [advancedOpen, setAdvancedOpen] = useState(() => Boolean(appointment?.sourceDetail || appointment?.collaboratorId || appointment?.consultantId || appointment?.note));
   const [state, action, pending] = useFormAction(
     isEdit ? updateAppointment : createAppointment,
     onSuccess,
@@ -202,8 +212,17 @@ function AppointmentForm({
               </Select>
             </div>
             <div>
-              <Label htmlFor="sourceDetail">Chi tiết nguồn</Label>
-              <Input id="sourceDetail" name="sourceDetail" placeholder="VD: CTV Ngọc Hân, chiến dịch Hè…" defaultValue={appointment?.sourceDetail ?? ""} />
+              <Label htmlFor="sourceDetail">Chi tiết nguồn / chiến dịch</Label>
+              <Input id="sourceDetail" name="sourceDetail" placeholder="VD: Chiến dịch Hè…" defaultValue={appointment?.sourceDetail ?? ""} />
+            </div>
+            <div>
+              <Label>Chọn cộng tác viên nếu nguồn là CTV</Label>
+              <Combobox
+                name="collaboratorId"
+                defaultValue={appointment?.collaboratorId ?? ""}
+                placeholder="— Không chọn CTV —"
+                options={[{ value: "", label: "— Không chọn CTV —" }, ...collaborators.map((c) => ({ value: c.id, label: c.name }))]}
+              />
             </div>
           </div>
 
@@ -228,16 +247,35 @@ function AppointmentForm({
       </div>
 
       {state.error && (
-        <p
-          className={
-            state.conflict
-              ? "flex items-start gap-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 ring-1 ring-amber-500/20"
-              : "rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-600 ring-1 ring-rose-600/10"
-          }
-        >
-          {state.conflict && <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />}
-          {state.error}
-        </p>
+        <div className={state.conflict ? "space-y-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 ring-1 ring-amber-500/20" : "rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-600 ring-1 ring-rose-600/10"}>
+          <p className="flex items-start gap-2">
+            {state.conflict && <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />}
+            <span>{state.error}</span>
+          </p>
+          {state.conflict && state.suggestions && state.suggestions.length > 0 && (
+            <div className="border-t border-amber-200 pt-2">
+              <p className="mb-1.5 text-xs font-semibold text-amber-900">Giờ trống gần nhất — bấm để thay vào form:</p>
+              <div className="flex flex-wrap gap-1.5">
+                {state.suggestions.map((suggestion) => (
+                  <button
+                    key={suggestion}
+                    type="button"
+                    className="rounded-md border border-amber-300 bg-white px-2 py-1 text-xs font-semibold text-amber-800 hover:bg-amber-100"
+                    onClick={() => {
+                      const input = formRef.current?.elements.namedItem("scheduledAt") as HTMLInputElement | null;
+                      if (input) {
+                        input.value = suggestion;
+                        input.focus();
+                      }
+                    }}
+                  >
+                    {new Date(suggestion).toLocaleString("vi-VN", { weekday: "short", hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" })}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       )}
 
       <div className="flex flex-wrap justify-end gap-2 pt-1">

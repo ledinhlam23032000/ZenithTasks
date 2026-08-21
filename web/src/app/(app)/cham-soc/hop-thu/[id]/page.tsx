@@ -17,6 +17,8 @@ import { withinResponseWindow, RESPONSE_WINDOW_HOURS } from "@/lib/channels/conv
 import { aiConfigured } from "@/lib/ai";
 import { MessageComposer } from "./message-composer";
 import { MessageThread } from "./message-thread";
+import { getCustomer360 } from "@/lib/customer-360";
+import { Customer360MiniCard } from "@/components/customer-360-mini-card";
 import type { ChannelKind } from "@/generated/prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -54,6 +56,7 @@ export default async function ConversationPage({
     },
   });
   if (!conversation) notFound();
+  const customer360 = conversation.customer ? await getCustomer360(conversation.customer.id, user) : null;
   const workflowStaff = canManage ? await prisma.user.findMany({ where: { active: true, role: { in: ["ADMIN", "MANAGER", "CARE", "CONSULTANT", "RECEPTION"] } }, select: { id: true, fullName: true }, orderBy: { fullName: "asc" } }) : [];
 
   if (conversation.unreadCount > 0 && canManage) await markConversationRead(conversation.id);
@@ -134,6 +137,7 @@ export default async function ConversationPage({
         </main>
 
         <aside className="space-y-4 lg:sticky lg:top-4">
+          {customer360 && <Customer360MiniCard snapshot={customer360} compact />}
           <Card><CardContent className="space-y-4 p-4">
             <div><p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Nguồn hội thoại</p><div className="mt-2 flex items-center gap-2.5"><span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-violet-50 text-violet-600"><MessageCircle className="h-4 w-4" /></span><div className="min-w-0"><p className="truncate text-sm font-semibold text-slate-800">{pageName}</p><p className="text-xs text-slate-400">{ch.label} · {conversation.channelAccount.active ? "Đang kết nối" : "Đã ngắt"}</p></div></div>{pageUrl && <a href={pageUrl} target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-brand-600 hover:underline">Mở trang Fanpage <ExternalLink className="h-3 w-3" /></a>}</div>
             <div className="border-t border-slate-100 pt-4"><div className="flex items-center gap-2"><UserRound className="h-4 w-4 text-slate-400" /><p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Hồ sơ khách</p></div>{conversation.customer ? <><Link href={`/khach-hang/${conversation.customer.id}`} className="mt-2 block rounded-xl bg-slate-50 p-3 hover:bg-brand-50"><p className="text-sm font-semibold text-slate-800">{conversation.customer.fullName}</p><p className="mt-0.5 text-xs text-slate-400">{conversation.customer.code} · {maskPhone(conversation.customer.phoneLast5)}</p></Link>{canManage && <div className="mt-2"><ContactButtons reveal={revealPhone.bind(null, conversation.customer.id)} last5={conversation.customer.phoneLast5} /></div>}</> : <p className="mt-2 rounded-xl bg-amber-50 p-3 text-xs text-amber-800">Chưa gắn với hồ sơ khách. Hãy tìm theo tên hoặc 5 số cuối để quản lý lịch sử và công nợ.</p>}</div>
