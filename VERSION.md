@@ -1,10 +1,10 @@
 # ZenithTasks — Trạng thái phiên bản hiện tại
 
-> **Phiên bản nội bộ:** `2026.08.21-r12`<br>
-> **Commit master:** [`c2f27f5`](https://github.com/ledinhlam23032000/ZenithTasks/commit/c2f27f50a75f86f1cc9ae47193ff76bf11bba321)<br>
-> **PR gần nhất:** [#36](https://github.com/ledinhlam23032000/ZenithTasks/pull/36)<br>
-> **Ngày cập nhật:** 21/08/2026<br>
-> **Trạng thái:** Bản vá Hồ sơ dịch vụ thẩm mỹ và bản in sạch hơn đã merge master, CI xanh, test/build đạt. Gộp toàn bộ giấy tờ hồ sơ vào tab Giấy tờ, bỏ dotted filler trong Giấy đề nghị thanh toán, không thêm migration. **Chưa xác nhận triển khai production**; máy vận hành cần chạy `Sua-Loi.bat` và smoke test trước khi dùng thật. Bộ tài liệu tiếp quản chuẩn nằm tại [`docs/INDEX.md`](docs/INDEX.md), bản đồ năng lực nằm tại [`docs/PRODUCT-CAPABILITIES.md`](docs/PRODUCT-CAPABILITIES.md).
+> **Phiên bản nội bộ:** `2026.08.24-r13`<br>
+> **Commit master:** [`e08d84c`](https://github.com/ledinhlam23032000/ZenithTasks/commit/e08d84c798b1c406066c0dd9e5f701eb94173bc2)<br>
+> **PR gần nhất:** cập nhật trực tiếp trên `master` theo chỉ đạo owner<br>
+> **Ngày cập nhật:** 24/08/2026<br>
+> **Trạng thái:** Đã đồng bộ quy ước origin kỹ thuật IPv4, script cập nhật/recovery, Docker Compose, mẫu môi trường và tài liệu vận hành; route Cloudflare chính đã đổi sang `http://127.0.0.1:3000` và public `/login` đã xác nhận HTTP 200. Không có migration trong commit này, không reset database/volume. Gói AI Governance/V2/Training đang để riêng trong working tree để review, chưa commit/deploy. Bộ tài liệu tiếp quản chuẩn nằm tại [`docs/INDEX.md`](docs/INDEX.md), bản đồ năng lực nằm tại [`docs/PRODUCT-CAPABILITIES.md`](docs/PRODUCT-CAPABILITIES.md).
 
 ## Quy tắc đọc tài liệu
 
@@ -47,11 +47,11 @@ Migration là **bổ sung dữ liệu, không được tự xóa hoặc reset da
 
 ## Kiểm tra chất lượng gần nhất
 
-Release r12 đã được kiểm tra bằng Prisma generate, TypeScript, Vitest **53 file / 334 test**, Next production build và CI GitHub Actions của PR #34; CI push/pull request đều thành công. `origin/master` hiện ở commit `c2f27f5`; PR #34 là bản vá nghiệp vụ, PR #35/#36 là cập nhật release và checkpoint. Release này không có migration mới và chưa được xác nhận đã chạy trên máy production. Khi sửa nghiệp vụ tiền, lương, công nợ, phân quyền, hồ sơ y tế hoặc webhook, phải bổ sung test hồi quy trước khi commit.
+Release r13 đã được kiểm tra bằng Prisma generate/validate, TypeScript, Vitest **75 file / 396 test**, Next production build và full ESLint **0 errors / 6 warnings**. `origin/master` hiện ở commit `e08d84c`. Public smoke test sau khi owner lưu route Cloudflare trả HTTP 200; Windows app/db Up, app local IPv4 HTTP 200, Cloudflared Running và metrics HTTP 200. Commit này không có migration mới. Khi sửa nghiệp vụ tiền, lương, công nợ, phân quyền, hồ sơ y tế hoặc webhook, phải bổ sung test hồi quy trước khi commit.
 
 ## Quy trình cập nhật máy vận hành
 
-Trên máy Windows của phòng khám, sao lưu trước nếu bản cập nhật có migration; sau đó chạy `windows\\Sua-Loi.bat` và khởi động lại ứng dụng. Với r12, chạy smoke test đăng nhập quản trị, mở một hồ sơ điều trị, vào tab Giấy tờ, kiểm tra Hồ sơ dịch vụ thẩm mỹ, nút +, Phiếu đồng ý, tải tài liệu bổ sung và bản in Giấy đề nghị thanh toán. Sau đó kiểm tra Thu chi, Kế toán, Hệ thống và backup status tại `/he-thong`. Không chép file `.env` thật lên GitHub.
+Trên máy Windows của phòng khám, chạy `windows\\Kiem-Tra-Phat-Hanh.bat` trước; nếu repo sạch và cần lấy commit mới thì dùng `windows\\Chay-Zenith.bat`, còn khi cần rebuild/migration có kiểm soát thì dùng `windows\\Sua-Loi.bat`. Health-check kỹ thuật dùng `http://127.0.0.1:3000/login`; Cloudflare origin phải dùng `http://127.0.0.1:3000`, không dùng `localhost`. Sau cập nhật, kiểm tra đăng nhập quản trị, một hồ sơ điều trị, Thu chi, Kế toán, Hệ thống, backup status và public hostname. Không chép file `.env` thật lên GitHub.
 
 ## Những phần chưa tự động hoàn toàn
 

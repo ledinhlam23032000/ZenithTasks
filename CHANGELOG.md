@@ -2,6 +2,13 @@
 
 Tài liệu này ghi các thay đổi đã được đẩy lên nhánh `master`. Commit mới hơn nằm ở phía trên. Phiên bản mô tả đầy đủ hiện tại nằm trong [`VERSION.md`](VERSION.md).
 
+## 2026-08-24 — r13: Khôi phục Cloudflare 502 và đồng bộ quy trình phát hành
+
+- Commit master: [`e08d84c`](https://github.com/ledinhlam23032000/ZenithTasks/commit/e08d84c798b1c406066c0dd9e5f701eb94173bc2).
+- Route Cloudflare chính giữ nguyên hostname và đổi origin từ `http://localhost:3000` sang `http://127.0.0.1:3000`; public `/login` sau khi owner bấm Save trả HTTP 200. Không reset database, không xóa volume/uploads.
+- Đồng bộ `docker-compose.yml`, `.env.example`, launcher/tunnel/update scripts và tài liệu vận hành; các health-check kỹ thuật dùng IPv4 loopback. Thêm `windows/Kiem-Tra-Phat-Hanh.ps1/.bat` là verifier chỉ đọc, không build/reset/migrate/restart/recreate.
+- Full quality gate: Prisma generate/validate, TypeScript, Vitest **75 file / 396 test**, Next production build; full ESLint **0 errors / 6 warnings**. Gói AI Governance/V2/Training vẫn để riêng để review, chưa commit/deploy.
+
 ## 2026-08-23 — Sua-Loi an toàn khi máy có thay đổi local
 
 - Sửa `windows/Sua-Loi.ps1`: trước khi checkout/reset `master`, nếu working tree có thay đổi tracked hoặc untracked thì tạo `backup/sua-loi-<timestamp>` và `git stash push --include-untracked`; không tự động `stash pop`, không xóa dữ liệu local.
