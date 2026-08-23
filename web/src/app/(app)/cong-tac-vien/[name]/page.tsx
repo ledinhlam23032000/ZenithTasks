@@ -125,7 +125,7 @@ export default async function CollaboratorDetail({
             </dl>
           ) : (
             <p className="text-sm text-slate-500">
-              Chưa có hồ sơ cho CTV này.{canManage ? ' Bấm "Đăng ký CTV" để lưu SĐT, số tài khoản, ghi chú…' : ""}
+              Chưa có hồ sơ cho CTV này.{canManage ? ' Bấm "Đăng ký CTV" để tạo hồ sơ; tên legacy có thể đổi và dữ liệu cũ sẽ được giữ nguyên.' : ""}
             </p>
           )}
         </CardContent>

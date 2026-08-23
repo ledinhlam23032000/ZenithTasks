@@ -3,6 +3,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireUser, hashPassword } from "@/lib/auth";
@@ -54,17 +55,20 @@ export async function createCollaborator(_prev: CtvState, formData: FormData): P
   const parsed = parse(formData);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu không hợp lệ." };
   const d = parsed.data;
+  const legacyName = String(formData.get("legacyName") ?? "").trim();
   const account = accountSchema.safeParse({
     username: formData.get("username") ?? "",
     password: formData.get("password") ?? "",
   });
   if (!account.success) return { error: account.error.issues[0]?.message ?? "Vui lòng nhập tài khoản và mật khẩu CTV." };
   const uname = account.data.username.toLowerCase();
-  const [dup, existingUser] = await Promise.all([
+  const [dup, existingUser, legacyProfile] = await Promise.all([
     prisma.collaborator.findUnique({ where: { name: d.name }, select: { id: true } }),
     prisma.user.findFirst({ where: { username: { equals: uname, mode: "insensitive" } }, select: { id: true } }),
+    legacyName ? prisma.collaborator.findUnique({ where: { name: legacyName }, select: { id: true } }) : Promise.resolve(null),
   ]);
   if (dup) return { error: "Tên cộng tác viên đã tồn tại." };
+  if (legacyName && legacyProfile) return { error: "Tên legacy này đã được đăng ký thành hồ sơ CTV khác. Hãy dùng chức năng đối soát ID." };
   if (existingUser) return { error: "Tên đăng nhập đã tồn tại." };
 
   await prisma.$transaction(async (tx) => {
@@ -78,12 +82,20 @@ export async function createCollaborator(_prev: CtvState, formData: FormData): P
         active: true,
       },
     });
-    await tx.collaborator.create({
+    const collaborator = await tx.collaborator.create({
       data: { userId: accountUser.id, name: d.name, phone: d.phone || null, bankAccount: d.bankAccount || null, bankName: d.bankName || null, bankHolder: d.bankHolder || null, note: d.note || null },
     });
-    await auditRequired(tx, admin.id, "CREATE_COLLABORATOR_ACCOUNT", { entity: "Collaborator", meta: { username: uname } });
+    const counts = legacyName
+      ? await syncCollaboratorIdentity(tx, { collaboratorId: collaborator.id, legacyName, displayName: d.name })
+      : { customers: 0, leads: 0, appointments: 0, cases: 0, payouts: 0, paymentRequests: 0 };
+    await auditRequired(tx, admin.id, "CREATE_COLLABORATOR_ACCOUNT", {
+      entity: "Collaborator",
+      entityId: collaborator.id,
+      meta: { username: uname, legacyName: legacyName || null, linkedLegacy: Boolean(legacyName), ...counts, moneyRecalculated: false },
+    });
   });
   revalidatePath("/cong-tac-vien", "layout");
+  if (legacyName && legacyName !== d.name) redirect(`/cong-tac-vien/${encodeURIComponent(d.name)}`);
   return { ok: true };
 }
 

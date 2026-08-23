@@ -79,10 +79,12 @@ export function NewCollaboratorButton({ defaultName }: { defaultName?: string })
       <Button onClick={() => setOpen(true)}>
         <UserPlus className="h-4 w-4" /> {defaultName ? "Đăng ký CTV" : "Thêm cộng tác viên"}
       </Button>
-      <Modal open={open} onClose={() => setOpen(false)} title="Thêm cộng tác viên" size="lg">
+      <Modal open={open} onClose={() => setOpen(false)} title={defaultName ? "Đăng ký CTV từ dữ liệu đã có" : "Thêm cộng tác viên"} size="lg">
         <form action={action} className="space-y-4">
+          {defaultName && <input type="hidden" name="legacyName" value={defaultName} />}
           <AccountFields />
-          <Fields ctv={defaultName ? { name: defaultName } : undefined} lockName={!!defaultName} />
+          <Fields ctv={defaultName ? { name: defaultName } : undefined} />
+          {defaultName && <p className="-mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800">Đây là dữ liệu CTV đã có từ trước. Anh/chị có thể đổi sang tên chính thức; khách, ca, lịch sử hoa hồng và giấy tờ cũ sẽ được giữ nguyên và liên kết vào hồ sơ này.</p>}
           {state.error && <p className="text-sm text-rose-600">{state.error}</p>}
           <div className="flex justify-end gap-2">
             <Button type="button" variant="secondary" onClick={() => setOpen(false)}>Hủy</Button>
