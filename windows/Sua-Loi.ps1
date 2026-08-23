@@ -117,9 +117,11 @@ Write-Host "`n[2/4] Dung lai ung dung tu dau (lau ~5-15 phut, vui long cho - dun
 $env:COMPOSE_BAKE = "false"
 $BuildLog = Join-Path $Dir "docker-build-$Stamp.log"
 Write-Host "Log build: $BuildLog" -ForegroundColor DarkGray
-$buildOutput = & docker compose build --no-cache app 2>&1
+Write-Host "Docker dang build; dong nay se cap nhat lien tuc. Neu co loi, log van duoc ghi ngay." -ForegroundColor DarkGray
+# Khong gom output vao bien truoc khi hien thi: cach cu lam man hinh dung im
+# suot luc build. Tee-Object vua hien tung dong vua ghi log theo thoi gian thuc.
+& docker compose build --no-cache app 2>&1 | Tee-Object -FilePath $BuildLog
 $buildExit = $LASTEXITCODE
-$buildOutput | Tee-Object -FilePath $BuildLog
 if ($buildExit -ne 0) {
   Write-Host "`nBUILD THAT BAI - ung dung VAN chay ban cu (khong hong them)." -ForegroundColor Red
   Write-Host "Ma loi build: $buildExit" -ForegroundColor Yellow
