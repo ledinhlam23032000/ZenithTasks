@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
+import type { Role } from "@/generated/prisma/client";
 import { requireUser, hashPassword } from "@/lib/auth";
 import { auditRequired } from "@/lib/audit";
 import { syncCollaboratorIdentity } from "@/lib/collaborator-sync";
@@ -15,6 +16,10 @@ import { getUploadDir, getUploadStorageError } from "@/lib/upload-storage";
 export type CtvState = { ok?: boolean; error?: string; nonce?: number };
 
 const ROLES = ["ADMIN", "MANAGER"] as const;
+const STAFF_ROLES = ["MANAGER", "TELESALE", "RECEPTION", "CONSULTANT", "DOCTOR", "NURSE", "CARE", "SHAREHOLDER"] as const;
+const staffRoleSchema = z.enum(STAFF_ROLES);
+
+type StaffRole = (typeof STAFF_ROLES)[number];
 
 const profileSchema = z.object({
   name: z.string().trim().min(1, "Vui lòng nhập tên cộng tác viên."),
@@ -152,11 +157,83 @@ export async function reconcileLegacyCollaborator(_prev: CtvState, formData: For
   return { ok: true };
 }
 
-export async function deleteCollaborator(formData: FormData): Promise<void> {
-  await requireUser([...ROLES]);
-  const id = String(formData.get("id") ?? "");
-  if (id) await prisma.collaborator.delete({ where: { id } }).catch(() => {});
+export async function suspendCollaborator(formData: FormData): Promise<void> {
+  const admin = await requireUser(["ADMIN"]);
+  const id = String(formData.get("id") ?? "").trim();
+  const reason = String(formData.get("reason") ?? "").trim().slice(0, 500) || null;
+  if (!id) return;
+  await prisma.$transaction(async (tx) => {
+    const target = await tx.collaborator.findUnique({ where: { id }, select: { name: true, active: true, archivedAt: true, userId: true, user: { select: { role: true } } } });
+    if (!target || target.archivedAt) return;
+    await tx.collaborator.update({ where: { id }, data: { active: false, suspendedAt: new Date(), statusNote: reason } });
+    if (target.userId && target.user?.role === "COLLABORATOR") {
+      await tx.user.update({ where: { id: target.userId }, data: { active: false } });
+    }
+    await auditRequired(tx, admin.id, "SUSPEND_COLLABORATOR", { entity: "Collaborator", entityId: id, meta: { name: target.name, reason } });
+  });
   revalidatePath("/cong-tac-vien", "layout");
+  revalidatePath(`/cong-tac-vien/${encodeURIComponent(id)}`);
+}
+
+export async function restoreCollaborator(formData: FormData): Promise<void> {
+  const admin = await requireUser(["ADMIN"]);
+  const id = String(formData.get("id") ?? "").trim();
+  if (!id) return;
+  await prisma.$transaction(async (tx) => {
+    const target = await tx.collaborator.findUnique({ where: { id }, select: { name: true, active: true, archivedAt: true, userId: true, user: { select: { role: true } } } });
+    if (!target || target.active) return;
+    await tx.collaborator.update({ where: { id }, data: { active: true, suspendedAt: null, archivedAt: null, statusNote: null } });
+    if (target.userId && target.user?.role === "COLLABORATOR") {
+      await tx.user.update({ where: { id: target.userId }, data: { active: true } });
+    }
+    await auditRequired(tx, admin.id, "RESTORE_COLLABORATOR", { entity: "Collaborator", entityId: id, meta: { name: target.name } });
+  });
+  revalidatePath("/cong-tac-vien", "layout");
+  revalidatePath(`/cong-tac-vien/${encodeURIComponent(id)}`);
+}
+
+export async function archiveCollaborator(formData: FormData): Promise<void> {
+  const admin = await requireUser(["ADMIN"]);
+  const id = String(formData.get("id") ?? "").trim();
+  const reason = String(formData.get("reason") ?? "").trim().slice(0, 500) || null;
+  if (!id) return;
+  await prisma.$transaction(async (tx) => {
+    const target = await tx.collaborator.findUnique({ where: { id }, select: { name: true, archivedAt: true, userId: true, user: { select: { role: true } } } });
+    if (!target || target.archivedAt) return;
+    await tx.collaborator.update({ where: { id }, data: { active: false, suspendedAt: null, archivedAt: new Date(), statusNote: reason } });
+    if (target.userId && target.user?.role === "COLLABORATOR") {
+      await tx.user.update({ where: { id: target.userId }, data: { active: false } });
+    }
+    await auditRequired(tx, admin.id, "ARCHIVE_COLLABORATOR", { entity: "Collaborator", entityId: id, meta: { name: target.name, reason, dataDeleted: false } });
+  });
+  revalidatePath("/cong-tac-vien", "layout");
+  revalidatePath(`/cong-tac-vien/${encodeURIComponent(id)}`);
+}
+
+/** Tương thích với form cũ: "xóa CTV" nay chỉ lưu trữ mềm, không xóa bản ghi. */
+export async function deleteCollaborator(formData: FormData): Promise<void> {
+  return archiveCollaborator(formData);
+}
+
+export async function convertCollaboratorToStaff(formData: FormData): Promise<void> {
+  const admin = await requireUser(["ADMIN"]);
+  const collaboratorId = String(formData.get("collaboratorId") ?? "").trim();
+  const parsed = staffRoleSchema.safeParse(String(formData.get("role") ?? ""));
+  if (!collaboratorId || !parsed.success) throw new Error("Vai trò nhân viên không hợp lệ.");
+  const nextRole: StaffRole = parsed.data;
+  await prisma.$transaction(async (tx) => {
+    const target = await tx.collaborator.findUnique({ where: { id: collaboratorId }, select: { id: true, name: true, active: true, archivedAt: true, userId: true, user: { select: { id: true, role: true, position: true, department: true } } } });
+    if (!target) throw new Error("Không tìm thấy cộng tác viên.");
+    if (!target.active || target.archivedAt) throw new Error("Hãy khôi phục CTV trước khi chuyển thành nhân viên.");
+    if (!target.userId || !target.user) throw new Error("CTV này chưa có tài khoản đăng nhập để chuyển đổi.");
+    if (target.user.role === nextRole) return;
+    await tx.user.update({ where: { id: target.userId }, data: { role: nextRole as Role, active: true, employmentStatus: "ACTIVE", retiredAt: null, retiredById: null } });
+    await tx.staffRoleHistory.create({ data: { userId: target.userId, fromRole: target.user.role, toRole: nextRole as Role, fromPosition: target.user.position, toPosition: target.user.position, fromDepartment: target.user.department, toDepartment: target.user.department, note: "Chuyển từ CTV sang nhân viên theo quyết định quản trị viên", changedById: admin.id } });
+    await auditRequired(tx, admin.id, "CONVERT_COLLABORATOR_TO_STAFF", { entity: "User", entityId: target.userId, meta: { collaboratorId, name: target.name, fromRole: target.user.role, toRole: nextRole, collaboratorProfileKept: true, dataDeleted: false } });
+  });
+  revalidatePath("/cong-tac-vien", "layout");
+  revalidatePath("/nhan-su", "layout");
+  revalidatePath(`/cong-tac-vien/${encodeURIComponent(collaboratorId)}`);
 }
 
 export async function uploadCollaboratorDocument(_prev: CtvState, formData: FormData): Promise<CtvState> {

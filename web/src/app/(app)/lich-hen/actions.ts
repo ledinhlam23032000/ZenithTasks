@@ -7,6 +7,7 @@ import { requireUser } from "@/lib/auth";
 import { userCan } from "@/lib/permissions";
 import { decryptPhone, redactPhoneLikeText } from "@/lib/phone";
 import { auditRequired } from "@/lib/audit";
+import { collaboratorCanReceiveReferrals } from "@/lib/collaborator-lifecycle";
 import { findConflicts, minutesApart, SLOT_WINDOW_MIN, type ApptSlot } from "@/lib/schedule";
 import type { AppointmentStatus } from "@/generated/prisma/client";
 
@@ -144,9 +145,9 @@ async function doCreateAppointment(formData: FormData, force: boolean): Promise<
   }
   const data = parsed.data;
   const collaborator = data.source === "COLLABORATOR" && data.collaboratorId
-    ? await prisma.collaborator.findFirst({ where: { id: data.collaboratorId, active: true }, select: { id: true, name: true } })
+    ? await prisma.collaborator.findFirst({ where: { id: data.collaboratorId }, select: { id: true, name: true, active: true, archivedAt: true } })
     : null;
-  if (data.source === "COLLABORATOR" && !collaborator) return { error: "Nguồn CTV bắt buộc phải chọn cộng tác viên đang hoạt động." };
+  if (data.source === "COLLABORATOR" && (!collaborator || !collaboratorCanReceiveReferrals(collaborator))) return { error: "Nguồn CTV bắt buộc phải chọn cộng tác viên đang hoạt động; CTV đã đình chỉ/lưu trữ không nhận lịch mới." };
 
   const when = new Date(data.scheduledAt);
   if (Number.isNaN(when.getTime())) return { error: "Ngày giờ hẹn không hợp lệ." };
@@ -230,9 +231,9 @@ async function doUpdateAppointment(formData: FormData, force: boolean): Promise<
   }
   const data = parsed.data;
   const collaborator = data.source === "COLLABORATOR" && data.collaboratorId
-    ? await prisma.collaborator.findFirst({ where: { id: data.collaboratorId, active: true }, select: { id: true, name: true } })
+    ? await prisma.collaborator.findFirst({ where: { id: data.collaboratorId }, select: { id: true, name: true, active: true, archivedAt: true } })
     : null;
-  if (data.source === "COLLABORATOR" && !collaborator) return { error: "Nguồn CTV bắt buộc phải chọn cộng tác viên đang hoạt động." };
+  if (data.source === "COLLABORATOR" && (!collaborator || !collaboratorCanReceiveReferrals(collaborator))) return { error: "Nguồn CTV bắt buộc phải chọn cộng tác viên đang hoạt động; CTV đã đình chỉ/lưu trữ không nhận lịch mới." };
 
   const when = new Date(data.scheduledAt);
   if (Number.isNaN(when.getTime())) return { error: "Ngày giờ hẹn không hợp lệ." };

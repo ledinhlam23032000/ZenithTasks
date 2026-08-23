@@ -61,7 +61,7 @@ export default async function ReceptionPage({ searchParams }: { searchParams: Pr
     take: 12,
     include: { customer: { select: { id: true, fullName: true, phoneLast5: true } } },
   });
-  const collaborators = await prisma.collaborator.findMany({ where: { active: true }, select: { id: true, name: true }, orderBy: { name: "asc" } });
+  const collaborators = await prisma.collaborator.findMany({ where: { active: true, archivedAt: null }, select: { id: true, name: true }, orderBy: { name: "asc" } });
 
   return (
     <div className="space-y-6">

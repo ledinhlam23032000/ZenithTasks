@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { format } from "date-fns";
-import { Contact, Power, KeyRound, UserRoundX, UserRoundCheck } from "lucide-react";
+import { Contact, Power, KeyRound, UserRoundX, UserRoundCheck, Archive } from "lucide-react";
 import { requireCap } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { ROLE_LABELS } from "@/lib/rbac";
@@ -12,7 +12,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { Table, THead, TH, TR, TD } from "@/components/ui/table";
-import { DeleteButton } from "@/components/ui/delete-button";
 import { ConfirmButton } from "@/components/ui/confirm-button";
 import { NewStaffButton } from "./new-staff";
 import { ResetPasswordButton } from "./reset-password";
@@ -160,11 +159,15 @@ export default async function StaffPage({ searchParams }: { searchParams: Promis
                         </form>
                       )}
                       {u.id !== me.id && (
-                        <DeleteButton
+                        <ConfirmButton
                           action={deleteStaff}
-                          id={u.id}
-                          confirmText={`Xóa nhân sự "${u.fullName}"? Hành động này không thể hoàn tác.`}
-                        />
+                          fields={{ id: u.id }}
+                          confirmText={`Lưu trữ nhân sự "${u.fullName}"? Tài khoản sẽ bị khóa nhưng toàn bộ hồ sơ, chấm công, lương và lịch sử vẫn được giữ để tra cứu hoặc khôi phục.`}
+                          confirmLabel="Lưu trữ"
+                          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-rose-600 hover:bg-rose-50"
+                        >
+                          <Archive className="h-3.5 w-3.5" /> Lưu trữ
+                        </ConfirmButton>
                       )}
                     </div>
                   </TD>

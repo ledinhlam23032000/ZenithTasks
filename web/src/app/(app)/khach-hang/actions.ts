@@ -8,6 +8,7 @@ import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { userCan } from "@/lib/permissions";
 import { auditRequired } from "@/lib/audit";
+import { collaboratorCanReceiveReferrals } from "@/lib/collaborator-lifecycle";
 import { encryptPhone, decryptPhone, normalizePhone, phoneLast5, hashPhone } from "@/lib/phone";
 import { restoreMaterialUsageStock } from "@/app/(app)/ho-so/actions";
 
@@ -71,9 +72,9 @@ export async function updateCustomer(_prev: EditCustomerState, formData: FormDat
   const existing = await prisma.customer.findUnique({ where: { id: d.customerId }, select: { id: true, collaboratorId: true, collaboratorAssignedAt: true } });
   if (!existing) return { error: "Không tìm thấy khách hàng." };
   const collaborator = d.source === "COLLABORATOR" && d.collaboratorId
-    ? await prisma.collaborator.findFirst({ where: { id: d.collaboratorId, active: true }, select: { id: true, name: true } })
+    ? await prisma.collaborator.findFirst({ where: { id: d.collaboratorId }, select: { id: true, name: true, active: true, archivedAt: true } })
     : null;
-  if (d.source === "COLLABORATOR" && !collaborator) return { error: "Nguồn CTV bắt buộc phải chọn cộng tác viên đang hoạt động." };
+  if (d.source === "COLLABORATOR" && (!collaborator || !collaboratorCanReceiveReferrals(collaborator))) return { error: "Nguồn CTV bắt buộc phải chọn cộng tác viên đang hoạt động; CTV đã đình chỉ/lưu trữ không nhận khách mới." };
   const collaboratorAssignedAt = collaborator ? existing.collaboratorAssignedAt ?? new Date() : null;
 
   let dob: Date | null | undefined;

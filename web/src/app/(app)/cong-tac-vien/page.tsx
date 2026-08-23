@@ -44,7 +44,7 @@ export default async function CollaboratorsPage({ searchParams }: { searchParams
   const [rows, growth, profiles] = await Promise.all([
     getCollaborators(gte, lte),
     getCollaboratorSeries(),
-    canManage ? prisma.collaborator.findMany({ where: { active: true }, select: { id: true, name: true }, orderBy: { name: "asc" } }) : Promise.resolve([] as { id: string; name: string }[]),
+    canManage ? prisma.collaborator.findMany({ where: { active: true, archivedAt: null }, select: { id: true, name: true }, orderBy: { name: "asc" } }) : Promise.resolve([] as { id: string; name: string }[]),
   ]);
   const quality = summarizeCollaboratorQuality(rows);
 
@@ -154,6 +154,7 @@ export default async function CollaboratorsPage({ searchParams }: { searchParams
                         </Link>
                         {!r.id && <><Badge tone="red">Thiếu ID</Badge>{canManage && isUxFeatureEnabled("collaborator-id-reconcile") && <ReconcileLegacyButton legacyName={r.name} profiles={profiles} />}</>}
                         {r.id && !r.registered && <Badge tone="amber">Chưa đăng ký</Badge>}
+                        {r.id && r.registered && !r.active && <Badge tone={r.archivedAt ? "red" : "amber"}>{r.archivedAt ? "Đã lưu trữ" : "Đang đình chỉ"}</Badge>}
                       </div>
                     </TD>
                     <TD className="text-center tabular-nums text-slate-700">{r.customers}</TD>
