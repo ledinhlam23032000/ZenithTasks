@@ -474,3 +474,20 @@ Mọi thao tác tiền, lương, chứng từ, dữ liệu y tế, sửa sổ sa
 - **`AGENTS.md`** — lưu ý Next.js 16 (đọc docs trong node_modules trước khi viết).
 - **`PROJECT-OVERVIEW.md`** — bản giới thiệu dự án (để gửi người/AI khác review).
 - **`CLAUDE.md`** — tự nạp các tài liệu trên vào ngữ cảnh mỗi phiên.
+
+
+## 14. Operating Framework V2 và AI governance — trạng thái 24/08/2026
+
+Đây là lớp mở rộng **feature-gated**, không thay thế workflow clinic hiện tại. Khi `ENABLE_ZENITH_V2=true`, các route `/du-an`, `/du-an/[projectId]/to-chuc` và `/du-an/[projectId]/co-che` cung cấp project, đơn vị, vị trí, membership, mechanism definition/version và rule-engine simulation. Migration `20260824000000_operating_framework_v2` là additive. Cơ chế mới phải ở `DRAFT`, có thể mô phỏng trước và chưa tự tính vào lương, đơn hàng hoặc settlement thật.
+
+AI clarification nhận diện yêu cầu về hoa hồng/chiết khấu/revenue sharing và hiển thị bốn lựa chọn A/B/C/D có tác động. Người dùng chọn bằng nút hoặc câu trả lời; hệ thống lưu evidence và draft config inactive trong conversation metadata. Draft chưa có ngày hiệu lực/tỷ lệ đầy đủ, không tự activate. Sau khi draft đã ghi nhận, payload clarification cũ được supersede để không áp dụng lại lựa chọn cũ.
+
+AI governance hiện có policy L0–L5 và adapter gắn role capability/project scope vào dispatcher. Sensitive read yêu cầu purpose, cảnh báo và confirmation preview; dữ liệu được audit theo luồng hiện hữu. Xóa, chấm dứt nhân sự, đổi quyền và deploy production là L5: source hiện tại phân loại rồi dừng vì workflow hai người duyệt chưa được nối. Không mô tả hoặc xây UI khiến một lần xác nhận ADMIN có thể tự thực hiện các thao tác này.
+
+`ENABLE_AI_TRAINING_STUDIO=true` chỉ mở MVP dashboard/counts và ADMIN demo seed: profile TESTING, dataset, prompt và bốn examples chưa approve. Chưa có CRUD knowledge/mechanism/prompt/dataset, evaluation runner, red-team, feedback review, release/publish/rollback đầy đủ. Feature flag tắt không truy vấn bảng V2/Training.
+
+### Bằng chứng QA đã chạy
+
+QA dùng database `zenith_v2_qa` riêng trong container PostgreSQL, source-mounted app port 3300 và dữ liệu demo không phải dữ liệu clinic. Prisma migration/status, seed/upsert, authenticated HTTP route smoke, feature-on/off behavior, role smoke cho ADMIN/MANAGER/SHAREHOLDER/COLLABORATOR/RECEPTION/DOCTOR và server-action seed harness đã được kiểm tra. ADMIN seed trả `ok=true`; MANAGER bị redirect `/khong-co-quyen`; route V2/Training của ADMIN trả 200 với marker nội dung; các role không được cấp quyền nhận meta redirect `khong-co-quyen`. Credentials/token và browser profiles chỉ nằm trong artifact QA local bị ignore, không commit.
+
+Production **chưa apply** hai migration V2/Training. Trước khi mở flag trên máy vận hành phải backup database/uploads, chạy `prisma migrate deploy` trong maintenance window, kiểm tra dry-run/status và có rollback plan; tuyệt đối không dùng `prisma db push` hoặc `migrate reset`. Người tiếp quản phải đọc `docs/AI-EXECUTIVE-GOVERNANCE-V3.md` và `docs/AI-TRAINING-STUDIO-SETUP.md` để phân biệt target architecture với MVP thực tế.

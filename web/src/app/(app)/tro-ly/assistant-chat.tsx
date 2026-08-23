@@ -8,6 +8,8 @@ import { Markdown } from "@/components/ui/markdown";
 import { SUGGESTED_QUESTIONS } from "@/lib/assistant";
 import { runAssistantAgent, confirmAssistantApproval, rejectAssistantApproval, type AgentState } from "./agent";
 import { saveAssistantFeedback, uploadAssistantFile } from "./file-actions";
+import type { ClarificationPayload } from "@/lib/ai-clarification";
+
 import { removeAssistantConversation, startNewAssistantConversation } from "./conversation-actions";
 
 type Turn = {
@@ -17,6 +19,8 @@ type Turn = {
   exportUrl?: string;
   approval?: NonNullable<AgentState["approval"]>;
   steps?: string[];
+  clarification?: ClarificationPayload;
+  clarificationDraft?: NonNullable<AgentState["clarificationDraft"]>;
 };
 
 type StoredAssistantMessage = {
@@ -36,8 +40,8 @@ function storedMessagesToTurns(messages: readonly StoredAssistantMessage[]): Tur
     if (message.role === "ASSISTANT") {
       const last = result[result.length - 1];
       if (last && !last.a) {
-        const metadata = message.metadata as { approval?: NonNullable<AgentState["approval"]>; steps?: string[] } | null | undefined;
-        result[result.length - 1] = { ...last, a: message.content, approval: metadata?.approval, steps: metadata?.steps };
+        const metadata = message.metadata as { approval?: NonNullable<AgentState["approval"]>; steps?: string[]; clarification?: ClarificationPayload; clarificationDraft?: NonNullable<AgentState["clarificationDraft"]> } | null | undefined;
+        result[result.length - 1] = { ...last, a: message.content, approval: metadata?.approval, steps: metadata?.steps, clarification: metadata?.clarification, clarificationDraft: metadata?.clarificationDraft };
       } else if (last) {
         const metadata = message.metadata as { steps?: string[] } | null | undefined;
         result[result.length - 1] = { ...last, a: `${last.a}\n\n${message.content}`, approval: undefined, steps: metadata?.steps ?? last.steps };
@@ -102,7 +106,7 @@ export function AssistantChat({
       if (r.error) setErr(r.error);
       else {
         if (r.conversationId) setConversationId(r.conversationId);
-        setTurns((t) => [...t, { id: r.conversationId ?? crypto.randomUUID(), q: text, a: r.answer ?? "", approval: r.approval, steps: r.steps, exportUrl: r.exportUrl }]);
+        setTurns((t) => [...t, { id: r.conversationId ?? crypto.randomUUID(), q: text, a: r.answer ?? "", approval: r.approval, steps: r.steps, exportUrl: r.exportUrl, clarification: r.clarification, clarificationDraft: r.clarificationDraft }]);
         setQ("");
       }
     });
@@ -302,7 +306,19 @@ export function AssistantChat({
                     {t.steps && t.steps.length > 0 && <div className="flex flex-wrap gap-1.5 pl-1">{t.steps.map((step, stepIndex) => <span key={`${step}-${stepIndex}`} className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-1 text-[10px] text-slate-500"><Check className="h-3 w-3 text-emerald-500" />{step}</span>)}</div>}
                     <div className="flex items-center gap-2 pl-1"><span className="text-[11px] text-slate-400">Câu trả lời này có hữu ích không?</span><button type="button" onClick={() => saveFeedback(t, "APPROVAL")} disabled={actionPending} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-emerald-700 hover:bg-emerald-50"><ThumbsUp className="h-3 w-3" /> Đúng</button><button type="button" onClick={() => saveFeedback(t, "CORRECTION")} disabled={actionPending} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-amber-700 hover:bg-amber-50"><ThumbsDown className="h-3 w-3" /> Cần sửa</button></div>
                     {t.exportUrl && <Link href={t.exportUrl} className="inline-flex items-center gap-1.5 rounded-lg bg-brand-50 px-3 py-2 text-xs font-semibold text-brand-700 hover:bg-brand-100"><Download className="h-3.5 w-3.5" /> Tải file đã chuẩn bị</Link>}
+                                        {t.clarification && !t.clarificationDraft && (
+                      <div className="rounded-xl border border-brand-200 bg-brand-50 p-3.5">
+                        <p className="text-xs font-semibold text-brand-900">Chọn một phương án để em tạo bản nháp</p>
+                        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                          {t.clarification.options.map((option) => <button key={option.id} type="button" disabled={actionPending || pending} onClick={() => ask(option.id)} className="rounded-lg border border-brand-200 bg-white px-3 py-2 text-left text-xs text-slate-700 hover:border-brand-400 hover:bg-brand-100 disabled:opacity-50"><span className="font-bold text-brand-700">{option.id}.</span> {option.label}<span className="mt-1 block text-[11px] text-slate-500">{option.impact}</span></button>)}
+                        </div>
+                      </div>
+                    )}
+                    {t.clarificationDraft && (
+                      <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3.5 text-xs text-emerald-800"><p className="font-semibold">Draft đã ghi nhận: {t.clarificationDraft.label}</p><p className="mt-1">Chưa kích hoạt, chưa tính vào lương/thanh toán. Còn cần: {t.clarificationDraft.nextQuestions.join(" ")}</p></div>
+                    )}
                     {t.approval && (
+
                       <div className="rounded-xl border border-amber-200 bg-amber-50 p-3.5">
                         <div className="flex items-start gap-2"><ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" /><div><p className="text-xs font-semibold text-amber-900">Xem trước thao tác — chưa thay đổi dữ liệu</p><p className="mt-1 text-sm text-amber-800">{t.approval.preview}</p><p className="mt-1 text-[11px] text-amber-700">Yêu cầu tự hết hạn sau 10 phút.</p></div></div>
                         <div className="mt-3 flex gap-2">

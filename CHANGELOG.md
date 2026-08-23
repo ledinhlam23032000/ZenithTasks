@@ -2,6 +2,15 @@
 
 Tài liệu này ghi các thay đổi đã được đẩy lên nhánh `master`. Commit mới hơn nằm ở phía trên. Phiên bản mô tả đầy đủ hiện tại nằm trong [`VERSION.md`](VERSION.md).
 
+## 2026-08-24 — Operating Framework V2, AI clarification và governance QA
+
+- Khôi phục và tích hợp additive V2 operating framework: project, membership, đơn vị, vị trí, assignment, mechanism definition/version và rule-engine simulation; không hard-code riêng Cellarisca.
+- Trợ lý AI nhận diện yêu cầu cơ chế hoa hồng/chiết khấu/revenue sharing, hỏi bốn lựa chọn A/B/C/D có tác động, lưu evidence và tạo draft inactive; UI có nút chọn trực tiếp. Clarification cũ được supersede sau khi đã tạo draft.
+- Thêm policy/adapter L0–L5 với capability và project scope. Sensitive read yêu cầu purpose/confirmation preview; L5 xóa/chấm dứt nhân sự/đổi quyền/deploy bị dừng vì workflow hai người duyệt chưa được nối. Không có auto termination/deploy.
+- AI Training Studio hiện chỉ là MVP feature-gated dashboard + demo seed TESTING gồm profile/dataset/prompt và bốn examples chưa approved. CRUD/evaluation/release/publish/rollback đầy đủ vẫn deferred.
+- QA isolated database `zenith_v2_qa` đã chạy migration, seed/upsert, authenticated route smoke, feature flags on/off, role smoke và server-action seed harness. Production clinic database chưa migrate; không dùng `db push`/`migrate reset`.
+- Quality gate sau thay đổi: Prisma validate/generate, TypeScript, Vitest **75 file / 397 test** và Next webpack production build đạt.
+
 ## 2026-08-24 — r13: Khôi phục Cloudflare 502 và đồng bộ quy trình phát hành
 
 - Commit master: [`e08d84c`](https://github.com/ledinhlam23032000/ZenithTasks/commit/e08d84c798b1c406066c0dd9e5f701eb94173bc2).

@@ -22,6 +22,8 @@ import { getAssistantFileContext } from "./file-actions";
 import { appendAssistantTurn, getAssistantConversationContext, getOrCreateAssistantConversation, maybeCompactAssistantConversation } from "./conversations";
 import { inferAttendanceIntent } from "./attendance-intent";
 import type { Prisma } from "@/generated/prisma/client";
+import { evaluateDispatcherAction, governanceMessage, principalForUser } from "@/lib/ai-governance-adapter";
+import { applyClarificationChoice, buildClarificationPayload, clarificationAnswer, findActiveClarificationPayload, parseClarificationChoice, type ClarificationPayload } from "@/lib/ai-clarification";
 
 const monthSchema = z.string().regex(/^\d{4}-\d{2}$/);
 const actionNames = [
@@ -76,6 +78,16 @@ export type AgentState = {
   approval?: { id: string; toolName: string; preview: string; expiresAt: string };
   exportUrl?: string;
   conversationId?: string;
+  clarification?: ClarificationPayload;
+  clarificationDraft?: {
+    status: "DRAFT";
+    selected: "A" | "B" | "C" | "D";
+    label: string;
+    impact: string;
+    draftConfig: Record<string, string | number | boolean>;
+    evidence: { source: "user"; text: string; choice: "A" | "B" | "C" | "D" };
+    nextQuestions: string[];
+  };
 };
 
 const plannerSchema = {
@@ -189,6 +201,24 @@ const jsonArgs = (raw: string): unknown => {
   }
 };
 const norm = (s: string) => s.toLocaleLowerCase("vi-VN").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+
+async function getAiPrincipal(user: { id: string; role: string }) {
+  const projectIds = process.env.ENABLE_ZENITH_V2 === "true"
+    ? (await prisma.zProjectMember.findMany({ where: { userId: user.id, active: true }, select: { projectId: true } })).map((row) => row.projectId)
+    : [];
+  return principalForUser(user, projectIds);
+}
+
+function governanceBlock(principal: ReturnType<typeof principalForUser>, action: string, args: unknown, confirmationRequested: boolean, confirmationStage = false): string | null {
+  const policy = evaluateDispatcherAction(principal, action, args);
+  if (policy.decision === "DENY") return governanceMessage(policy);
+  if (policy.requiredApprovals > 1) return `${governanceMessage(policy)} Workflow hai phê duyệt chưa được nối vào luồng hiện tại, nên em dừng và không tạo preview một người có thể xác nhận.`;
+  if (policy.purposeRequired && (!args || typeof args !== "object" || typeof (args as Record<string, unknown>).purpose !== "string" || !(args as Record<string, unknown>).purpose)) {
+    return `${governanceMessage(policy)} Anh cần nêu mục đích và phạm vi tối thiểu trong yêu cầu; em chưa đọc/ghi dữ liệu.`;
+  }
+  if (policy.confirmationRequired && !confirmationRequested) return `${governanceMessage(policy)} Em cần tạo preview và chờ xác nhận rõ ràng trước khi tiếp tục.`;
+  return null;
+}
 
 const actionHelp = `
 Công cụ được phép:
@@ -610,15 +640,19 @@ async function validateWrite(action: ActionName, args: unknown, userId: string):
 async function persistAssistantResult(userId: string, conversationId: string, state: AgentState) {
   const content = state.answer ?? state.error ?? "";
   if (content) {
-    const metadata = state.approval || state.steps ? { ...(state.approval ? { approval: state.approval } : {}), ...(state.steps ? { steps: state.steps } : {}) } : undefined;
-    await appendAssistantTurn(userId, conversationId, "ASSISTANT", content, metadata);
+    const metadata = state.approval || state.steps || state.clarification || state.clarificationDraft
+      ? { ...(state.approval ? { approval: state.approval } : {}), ...(state.steps ? { steps: state.steps } : {}), ...(state.clarification ? { clarification: state.clarification } : {}), ...(state.clarificationDraft ? { clarificationDraft: state.clarificationDraft } : {}) }
+      : undefined;
+    await appendAssistantTurn(userId, conversationId, "ASSISTANT", content, metadata as Prisma.InputJsonValue);
   }
   return { ...state, conversationId };
 }
 
 export async function runAssistantAgent(_prev: AgentState, formData: FormData): Promise<AgentState> {
-  const user = await requireCap("mod:tro-ly");
+    const user = await requireCap("mod:tro-ly");
+  const aiPrincipal = await getAiPrincipal(user);
   const question = String(formData.get("question") ?? "").trim();
+
   if (!question) return planError("Vui lòng nhập yêu cầu.");
   if (question.length > 1200) return planError("Yêu cầu quá dài (tối đa 1.200 ký tự).");
   const conversation = await getOrCreateAssistantConversation(user.id, String(formData.get("conversationId") ?? "") || null);
@@ -632,6 +666,15 @@ export async function runAssistantAgent(_prev: AgentState, formData: FormData): 
     if (shouldCompact) await maybeCompactAssistantConversation(user.id, conversation.id).catch(() => undefined);
     return persisted;
   };
+  const activePayload = findActiveClarificationPayload(conversationContext.turns);
+  const selectedChoice = activePayload ? parseClarificationChoice(question) : null;
+  if (activePayload && selectedChoice) {
+    const draft = applyClarificationChoice(activePayload, selectedChoice);
+    if (draft) return finish({ ok: true, answer: `Em đã ghi nhận lựa chọn ${selectedChoice} — ${draft.label}. ${draft.impact}\n\nĐây mới là bản nháp, chưa kích hoạt và chưa tính vào lương/thanh toán.\n\n${draft.nextQuestions.map((item, index) => `${index + 1}. ${item}`).join("\n")}`, clarificationDraft: draft, steps: ["Ghi nhận lựa chọn A/B/C/D", "Tạo draft config chưa kích hoạt", "Lưu evidence của lựa chọn người dùng"] });
+  }
+  const clarification = buildClarificationPayload(question);
+  if (clarification) return finish({ ok: true, answer: clarificationAnswer(clarification), clarification, steps: ["Nhận diện yêu cầu thiếu dữ kiện", "Đưa ra bốn lựa chọn có tác động", "Chưa tạo hoặc kích hoạt cơ chế"] });
+
   if (!aiConfigured()) return finish(planError("Chưa cấu hình AI."));
 
   if (isBareApproval(question)) {
@@ -655,9 +698,12 @@ export async function runAssistantAgent(_prev: AgentState, formData: FormData): 
   }
 
   const staffCandidates = await prisma.user.findMany({ where: { active: true }, select: { id: true, fullName: true } });
-  const deterministicAttendance = inferAttendanceIntent(question, history, staffCandidates);
+    const deterministicAttendance = inferAttendanceIntent(question, history, staffCandidates);
   if (deterministicAttendance) {
+    const governanceError = governanceBlock(aiPrincipal, "bulk_upsert_attendance", deterministicAttendance, true);
+    if (governanceError) return finish(planError(governanceError));
     const checked = await validateWrite("bulk_upsert_attendance", deterministicAttendance, user.id);
+
     if ("error" in checked) return finish(planError(checked.error));
     const approval = await createApproval(user.id, "bulk_upsert_attendance", checked.args as Prisma.InputJsonValue, checked.preview, conversation.id);
     return finish(approval);
@@ -683,9 +729,12 @@ export async function runAssistantAgent(_prev: AgentState, formData: FormData): 
     const verifiedResults: string[] = [];
     const stepLabels: string[] = ["Phân rã yêu cầu thành các bước đọc độc lập"];
     for (const [index, step] of plannedSteps.entries()) {
-      const args = jsonArgs(step.arguments_json);
+            const args = jsonArgs(step.arguments_json);
       if (args === null) return finish(planError(`Tham số của bước ${index + 1} chưa hợp lệ; em chưa chạy bước nào tiếp theo.`));
+      const governanceError = governanceBlock(aiPrincipal, step.action, args, step.requires_confirmation);
+      if (governanceError) return finish(planError(governanceError));
       const result = await readAction(step.action, args, user.id);
+
       await audit(user.id, "ASSISTANT_READ_TOOL", { entity: step.action, meta: { ok: result.ok, step: index + 1, note: step.note ?? null } });
       stepLabels.push(`Bước ${index + 1}: đọc ${step.action}`);
       if (result.error) return finish({ error: result.error, steps: stepLabels });
@@ -702,8 +751,17 @@ export async function runAssistantAgent(_prev: AgentState, formData: FormData): 
 
   const args = jsonArgs(planned.data.arguments_json);
   if (args === null) return finish(planError("Tôi chưa đọc được tham số yêu cầu. Anh hãy nói rõ tên, tháng hoặc số tiền."));
-  if (READ_ACTIONS.has(action)) {
+    if (READ_ACTIONS.has(action)) {
+    const governanceError = governanceBlock(aiPrincipal, action, args, planned.data.requires_confirmation);
+    if (governanceError) return finish(planError(governanceError));
+    const policy = evaluateDispatcherAction(aiPrincipal, action, args);
+    if (policy.confirmationRequired) {
+      if (!planned.data.requires_confirmation) return finish(planError(`${governanceMessage(policy)} Em đã tạo cảnh báo; anh cần xác nhận rõ ràng trước khi đọc dữ liệu.`));
+      const approval = await createApproval(user.id, action, args as Prisma.InputJsonValue, `${governanceMessage(policy)} Chỉ đọc trong phạm vi đã nêu; chưa hiển thị dữ liệu trước khi xác nhận.`, conversation.id);
+      return finish(approval);
+    }
     const result = await readAction(action, args, user.id);
+
     await audit(user.id, "ASSISTANT_READ_TOOL", { entity: action, meta: { ok: result.ok } });
     const answer = result.answer
       ? await buildFinalKnowledgeAnswer(question, user.role, planned.data.reply, [result.answer])
@@ -711,17 +769,22 @@ export async function runAssistantAgent(_prev: AgentState, formData: FormData): 
     return finish({ ...result, answer, steps: workflowSteps(action, "read") });
   }
 
+    const governanceError = governanceBlock(aiPrincipal, action, args, planned.data.requires_confirmation);
+  if (governanceError) return finish(planError(governanceError));
   const checked = await validateWrite(action, args, user.id);
   if ("error" in checked) return finish(planError(checked.error));
+
   if (!planned.data.requires_confirmation) return finish(planError("Thao tác ghi dữ liệu luôn phải có xác nhận ADMIN."));
   const approval = await createApproval(user.id, action, checked.args as Prisma.InputJsonValue, checked.preview, conversation.id);
   return finish(approval);
 }
 
 export async function confirmAssistantApproval(_prev: AgentState, formData: FormData): Promise<AgentState> {
-  const user = await requireCap("mod:tro-ly");
+    const user = await requireCap("mod:tro-ly");
   if (user.role !== "ADMIN") return planError("Chỉ ADMIN được xác nhận thao tác thay đổi dữ liệu.");
+  const aiPrincipal = await getAiPrincipal(user);
   const id = String(formData.get("approvalId") ?? "");
+
   const approval = await prisma.assistantApproval.findFirst({ where: { id, userId: user.id, status: "PENDING" } });
   if (!approval) return planError("Yêu cầu không tồn tại hoặc đã được xử lý.");
   if (approval.expiresAt < new Date()) {
@@ -729,9 +792,17 @@ export async function confirmAssistantApproval(_prev: AgentState, formData: Form
     return planError("Yêu cầu đã hết hạn; hãy gửi lại yêu cầu để tạo bản xem trước mới.");
   }
 
-  const args = approval.arguments as Record<string, unknown>;
-  try {
-    if (approval.toolName === "bulk_upsert_attendance") {
+    const args = approval.arguments as Record<string, unknown>;
+  const governanceError = governanceBlock(aiPrincipal, approval.toolName, args, true, true);
+  if (governanceError) return planError(governanceError);
+    try {
+    let executionAnswer = approval.preview;
+    if (READ_ACTIONS.has(approval.toolName as ActionName)) {
+      const result = await readAction(approval.toolName as ActionName, args, user.id);
+      if (result.error) return planError(result.error);
+      executionAnswer = result.answer ?? approval.preview;
+    } else if (approval.toolName === "bulk_upsert_attendance") {
+
       const fd = new FormData();
       fd.set("userId", String(args.userId));
       fd.set("dates", JSON.stringify(Array.isArray(args.dates) ? args.dates : []));
@@ -877,7 +948,7 @@ export async function confirmAssistantApproval(_prev: AgentState, formData: Form
     }
     await prisma.assistantApproval.update({ where: { id }, data: { status: "APPROVED", resolvedAt: new Date() } });
     await audit(user.id, "ASSISTANT_MUTATION_EXECUTED", { entity: approval.toolName, entityId: id });
-    const result: AgentState = { ok: true, answer: `Đã thực hiện xong. ${approval.preview}`, steps: workflowSteps(approval.toolName as ActionName, "done") };
+    const result: AgentState = { ok: true, answer: `Đã thực hiện xong. ${executionAnswer}`, steps: workflowSteps(approval.toolName as ActionName, "done") };
     if (approval.conversationId) {
       await appendAssistantTurn(user.id, approval.conversationId, "ASSISTANT", result.answer ?? "Đã thực hiện.", { approvalId: id, toolName: approval.toolName, status: "APPROVED", steps: result.steps ?? [] });
       result.conversationId = approval.conversationId;

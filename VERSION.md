@@ -1,10 +1,10 @@
 # ZenithTasks — Trạng thái phiên bản hiện tại
 
-> **Phiên bản nội bộ:** `2026.08.24-r13`<br>
-> **Commit master:** [`e08d84c`](https://github.com/ledinhlam23032000/ZenithTasks/commit/e08d84c798b1c406066c0dd9e5f701eb94173bc2)<br>
+> **Phiên bản nội bộ:** `2026.08.24-r14`<br>
+> **Commit master:** sẽ cập nhật sau khi release candidate này được commit/push và xác minh origin<br>
 > **PR gần nhất:** cập nhật trực tiếp trên `master` theo chỉ đạo owner<br>
 > **Ngày cập nhật:** 24/08/2026<br>
-> **Trạng thái:** Đã đồng bộ quy ước origin kỹ thuật IPv4, script cập nhật/recovery, Docker Compose, mẫu môi trường và tài liệu vận hành; route Cloudflare chính đã đổi sang `http://127.0.0.1:3000` và public `/login` đã xác nhận HTTP 200. Không có migration trong commit này, không reset database/volume. Gói AI Governance/V2/Training đang để riêng trong working tree để review, chưa commit/deploy. Bộ tài liệu tiếp quản chuẩn nằm tại [`docs/INDEX.md`](docs/INDEX.md), bản đồ năng lực nằm tại [`docs/PRODUCT-CAPABILITIES.md`](docs/PRODUCT-CAPABILITIES.md).
+> **Trạng thái:** Release candidate đã qua Prisma validate/generate, TypeScript, 75 file/397 test và Next webpack production build; V2/AI governance/clarification/Training Studio MVP đã được kiểm thử trong QA cô lập. Hai migration mới chưa chạy trên database clinic thật; chưa reset database/volume và chưa publish production. Bộ tài liệu tiếp quản chuẩn nằm tại [`docs/INDEX.md`](docs/INDEX.md), bản đồ năng lực nằm tại [`docs/PRODUCT-CAPABILITIES.md`](docs/PRODUCT-CAPABILITIES.md).
 
 ## Quy tắc đọc tài liệu
 
@@ -25,7 +25,7 @@
 | Phân bổ doanh thu | `web/src/lib/revenue-attribution.ts`; một nhân sự kiêm hai vai trò không bị đếm đôi; hồ sơ phối hợp có thể chia tỷ lệ đủ 100% tại tab `Phối hợp DS`. |
 | Hộp thư đa kênh | Facebook Messenger và Zalo OA qua webhook; hiển thị Page/OA, hội thoại, ảnh/tệp, trả lời, mẫu trả lời nhanh, phân công, trạng thái và SLA. |
 | Thông báo | Web Push cho thiết bị đã bật thông báo; webhook tin đến cập nhật hội thoại và gửi thông báo nền. |
-| Trợ lý AI | AI Admin Gateway có knowledge map vận hành, tool chấm công hàng loạt, parser ưu tiên yêu cầu mới nhất, trạng thái approval thật, xác nhận bằng lời ADMIN, timeline đồng nghiệp số, xóa phiên, lập kế hoạch nhiệm vụ chính/phụ, upload/đọc file, feedback, nhập giọng nói và `AI_AGENT_MODEL` reasoning riêng. |
+| Trợ lý AI | AI Admin Gateway hiện có thêm policy/adapter L0–L5, capability/project scope, sensitive-read purpose/confirmation, clarification A/B/C/D tạo draft inactive và chặn an toàn L5; không tự xóa/chấm dứt/deploy. |
 | Dashboard và phân tích | Trung tâm điều hành hôm nay, tin chưa đọc, cảnh báo tài chính, phễu, RFM, nguy cơ rời bỏ, LTV và ROI marketing. |
 | Kho và vận hành | Giá vốn, tồn kho, BOM vật tư, nhập nhiều dòng, cảnh báo hạn dùng, việc hôm nay, đầu ca lễ tân và sao lưu tự động. |
 | Bảo mật và audit | Phân quyền theo module/hành động, audit thao tác nhạy cảm, mã hóa số điện thoại, bảo vệ ảnh bằng phiên hoặc vé ký, CSP và backup status; chứng từ tiền/lương chỉ ADMIN ghi sổ, sổ tư vấn khóa sửa sau 24 giờ, thỏa thuận nhân sự lưu version/snapshot. |
@@ -42,12 +42,14 @@
 | `20260821130000_consultation_print_overrides` | Lưu nội dung chỉnh riêng cho bản in Phiếu tư vấn; migration additive, không thay đổi dữ liệu nguồn. **Đã merge master, chưa xác nhận production.** |
 | `20260821150000_ctv_identity_staff_lifecycle` | Thêm role CTV, liên kết CTV theo ID, cửa sổ hiển thị 6 tháng, trạng thái nghỉ việc/lịch sử thăng chức và liên kết payout; additive, có backfill tên khớp duy nhất. **Đã merge master, chưa xác nhận production.** |
 | `20260818120000_ai_admin_gateway` | Lưu AssistantConversation/AssistantMessage, liên kết approval với conversation và hỗ trợ chấm công hàng loạt qua AI. **Đã áp dụng trên production ngày 18/08/2026.** |
+| `20260824000000_operating_framework_v2` | Project/organization/position/membership/mechanism registry và simulation rule engine. **Đã apply QA cô lập; chưa production.** |
+| `20260824003000_ai_training_studio` | Agent profile/dataset/example/prompt/evaluation nền tảng. **Đã apply QA cô lập; MVP dashboard/demo seed; chưa production.** |
 
 Migration là **bổ sung dữ liệu, không được tự xóa hoặc reset database**. Khi triển khai production phải dùng `prisma migrate deploy`, không dùng `prisma db push`.
 
 ## Kiểm tra chất lượng gần nhất
 
-Release r13 đã được kiểm tra bằng Prisma generate/validate, TypeScript, Vitest **75 file / 396 test**, Next production build và full ESLint **0 errors / 6 warnings**. `origin/master` hiện ở commit `e08d84c`. Public smoke test sau khi owner lưu route Cloudflare trả HTTP 200; Windows app/db Up, app local IPv4 HTTP 200, Cloudflared Running và metrics HTTP 200. Commit này không có migration mới. Khi sửa nghiệp vụ tiền, lương, công nợ, phân quyền, hồ sơ y tế hoặc webhook, phải bổ sung test hồi quy trước khi commit.
+Release candidate r14 đã được kiểm tra bằng Prisma generate/validate, TypeScript, Vitest **75 file / 397 test** và Next webpack production build. QA isolated đã kiểm tra migration/data demo, authenticated route smoke, feature flags on/off, role access và server-action seed; production clinic chưa migrate. `origin/master` vẫn là r13 cho tới khi commit/push release candidate được xác minh. Khi sửa nghiệp vụ tiền, lương, công nợ, phân quyền, hồ sơ y tế hoặc webhook, phải bổ sung test hồi quy trước khi commit.
 
 ## Quy trình cập nhật máy vận hành
 

@@ -244,53 +244,53 @@ model User {
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
 
-  customersCreated          Customer[]              @relation("CustomerCreatedBy")
-  appointmentsCreated       Appointment[]           @relation("ApptCreatedBy")
-  appointmentsAssigned      Appointment[]           @relation("ApptConsultant")
-  casesCreated              CaseRecord[]            @relation("CaseCreatedBy")
-  casesConsulted            CaseRecord[]            @relation("CaseConsultant")
-  casesAsDoctor             CaseRecord[]            @relation("CaseDoctor")
-  caseServices              CaseService[]           @relation("CaseServiceDoctor")
-  caseServicesNursed        CaseService[]           @relation("CaseServiceNurse")
-  payments                  Payment[]
-  materialUsages            MaterialUsage[]
-  photos                    Photo[]
-  careMessages              CareMessage[]
-  followUpsCreated          FollowUp[]
-  auditLogs                 AuditLog[]
-  shifts                    Shift[]
-  stockMovements            StockMovement[]
-  attendances               Attendance[]
-  payrollEntries            PayrollEntry[]
-  cashTransactions          CashTransaction[]
-  consentsRecorded          CaseConsent[]
-  debtPlans                 DebtPlan[]              @relation("DebtPlanCreatedBy")
-  leadsCreated              Lead[]                  @relation("LeadCreatedBy")
-  documentsUploaded         CaseDocument[]          @relation("DocUploadedBy")
-  plansCreated              Plan[]                  @relation("PlanCreatedBy")
-  revenueAllocations        CaseRevenueAllocation[]
-  periodsClosed             AccountingPeriod[]
-  channelAccounts           ChannelAccount[]
-  channelMessagesSent       Message[]
-  pushSubscriptions         PushSubscription[]
-  assistantApprovals        AssistantApproval[]
-  assistantConversations    AssistantConversation[]
-  assistantMessages         AssistantMessage[]
-  revenueAllocationsCreated CaseRevenueAllocation[] @relation("RevenueAllocationCreatedBy")
-  assignedConversations     Conversation[]          @relation("ConversationAssignee")
-  staffAgreements           StaffAgreement[]        @relation("StaffAgreementSubject")
-  staffAgreementsCreated    StaffAgreement[]        @relation("StaffAgreementCreatedBy")
-  paymentRequestsRequested  PaymentRequest[]        @relation("PaymentRequestRequester")
-  paymentRequestsApproved   PaymentRequest[]        @relation("PaymentRequestApprover")
-  paymentRequestsPayee      PaymentRequest[]        @relation("PaymentRequestPayee")
-  consultationsCreated      ConsultationRecord[]    @relation("ConsultationCreatedBy")
-  assistantFeedback         AssistantFeedback[]
-  assistantFiles            AssistantFile[]
-  collaboratorProfile       Collaborator?
-  collaboratorDocumentsUploaded CollaboratorDocument[] @relation("CollaboratorDocumentUploadedBy")
+  customersCreated              Customer[]                 @relation("CustomerCreatedBy")
+  appointmentsCreated           Appointment[]              @relation("ApptCreatedBy")
+  appointmentsAssigned          Appointment[]              @relation("ApptConsultant")
+  casesCreated                  CaseRecord[]               @relation("CaseCreatedBy")
+  casesConsulted                CaseRecord[]               @relation("CaseConsultant")
+  casesAsDoctor                 CaseRecord[]               @relation("CaseDoctor")
+  caseServices                  CaseService[]              @relation("CaseServiceDoctor")
+  caseServicesNursed            CaseService[]              @relation("CaseServiceNurse")
+  payments                      Payment[]
+  materialUsages                MaterialUsage[]
+  photos                        Photo[]
+  careMessages                  CareMessage[]
+  followUpsCreated              FollowUp[]
+  auditLogs                     AuditLog[]
+  shifts                        Shift[]
+  stockMovements                StockMovement[]
+  attendances                   Attendance[]
+  payrollEntries                PayrollEntry[]
+  cashTransactions              CashTransaction[]
+  consentsRecorded              CaseConsent[]
+  debtPlans                     DebtPlan[]                 @relation("DebtPlanCreatedBy")
+  leadsCreated                  Lead[]                     @relation("LeadCreatedBy")
+  documentsUploaded             CaseDocument[]             @relation("DocUploadedBy")
+  plansCreated                  Plan[]                     @relation("PlanCreatedBy")
+  revenueAllocations            CaseRevenueAllocation[]
+  periodsClosed                 AccountingPeriod[]
+  channelAccounts               ChannelAccount[]
+  channelMessagesSent           Message[]
+  pushSubscriptions             PushSubscription[]
+  assistantApprovals            AssistantApproval[]
+  assistantConversations        AssistantConversation[]
+  assistantMessages             AssistantMessage[]
+  revenueAllocationsCreated     CaseRevenueAllocation[]    @relation("RevenueAllocationCreatedBy")
+  assignedConversations         Conversation[]             @relation("ConversationAssignee")
+  staffAgreements               StaffAgreement[]           @relation("StaffAgreementSubject")
+  staffAgreementsCreated        StaffAgreement[]           @relation("StaffAgreementCreatedBy")
+  paymentRequestsRequested      PaymentRequest[]           @relation("PaymentRequestRequester")
+  paymentRequestsApproved       PaymentRequest[]           @relation("PaymentRequestApprover")
+  paymentRequestsPayee          PaymentRequest[]           @relation("PaymentRequestPayee")
+  consultationsCreated          ConsultationRecord[]       @relation("ConsultationCreatedBy")
+  assistantFeedback             AssistantFeedback[]
+  assistantFiles                AssistantFile[]
+  collaboratorProfile           Collaborator?
+  collaboratorDocumentsUploaded CollaboratorDocument[]     @relation("CollaboratorDocumentUploadedBy")
   collaboratorPayoutRecordsPaid CollaboratorPayoutRecord[] @relation("CollaboratorPayoutRecordPaidBy")
-  roleHistory               StaffRoleHistory[]      @relation("StaffRoleSubject")
-  roleChangesMade           StaffRoleHistory[]      @relation("StaffRoleChangedBy")
+  roleHistory                   StaffRoleHistory[]         @relation("StaffRoleSubject")
+  roleChangesMade               StaffRoleHistory[]         @relation("StaffRoleChangedBy")
 }
 
 // ============================ CHẤM CÔNG & LƯƠNG ============================
@@ -1251,21 +1251,21 @@ model CommissionPayout {
 // Hồ sơ Cộng tác viên (đối tác giới thiệu khách). Tên chỉ là thông tin hiển thị;
 // liên kết nghiệp vụ mới dùng collaboratorId.
 model Collaborator {
-  id          String   @id @default(cuid())
-  userId      String?  @unique
-  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
-  name        String   @unique // tên hiển thị hiện tại
+  id          String    @id @default(cuid())
+  userId      String?   @unique
+  user        User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  name        String    @unique // tên hiển thị hiện tại
   phone       String?
   bankAccount String?
   bankName    String?
   bankHolder  String?
   note        String?
-  active      Boolean  @default(true)
+  active      Boolean   @default(true)
   suspendedAt DateTime?
   archivedAt  DateTime?
   statusNote  String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   customers       Customer[]
   leads           Lead[]
@@ -1293,4 +1293,292 @@ model StaffRoleHistory {
   changedAt      DateTime @default(now())
 
   @@index([userId, changedAt])
+}
+
+// ============================ ZENITH OPERATING FRAMEWORK V2 ============================
+
+enum ZProjectType {
+  INTERNAL_CLINIC
+  DISTRIBUTION
+  PARTNERSHIP
+  SERVICE
+  OTHER
+}
+
+enum ZProjectStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+enum ZMemberPreset {
+  PROJECT_ADMIN
+  FINANCE
+  INVENTORY
+  SALES
+  VIEWER
+  CUSTOM
+}
+
+enum ZUnitType {
+  DEPARTMENT
+  TEAM
+  FUNCTION
+}
+
+enum ZAssignmentStatus {
+  ACTIVE
+  ENDED
+}
+
+enum ZMechanismKind {
+  COMMISSION
+  DISCOUNT
+  REVENUE_SHARE
+  BONUS
+  RANK
+  OTHER
+}
+
+enum ZMechanismStatus {
+  DRAFT
+  IN_REVIEW
+  APPROVED
+  ACTIVE
+  RETIRED
+  SUPERSEDED
+}
+
+model ZProject {
+  id                  String                 @id @default(cuid())
+  code                String                 @unique
+  name                String
+  description         String?
+  projectType         ZProjectType           @default(OTHER)
+  status              ZProjectStatus         @default(DRAFT)
+  ownerUserId         String?
+  currency            String                 @default("VND")
+  enabledFeatures     Json?
+  settings            Json?
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
+  members             ZProjectMember[]
+  units               ZOrganizationUnit[]
+  positions           ZProjectPosition[]
+  mechanisms          ZMechanismDefinition[]
+  zprojectAssignments ZProjectAssignment[]
+
+  @@index([status, createdAt])
+}
+
+model ZProjectMember {
+  id          String        @id @default(cuid())
+  projectId   String
+  userId      String
+  preset      ZMemberPreset @default(VIEWER)
+  permissions Json?
+  active      Boolean       @default(true)
+  joinedAt    DateTime      @default(now())
+  leftAt      DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  project     ZProject      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@index([userId, active])
+}
+
+model ZOrganizationUnit {
+  id        String              @id @default(cuid())
+  projectId String
+  parentId  String?
+  code      String
+  name      String
+  type      ZUnitType           @default(DEPARTMENT)
+  sortOrder Int                 @default(0)
+  active    Boolean             @default(true)
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
+  project   ZProject            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  parent    ZOrganizationUnit?  @relation("ZOrgTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children  ZOrganizationUnit[] @relation("ZOrgTree")
+  positions ZProjectPosition[]
+
+  @@unique([projectId, code])
+  @@index([projectId, active])
+}
+
+model ZProjectPosition {
+  id          String               @id @default(cuid())
+  projectId   String
+  unitId      String?
+  code        String
+  title       String
+  permissions Json?
+  active      Boolean              @default(true)
+  project     ZProject             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  unit        ZOrganizationUnit?   @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  assignments ZProjectAssignment[]
+
+  @@unique([projectId, code])
+}
+
+model ZProjectAssignment {
+  id         String            @id @default(cuid())
+  projectId  String
+  userId     String
+  positionId String
+  status     ZAssignmentStatus @default(ACTIVE)
+  startsAt   DateTime          @default(now())
+  endsAt     DateTime?
+  project    ZProject          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  position   ZProjectPosition  @relation(fields: [positionId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, status])
+  @@index([userId, status])
+}
+
+model ZMechanismDefinition {
+  id          String              @id @default(cuid())
+  projectId   String
+  code        String
+  name        String
+  kind        ZMechanismKind
+  description String?
+  status      ZMechanismStatus    @default(DRAFT)
+  project     ZProject            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  versions    ZMechanismVersion[]
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  @@unique([projectId, code])
+  @@index([projectId, status])
+}
+
+model ZMechanismVersion {
+  id            String               @id @default(cuid())
+  definitionId  String
+  version       Int
+  status        ZMechanismStatus     @default(DRAFT)
+  inputSchema   Json
+  ruleSpec      Json
+  testCases     Json?
+  assumptions   Json?
+  effectiveFrom DateTime?
+  effectiveTo   DateTime?
+  createdById   String
+  approvedById  String?
+  approvedAt    DateTime?
+  definition    ZMechanismDefinition @relation(fields: [definitionId], references: [id], onDelete: Cascade)
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+
+  @@unique([definitionId, version])
+  @@index([definitionId, status])
+}
+
+
+// ============================ AI TRAINING STUDIO V3 ============================
+
+enum ZAgentProfileStatus {
+  DRAFT
+  TESTING
+  PUBLISHED
+  RETIRED
+}
+
+enum ZTrainingExampleKind {
+  KNOWLEDGE
+  CLARIFICATION
+  TOOL_CHOICE
+  WARNING
+  REFUSAL
+  POLICY
+}
+
+enum ZTrainingRunStatus {
+  QUEUED
+  RUNNING
+  PASSED
+  FAILED
+}
+
+model ZAgentProfile {
+  id             String             @id @default(cuid())
+  code           String             @unique
+  name           String
+  description    String?
+  status         ZAgentProfileStatus @default(DRAFT)
+  model          String?
+  systemPrompt   String?
+  capabilities   Json?
+  policyConfig   Json?
+  version        Int                @default(1)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  datasets       ZTrainingDataset[]
+  prompts        ZPromptVersion[]
+  evaluations    ZEvaluationRun[]
+}
+
+model ZTrainingDataset {
+  id          String               @id @default(cuid())
+  agentId     String
+  code        String
+  name        String
+  description String?
+  kind        ZTrainingExampleKind  @default(KNOWLEDGE)
+  version     Int                  @default(1)
+  active      Boolean              @default(false)
+  agent       ZAgentProfile        @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  examples    ZTrainingExample[]
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  @@unique([agentId, code, version])
+  @@index([agentId, active])
+}
+
+model ZTrainingExample {
+  id          String             @id @default(cuid())
+  datasetId   String
+  input       Json
+  expected    Json
+  tags        Json?
+  approved    Boolean            @default(false)
+  dataset     ZTrainingDataset   @relation(fields: [datasetId], references: [id], onDelete: Cascade)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  @@index([datasetId, approved])
+}
+
+model ZPromptVersion {
+  id          String        @id @default(cuid())
+  agentId     String
+  version     Int
+  name        String
+  template    String
+  variables   Json?
+  status      ZAgentProfileStatus @default(DRAFT)
+  agent       ZAgentProfile @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@unique([agentId, version])
+}
+
+model ZEvaluationRun {
+  id          String             @id @default(cuid())
+  agentId     String
+  datasetId   String?
+  status      ZTrainingRunStatus @default(QUEUED)
+  score       Decimal?           @db.Decimal(5, 2)
+  metrics     Json?
+  report      Json?
+  agent       ZAgentProfile      @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  createdAt   DateTime           @default(now())
+  completedAt DateTime?
+
+  @@index([agentId, status])
 }
