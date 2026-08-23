@@ -2,6 +2,12 @@
 
 Tài liệu này ghi các thay đổi đã được đẩy lên nhánh `master`. Commit mới hơn nằm ở phía trên. Phiên bản mô tả đầy đủ hiện tại nằm trong [`VERSION.md`](VERSION.md).
 
+## 2026-08-23 — Sửa đăng ký CTV legacy
+
+- Mở khóa trường tên trong luồng **Đăng ký CTV** của dữ liệu legacy, cho phép đổi sang tên chính thức ngay khi tạo hồ sơ.
+- Gửi riêng `legacyName` để liên kết khách, ca, lịch hẹn, lead, payout và đề nghị thanh toán cũ vào `collaboratorId` mới; không tạo CTV rời, không tính lại tiền/hoa hồng.
+- Thêm regression test cho luồng đăng ký legacy; sau khi sửa phải chạy `windows\\Sua-Loi.bat` trên máy vận hành và smoke test.
+
 ## 2026-08-21 — Hồ sơ dịch vụ thẩm mỹ trong Giấy tờ và khóa tự động 24 giờ
 
 - Đưa toàn bộ form Hồ sơ dịch vụ thẩm mỹ khỏi tab Tư vấn vào khu vực **Giấy tờ**, cùng Phiếu đồng ý và tài liệu bổ sung; tab Tư vấn chỉ còn thông tin tư vấn cốt lõi.
