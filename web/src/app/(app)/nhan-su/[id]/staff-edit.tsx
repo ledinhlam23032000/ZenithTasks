@@ -52,7 +52,7 @@ export function EditStaffButton({ staff }: { staff: EditableStaff }) {
               <Field label="Họ và tên *"><Input name="fullName" defaultValue={staff.fullName} required /></Field>
               <Field label="Vai trò">
                 <Select name="role" defaultValue={staff.role}>
-                  {Object.entries(ROLE_LABELS).map(([k, v]) => (
+                  {Object.entries(ROLE_LABELS).filter(([k]) => k !== "COLLABORATOR").map(([k, v]) => (
                     <option key={k} value={k}>{v}</option>
                   ))}
                 </Select>

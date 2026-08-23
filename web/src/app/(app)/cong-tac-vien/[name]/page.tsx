@@ -16,6 +16,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Table, THead, TH, TR, TD } from "@/components/ui/table";
 import { EmptyState } from "@/components/ui/empty-state";
 import { UploadCollaboratorDocumentButton, DeleteCollaboratorDocumentButton, RecordCollaboratorPayoutButton } from "../ctv-document-widgets";
+import { CollaboratorLifecycleActions } from "../collaborator-lifecycle";
 
 export const dynamic = "force-dynamic";
 
@@ -35,6 +36,7 @@ export default async function CollaboratorDetail({
 }) {
   const user = await requireCap("mod:cong-tac-vien");
   const canManage = user.role === "ADMIN" || user.role === "MANAGER";
+  const canAdmin = user.role === "ADMIN";
   const identifier = decodeURIComponent((await params).name);
   const range = (await searchParams).range ?? "month";
   const { gte, lte, label } = rangeBounds(range);
@@ -64,7 +66,7 @@ export default async function CollaboratorDetail({
 
       <PageHeader
         title={name}
-        description={`Cộng tác viên · ${label}${p ? ` · ID ${p.id}` : " · dữ liệu legacy"}`}
+        description={`Cộng tác viên · ${label}${p ? ` · ID ${p.id}${p.archivedAt ? " · đã lưu trữ" : p.active ? " · đang hoạt động" : " · đang đình chỉ"}` : " · dữ liệu legacy"}`}
         icon={<Avatar name={name} className="h-11 w-11 text-base" />}
         actions={
           <div className="inline-flex rounded-lg bg-slate-100 p-0.5 text-xs font-medium">
@@ -94,14 +96,18 @@ export default async function CollaboratorDetail({
           <CardTitle className="flex items-center gap-2">
             <Handshake className="h-4 w-4 text-brand-500" /> Hồ sơ cộng tác viên
           </CardTitle>
-          {canManage &&
-            (p ? (
-              <EditCollaboratorButton
-                ctv={{ id: p.id, name: p.name, phone: p.phone ?? "", bankAccount: p.bankAccount ?? "", bankName: p.bankName ?? "", bankHolder: p.bankHolder ?? "", note: p.note ?? "" }}
-              />
-            ) : (
-              <NewCollaboratorButton defaultName={name} />
-            ))}
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {p && (p.archivedAt ? <Badge tone="red">Đã lưu trữ</Badge> : p.active ? <Badge tone="green">Đang hoạt động</Badge> : <Badge tone="amber">Đang đình chỉ</Badge>)}
+            {canAdmin && p && <CollaboratorLifecycleActions collaborator={{ id: p.id, name: p.name, userId: p.userId, active: p.active, archivedAt: p.archivedAt, suspendedAt: p.suspendedAt }} />}
+            {canManage &&
+              (p ? (
+                <EditCollaboratorButton
+                  ctv={{ id: p.id, name: p.name, phone: p.phone ?? "", bankAccount: p.bankAccount ?? "", bankName: p.bankName ?? "", bankHolder: p.bankHolder ?? "", note: p.note ?? "" }}
+                />
+              ) : (
+                <NewCollaboratorButton defaultName={name} />
+              ))}
+          </div>
         </CardHeader>
         <CardContent className="pt-0">
           {p ? (

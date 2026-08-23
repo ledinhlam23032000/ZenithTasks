@@ -2,6 +2,13 @@
 
 Tài liệu này ghi các thay đổi đã được đẩy lên nhánh `master`. Commit mới hơn nằm ở phía trên. Phiên bản mô tả đầy đủ hiện tại nằm trong [`VERSION.md`](VERSION.md).
 
+## 2026-08-23 — Vòng đời CTV–nhân viên và lưu trữ mềm
+
+- Đình chỉ, lưu trữ và khôi phục CTV bằng trạng thái mềm; không xóa `Collaborator`, `User`, khách, ca, tài liệu hoặc lịch sử hoa hồng. CTV bị đình chỉ/lưu trữ không nhận khách hoặc lịch mới và không đăng nhập cổng CTV.
+- Nút xóa nhân sự chuyển thành **Lưu trữ**; tài khoản bị khóa nhưng chấm công, lương, hồ sơ, audit và quan hệ nghiệp vụ vẫn giữ nguyên để tra cứu/khôi phục.
+- Cho phép ADMIN chuyển CTV đã có tài khoản thành nhân viên và nhân viên thành CTV trên cùng `User.id`; profile CTV legacy cùng tên được tái sử dụng, referral được liên kết bằng `collaboratorId`, không tạo tài khoản đôi và không tính lại tiền/hoa hồng.
+- Thêm `StaffRoleHistory`/audit cho chuyển đổi role và giữ quyền quản trị 100% ở ADMIN. Migration additive `20260823133000_collaborator_lifecycle` chưa chạy production.
+
 ## 2026-08-23 — Sửa đăng ký CTV legacy
 
 - Mở khóa trường tên trong luồng **Đăng ký CTV** của dữ liệu legacy, cho phép đổi sang tên chính thức ngay khi tạo hồ sơ.

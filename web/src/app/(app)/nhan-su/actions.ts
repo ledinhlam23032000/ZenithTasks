@@ -7,8 +7,8 @@ import { requireUser, hashPassword } from "@/lib/auth";
 import { diffFromDesired, ALL_PERM_KEYS } from "@/lib/permissions";
 import { auditRequired } from "@/lib/audit";
 import type { Role } from "@/generated/prisma/client";
-import { hasStaffHistory } from "@/lib/staff-history";
 import { promotionChanged, promotionDiff, resolveEffectiveDate } from "@/lib/staff-promotion";
+import { syncCollaboratorIdentity } from "@/lib/collaborator-sync";
 
 export type StaffFormState = { ok?: boolean; error?: string };
 
@@ -73,6 +73,66 @@ export async function createStaff(_prev: StaffFormState, formData: FormData): Pr
 }
 
 /** Lưu phân quyền tuỳ chỉnh cho một nhân sự (thêm/bớt quyền ngoài mặc định vai trò). */
+export async function convertStaffToCollaborator(formData: FormData): Promise<void> {
+  const admin = await requireUser(["ADMIN"]);
+  const userId = String(formData.get("userId") ?? "").trim();
+  if (!userId || userId === admin.id) return;
+
+  await prisma.$transaction(async (tx) => {
+    const target = await tx.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        fullName: true,
+        role: true,
+        active: true,
+        employmentStatus: true,
+        phone: true,
+        bankAccount: true,
+        bankName: true,
+        bankHolder: true,
+        position: true,
+        department: true,
+        collaboratorProfile: { select: { id: true, userId: true, name: true, active: true, archivedAt: true } },
+      },
+    });
+    if (!target) throw new Error("Không tìm thấy nhân sự.");
+    if (target.role === "ADMIN") throw new Error("Không chuyển tài khoản quản trị viên thành CTV.");
+    if (target.role === "COLLABORATOR") return;
+
+    const namedProfile = await tx.collaborator.findUnique({ where: { name: target.fullName }, select: { id: true, userId: true, name: true } });
+    const existingProfile = target.collaboratorProfile ?? namedProfile;
+    if (existingProfile?.userId && existingProfile.userId !== target.id) throw new Error("Tên này đã thuộc tài khoản CTV khác. Hãy đối soát trước khi chuyển đổi.");
+    const collaborator = existingProfile
+      ? await tx.collaborator.update({
+          where: { id: existingProfile.id },
+          data: {
+            userId: target.id,
+            name: target.fullName,
+            ...(target.phone ? { phone: target.phone } : {}),
+            ...(target.bankAccount ? { bankAccount: target.bankAccount } : {}),
+            ...(target.bankName ? { bankName: target.bankName } : {}),
+            ...(target.bankHolder ? { bankHolder: target.bankHolder } : {}),
+            active: true,
+            suspendedAt: null,
+            archivedAt: null,
+            statusNote: null,
+          },
+        })
+      : await tx.collaborator.create({
+          data: { userId: target.id, name: target.fullName, phone: target.phone, bankAccount: target.bankAccount, bankName: target.bankName, bankHolder: target.bankHolder },
+        });
+    if (existingProfile) {
+      await syncCollaboratorIdentity(tx, { collaboratorId: collaborator.id, legacyName: existingProfile.name, displayName: target.fullName });
+    }
+    await tx.user.update({ where: { id: target.id }, data: { role: "COLLABORATOR", active: true, employmentStatus: "ACTIVE", retiredAt: null, retiredById: null } });
+    await tx.staffRoleHistory.create({ data: { userId: target.id, fromRole: target.role, toRole: "COLLABORATOR", fromPosition: target.position, toPosition: null, fromDepartment: target.department, toDepartment: null, note: "Chuyển từ nhân viên sang CTV theo quyết định quản trị viên", changedById: admin.id } });
+    await auditRequired(tx, admin.id, "CONVERT_STAFF_TO_COLLABORATOR", { entity: "User", entityId: target.id, meta: { collaboratorId: collaborator.id, name: target.fullName, fromRole: target.role, toRole: "COLLABORATOR", collaboratorProfileKept: true, dataDeleted: false, moneyRecalculated: false } });
+  });
+  revalidatePath("/nhan-su", "layout");
+  revalidatePath("/cong-tac-vien", "layout");
+}
+
 export async function savePermissions(_prev: StaffFormState, formData: FormData): Promise<StaffFormState> {
   await requireUser(["ADMIN"]);
   const userId = String(formData.get("userId") ?? "");
@@ -119,12 +179,17 @@ export async function retireStaff(formData: FormData): Promise<void> {
   const handoffConfirmed = String(formData.get("handoffConfirmed") ?? "") === "yes";
   if (!id || id === me.id || !handoffConfirmed) return;
   await prisma.$transaction(async (tx) => {
-    const target = await tx.user.findUnique({ where: { id }, select: { fullName: true, employmentStatus: true } });
+    const target = await tx.user.findUnique({ where: { id }, select: { fullName: true, employmentStatus: true, collaboratorProfile: { select: { id: true, archivedAt: true } } } });
     if (!target || target.employmentStatus === "RETIRED") return;
-    await tx.user.update({ where: { id }, data: { employmentStatus: "RETIRED", active: false, retiredAt: new Date(), retiredById: me.id } });
-    await auditRequired(tx, me.id, "RETIRE_STAFF", { entity: "User", entityId: id, meta: { fullName: target.fullName, handoffConfirmed: true } });
+    const retiredAt = new Date();
+    await tx.user.update({ where: { id }, data: { employmentStatus: "RETIRED", active: false, retiredAt, retiredById: me.id } });
+    if (target.collaboratorProfile && !target.collaboratorProfile.archivedAt) {
+      await tx.collaborator.update({ where: { id: target.collaboratorProfile.id }, data: { active: false, suspendedAt: retiredAt, statusNote: "Tài khoản nhân sự đã nghỉ việc" } });
+    }
+    await auditRequired(tx, me.id, "RETIRE_STAFF", { entity: "User", entityId: id, meta: { fullName: target.fullName, handoffConfirmed: true, collaboratorSuspended: Boolean(target.collaboratorProfile && !target.collaboratorProfile.archivedAt), dataDeleted: false } });
   });
   revalidatePath("/nhan-su", "layout");
+  revalidatePath("/cong-tac-vien", "layout");
 }
 
 export async function restoreStaff(formData: FormData): Promise<void> {
@@ -132,83 +197,36 @@ export async function restoreStaff(formData: FormData): Promise<void> {
   const id = String(formData.get("id") ?? "");
   if (!id || id === me.id) return;
   await prisma.$transaction(async (tx) => {
-    const target = await tx.user.findUnique({ where: { id }, select: { employmentStatus: true } });
+    const target = await tx.user.findUnique({ where: { id }, select: { employmentStatus: true, collaboratorProfile: { select: { id: true, archivedAt: true } } } });
     if (!target || target.employmentStatus !== "RETIRED") return;
     await tx.user.update({ where: { id }, data: { employmentStatus: "ACTIVE", active: true, retiredAt: null, retiredById: null } });
-    await auditRequired(tx, me.id, "RESTORE_STAFF", { entity: "User", entityId: id });
+    if (target.collaboratorProfile && !target.collaboratorProfile.archivedAt) {
+      await tx.collaborator.update({ where: { id: target.collaboratorProfile.id }, data: { active: true, suspendedAt: null, statusNote: null } });
+    }
+    await auditRequired(tx, me.id, "RESTORE_STAFF", { entity: "User", entityId: id, meta: { collaboratorRestored: Boolean(target.collaboratorProfile && !target.collaboratorProfile.archivedAt), dataDeleted: false } });
   });
   revalidatePath("/nhan-su", "layout");
+  revalidatePath("/cong-tac-vien", "layout");
 }
 
+/** Tương thích với nút cũ: "xóa nhân sự" nay chỉ lưu trữ mềm, không xóa User hay lịch sử. */
 export async function deleteStaff(formData: FormData): Promise<void> {
   const me = await requireUser(["ADMIN"]);
-  const id = String(formData.get("id") ?? "");
+  const id = String(formData.get("id") ?? "").trim();
+  const reason = String(formData.get("reason") ?? "").trim().slice(0, 500) || "Lưu trữ theo quyết định quản trị viên";
   if (!id || id === me.id) return;
 
-  const target = await prisma.user.findUnique({
-    where: { id },
-    select: {
-      _count: {
-        select: {
-          customersCreated: true,
-          appointmentsCreated: true,
-          appointmentsAssigned: true,
-          casesCreated: true,
-          casesConsulted: true,
-          casesAsDoctor: true,
-          caseServices: true,
-          caseServicesNursed: true,
-          payments: true,
-          materialUsages: true,
-          photos: true,
-          careMessages: true,
-          followUpsCreated: true,
-          auditLogs: true,
-          shifts: true,
-          stockMovements: true,
-          attendances: true,
-          payrollEntries: true,
-          cashTransactions: true,
-          consentsRecorded: true,
-          debtPlans: true,
-          leadsCreated: true,
-          documentsUploaded: true,
-          plansCreated: true,
-          revenueAllocations: true,
-          periodsClosed: true,
-          channelAccounts: true,
-          channelMessagesSent: true,
-          pushSubscriptions: true,
-          assistantApprovals: true,
-          assistantConversations: true,
-          assistantMessages: true,
-          revenueAllocationsCreated: true,
-          assignedConversations: true,
-          staffAgreements: true,
-          staffAgreementsCreated: true,
-          paymentRequestsRequested: true,
-          paymentRequestsApproved: true,
-          paymentRequestsPayee: true,
-          consultationsCreated: true,
-          assistantFeedback: true,
-          assistantFiles: true,
-        },
-      },
-    },
-  });
-  if (!target) return;
-  if (hasStaffHistory(target._count)) {
-    throw new Error(
-      "Nhân sự này đã có lịch sử hoạt động (hồ sơ, thu tiền, chấm công, lương hoặc nhật ký hệ thống) — xóa cứng sẽ làm mất dữ liệu đó. Hãy dùng nút \"Ngừng hoạt động\" để khóa tài khoản thay vì xóa.",
-    );
-  }
-
   await prisma.$transaction(async (tx) => {
-    await tx.shift.deleteMany({ where: { userId: id } });
-    await tx.user.delete({ where: { id } });
-    await auditRequired(tx, me.id, "DELETE_STAFF", { entity: "User", entityId: id });
+    const target = await tx.user.findUnique({ where: { id }, select: { fullName: true, role: true, employmentStatus: true, collaboratorProfile: { select: { id: true } } } });
+    if (!target || target.employmentStatus === "RETIRED") return;
+    await tx.user.update({ where: { id }, data: { active: false, employmentStatus: "RETIRED", retiredAt: new Date(), retiredById: me.id } });
+    if (target.collaboratorProfile) {
+      await tx.collaborator.update({ where: { id: target.collaboratorProfile.id }, data: { active: false, suspendedAt: null, archivedAt: new Date(), statusNote: reason } });
+    }
+    await auditRequired(tx, me.id, "ARCHIVE_STAFF", { entity: "User", entityId: id, meta: { fullName: target.fullName, role: target.role, reason, dataDeleted: false } });
   });
-  revalidatePath("/nhan-su");
+  revalidatePath("/nhan-su", "layout");
+  revalidatePath("/cong-tac-vien", "layout");
 }
 
 const ROLE_ENUM = ["ADMIN", "MANAGER", "TELESALE", "RECEPTION", "CONSULTANT", "DOCTOR", "NURSE", "CARE", "SHAREHOLDER"] as const;

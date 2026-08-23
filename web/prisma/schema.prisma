@@ -1261,6 +1261,9 @@ model Collaborator {
   bankHolder  String?
   note        String?
   active      Boolean  @default(true)
+  suspendedAt DateTime?
+  archivedAt  DateTime?
+  statusNote  String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

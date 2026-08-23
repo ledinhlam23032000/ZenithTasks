@@ -32,6 +32,7 @@ import { EditStaffButton, type EditableStaff } from "./staff-edit";
 import { ConfirmButton } from "@/components/ui/confirm-button";
 import { retireStaff } from "../actions";
 import { buildStaffHandoffChecklist, handoffHasBlockers } from "@/lib/staff-handoff";
+import { ConvertStaffToCollaboratorButton } from "./staff-lifecycle";
 
 export const dynamic = "force-dynamic";
 
@@ -46,6 +47,7 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
   const u = await prisma.user.findUnique({
     where: { id },
     include: {
+      collaboratorProfile: { select: { id: true, name: true, active: true, archivedAt: true } },
       _count: {
         select: {
           customersCreated: true,
@@ -115,6 +117,8 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
             ) : (
               <Badge tone="red" dot>Đã khóa</Badge>
             )}
+            {u.role !== "ADMIN" && u.role !== "COLLABORATOR" && me.id !== u.id && <ConvertStaffToCollaboratorButton userId={u.id} name={u.fullName} hasProfile={Boolean(u.collaboratorProfile)} />}
+            {u.collaboratorProfile && <Link href={`/cong-tac-vien/${u.collaboratorProfile.id}`} className="text-sm font-medium text-brand-600 hover:underline">Mở hồ sơ giới thiệu</Link>}
             <EditStaffButton staff={editable} />
           </>
         }

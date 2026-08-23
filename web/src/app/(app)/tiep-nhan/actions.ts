@@ -9,6 +9,7 @@ import { encryptPhone, normalizePhone, phoneLast5, hashPhone } from "@/lib/phone
 import { nextCustomerCode, nextCaseCode, isUniqueViolation } from "@/lib/codes";
 import { auditRequired } from "@/lib/audit";
 import { defaultScreening } from "@/lib/consultation-sheet";
+import { collaboratorCanReceiveReferrals } from "@/lib/collaborator-lifecycle";
 import type { Prisma } from "@/generated/prisma/client";
 
 export type CustomerFormState = { ok?: boolean; error?: string };
@@ -49,10 +50,10 @@ export async function createCustomer(_prev: CustomerFormState, formData: FormDat
   }
   const data = parsed.data;
   const collaborator = data.source === "COLLABORATOR" && data.collaboratorId
-    ? await prisma.collaborator.findFirst({ where: { id: data.collaboratorId, active: true }, select: { id: true, name: true } })
+    ? await prisma.collaborator.findFirst({ where: { id: data.collaboratorId }, select: { id: true, name: true, active: true, archivedAt: true } })
     : null;
-  if (data.source === "COLLABORATOR" && !collaborator) {
-    return { error: "Vui lòng chọn đúng cộng tác viên đã được quản trị viên tạo trước." };
+  if (data.source === "COLLABORATOR" && (!collaborator || !collaboratorCanReceiveReferrals(collaborator))) {
+    return { error: "Vui lòng chọn cộng tác viên đang hoạt động; CTV đã đình chỉ/lưu trữ không nhận khách mới." };
   }
   if (data.source === "COLLABORATOR" && !data.collaboratorId) {
     return { error: "Nguồn CTV bắt buộc phải chọn cộng tác viên từ danh sách." };
