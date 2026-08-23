@@ -28,7 +28,7 @@ if($LASTEXITCODE -eq 0){
   Write-Host '================ DA CAI DICH VU ================' -ForegroundColor Green
   Write-Host ' Tunnel chay NEN 24/7 (ke ca khi dong cua so nay).' -ForegroundColor Green
   Write-Host ' Yeu cau: may chu LUON BAT + Docker dang chay.' -ForegroundColor Green
-  Write-Host ' Quay lai Cloudflare bam Next -> them Public Hostname (localhost:3000).' -ForegroundColor Green
+  Write-Host ' Quay lai Cloudflare bam Next -> them Public Hostname (http://127.0.0.1:3000).' -ForegroundColor Green
   Write-Host '================================================' -ForegroundColor Green
 }else{
   Write-Host '================ CAI DAT THAT BAI ================' -ForegroundColor Red

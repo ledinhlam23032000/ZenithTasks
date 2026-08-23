@@ -14,6 +14,10 @@ dist/
 build/
 *.log
 
+# Artifact QA/runtime cục bộ — không phải mã nguồn, thường chứa profile/cache hoặc HTML test.
+checks/qa-*
+checks/release-verification-*.txt
+
 # Hệ điều hành / trình soạn thảo
 .DS_Store
 Thumbs.db

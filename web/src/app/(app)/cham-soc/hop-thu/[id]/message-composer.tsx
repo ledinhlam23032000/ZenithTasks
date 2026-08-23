@@ -33,8 +33,16 @@ export function MessageComposer({ conversationId, aiEnabled, disabled, disabledR
   });
 
   useEffect(() => {
+    let cancelled = false;
     const saved = window.localStorage.getItem(draftKey);
-    if (saved) setText(saved);
+    if (saved) {
+      queueMicrotask(() => {
+        if (!cancelled) setText(saved);
+      });
+    }
+    return () => {
+      cancelled = true;
+    };
   }, [draftKey]);
 
   useEffect(() => {

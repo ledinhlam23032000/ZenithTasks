@@ -16,12 +16,14 @@ git status --short
 git pull --ff-only origin master
 
 docker compose build app
-docker compose up -d --force-recreate app
+docker compose up -d --no-deps --force-recreate app
 docker compose exec -T app npx prisma migrate status
 docker compose ps
 ```
 
 Nếu có migration mới, entrypoint phải chạy `prisma migrate deploy` hoặc chạy lệnh deploy được phê duyệt sau backup. Tuyệt đối không dùng `prisma db push`, `prisma migrate reset` hoặc xóa volume database trên production.
+
+Trước và sau khi cập nhật, chạy `windows\\Kiem-Tra-Phat-Hanh.bat`. Đây là script **chỉ đọc**: ghi commit/branch, trạng thái repo, container app/db, image, migration, HTTP IPv4, service Cloudflared và endpoint metrics nếu có vào `checks/release-verification-<timestamp>.txt`; script không build, reset, migrate, restart, recreate hoặc xóa volume.
 
 ## Kiểm tra sau cập nhật
 
@@ -30,7 +32,7 @@ Nếu có migration mới, entrypoint phải chạy `prisma migrate deploy` ho�
 | Container | `docker compose ps` | app running, db healthy. |
 | Image | `docker inspect zenithtasks-app-1 --format '{{.Image}}'` | Đúng image vừa build. |
 | Migration | `docker compose exec -T app npx prisma migrate status` | Database schema is up to date. |
-| HTTP | `Invoke-WebRequest -UseBasicParsing http://localhost:3000/login` | HTTP 200. |
+| HTTP | `Invoke-WebRequest -UseBasicParsing http://127.0.0.1:3000/login` | HTTP 200. |
 | Đăng nhập | Mở `/login` bằng trình duyệt | ADMIN đăng nhập được. |
 | AI | Mở `/tro-ly` | Lịch sử phiên, header “Đồng nghiệp số”, timeline và textarea tải được; nút tạo mới/xóa phiên hiện đúng. |
 | Chứng từ | Mở Kế toán/Đề nghị thanh toán | Không tạo dữ liệu khi chỉ xem. |
@@ -62,7 +64,7 @@ Các thao tác tiền, lương, hồ sơ y tế, xóa khách, sửa sau 24 giờ
 
 ## Khi ứng dụng không lên
 
-Trước hết kiểm tra `docker compose ps`, `docker compose logs --tail=200 app` và `docker compose logs --tail=200 db`. Nếu database healthy nhưng app lỗi build/runtime, giữ nguyên database và backup, quay lại image/app commit gần nhất đã biết là chạy được. Nếu migration lỗi, dừng triển khai, không reset database, lưu log vào `checks/` và xử lý migration bằng bản sửa có review.
+Trước hết kiểm tra `docker compose ps`, `docker compose logs --tail=200 app` và `docker compose logs --tail=200 db`. Nếu database healthy nhưng app lỗi build/runtime, giữ nguyên database và backup, quay lại image/app commit gần nhất đã biết là chạy được. Nếu migration lỗi, dừng triển khai, không reset database, lưu log vào `checks/` và xử lý migration bằng bản sửa có review. Lệnh recreate chỉ áp dụng cho service `app`; không dùng `docker compose up --force-recreate` không chỉ rõ service trên production vì có thể tác động cả database.
 
 ## Thông tin cần ghi vào biên bản release
 

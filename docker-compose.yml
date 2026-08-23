@@ -1,7 +1,7 @@
 # Trung tâm Phẫu thuật Tạo hình Thẩm mỹ — BVĐK Hồng Phúc
 # Chạy toàn bộ hệ thống (web + PostgreSQL) bằng 1 lệnh:
 #   docker compose up --build
-# Sau đó mở http://localhost:3000  (lần đầu hãy cấu hình BOOTSTRAP_ADMIN_* trong .env)
+# Sau đó mở http://127.0.0.1:3000  (lần đầu hãy cấu hình BOOTSTRAP_ADMIN_* trong .env)
 #
 # 🔐 BẢO MẬT: AUTH_SECRET được tạo NGẪU NHIÊN tự động và lưu trong volume an toàn
 #    (không nằm trong mã nguồn). Muốn tự đặt khoá riêng, tạo file .env cạnh file này
@@ -58,7 +58,19 @@ services:
       AI_BASE_URL: "${AI_BASE_URL:-}"
       AI_MODEL: "${AI_MODEL:-}"
       AI_AGENT_MODEL: "${AI_AGENT_MODEL:-}"
+      AI_WRITER_MODEL: "${AI_WRITER_MODEL:-}"
+      AI_TIMEOUT_MS: "${AI_TIMEOUT_MS:-30000}"
+      AI_MAX_RETRIES: "${AI_MAX_RETRIES:-2}"
       AI_PROVIDER: "${AI_PROVIDER:-}"
+      # Feature flags mặc định tắt; chỉ bật sau review + migration + smoke test.
+      ENABLE_ZENITH_V2: "${ENABLE_ZENITH_V2:-false}"
+      ENABLE_AI_TRAINING_STUDIO: "${ENABLE_AI_TRAINING_STUDIO:-false}"
+      UX_ROLLOUT: "${UX_ROLLOUT:-all}"
+      # Nhận dạng giọng nói tuỳ chọn.
+      VOICE_PROVIDER: "${VOICE_PROVIDER:-}"
+      VOICE_API_KEY: "${VOICE_API_KEY:-}"
+      VOICE_BASE_URL: "${VOICE_BASE_URL:-}"
+      VOICE_MODEL: "${VOICE_MODEL:-}"
       # Tương thích ngược cách cũ (chỉ Claude):
       ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:-}"
       ANTHROPIC_MODEL: "${ANTHROPIC_MODEL:-}"

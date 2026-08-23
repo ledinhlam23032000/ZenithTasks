@@ -131,9 +131,10 @@ if ($buildExit -ne 0) {
 }
 
 Write-Host "`n[3/4] Khoi dong lai + ap dung cap nhat co so du lieu..." -ForegroundColor Cyan
-docker compose up -d --force-recreate
+docker compose up -d --no-deps --force-recreate app
 if ($LASTEXITCODE -ne 0) {
-  Write-Host "Khong khoi dong duoc container; ung dung ban cu van duoc giu nguyen." -ForegroundColor Red
+  Write-Host "Khong khoi dong duoc container app; khong the ket luan phien ban cu van dang phuc vu." -ForegroundColor Red
+  Write-Host "Database khong bi recreate boi lenh nay. Hay chay Xem-Loi.bat truoc khi thu lai." -ForegroundColor Yellow
   EndHere 1
 }
 Start-Sleep -Seconds 10
@@ -151,15 +152,15 @@ if ($migrationExit -ne 0) {
 Write-Host "`n[4/4] Kiem tra ung dung..." -ForegroundColor Cyan
 $ok = $false
 for ($i = 0; $i -lt 60; $i++) {
-  try { Invoke-WebRequest "http://localhost:3000/login" -UseBasicParsing -TimeoutSec 3 | Out-Null; $ok = $true; break }
+  try { Invoke-WebRequest "http://127.0.0.1:3000/login" -UseBasicParsing -TimeoutSec 3 | Out-Null; $ok = $true; break }
   catch { Start-Sleep -Seconds 3 }
 }
 
 Write-Host ""
 if ($ok) {
   Write-Host "================ DA XONG ================" -ForegroundColor Green
-  Write-Host " Mo: http://localhost:3000  (bam Ctrl+F5 de tai lai trang)" -ForegroundColor Green
-  try { Start-Process "http://localhost:3000" } catch {}
+  Write-Host " Mo: http://127.0.0.1:3000  (bam Ctrl+F5 de tai lai trang)" -ForegroundColor Green
+  try { Start-Process "http://127.0.0.1:3000" } catch {}
 } else {
   Write-Host "Ung dung chua phan hoi. Hay chay Xem-Loi.bat va gui ket qua cho ky thuat." -ForegroundColor Yellow
 }

@@ -48,12 +48,12 @@ cp .env.example .env          # set DATABASE_URL, AUTH_SECRET, PHONE_ENC_KEY
 npm install
 npm run db:deploy             # apply migrations  (or db:migrate in dev)
 npm run db:seed               # demo data (QA only; DEMO_PASSWORD from environment)
-npm run dev                   # http://localhost:3000
+npm run dev                   # http://127.0.0.1:3000
 ```
 
 **Everything via Docker (1 command):**
 ```bash
-docker compose up --build     # app + postgres; open http://localhost:3000
+docker compose up --build     # app + postgres; open http://127.0.0.1:3000
 ```
 The container entrypoint (`web/docker-entrypoint.sh`) waits for DB, runs `prisma migrate deploy`,
 seeds if the User table is empty, then starts the app. `AUTH_SECRET` is auto-generated into a volume

@@ -45,7 +45,7 @@ Nhánh chuẩn là `master`. Trên máy phát triển dùng `git pull --ff-only 
 ```bash
 cp .env.example .env       # điền khoá nếu muốn; để trống = tự sinh an toàn
 docker compose up --build
-# Mở http://localhost:3000 — lần đầu CSDL trống phải cấu hình BOOTSTRAP_ADMIN_* trong .env.
+# Mở http://127.0.0.1:3000 — lần đầu CSDL trống phải cấu hình BOOTSTRAP_ADMIN_* trong .env.
 ```
 
 **Lập trình (dev):**
@@ -54,7 +54,7 @@ cd web
 pnpm install --frozen-lockfile
 pnpm exec prisma generate
 pnpm exec prisma migrate deploy    # cần DATABASE_URL trỏ tới PostgreSQL
-pnpm dev                           # http://localhost:3000
+pnpm dev                           # http://127.0.0.1:3000
 pnpm exec tsc --noEmit && pnpm test -- --run # kiểm tra biên dịch + test
 ```
 

@@ -17,11 +17,18 @@ export function DismissibleBanner({
   const [visible, setVisible] = useState(true);
 
   useEffect(() => {
+    let cancelled = false;
     try {
-      setVisible(window.localStorage.getItem(`${STORAGE_PREFIX}${bannerKey}`) !== "1");
+      const saved = window.localStorage.getItem(`${STORAGE_PREFIX}${bannerKey}`);
+      queueMicrotask(() => {
+        if (!cancelled) setVisible(saved !== "1");
+      });
     } catch {
       // Nếu trình duyệt chặn localStorage, vẫn cho phép đóng trong phiên hiện tại.
     }
+    return () => {
+      cancelled = true;
+    };
   }, [bannerKey]);
 
   if (!visible) return null;

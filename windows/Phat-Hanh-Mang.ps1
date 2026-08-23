@@ -26,6 +26,6 @@ Write-Host ' >>> Gui DIA CHI do cho nhan vien de ho vao lam viec.' -ForegroundCo
 Write-Host ' >>> GIU CUA SO NAY LUON MO (dong la mat ket noi).' -ForegroundColor Green
 Write-Host '==================================================' -ForegroundColor Green
 Write-Host ''
-& $cf tunnel --url http://localhost:3000 --no-autoupdate
+& $cf tunnel --url http://127.0.0.1:3000 --no-autoupdate
 Write-Host ''
 Read-Host 'Tunnel da dung. Nhan Enter de dong'

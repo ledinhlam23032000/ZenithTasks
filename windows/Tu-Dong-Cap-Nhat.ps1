@@ -36,30 +36,32 @@ try {
   Log "Phat hien ban moi: $($local.Substring(0,7)) -> $($remote.Substring(0,7)). Dang cap nhat..."
   $dirty = git status --porcelain --untracked-files=all
   if ($dirty) {
-    $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
-    $backupBranch = "backup/tu-dong-cap-nhat-$stamp"
-    git branch $backupBranch $local 2>&1 | Out-Null
-    if ($LASTEXITCODE -ne 0) { Log "Khong tao duoc backup branch; bo qua cap nhat de tranh mat thay doi local."; exit 1 }
-    git stash push --include-untracked -m "Tu-Dong-Cap-Nhat $stamp - bao luu thay doi local" 2>&1 | Out-Null
-    if ($LASTEXITCODE -ne 0) { Log "Khong bao luu duoc thay doi local; bo qua cap nhat de tranh mat thay doi."; exit 1 }
-    Log "Da bao ve thay doi local trong branch $backupBranch va stash; khong tu dong khoi phuc de tranh de len master."
+    Log "BO QUA: repo dang co thay doi local/untracked; khong stash, reset hay ghi de. Hay chay Sua-Loi.bat sau khi kiem tra va backup thu cong."
+    exit 1
   }
-  git reset --hard "origin/$Branch" 2>&1 | Out-Null
-  if ($LASTEXITCODE -ne 0) { Log "RESET THAT BAI sau khi da backup; dung cap nhat."; exit 1 }
+    git pull --ff-only origin $Branch 2>&1 | Out-File -Append -Encoding UTF8 $Log
+  if ($LASTEXITCODE -ne 0) { Log "PULL --FF-ONLY THAT BAI; khong doi ma nguon hay container."; exit 1 }
+
+  docker compose up -d db 2>&1 | Out-File -Append -Encoding UTF8 $Log
+  if ($LASTEXITCODE -ne 0) { Log "KHONG DAM BAO DUOC DB; khong build/recreate app."; exit 1 }
 
   docker compose build app 2>&1 | Out-File -Append -Encoding UTF8 $Log
   if ($LASTEXITCODE -ne 0) {
-    Log "BUILD THAT BAI - ung dung VAN CHAY BAN CU, khong bi gian doan. Hay chay Sua-Loi.bat de xem chi tiet."
+    Log "BUILD THAT BAI - app chua bi recreate; khong co thay doi container tu buoc deploy."
     exit 1
   }
-
-  docker compose up -d --force-recreate 2>&1 | Out-File -Append -Encoding UTF8 $Log
+  docker compose up -d --no-deps --force-recreate app 2>&1 | Out-File -Append -Encoding UTF8 $Log
+  if ($LASTEXITCODE -ne 0) {
+    Log "RECREATE APP THAT BAI - khong ket luan phien ban cu van dang phuc vu; database khong bi recreate."
+    exit 1
+  }
   Start-Sleep -Seconds 10
   docker compose exec -T app npx prisma migrate deploy 2>&1 | Out-File -Append -Encoding UTF8 $Log
+  if ($LASTEXITCODE -ne 0) { Log "MIGRATION THAT BAI - dung smoke test; giu nguyen database va log."; exit 1 }
 
   $ok = $false
   for ($i = 0; $i -lt 20; $i++) {
-    try { Invoke-WebRequest "http://localhost:3000/login" -UseBasicParsing -TimeoutSec 3 | Out-Null; $ok = $true; break }
+    try { Invoke-WebRequest "http://127.0.0.1:3000/login" -UseBasicParsing -TimeoutSec 3 | Out-Null; $ok = $true; break }
     catch { Start-Sleep -Seconds 3 }
   }
 
