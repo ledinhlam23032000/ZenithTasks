@@ -2,6 +2,12 @@
 
 Tài liệu này ghi các thay đổi đã được đẩy lên nhánh `master`. Commit mới hơn nằm ở phía trên. Phiên bản mô tả đầy đủ hiện tại nằm trong [`VERSION.md`](VERSION.md).
 
+## 2026-08-23 — Sua-Loi an toàn khi máy có thay đổi local
+
+- Sửa `windows/Sua-Loi.ps1`: trước khi checkout/reset `master`, nếu working tree có thay đổi tracked hoặc untracked thì tạo `backup/sua-loi-<timestamp>` và `git stash push --include-untracked`; không tự động `stash pop`, không xóa dữ liệu local.
+- Sửa `windows/Tu-Dong-Cap-Nhat.ps1` cùng nguyên tắc để cập nhật nền không thể âm thầm làm mất thay đổi của chủ máy. Script vẫn dừng an toàn nếu không tạo được backup/stash.
+- Syntax check PowerShell trên máy Windows đạt; khi cập nhật xong, chủ máy có thể xem lại bằng `git stash list` và kiểm tra từng file trước khi khôi phục.
+
 ## 2026-08-23 — Vòng đời CTV–nhân viên và lưu trữ mềm
 
 - Đình chỉ, lưu trữ và khôi phục CTV bằng trạng thái mềm; không xóa `Collaborator`, `User`, khách, ca, tài liệu hoặc lịch sử hoa hồng. CTV bị đình chỉ/lưu trữ không nhận khách hoặc lịch mới và không đăng nhập cổng CTV.
