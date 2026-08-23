@@ -35,6 +35,38 @@ if (Test-Path $Dir) {
     Write-Host "Khong tai duoc origin/$Branch; giu nguyen ban dang chay." -ForegroundColor Red
     EndHere 1
   }
+  # Bao ve moi thay doi local truoc khi dua branch ve master.
+  # Khong reset khi chua stash: schema.prisma va cac file owner dang sua phai duoc giu nguyen.
+  $beforeHead = (& git -C $Dir rev-parse HEAD 2>$null).Trim()
+  $dirty = & git -C $Dir status --porcelain --untracked-files=all
+  $backupBranch = $null
+  $stashRefBeforeRaw = & git -C $Dir rev-parse -q --verify refs/stash 2>$null
+  $stashRefBefore = if ($stashRefBeforeRaw) { ([string]$stashRefBeforeRaw).Trim() } else { $null }
+  if ($dirty) {
+    $backupBranch = "backup/sua-loi-$Stamp"
+    $backupOutput = & git -C $Dir branch $backupBranch $beforeHead 2>&1
+    $backupOutput | Write-Host
+    if ($LASTEXITCODE -ne 0) {
+      Write-Host "Khong tao duoc backup branch cho thay doi local; dung de tranh mat du lieu." -ForegroundColor Red
+      EndHere 1
+    }
+    $stashOutput = & git -C $Dir stash push --include-untracked -m "Sua-Loi $Stamp - bao luu thay doi local truoc khi cap nhat master" 2>&1
+    $stashOutput | Write-Host
+    if ($LASTEXITCODE -ne 0) {
+      Write-Host "Khong bao luu duoc thay doi local; dung de tranh mat du lieu." -ForegroundColor Red
+      EndHere 1
+    }
+  }
+  $stashRefAfterRaw = & git -C $Dir rev-parse -q --verify refs/stash 2>$null
+  $stashRefAfter = if ($stashRefAfterRaw) { ([string]$stashRefAfterRaw).Trim() } else { $null }
+  $stashCreated = $dirty -and $stashRefAfter -and ($stashRefAfter -ne $stashRefBefore)
+  if ($stashCreated) {
+    Write-Host "Da bao ve thay doi local truoc khi cap nhat (khong tu dong khoi phuc de tranh de len master)." -ForegroundColor Yellow
+    Write-Host "Backup branch: $backupBranch" -ForegroundColor Yellow
+    Write-Host "Stash: $stashRefAfter" -ForegroundColor Yellow
+    Write-Host "Sau khi cap nhat on dinh, xem lai: git stash list" -ForegroundColor Yellow
+    Write-Host "Chi khoi phuc stash sau khi kiem tra tung file; khong tu dong pop de tranh de len master." -ForegroundColor Yellow
+  }
   # Dua branch local ve dung master. Khong git clean de khong xoa log/QA/.env cua owner.
   $checkoutOutput = & git -C $Dir checkout -B $Branch "origin/$Branch" 2>&1
   $checkoutOutput | Write-Host

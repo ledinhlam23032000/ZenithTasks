@@ -34,7 +34,18 @@ try {
   }
 
   Log "Phat hien ban moi: $($local.Substring(0,7)) -> $($remote.Substring(0,7)). Dang cap nhat..."
+  $dirty = git status --porcelain --untracked-files=all
+  if ($dirty) {
+    $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
+    $backupBranch = "backup/tu-dong-cap-nhat-$stamp"
+    git branch $backupBranch $local 2>&1 | Out-Null
+    if ($LASTEXITCODE -ne 0) { Log "Khong tao duoc backup branch; bo qua cap nhat de tranh mat thay doi local."; exit 1 }
+    git stash push --include-untracked -m "Tu-Dong-Cap-Nhat $stamp - bao luu thay doi local" 2>&1 | Out-Null
+    if ($LASTEXITCODE -ne 0) { Log "Khong bao luu duoc thay doi local; bo qua cap nhat de tranh mat thay doi."; exit 1 }
+    Log "Da bao ve thay doi local trong branch $backupBranch va stash; khong tu dong khoi phuc de tranh de len master."
+  }
   git reset --hard "origin/$Branch" 2>&1 | Out-Null
+  if ($LASTEXITCODE -ne 0) { Log "RESET THAT BAI sau khi da backup; dung cap nhat."; exit 1 }
 
   docker compose build app 2>&1 | Out-File -Append -Encoding UTF8 $Log
   if ($LASTEXITCODE -ne 0) {
