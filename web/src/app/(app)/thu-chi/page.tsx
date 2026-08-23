@@ -9,6 +9,7 @@ import { fmtDate } from "@/lib/format";
 import { PAYMENT_LABEL } from "@/lib/status";
 import { CASH_TYPE, categoryLabel, INVESTMENT_CATEGORY_CODE } from "@/lib/finance";
 import { isShareholder } from "@/lib/rbac";
+import { canDeleteCashTransaction } from "@/lib/cash-transaction-lock";
 import { paymentRequestStatusLabel } from "@/lib/payment-request";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -200,6 +201,7 @@ export default async function CashPage({ searchParams }: { searchParams: Promise
                 {txs.map((t) => {
                   const a = toNum(t.amount);
                   const isIncome = t.type === "INCOME";
+                  const canDelete = canDeleteCashTransaction({ userId: user.id, role: user.role, createdById: t.createdById, createdAt: t.createdAt });
                   return (
                     <TR key={t.id}>
                       <TD className="whitespace-nowrap text-slate-500">{fmtDate(t.occurredAt)}</TD>
@@ -241,13 +243,17 @@ export default async function CashPage({ searchParams }: { searchParams: Promise
                               note: t.note ?? "",
                             }}
                           />
-                          <DeleteButton
-                            action={deleteCashTransaction}
-                            id={t.id}
-                            label=""
-                            confirmText={`Xóa giao dịch ${categoryLabel(t.category)} ${formatVND(a)}?`}
-                            className="rounded-md p-1.5 text-slate-300 hover:bg-rose-50 hover:text-rose-500"
-                          />
+                          {canDelete ? (
+                            <DeleteButton
+                              action={deleteCashTransaction}
+                              id={t.id}
+                              label=""
+                              confirmText={`Xóa giao dịch ${categoryLabel(t.category)} ${formatVND(a)}?`}
+                              className="rounded-md p-1.5 text-slate-300 hover:bg-rose-50 hover:text-rose-500"
+                            />
+                          ) : (
+                            <span className="px-1.5 text-[11px] text-slate-300" title="Khoản thu/chi đã khóa xóa sau 24 giờ">Đã khóa</span>
+                          )}
                         </div>
                         )}
                       </TD>
@@ -261,6 +267,7 @@ export default async function CashPage({ searchParams }: { searchParams: Promise
               {txs.map((t) => {
                 const a = toNum(t.amount);
                 const isIncome = t.type === "INCOME";
+                const canDelete = canDeleteCashTransaction({ userId: user.id, role: user.role, createdById: t.createdById, createdAt: t.createdAt });
                 return (
                   <div key={t.id} className="rounded-xl border border-slate-100 p-3">
                     <div className="flex items-center justify-between gap-2">
@@ -291,13 +298,17 @@ export default async function CashPage({ searchParams }: { searchParams: Promise
                           note: t.note ?? "",
                         }}
                       />
-                      <DeleteButton
-                        action={deleteCashTransaction}
-                        id={t.id}
-                        label=""
-                        confirmText={`Xóa giao dịch ${categoryLabel(t.category)} ${formatVND(a)}?`}
-                        className="rounded-md p-1.5 text-slate-300 hover:bg-rose-50 hover:text-rose-500"
-                      />
+                      {canDelete ? (
+                        <DeleteButton
+                          action={deleteCashTransaction}
+                          id={t.id}
+                          label=""
+                          confirmText={`Xóa giao dịch ${categoryLabel(t.category)} ${formatVND(a)}?`}
+                          className="rounded-md p-1.5 text-slate-300 hover:bg-rose-50 hover:text-rose-500"
+                        />
+                      ) : (
+                        <span className="px-1.5 text-[11px] text-slate-300" title="Khoản thu/chi đã khóa xóa sau 24 giờ">Đã khóa</span>
+                      )}
                     </div>
                     )}
                   </div>

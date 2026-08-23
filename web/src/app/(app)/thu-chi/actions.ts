@@ -10,6 +10,7 @@ import { CATEGORY_LABEL } from "@/lib/finance";
 import { isMonthClosed } from "@/lib/accounting";
 import { auditRequired } from "@/lib/audit";
 import { buildCashbookPaymentRequestDetails, linkedCashTransactionGuard, paymentRequestNo, PAYMENT_REQUEST_DEFAULT_RECIPIENT } from "@/lib/payment-request";
+import { canDeleteCashTransaction } from "@/lib/cash-transaction-lock";
 
 export type CashState = { ok?: boolean; error?: string; requestId?: string; message?: string };
 
@@ -195,17 +196,45 @@ export async function updateCashTransaction(_prev: CashState, formData: FormData
   return { ok: true };
 }
 
-export async function deleteCashTransaction(formData: FormData): Promise<void> {
+export async function deleteCashTransaction(formData: FormData): Promise<CashState> {
   const user = await requireCap("mod:thu-chi");
-  if (isShareholder(user.role)) return;
+  if (isShareholder(user.role)) return { error: NO_WRITE };
   const id = String(formData.get("id") ?? "");
-  if (!id) return;
+  if (!id) return { error: "Thiếu mã giao dịch." };
 
-  const cash = await prisma.cashTransaction.findUnique({ where: { id }, select: { occurredAt: true, amount: true, type: true, category: true, paymentRequestId: true } });
-  if (!cash) return;
-  const deleteGuard = linkedCashTransactionGuard(cash.paymentRequestId, "delete");
-  if (deleteGuard) throw new Error(deleteGuard);
-  if (await isMonthClosed(format(cash.occurredAt, "yyyy-MM"))) return;
+  const cash = await prisma.cashTransaction.findUnique({
+    where: { id },
+    select: {
+      occurredAt: true,
+      amount: true,
+      type: true,
+      category: true,
+      paymentRequestId: true,
+      paymentRequest: { select: { status: true } },
+      createdById: true,
+      createdAt: true,
+    },
+  });
+  if (!cash) return { error: "Không tìm thấy giao dịch." };
+
+  const canDelete = canDeleteCashTransaction({
+    userId: user.id,
+    role: user.role,
+    createdById: cash.createdById,
+    createdAt: cash.createdAt,
+  });
+  if (!canDelete) {
+    return { error: "Khoản thu/chi đã tự khóa sau 24 giờ; chỉ ADMIN mới có thể xóa." };
+  }
+
+  const linkedRequestIsFinal = cash.paymentRequest?.status === "APPROVED" || cash.paymentRequest?.status === "PAID";
+  if (linkedRequestIsFinal) {
+    const deleteGuard = linkedCashTransactionGuard(cash.paymentRequestId, "delete");
+    if (deleteGuard) return { error: deleteGuard };
+  }
+  if (await isMonthClosed(format(cash.occurredAt, "yyyy-MM"))) {
+    return { error: "Tháng của giao dịch đã chốt sổ; hãy mở sổ trước khi xóa." };
+  }
 
   // Nếu đây là phiếu chi lương / hoa hồng do trang Kế toán sinh ra thì bỏ luôn
   // đánh dấu "đã chi" để bảng lương không lệch với sổ quỹ.
@@ -215,6 +244,14 @@ export async function deleteCashTransaction(formData: FormData): Promise<void> {
       data: { paidAmount: 0, paidAt: null, cashTxId: null },
     });
     await db.commissionPayout.deleteMany({ where: { cashTxId: id } });
+    if (cash.paymentRequestId && !linkedRequestIsFinal && cash.paymentRequest?.status !== "CANCELLED") {
+      await db.paymentRequest.update({ where: { id: cash.paymentRequestId }, data: { status: "CANCELLED" } });
+      await auditRequired(db, user.id, "CANCEL_PAYMENT_REQUEST_FROM_CASHBOOK_DELETE", {
+        entity: "PaymentRequest",
+        entityId: cash.paymentRequestId,
+        meta: { cashTransactionId: id },
+      });
+    }
     await db.cashTransaction.delete({ where: { id } });
     await auditRequired(db, user.id, "DELETE_CASH_TRANSACTION", {
       entity: "CashTransaction",
@@ -225,4 +262,5 @@ export async function deleteCashTransaction(formData: FormData): Promise<void> {
   revalidatePath("/thu-chi");
   revalidatePath("/dashboard");
   revalidatePath("/ke-toan");
+  return { ok: true };
 }

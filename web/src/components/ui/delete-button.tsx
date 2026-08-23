@@ -17,7 +17,7 @@ export function DeleteButton({
   label = "Xóa",
   className,
 }: {
-  action: (formData: FormData) => void | Promise<void>;
+  action: (formData: FormData) => void | Promise<void | { ok?: boolean; error?: string }>;
   id: string;
   confirmText: string;
   label?: string;
@@ -34,7 +34,11 @@ export function DeleteButton({
     fd.append("id", id);
     startTransition(async () => {
       try {
-        await action(fd);
+        const result = await action(fd);
+        if (result && typeof result === "object" && "error" in result && result.error) {
+          setErr(result.error);
+          return;
+        }
         router.refresh();
         setOpen(false);
       } catch (e) {
