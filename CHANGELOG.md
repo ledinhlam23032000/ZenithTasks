@@ -4,6 +4,8 @@ Tài liệu này ghi các thay đổi đã được đẩy lên nhánh `master`.
 
 ## 2026-08-24 — Operating Framework V2, AI clarification và governance QA
 
+- Commit master: [`128b088`](https://github.com/ledinhlam23032000/ZenithTasks/commit/128b0889a918e9a1e5314457b2e5bd4b551b77b9).
+
 - Khôi phục và tích hợp additive V2 operating framework: project, membership, đơn vị, vị trí, assignment, mechanism definition/version và rule-engine simulation; không hard-code riêng Cellarisca.
 - Trợ lý AI nhận diện yêu cầu cơ chế hoa hồng/chiết khấu/revenue sharing, hỏi bốn lựa chọn A/B/C/D có tác động, lưu evidence và tạo draft inactive; UI có nút chọn trực tiếp. Clarification cũ được supersede sau khi đã tạo draft.
 - Thêm policy/adapter L0–L5 với capability và project scope. Sensitive read yêu cầu purpose/confirmation preview; L5 xóa/chấm dứt nhân sự/đổi quyền/deploy bị dừng vì workflow hai người duyệt chưa được nối. Không có auto termination/deploy.

@@ -63,3 +63,11 @@ Clarification A/B/C/D đã có pure contract + 4 tests và UI button cards; meta
 - Completed: source review, QA migration/data, feature-on/off smoke, role smoke, authenticated server-action harness, clarification UI/typecheck/targeted tests.
 - Next 3 actions: chạy full Prisma/typecheck/Vitest/webpack build; review security/secret/staged diff và cập nhật docs/handoff; chỉ sau đó stage explicit files, commit/push nếu mọi gate đạt.
 - Open risks: cần kiểm chứng full build thật, không dựa vào log compile; cần loại toàn bộ QA artifacts khỏi staging; L5 two-person workflow và Training Studio CRUD/evaluation/release chưa delivered; production migration vẫn pending backup/dry-run/explicit confirmation.
+
+## Release checkpoint — 2026-08-24 03:58 GMT+7
+
+Quality gate cuối đạt: `prisma validate`, `prisma generate`, `npx tsc --noEmit`, full Vitest **75 files / 397 tests**, và `npm run build -- --webpack` hoàn tất thành công. Cached diff check và allowlist audit đạt; intended product files đã commit, không stage checks/worktrees/token/env/recovery artifacts.
+
+Commit `128b0889a918e9a1e5314457b2e5bd4b551b77b9` đã push thành công lên `origin/master`; `git ls-remote origin refs/heads/master` trả cùng SHA. Các thay đổi Windows local và `.task-memory/02_state.md`, `.task-memory/06_changelog.md` cũ vẫn ngoài commit, không bị xóa hoặc đưa vào release.
+
+Goal của phiên này hoàn tất. Production clinic vẫn chưa migrate hai migration V2/Training và feature flags chưa được bật trên máy vận hành. Người dùng chỉ nên backup trước, chạy `windows\\Sua-Loi.bat` để cập nhật commit, sau đó kiểm tra workflow clinic trước khi cân nhắc migration/flags theo runbook; không dùng `prisma db push` hoặc `migrate reset`.

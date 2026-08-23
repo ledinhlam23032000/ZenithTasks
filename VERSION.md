@@ -1,7 +1,7 @@
 # ZenithTasks — Trạng thái phiên bản hiện tại
 
 > **Phiên bản nội bộ:** `2026.08.24-r14`<br>
-> **Commit master:** sẽ cập nhật sau khi release candidate này được commit/push và xác minh origin<br>
+> **Commit master:** [`128b088`](https://github.com/ledinhlam23032000/ZenithTasks/commit/128b0889a918e9a1e5314457b2e5bd4b551b77b9)<br>
 > **PR gần nhất:** cập nhật trực tiếp trên `master` theo chỉ đạo owner<br>
 > **Ngày cập nhật:** 24/08/2026<br>
 > **Trạng thái:** Release candidate đã qua Prisma validate/generate, TypeScript, 75 file/397 test và Next webpack production build; V2/AI governance/clarification/Training Studio MVP đã được kiểm thử trong QA cô lập. Hai migration mới chưa chạy trên database clinic thật; chưa reset database/volume và chưa publish production. Bộ tài liệu tiếp quản chuẩn nằm tại [`docs/INDEX.md`](docs/INDEX.md), bản đồ năng lực nằm tại [`docs/PRODUCT-CAPABILITIES.md`](docs/PRODUCT-CAPABILITIES.md).
@@ -49,7 +49,7 @@ Migration là **bổ sung dữ liệu, không được tự xóa hoặc reset da
 
 ## Kiểm tra chất lượng gần nhất
 
-Release candidate r14 đã được kiểm tra bằng Prisma generate/validate, TypeScript, Vitest **75 file / 397 test** và Next webpack production build. QA isolated đã kiểm tra migration/data demo, authenticated route smoke, feature flags on/off, role access và server-action seed; production clinic chưa migrate. `origin/master` vẫn là r13 cho tới khi commit/push release candidate được xác minh. Khi sửa nghiệp vụ tiền, lương, công nợ, phân quyền, hồ sơ y tế hoặc webhook, phải bổ sung test hồi quy trước khi commit.
+Release candidate r14 đã được kiểm tra bằng Prisma generate/validate, TypeScript, Vitest **75 file / 397 test** và Next webpack production build. QA isolated đã kiểm tra migration/data demo, authenticated route smoke, feature flags on/off, role access và server-action seed; production clinic chưa migrate. `origin/master` đã xác minh ở commit `128b088`. Khi sửa nghiệp vụ tiền, lương, công nợ, phân quyền, hồ sơ y tế hoặc webhook, phải bổ sung test hồi quy trước khi commit.
 
 ## Quy trình cập nhật máy vận hành
 
