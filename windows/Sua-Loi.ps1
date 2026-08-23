@@ -50,7 +50,10 @@ if (Test-Path $Dir) {
       Write-Host "Khong tao duoc backup branch cho thay doi local; dung de tranh mat du lieu." -ForegroundColor Red
       EndHere 1
     }
-    $stashOutput = & git -C $Dir stash push --include-untracked -m "Sua-Loi $Stamp - bao luu thay doi local truoc khi cap nhat master" 2>&1
+    # Hồ sơ Chrome QA có Cookies/Local Storage thường bị Chrome khóa. Đây là dữ liệu
+    # kiểm thử cục bộ, không phải mã nguồn; không đưa vào stash để tránh làm hỏng
+    # quy trình cập nhật. Các thay đổi tracked và untracked khác vẫn được bảo vệ.
+    $stashOutput = & git -C $Dir stash push --include-untracked -m "Sua-Loi $Stamp - bao luu thay doi local truoc khi cap nhat master" -- . ':(exclude)checks/qa-chrome-profile/**' 2>&1
     $stashOutput | Write-Host
     if ($LASTEXITCODE -ne 0) {
       Write-Host "Khong bao luu duoc thay doi local; dung de tranh mat du lieu." -ForegroundColor Red
@@ -62,6 +65,9 @@ if (Test-Path $Dir) {
   $stashCreated = $dirty -and $stashRefAfter -and ($stashRefAfter -ne $stashRefBefore)
   if ($stashCreated) {
     Write-Host "Da bao ve thay doi local truoc khi cap nhat (khong tu dong khoi phuc de tranh de len master)." -ForegroundColor Yellow
+    if ($dirty -match 'checks/qa-chrome-profile') {
+      Write-Host "Bo qua checks/qa-chrome-profile vi day la ho so Chrome QA co file dang bi khoa; khong xoa va khong ghi de." -ForegroundColor Yellow
+    }
     Write-Host "Backup branch: $backupBranch" -ForegroundColor Yellow
     Write-Host "Stash: $stashRefAfter" -ForegroundColor Yellow
     Write-Host "Sau khi cap nhat on dinh, xem lai: git stash list" -ForegroundColor Yellow
