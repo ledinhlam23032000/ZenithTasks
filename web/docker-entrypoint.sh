@@ -126,5 +126,5 @@ if [ -f /app/scripts/backup.mjs ]; then
   echo "🗄️  Đã bật sao lưu tự động hằng ngày (xem trang Tình trạng hệ thống)."
 fi
 
-echo "🚀 Khởi động Zenith Clinic tại http://localhost:3000"
+echo "🚀 Khởi động Zenith Clinic trên cổng nội bộ 3000 (origin host: http://127.0.0.1:3000)"
 exec "$@"

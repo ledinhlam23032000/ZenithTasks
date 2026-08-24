@@ -21,3 +21,9 @@
 - Kết luận sự cố 502: route dùng `localhost` đã được thay đúng bằng IPv4 loopback; không reset database, không xóa volume và không đổi hostname public.
 
 Nguồn kiểm tra: lệnh PowerShell trên máy Windows và curl HTTPS từ sandbox sau khi owner bấm Save.
+
+## Đối chiếu sau bản nâng cấp của owner — 2026-08-24 09:55
+
+Báo cáo `Xem-Loi` mới cho thấy `56 migrations found`, `Database schema is up to date!` và không có dòng `[XEM-LOI]`; NativeCommandError trong ảnh/log là do máy đang chạy bản `Xem-Loi.ps1` cũ dùng redirect stderr trực tiếp. Bản sửa hiện tại đã gom stdout/stderr qua `cmd.exe` và kiểm thử thực tế thành công.
+
+Dòng `Khởi động Zenith Clinic tại http://localhost:3000` và dòng `- Local: http://localhost:3000` là log/banner do image app cũ tạo ra bên trong container; chúng không phải cấu hình Cloudflare. Origin public đã được kiểm tra độc lập và vẫn dùng IPv4 `http://127.0.0.1:3000`. Sẽ commit/push bản sửa log entrypoint và README để lần build/recreate app tiếp theo không còn gây hiểu nhầm.

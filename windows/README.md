@@ -5,7 +5,7 @@
 Chỉ cần **một file**: `Chay-Zenith.bat` → bấm đúp để chạy.
 
 File này tự: xin quyền Admin → cài Git/Docker Desktop nếu thiếu → tải mã nguồn →
-`docker compose up` → mở http://localhost:3000. Khi CSDL trống, dùng `BOOTSTRAP_ADMIN_*` trong `.env` để tạo tài khoản cá nhân; không dùng mật khẩu demo cho production.
+`docker compose up` → mở http://127.0.0.1:3000. Khi CSDL trống, dùng `BOOTSTRAP_ADMIN_*` trong `.env` để tạo tài khoản cá nhân; không dùng mật khẩu demo cho production.
 
 Dữ liệu lưu ngay trên máy này (Docker volume); máy khác cùng mạng vào bằng
 `http://<IP-máy-này>:3000`.
