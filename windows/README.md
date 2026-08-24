@@ -24,3 +24,12 @@ Scheduler) kiểm tra GitHub lúc 02:00 sáng mỗi ngày, có bản mới thì 
 mới thì bỏ qua; nếu cập nhật lỗi thì giữ nguyên bản đang chạy (không làm gián đoạn phòng khám). Xem
 nhật ký tại `%USERPROFILE%\zenith-tu-dong-cap-nhat.log`. Muốn tắt: mở "Task Scheduler" → tìm
 `ZenithTuDongCapNhat` → Disable/Delete.
+
+
+## Cấu hình DeepSeek cho QA cô lập
+
+Để thử AI trên bản chạy giống source thật nhưng không đụng database clinic, dùng `Cau-Hinh-AI-QA.bat`. File này kiểm tra Docker, xác nhận container hiện có đang trỏ tới database `zenith_v2_qa`, hỏi API key bằng ô nhập ẩn, rồi tạo lại **chỉ container QA** tại `http://127.0.0.1:3300/login` với V2 và Training Studio bật. API key không được ghi vào Git, không đưa vào client và không được dùng cho container app port 3000.
+
+Sau khi test xong, bấm `Tat-AI-QA.bat`. File này xóa container QA và file `web/.env.qa.local`, nhưng giữ database QA để có thể đối chiếu; app clinic port 3000 không bị dừng. Nếu một API key đã từng xuất hiện trong tin nhắn, email, log hoặc ảnh chụp, hãy thu hồi key đó tại nhà cung cấp và tạo key QA mới.
+
+`Cau-Hinh-AI-QA.bat` và `Tat-AI-QA.bat` là luồng kiểm thử, **không thay thế** `Sua-Loi.bat` hoặc `Chay-Zenith.bat`; không chạy chúng như quy trình cập nhật máy vận hành.
