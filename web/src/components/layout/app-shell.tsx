@@ -41,6 +41,8 @@ import {
   Calculator,
   Inbox,
   Plug,
+  Plus,
+  Check,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -89,6 +91,7 @@ const ICONS: Record<string, LucideIcon> = {
 export type NavItemData = { href: string; label: string; icon: string; group: string };
 export type ShellUser = { fullName: string; role: Role; roleLabel: string; username: string; avatarUrl?: string | null };
 export type WorkloadSummary = { total: number; followUps: number; appointments: number; newCustomers: number; debts: number };
+export type WorkspaceOption = { id: string; code: string; name: string; status: string };
 
 type RouteAlias = { prefix: string; label: string; parentHref: string; parentLabel: string };
 
@@ -105,12 +108,14 @@ export function AppShell({
   children,
   pushPublicKey,
   workload,
+  workspaces,
 }: {
   user: ShellUser;
   nav: NavItemData[];
   children: React.ReactNode;
   pushPublicKey: string;
   workload: WorkloadSummary;
+  workspaces: WorkspaceOption[];
 }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -211,6 +216,34 @@ export function AppShell({
     group: "Khách hàng",
   } : undefined);
 
+    const activeWorkspace = pathname.startsWith("/du-an/") ? workspaces.find((workspace) => pathname.startsWith(`/du-an/${workspace.id}`)) : undefined;
+  const workspacePicker = (
+    <div className="border-y border-slate-100 px-4 py-3">
+      <p className="mb-2 px-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">Không gian làm việc</p>
+      <details className="group rounded-xl border border-slate-200 bg-slate-50">
+        <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2.5 text-sm font-semibold text-slate-700">
+          <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-brand-100 text-brand-700"><FolderKanban className="h-4 w-4" /></span>
+          <span className="min-w-0 flex-1 truncate">{activeWorkspace?.name ?? "Nội Bộ"}</span>
+          <ChevronDown className="h-4 w-4 text-slate-400 transition-transform group-open:rotate-180" />
+        </summary>
+        <div className="space-y-1 border-t border-slate-200 bg-white p-2">
+          <Link href="/dashboard" onClick={() => setMobileOpen(false)} className={cn("flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm", !pathname.startsWith("/du-an") ? "bg-brand-50 font-semibold text-brand-700" : "text-slate-600 hover:bg-slate-50")}>
+            {!pathname.startsWith("/du-an") ? <Check className="h-3.5 w-3.5" /> : <span className="w-3.5" />} Nội Bộ <span className="ml-auto text-[10px] text-slate-400">clinic</span>
+          </Link>
+          {workspaces.map((workspace) => {
+            const active = pathname.startsWith(`/du-an/${workspace.id}`);
+            return <Link key={workspace.id} href={`/du-an/${workspace.id}`} onClick={() => setMobileOpen(false)} className={cn("flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm", active ? "bg-brand-50 font-semibold text-brand-700" : "text-slate-600 hover:bg-slate-50")}>
+              {active ? <Check className="h-3.5 w-3.5" /> : <span className="w-3.5" />} <span className="min-w-0 flex-1 truncate">{workspace.name}</span> <span className="text-[10px] text-slate-400">{workspace.code}</span>
+            </Link>;
+          })}
+          <Link href="/du-an" onClick={() => setMobileOpen(false)} className="flex items-center gap-2 rounded-lg border-t border-slate-100 px-2.5 py-2 pt-3 text-sm font-semibold text-brand-700 hover:bg-brand-50">
+            <Plus className="h-3.5 w-3.5" /> Quản lý Dự án
+          </Link>
+        </div>
+      </details>
+    </div>
+  );
+
   const navList = (
     <nav className="flex-1 min-h-0 space-y-1 overflow-y-auto px-3 py-4">
       {groupEntries.map(([group, items], groupIndex) => {
@@ -270,6 +303,7 @@ export function AppShell({
       {/* Sidebar desktop */}
       <aside className="sticky top-0 hidden h-screen flex-col border-r border-slate-200 bg-white lg:flex">
         {brand}
+        {workspacePicker}
         {navList}
         <div className="px-5 py-4 text-[11px] leading-relaxed text-slate-400">
           <p className="font-medium text-slate-500">BVĐK Hồng Phúc</p>
@@ -310,6 +344,8 @@ export function AppShell({
               >
                 <Search className="h-4.5 w-4.5" /> Tìm khách hàng, hồ sơ, vật tư…
               </button>
+
+              {workspacePicker}
 
               <div className="space-y-5">
                 {groupEntries.map(([group, items]) => (

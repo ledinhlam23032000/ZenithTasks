@@ -9,6 +9,23 @@ import { ToastProvider } from "@/components/ui/toast";
 import { pushPublicKey } from "@/lib/push";
 import { DismissibleBanner } from "@/components/ui/dismissible-banner";
 import { getWorkloadSummary } from "@/lib/workqueue-summary";
+import { prisma } from "@/lib/db";
+import type { WorkspaceOption } from "@/components/layout/app-shell";
+
+async function loadWorkspaceOptions(user: Awaited<ReturnType<typeof requireUser>>): Promise<WorkspaceOption[]> {
+  if (process.env.ENABLE_ZENITH_V2 !== "true") return [];
+  try {
+    const projects = await prisma.zProject.findMany({
+      where: user.role === "ADMIN" ? undefined : { members: { some: { userId: user.id, active: true } } },
+      select: { id: true, code: true, name: true, status: true },
+      orderBy: { updatedAt: "desc" },
+    });
+    return projects.map((project) => ({ id: project.id, code: project.code, name: project.name, status: project.status }));
+  } catch (error) {
+    console.error("Không tải được danh sách workspace V2:", error);
+    return [];
+  }
+}
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
@@ -16,7 +33,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // Cảnh báo bảo mật chỉ hiện cho ADMIN (người có thể xử lý).
   const warnings = user.role === "ADMIN" ? securityWarnings() : [];
   // Tài khoản bootstrap/QA được đánh dấu bắt buộc đổi mật khẩu trong JWT.
-  const [session, workload] = await Promise.all([getSession(), getWorkloadSummary(user)]);
+  const [session, workload, workspaces] = await Promise.all([getSession(), getWorkloadSummary(user), loadWorkspaceOptions(user)]);
   const weakPassword = user.mustChangePassword || session?.weakPw === true || session?.mustChangePassword === true;
 
   return (
@@ -26,6 +43,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         nav={nav}
         pushPublicKey={pushPublicKey()}
         workload={workload}
+        workspaces={workspaces}
       >
         {(warnings.length > 0 || weakPassword) && (
           <div className="mb-4 space-y-2">

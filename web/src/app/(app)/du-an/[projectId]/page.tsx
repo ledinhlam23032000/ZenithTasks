@@ -1,0 +1,32 @@
+import Link from "next/link";
+import { ArrowLeft, Boxes, CheckCircle2, CircleDashed, ShieldCheck } from "lucide-react";
+import { requireProjectAccess } from "@/lib/v2-access";
+import { V2_MODULES, normalizedModuleKeys } from "@/lib/v2-modules";
+import { V2ModuleSettingsForm } from "@/components/v2-module-settings-form";
+
+export const dynamic = "force-dynamic";
+
+export default async function ProjectWorkspacePage({ params }: { params: Promise<{ projectId: string }> }) {
+  const { projectId } = await params;
+  const { user, project } = await requireProjectAccess(projectId);
+  const enabled = new Set(normalizedModuleKeys(project.enabledFeatures));
+  const activeModules = V2_MODULES.filter((module) => enabled.has(module.key));
+  const plannedModules = V2_MODULES.filter((module) => !module.available);
+
+  return <div className="space-y-6">
+    <Link href="/du-an" className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-900"><ArrowLeft className="h-4 w-4" />Quay lại danh sách Dự án</Link>
+    <header className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="flex flex-col justify-between gap-5 md:flex-row md:items-start">
+        <div className="flex items-start gap-3"><span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-brand-50 text-brand-700"><Boxes className="h-5 w-5" /></span><div><p className="text-sm font-medium text-brand-600">Workspace Dự án · {project.code}</p><h1 className="mt-1 text-2xl font-bold text-slate-900">{project.name}</h1><p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">Không gian này tách khỏi Nội Bộ. Mọi module mới phải được cấu hình trong DRAFT và kiểm tra trước khi đưa vào vận hành.</p></div></div>
+        <span className="inline-flex w-fit items-center rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">{project.status}</span>
+      </div>
+    </header>
+
+    <section className="grid gap-4 md:grid-cols-3"><div className="rounded-2xl border border-slate-200 bg-white p-5"><p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Thành viên</p><p className="mt-2 text-2xl font-bold text-slate-900">{project._count.members}</p><p className="mt-1 text-sm text-slate-500">Chỉ người được cấp vào Dự án</p></div><div className="rounded-2xl border border-slate-200 bg-white p-5"><p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Module đang bật</p><p className="mt-2 text-2xl font-bold text-slate-900">{activeModules.length}</p><p className="mt-1 text-sm text-slate-500">Không ảnh hưởng dữ liệu Nội Bộ</p></div><div className="rounded-2xl border border-slate-200 bg-white p-5"><p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Phạm vi</p><p className="mt-2 text-2xl font-bold text-slate-900">Riêng</p><p className="mt-1 text-sm text-slate-500">AI phải nhận context Dự án</p></div></section>
+
+    <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"><div className="flex items-start gap-3"><ShieldCheck className="mt-0.5 h-5 w-5 text-emerald-600" /><div><h2 className="font-semibold text-slate-900">Các module của workspace</h2><p className="mt-1 text-sm text-slate-500">Module đang có thể mở trực tiếp; module kế tiếp được ghi nhận để AI hoặc Admin nối thêm sau khi có schema, quyền và test riêng.</p></div></div><div className="mt-5 grid gap-3 md:grid-cols-2">{V2_MODULES.map((module) => { const isEnabled = enabled.has(module.key); const canOpen = module.available && isEnabled; return <article key={module.key} className={`rounded-xl border p-4 ${canOpen ? "border-emerald-200 bg-emerald-50/50" : "border-slate-200 bg-slate-50"}`}><div className="flex items-start gap-3">{canOpen ? <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" /> : <CircleDashed className="mt-0.5 h-5 w-5 shrink-0 text-slate-400" />}<div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h3 className="font-semibold text-slate-800">{module.label}</h3><span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-500">{canOpen ? "ĐANG BẬT" : module.available ? "ĐANG TẮT" : "SẮP TÍCH HỢP"}</span></div><p className="mt-1 text-sm leading-5 text-slate-500">{module.description}</p>{canOpen && <Link href={module.href(project.id)} className="mt-3 inline-flex text-sm font-semibold text-brand-700 hover:underline">Mở module →</Link>}</div></div></article>; })}</div></section>
+
+    {user.role === "ADMIN" && <V2ModuleSettingsForm projectId={project.id} projectName={project.name} enabledKeys={Array.from(enabled)} />}
+    <div className="rounded-2xl border border-indigo-200 bg-indigo-50 p-5 text-sm leading-6 text-indigo-800">Đây là workspace riêng của <strong>{project.name}</strong>. Dữ liệu Nội Bộ không được tự động trộn vào đây. Các module Khách hàng, Lịch hẹn, Tài chính và Lương/hoa hồng sẽ chỉ được mở sau khi có bảng dữ liệu/phạm vi quyền riêng tương ứng.</div>
+  </div>;
+}
