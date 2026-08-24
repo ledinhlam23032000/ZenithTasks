@@ -1,10 +1,10 @@
 # ZenithTasks — Trạng thái phiên bản hiện tại
 
 > **Phiên bản nội bộ:** `2026.08.24-r14`<br>
-> **Commit master:** [`8bf7493`](https://github.com/ledinhlam23032000/ZenithTasks/commit/8bf74937e6e1818319de4166338c7b5eb365cc33)<br>
+> **Commit master:** [`803a880`](https://github.com/ledinhlam23032000/ZenithTasks/commit/803a880)<br>
 > **PR gần nhất:** cập nhật trực tiếp trên `master` theo chỉ đạo owner<br>
 > **Ngày cập nhật:** 24/08/2026<br>
-> **Trạng thái:** Release candidate đã qua Prisma validate/generate, TypeScript, 75 file/397 test và Next webpack production build; V2/AI governance/clarification/Training Studio MVP đã được kiểm thử trong QA cô lập. Hai migration mới chưa chạy trên database clinic thật; chưa reset database/volume và chưa publish production. Bộ tài liệu tiếp quản chuẩn nằm tại [`docs/INDEX.md`](docs/INDEX.md), bản đồ năng lực nằm tại [`docs/PRODUCT-CAPABILITIES.md`](docs/PRODUCT-CAPABILITIES.md).
+> **Trạng thái:** Release candidate đã qua Prisma validate/generate, TypeScript, 75 file/397 test và Next webpack production build; V2/AI governance/clarification/Training Studio MVP đã được kiểm thử trong QA cô lập. Hotfix sau đó đã đồng bộ origin kỹ thuật IPv4, sửa `Xem-Loi.ps1` để không báo NativeCommandError giả, và đổi log startup khỏi `localhost:3000`; public `/login` đã xác nhận HTTP 200. Hai migration mới đã được báo schema up to date trên máy vận hành; không reset database/volume. Bộ tài liệu tiếp quản chuẩn nằm tại [`docs/INDEX.md`](docs/INDEX.md), bản đồ năng lực nằm tại [`docs/PRODUCT-CAPABILITIES.md`](docs/PRODUCT-CAPABILITIES.md).
 
 ## Quy tắc đọc tài liệu
 

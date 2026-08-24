@@ -2,6 +2,12 @@
 
 Tài liệu này ghi các thay đổi đã được đẩy lên nhánh `master`. Commit mới hơn nằm ở phía trên. Phiên bản mô tả đầy đủ hiện tại nằm trong [`VERSION.md`](VERSION.md).
 
+## 2026-08-24 — Hotfix sau bản nâng cấp: đồng bộ origin và Xem-Loi
+
+- Đối chiếu sau bản nâng cấp: `127.0.0.1:3000/login` HTTP 200; database báo `56 migrations found` và `Database schema is up to date!`; Cloudflared service Running và metrics endpoint HTTP 200.
+- Các tham chiếu `localhost:3000` còn lại trong mã nguồn chạy thật đã được phân loại: `web/docker-entrypoint.sh` chỉ là dòng log nội bộ của image cũ, còn `CHANGELOG.md`/`.task-memory` là lịch sử. `windows/README.md` đã được đổi sang `http://127.0.0.1:3000`.
+- `windows/Xem-Loi.ps1` được sửa để gom stdout/stderr qua `cmd.exe`; kiểm thử thực tế không còn `NativeCommandError` giả. Không có migration mới trong hotfix, không reset database/volume.
+
 ## 2026-08-24 — Operating Framework V2, AI clarification và governance QA
 
 - Commit master: [`128b088`](https://github.com/ledinhlam23032000/ZenithTasks/commit/128b0889a918e9a1e5314457b2e5bd4b551b77b9).
