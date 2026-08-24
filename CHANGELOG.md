@@ -386,3 +386,11 @@ Mỗi thay đổi nghiệp vụ phải ghi ngày, mục đích, tệp hoặc mig
 - Manager chỉ thấy Dự án có membership active; các trang dashboard, Tổ chức và Cơ chế đều kiểm tra phạm vi server-side. Admin có quyền tổng quan toàn cục trong lớp V2.
 - Tái chạy chính `windows/Sua-Loi.ps1`: backup vượt qua với `No local changes to save`, ignored `worktrees/` được giữ ngoài stash, Docker build đạt, app mới chạy, migration không pending và `/login` HTTP 200. Console vẫn có thể vỡ ký tự do code page cũ; trạng thái được xác minh bằng Docker/HTTP thay vì dựa vào text console.
 - Regression `checks/test-v2-workspace-boundary.ps1` đạt `V2_WORKSPACE_BOUNDARY_PASS`. Không đưa `.env`, credential QA, JWT hoặc API key vào commit.
+
+## 2026-08-24 — Workspace Task và AI scope
+
+- Bổ sung `ZWorkspaceTask` với `projectId` bắt buộc, route `/du-an/[projectId]/tasks`, create/list/status update và test isolation rollback-only.
+- Bổ sung Admin membership management tại `/du-an/[projectId]/thanh-vien`; tạm dừng membership không xóa dữ liệu và mọi thay đổi có audit.
+- Sidebar workspace đổi sang menu module riêng khi ở Dự án; thêm link Trợ lý AI giữ `?p=projectId`.
+- Bổ sung migration AI scope cho conversation/approval, selector Nội Bộ/Dự án, planner không nạp snapshot Nội Bộ khi ở Project, policy chặn thiếu/sai projectId và metadata audit/preview theo workspace.
+- Đã đạt Prisma validate, TypeScript, Next production build và unit governance trong clone sandbox. Commit AI scope đã push master; cần chạy lại updater trên máy clinic sau khi kết nối trở lại trước khi xác nhận deployment cuối cùng.

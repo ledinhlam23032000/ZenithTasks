@@ -1,6 +1,6 @@
 # ZenithTasks — Trạng thái phiên bản hiện tại
 
-> **Phiên bản nội bộ:** `2026.08.24-r15`<br>
+> **Phiên bản nội bộ:** `2026.08.24-r16`<br>
 > **Commit master:** phải đối chiếu trực tiếp bằng `git rev-parse HEAD` và `git ls-remote origin refs/heads/master`; không cố định một SHA trong tài liệu phát hành.<br>
 > **Baseline mã nguồn đã xác minh trước đợt tài liệu này:** `5aa5f6447c54b1f096fbcd07464133d03d23d2db`<br>
 > **PR gần nhất:** cập nhật trực tiếp trên `master` theo chỉ đạo owner<br>
@@ -45,12 +45,14 @@
 | `20260818120000_ai_admin_gateway` | Lưu AssistantConversation/AssistantMessage, liên kết approval với conversation và hỗ trợ chấm công hàng loạt qua AI. **Đã áp dụng trên production ngày 18/08/2026.** |
 | `20260824000000_operating_framework_v2` | Project/organization/position/membership/mechanism registry và simulation rule engine. **Đã apply QA; theo log clinic ngày 24/08/2026 đã apply production.** |
 | `20260824003000_ai_training_studio` | Agent profile/dataset/example/prompt/evaluation nền tảng. **Đã apply QA và production theo log clinic ngày 24/08/2026; MVP dashboard/demo seed, chưa phải full training lab.** |
+| `20260824010000_workspace_tasks` | Task project-local với projectId bắt buộc, status/priority, query scoped, membership và audit. **Đã deploy production-like qua updater ở commit 41aa7fc; migration/status up to date.** |
+| `20260824013000_ai_workspace_scope` | Workspace kind/projectId cho AssistantConversation/Approval, selector AI và governance scope. **Đã push master ở commit fc8e244; chờ chạy updater trên máy clinic sau khi sidecar reconnect.** |
 
 Migration là **bổ sung dữ liệu, không được tự xóa hoặc reset database**. Khi triển khai production phải dùng `prisma migrate deploy`, không dùng `prisma db push`.
 
 ## Kiểm tra chất lượng gần nhất
 
-Release candidate r15 đã được kiểm tra bằng Prisma generate/validate, TypeScript, Vitest **75 file / 397 test** và Next webpack production build. QA isolated đã kiểm tra migration/data demo, authenticated route smoke, feature flags on/off, role access, server-action seed và live DeepSeek. Log clinic owner cung cấp ngày 24/08/2026 ghi nhận 56 migrations, hai migration V2/Training đã apply, database up to date và Next.js Ready; sau phát hành vẫn phải smoke test nghiệp vụ trên máy clinic. Baseline `origin/master` trước đợt handoff là `5aa5f64`; sau mỗi commit phải xác minh lại bằng Git. Khi sửa nghiệp vụ tiền, lương, công nợ, phân quyền, hồ sơ y tế hoặc webhook, phải bổ sung test hồi quy trước khi commit.
+Release candidate r16 đã được kiểm tra bằng Prisma generate/validate, TypeScript, Vitest governance targeted **10 test** và Next production build; phần Task/membership đã được build/deploy production-like qua updater và phần AI scope đã build trong clone sandbox. Full Vitest baseline **75 file / 397 test** vẫn là bằng chứng nền trước r16. QA isolated đã kiểm tra migration/data demo, authenticated route smoke, feature flags on/off, role access, server-action seed và live DeepSeek. Log clinic owner cung cấp ngày 24/08/2026 ghi nhận 56 migrations, hai migration V2/Training đã apply, database up to date và Next.js Ready; sau phát hành vẫn phải smoke test nghiệp vụ trên máy clinic. Baseline `origin/master` trước đợt handoff là `5aa5f64`; sau mỗi commit phải xác minh lại bằng Git. Khi sửa nghiệp vụ tiền, lương, công nợ, phân quyền, hồ sơ y tế hoặc webhook, phải bổ sung test hồi quy trước khi commit.
 
 ## Quy trình cập nhật máy vận hành
 

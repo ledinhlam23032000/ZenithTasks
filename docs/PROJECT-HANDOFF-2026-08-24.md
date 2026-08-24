@@ -150,3 +150,11 @@ AI về sau phải nhận workspace context rõ ràng gồm `workspaceKind` (INT
 Không được coi một tính năng là hoàn tất chỉ vì route xuất hiện trong manifest hoặc build TypeScript thành công. Với mỗi route có server component và client component, phải kiểm tra cả render runtime sau khi recreate container. Module có chỉ thị `use server` chỉ nên export các server action async; hằng số dùng chung cho client phải đặt trong module shared không có `use server`.
 
 Quy trình phát hành bắt buộc gồm: build image mới, recreate app, chờ `Ready`, kiểm tra migration/status, probe `/login`, sau đó kiểm tra route tính năng bằng phiên Admin và một phiên role bị giới hạn. Nếu không có phiên đăng nhập tự động, phải ghi rõ đó là phần chưa xác minh UI, không được tuyên bố “đã kiểm thử toàn bộ”. `Sua-Loi.bat` phải được kiểm thử như người dùng thật trên chính máy clinic; build/push GitHub một mình không chứng minh bản web đã được cập nhật.
+
+## 15. Workspace Task và AI scope — checkpoint mới nhất
+
+Các commit mới nhất trên `master` là `1710820` (Task local), `41aa7fc` (quản lý membership), `46642f7` (AI workspace scope) và `fc8e244` (sidebar mở Trợ lý AI giữ project context). Dữ liệu clinic legacy vẫn là **Nội Bộ** và không bị di chuyển. `ZWorkspaceTask` dùng `projectId` bắt buộc; create/list/status update, membership active và isolation rollback test đã được triển khai. Customer, Appointment, Finance và Payroll project-local vẫn chưa được giao.
+
+AI hiện có selector Nội Bộ/Dự án, conversation/approval lưu `workspaceKind` và `projectId`, planner không nạp snapshot clinic-global hoặc file context khi đang ở Project, policy chặn tool thiếu/sai projectId, và preview/audit/assistant turn mang scope. Đây là scope enforcement và audit plumbing; các tool nghiệp vụ clinic-global chưa được giả vờ chuyển thành tool project-local. L5 two-person approval vẫn là blocker.
+
+Trong clone sandbox, `prisma validate`, TypeScript, Next production build và 10 unit tests governance đã đạt. Máy clinic đã chạy `Sua-Loi.bat` thành công đến `DA XONG` cho commit `41aa7fc`, migration up to date và `/login` HTTP 200. Commit AI scope `fc8e244` đã push GitHub nhưng cần chạy lại `Sua-Loi.bat` trên máy clinic khi sidecar reconnect; chỉ sau đó mới ghi nhận deployment AI scope hoàn tất.
