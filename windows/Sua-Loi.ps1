@@ -8,7 +8,7 @@ $Branch = "master"
 $Dir    = Join-Path $HOME "ZenithTasks"
 $Stamp  = Get-Date -Format "yyyyMMdd-HHmmss"
 
-function EndHere($code) { Write-Host ""; Read-Host "Nhan Enter de dong cua so"; exit $code }
+function EndHere($code) { Write-Host ""; exit $code }
 
 Write-Host "==================================================" -ForegroundColor Cyan
 Write-Host "  SUA LOI / CAP NHAT SACH - ZENITH CLINIC" -ForegroundColor Cyan
@@ -130,10 +130,19 @@ $env:COMPOSE_BAKE = "false"
 $BuildLog = Join-Path $Dir "docker-build-$Stamp.log"
 Write-Host "Log build: $BuildLog" -ForegroundColor DarkGray
 Write-Host "Docker dang build; dong nay se cap nhat lien tuc. Neu co loi, log van duoc ghi ngay." -ForegroundColor DarkGray
-# Khong gom output vao bien truoc khi hien thi: cach cu lam man hinh dung im
-# suot luc build. Tee-Object vua hien tung dong vua ghi log theo thoi gian thuc.
-& docker compose build --no-cache app 2>&1 | Tee-Object -FilePath $BuildLog
-$buildExit = $LASTEXITCODE
+# Không dùng pipeline Tee-Object cho BuildKit: trên một số PowerShell/Git for
+# Windows, pipeline này giữ host mở dù tiến trình con đã hoàn tất. Chạy Docker
+# bằng process có file log riêng, phát heartbeat định kỳ và lấy ExitCode sau
+# WaitForExit để wrapper kết thúc deterministic.
+$BuildErr = Join-Path $Dir "docker-build-$Stamp.err.log"
+$buildProc = Start-Process -FilePath "docker" -ArgumentList @("compose", "build", "--no-cache", "app") -WorkingDirectory $Dir -RedirectStandardOutput $BuildLog -RedirectStandardError $BuildErr -PassThru -WindowStyle Hidden
+while (-not $buildProc.HasExited) {
+  Write-Host "." -NoNewline -ForegroundColor DarkGray
+  Start-Sleep -Seconds 5
+}
+$buildProc.WaitForExit()
+$buildExit = $buildProc.ExitCode
+Write-Host ""
 if ($buildExit -ne 0) {
   Write-Host "`nBUILD THAT BAI - ung dung VAN chay ban cu (khong hong them)." -ForegroundColor Red
   Write-Host "Ma loi build: $buildExit" -ForegroundColor Yellow
@@ -152,9 +161,15 @@ if ($LASTEXITCODE -ne 0) {
 Start-Sleep -Seconds 10
 Write-Host "Ap dung migration:" -ForegroundColor Cyan
 $MigrationLog = Join-Path $Dir "docker-migrate-$Stamp.log"
-$migrationOutput = & docker compose exec -T app npx prisma migrate deploy 2>&1
-$migrationExit = $LASTEXITCODE
-$migrationOutput | Tee-Object -FilePath $MigrationLog
+$MigrationErr = Join-Path $Dir "docker-migrate-$Stamp.err.log"
+$migrationProc = Start-Process -FilePath "docker" -ArgumentList @("compose", "exec", "-T", "app", "npx", "prisma", "migrate", "deploy") -WorkingDirectory $Dir -RedirectStandardOutput $MigrationLog -RedirectStandardError $MigrationErr -PassThru -WindowStyle Hidden
+while (-not $migrationProc.HasExited) {
+  Write-Host "." -NoNewline -ForegroundColor DarkGray
+  Start-Sleep -Seconds 2
+}
+$migrationProc.WaitForExit()
+$migrationExit = $migrationProc.ExitCode
+Write-Host ""
 if ($migrationExit -ne 0) {
   Write-Host "Migration that bai (ma $migrationExit). Khong tiep tuc smoke test." -ForegroundColor Red
   Write-Host "Log migration: $MigrationLog" -ForegroundColor Yellow
