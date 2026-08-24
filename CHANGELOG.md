@@ -2,12 +2,13 @@
 
 Tài liệu này ghi các thay đổi đã được đẩy lên nhánh `master`. Commit mới hơn nằm ở phía trên. Phiên bản mô tả đầy đủ hiện tại nằm trong [`VERSION.md`](VERSION.md).
 
-## 2026-08-24 — Clinic migration xác nhận và chẩn đoán one-click
+## 2026-08-24 — Clinic migration xác nhận, diagnostic one-click và hotfix updater
 
 - Theo nhật ký owner cung cấp, production clinic đã chạy thành công `20260824000000_operating_framework_v2` và `20260824003000_ai_training_studio`; Prisma báo 56 migrations, database schema up to date và Next.js Ready. Đây là bằng chứng của máy clinic tại thời điểm log, không phải lý do để bỏ qua backup hoặc smoke test nghiệp vụ.
 - Sửa `windows/Xem-Loi.ps1` thành diagnostic read-only: tự kiểm tra compose, migration, 150 dòng app log, QA/clinic scope và dấu hiệu Next.js Ready; tự ghi `OK/WARN/FAIL` vào báo cáo UTF-8 không BOM.
 - Sửa `windows/Xem-Loi.bat` để không xin UAC thừa cho tác vụ chỉ đọc. Một lần bấm sẽ chạy diagnostic, mở báo cáo và không migrate/restart/reset database.
-- Nguyên nhân lỗi trước đây là PowerShell giải mã native Docker output theo code page Windows, làm tiếng Việt/emoji thành mojibake. Regression test one-click được thêm để khóa hành vi UTF-8 và chống tái phạm.
+- Hotfix `windows/Sua-Loi.ps1`: không còn dùng `stash push --include-untracked` với pathspec exclude. Thay vào đó script tạo backup branch rồi stash **tracked changes only**, giữ nguyên file untracked/ignored như `checks/qa-chrome-profile` và `worktrees/`, nhờ đó không còn dừng ở bước backup local trên Git for Windows.
+- Nguyên nhân lỗi trước đây là PowerShell giải mã native Docker output theo code page Windows, làm tiếng Việt/emoji thành mojibake; đồng thời updater cũ dùng chiến lược stash có thể chạm ignored QA profile/repository lồng. Regression/static test one-click được thêm để khóa hành vi UTF-8 và chống tái phạm.
 - Thêm [`docs/DI-CHUC-VAN-HANH-ZENITHTASKS.md`](docs/DI-CHUC-VAN-HANH-ZENITHTASKS.md), đồng bộ README/INDEX/handoff để người hoặc AI tiếp quản biết rõ nguồn sự thật, QA port 3300, clinic port 3000, giới hạn AI và quy trình phát hành.
 
 ## 2026-08-24 — r15: Hồ sơ tiếp quản, QA cô lập và hotfix Sua-Loi

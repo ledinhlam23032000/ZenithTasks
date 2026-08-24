@@ -85,7 +85,7 @@ Các tài khoản trên chỉ dành cho QA. Mật khẩu phải đạt chính s�
 
 ## 6. Phát hành trên máy clinic
 
-Trước khi cập nhật, backup database và `uploads`. `windows/Sua-Loi.bat` sẽ fetch `origin/master`, bảo lưu thay đổi tracked an toàn, bỏ qua profile Chrome QA bị khóa (`checks/qa-chrome-profile/`) và `worktrees/` là repository lồng, rebuild image, recreate app, chạy `prisma migrate deploy` và health-check `/login`. Bằng log clinic owner cung cấp ngày 24/08/2026, hai migration V2/Training đã apply thành công, database báo `schema is up to date` và Next.js đã `Ready`.
+Trước khi cập nhật, backup database và `uploads`. `windows/Sua-Loi.bat` sẽ fetch `origin/master`, tạo backup branch, stash **tracked changes only**, giữ nguyên profile Chrome QA/worktree untracked hoặc ignored ngoài stash, rebuild image, recreate app, chạy `prisma migrate deploy` và health-check `/login`. Bằng log clinic owner cung cấp ngày 24/08/2026, hai migration V2/Training đã apply thành công, database báo `schema is up to date` và Next.js đã `Ready`.
 
 Các migration V2 và Training Studio là additive; hiện đã có bằng chứng log production apply thành công, nhưng vẫn phải kiểm tra nghiệp vụ sau phát hành. Không chạy `prisma db push`, `migrate reset`, hoặc `docker compose down -v` trên stack clinic. Sau cập nhật cần kiểm tra đăng nhập, dashboard, một hồ sơ điều trị, Thu–chi, Kế toán, Hệ thống, backup status và public hostname.
 

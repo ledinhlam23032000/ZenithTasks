@@ -50,17 +50,26 @@ if (Test-Path $Dir) {
       Write-Host "Khong tao duoc backup branch cho thay doi local; dung de tranh mat du lieu." -ForegroundColor Red
       EndHere 1
     }
-    # Hồ sơ Chrome QA có Cookies/Local Storage thường bị Chrome khóa. Đây là dữ liệu
-    # kiểm thử cục bộ, không phải mã nguồn; không đưa vào stash để tránh làm hỏng
-    # quy trình cập nhật. Các thay đổi tracked và untracked khác vẫn được bảo vệ.
-    # Chi bo qua profile Chrome QA dang bi khoa va repository long; cac file
-    # checks tracked/local khac van duoc stash de bao ve thay doi cua owner.
-    $stashPathspec = @('.', ':(exclude)checks/qa-chrome-profile/**', ':(exclude)worktrees/**')
-    $stashOutput = & git -C $Dir stash push --include-untracked -m "Sua-Loi $Stamp - bao luu thay doi local truoc khi cap nhat master" -- $stashPathspec 2>&1
+    # KHONG dung --include-untracked + pathspec exclude o day. Tren mot so
+    # Git for Windows, pathspec `.` van quet checks/qa-chrome-profile va
+    # repository long worktrees; Git in canh bao ignored path va tra exit code
+    # loi du stash da tao mot phan. Day la dung loi owner gap ngay 24/08.
+    #
+    # Chien luoc an toan: stash TRACKED changes khong co pathspec. Git se khong
+    # dong vao ignored QA profile, .env, log hoac worktree untracked; reset --hard
+    # cung khong xoa untracked. Backup branch giu moc HEAD truoc cap nhat,
+    # stash giu patch/index cua moi file tracked dang sua.
+    $stashOutput = & git -C $Dir stash push -m "Sua-Loi $Stamp - bao luu thay doi tracked truoc khi cap nhat master" 2>&1
+    $stashExit = $LASTEXITCODE
     $stashOutput | Write-Host
-    if ($LASTEXITCODE -ne 0) {
-      Write-Host "Khong bao luu duoc thay doi local; dung de tranh mat du lieu." -ForegroundColor Red
+    if ($stashExit -ne 0) {
+      Write-Host "Khong bao luu duoc thay doi tracked; dung de tranh mat du lieu." -ForegroundColor Red
       EndHere 1
+    }
+    $leftoverLocal = & git -C $Dir status --short --untracked-files=all
+    if ($leftoverLocal) {
+      Write-Host "Giu nguyen file untracked/ignored local (khong xoa, khong dua vao stash):" -ForegroundColor Yellow
+      $leftoverLocal | Select-Object -First 20 | Write-Host
     }
   }
   $stashRefAfterRaw = & git -C $Dir rev-parse -q --verify refs/stash 2>$null
