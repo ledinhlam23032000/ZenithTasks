@@ -1,11 +1,18 @@
 export type AiRiskLevel = "L0" | "L1" | "L2" | "L3" | "L4" | "L5";
 export type AiDecision = "ALLOW" | "WARN" | "REQUIRE_CONFIRMATION" | "REQUIRE_APPROVAL" | "DENY";
 
+export type AiWorkspaceContext = {
+  workspaceKind: "INTERNAL" | "PROJECT";
+  projectId?: string;
+  label?: string;
+};
+
 export type AiToolRequest = {
   toolName: string;
   action: string;
   resource: string;
   projectId?: string;
+  workspaceKind?: AiWorkspaceContext["workspaceKind"];
   recordCount?: number;
   amount?: number;
   includesMedicalData?: boolean;
@@ -20,6 +27,8 @@ export type AiPrincipal = {
   role: string;
   agentProfile: "EXECUTIVE" | "OPERATOR" | "ANALYST" | "TRAINER" | "VIEWER";
   projectIds: string[];
+  workspaceKind?: AiWorkspaceContext["workspaceKind"];
+  activeProjectId?: string;
   capabilities: string[];
 };
 
@@ -39,8 +48,11 @@ export type AiPolicyResult = {
 const medicalFields = ["caseCode", "diagnosis", "consultation", "clinicalNotes", "photos", "prescription", "patientName"];
 
 export function evaluateAiToolRequest(principal: AiPrincipal, request: AiToolRequest): AiPolicyResult {
+  const currentWorkspace = principal.workspaceKind ?? "INTERNAL";
+  if (request.workspaceKind && request.workspaceKind !== currentWorkspace) return { decision: "DENY", riskLevel: "L5", consequences: ["Yêu cầu khác workspace đang được chọn."], requiredApprovals: 0, confirmationRequired: false, purposeRequired: false, rollback: "NOT_AVAILABLE", reason: "WORKSPACE_SCOPE_DENIED" };
+  if (currentWorkspace === "PROJECT" && principal.activeProjectId && request.action !== "none" && !request.projectId) return { decision: "DENY", riskLevel: "L5", consequences: ["Tool chưa khai báo projectId nên AI không được đọc/ghi dữ liệu trong Dự án này."], requiredApprovals: 0, confirmationRequired: false, purposeRequired: false, rollback: "NOT_AVAILABLE", reason: "PROJECT_SCOPE_REQUIRED" };
   const inScope = !request.projectId || principal.projectIds.includes(request.projectId);
-  if (!inScope) return { decision: "DENY", riskLevel: "L5", consequences: ["Yêu cầu nằm ngoài phạm vi Dự án được cấp quyền."], requiredApprovals: 0, confirmationRequired: false, purposeRequired: false, rollback: "NOT_AVAILABLE", reason: "PROJECT_SCOPE_DENIED" };
+  if (!inScope || (principal.activeProjectId && request.projectId !== principal.activeProjectId)) return { decision: "DENY", riskLevel: "L5", consequences: ["Yêu cầu nằm ngoài phạm vi Dự án đang được chọn."], requiredApprovals: 0, confirmationRequired: false, purposeRequired: false, rollback: "NOT_AVAILABLE", reason: "PROJECT_SCOPE_DENIED" };
   if (!principal.capabilities.includes(request.action)) return { decision: "DENY", riskLevel: "L5", consequences: ["AI profile hiện tại chưa được cấp capability cho thao tác này."], requiredApprovals: 0, confirmationRequired: false, purposeRequired: false, rollback: "NOT_AVAILABLE", reason: "CAPABILITY_DENIED" };
 
   const isTermination = /terminate|dismiss|fire|chấm dứt|cho nghỉ|đuổi/i.test(`${request.toolName} ${request.action}`);

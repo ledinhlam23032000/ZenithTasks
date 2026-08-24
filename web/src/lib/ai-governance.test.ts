@@ -2,10 +2,26 @@ import { describe, expect, it } from "vitest";
 import { evaluateAiToolRequest, maskSensitiveRecord, type AiPrincipal } from "./ai-governance";
 
 const principal: AiPrincipal = { userId: "owner-1", role: "ADMIN", agentProfile: "EXECUTIVE", projectIds: ["project-1"], capabilities: ["read.dashboard", "read.medical", "hr.terminate", "system.deploy"] };
+const projectPrincipal: AiPrincipal = { ...principal, workspaceKind: "PROJECT", activeProjectId: "project-1" };
 
 describe("AI governance policy", () => {
   it("denies requests outside project scope", () => {
     expect(evaluateAiToolRequest(principal, { toolName: "read", action: "read.dashboard", resource: "sales", projectId: "other" }).decision).toBe("DENY");
+  });
+  it("requires projectId for non-none tools inside a project workspace", () => {
+    const result = evaluateAiToolRequest(projectPrincipal, { toolName: "read", action: "read.dashboard", resource: "sales" });
+    expect(result.decision).toBe("DENY");
+    expect(result.reason).toBe("PROJECT_SCOPE_REQUIRED");
+  });
+  it("denies a tool targeting a different project from the active workspace", () => {
+    const result = evaluateAiToolRequest(projectPrincipal, { toolName: "read", action: "read.dashboard", resource: "sales", projectId: "other" });
+    expect(result.decision).toBe("DENY");
+    expect(result.reason).toBe("PROJECT_SCOPE_DENIED");
+  });
+  it("denies a request explicitly marked as another workspace kind", () => {
+    const result = evaluateAiToolRequest(projectPrincipal, { toolName: "read", action: "read.dashboard", resource: "sales", projectId: "project-1", workspaceKind: "INTERNAL" });
+    expect(result.decision).toBe("DENY");
+    expect(result.reason).toBe("WORKSPACE_SCOPE_DENIED");
   });
   it("requires purpose and confirmation for medical data", () => {
     const result = evaluateAiToolRequest(principal, { toolName: "case_read", action: "read.medical", resource: "case", projectId: "project-1", includesMedicalData: true });

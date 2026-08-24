@@ -161,6 +161,11 @@ enum AssistantMessageRole {
   TOOL
 }
 
+enum AssistantWorkspaceKind {
+  INTERNAL
+  PROJECT
+}
+
 enum PaymentRequestType {
   EXPENSE
   SALARY
@@ -990,6 +995,8 @@ model AssistantConversation {
   summary         String?                     @db.Text
   memory          Json?
   memoryVersion   Int                         @default(1)
+  workspaceKind   AssistantWorkspaceKind      @default(INTERNAL)
+  projectId       String?
   lastCompactedAt DateTime?
   lastMessageAt   DateTime                    @default(now())
   createdAt       DateTime                    @default(now())
@@ -998,6 +1005,7 @@ model AssistantConversation {
   approvals       AssistantApproval[]
 
   @@index([userId, status, lastMessageAt])
+  @@index([userId, workspaceKind, projectId, status, lastMessageAt])
 }
 
 model AssistantMessage {
@@ -1023,13 +1031,16 @@ model AssistantApproval {
   conversation   AssistantConversation?  @relation(fields: [conversationId], references: [id], onDelete: SetNull)
   toolName       String
   arguments      Json
-  preview        Json
-  status         AssistantApprovalStatus @default(PENDING)
+    preview         Json
+  workspaceKind   AssistantWorkspaceKind   @default(INTERNAL)
+  projectId       String?
+  status          AssistantApprovalStatus @default(PENDING)
   expiresAt      DateTime
   createdAt      DateTime                @default(now())
   resolvedAt     DateTime?
 
   @@index([userId, status])
+  @@index([projectId, status])
   @@index([expiresAt])
 }
 

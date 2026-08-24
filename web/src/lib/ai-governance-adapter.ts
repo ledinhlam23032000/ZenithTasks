@@ -1,5 +1,5 @@
 import type { AiPrincipal, AiPolicyResult, AiToolRequest } from "./ai-governance";
-import { evaluateAiToolRequest } from "./ai-governance";
+import { evaluateAiToolRequest, type AiWorkspaceContext } from "./ai-governance";
 
 export const AI_READ_ACTIONS = new Set([
   "get_business_summary",
@@ -54,12 +54,14 @@ export function capabilitiesForRole(role: string): string[] {
   return ["get_business_summary", "get_debt_summary", "get_lead_priorities", "get_financial_alerts"];
 }
 
-export function principalForUser(user: { id: string; role: string }, projectIds: string[] = []): AiPrincipal {
+export function principalForUser(user: { id: string; role: string }, projectIds: string[] = [], workspace: AiWorkspaceContext = { workspaceKind: "INTERNAL" }): AiPrincipal {
   return {
     userId: user.id,
     role: user.role,
     agentProfile: user.role === "ADMIN" ? "EXECUTIVE" : user.role === "MANAGER" ? "OPERATOR" : "VIEWER",
     projectIds,
+    workspaceKind: workspace.workspaceKind,
+    activeProjectId: workspace.projectId,
     capabilities: capabilitiesForRole(user.role),
   };
 }

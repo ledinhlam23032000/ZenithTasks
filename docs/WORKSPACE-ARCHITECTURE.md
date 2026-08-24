@@ -30,7 +30,7 @@ Module là capability có khóa ổn định, nhãn giao diện, route, trạng 
 | Tổ chức & vị trí | Đã có trong V2 | `ZOrganizationUnit`, `ZProjectPosition`, `ZProjectAssignment` | Đã có guard và route theo `projectId` |
 | Cơ chế | Đã có trong V2 | `ZMechanismDefinition`, `ZMechanismVersion` | Đã có guard; L5 hai người duyệt vẫn là blocker |
 | Mô phỏng | Khung V2 | Dữ liệu mô phỏng theo project khi dùng | Cần hoàn thiện route/action và test scope |
-| Task | Kế hoạch ưu tiên tiếp theo | `ZWorkspaceTask` | Migration additive, CRUD, filter, membership và isolation test |
+| Task | Đã giao MVP | `ZWorkspaceTask` | Migration additive, CRUD, filter, membership và isolation test đã đạt; comment/event còn kế hoạch |
 | Khách hàng | Chưa bật | `ZWorkspaceCustomer` | Schema, consent/data policy, CRUD, search, aggregate và test |
 | Lịch hẹn | Chưa bật | `ZWorkspaceAppointment` | Schema, timezone/status, conflict policy và test |
 | Tài chính | Chưa bật | `ZWorkspaceLedgerEntry` hoặc read model tương đương | Thiết kế immutable ledger, approval và export |
@@ -75,4 +75,4 @@ Audit phải lưu actor, workspace/project, action, input summary không chứa 
 
 ## 8. Trạng thái hiện tại
 
-Commit workspace MVP đã cung cấp selector, dashboard Dự án, registry và guard membership cho các route V2. Đây là **khung vận hành**, chưa phải hoàn thành toàn bộ “app trong app”: module Customer, Appointment, Finance, Payroll và Task chưa có họ schema local và chưa được bật; global aggregate dashboard và AI active-workspace enforcement vẫn là phần tiếp theo. Tài liệu này là nguồn sự thật để tránh tuyên bố vượt quá bằng chứng kiểm thử.
+Commit workspace MVP và các mốc tiếp theo đã cung cấp selector, dashboard Dự án, menu module theo workspace, guard membership, Task local CRUD và quản lý thành viên. Đây vẫn chưa phải hoàn thành toàn bộ “app trong app”: module Customer, Appointment, Finance và Payroll chưa có họ schema local; global aggregate dashboard chưa giao. AI đã có active-workspace selector, conversation/approval scope metadata, prompt isolation khỏi snapshot Nội Bộ khi ở Project và policy chặn thiếu/sai projectId; các tool nghiệp vụ clinic-global chưa được giả vờ chuyển thành tool project-local. Tài liệu này là nguồn sự thật để tránh tuyên bố vượt quá bằng chứng kiểm thử.

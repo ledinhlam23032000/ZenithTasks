@@ -1,5 +1,7 @@
 import { requireCap } from "@/lib/auth";
 import { aiConfigured } from "@/lib/ai";
+import { prisma } from "@/lib/db";
+import { normalizedModuleKeys } from "@/lib/v2-modules";
 import { shortName } from "@/lib/format";
 import { AssistantChat } from "./assistant-chat";
 import { ConversationHistory } from "./conversation-history";
@@ -8,11 +10,15 @@ import { getAssistantConversationTurns, getOrCreateAssistantConversation, listAs
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Trợ lý AI" };
 
-export default async function AssistantPage({ searchParams }: { searchParams: Promise<{ c?: string }> }) {
+export default async function AssistantPage({ searchParams }: { searchParams: Promise<{ c?: string; p?: string }> }) {
   const user = await requireCap("mod:tro-ly");
   const aiOn = aiConfigured();
   const sp = await searchParams;
-  const conversation = await getOrCreateAssistantConversation(user.id, sp.c);
+  const workspaceOptions = process.env.ENABLE_ZENITH_V2 === "true"
+    ? await prisma.zProject.findMany({ where: user.role === "ADMIN" ? undefined : { members: { some: { userId: user.id, active: true } } }, select: { id: true, code: true, name: true, status: true, enabledFeatures: true }, orderBy: { updatedAt: "desc" } })
+    : [];
+  const selected = workspaceOptions.find((item) => item.id === String(sp.p ?? "").trim());
+  const conversation = await getOrCreateAssistantConversation(user.id, sp.c, selected ? "PROJECT" : "INTERNAL", selected?.id);
   const messages = await getAssistantConversationTurns(user.id, conversation.id);
   const history = await listAssistantConversations(user.id);
   return (
@@ -29,6 +35,8 @@ export default async function AssistantPage({ searchParams }: { searchParams: Pr
         greetName={shortName(user.fullName)}
         conversationId={conversation.id}
         initialMessages={messages}
+        workspaceOptions={workspaceOptions.map((item) => ({ id: item.id, code: item.code, name: item.name, enabledFeatures: normalizedModuleKeys(item.enabledFeatures) }))}
+        selectedProjectId={selected?.id ?? ""}
       />
     </div>
   );

@@ -23,6 +23,7 @@ import { appendAssistantTurn, getAssistantConversationContext, getOrCreateAssist
 import { inferAttendanceIntent } from "./attendance-intent";
 import type { Prisma } from "@/generated/prisma/client";
 import { evaluateDispatcherAction, governanceMessage, principalForUser } from "@/lib/ai-governance-adapter";
+import type { AiWorkspaceContext } from "@/lib/ai-governance";
 import { applyClarificationChoice, buildClarificationPayload, clarificationAnswer, findActiveClarificationPayload, parseClarificationChoice, type ClarificationPayload } from "@/lib/ai-clarification";
 
 const monthSchema = z.string().regex(/^\d{4}-\d{2}$/);
@@ -75,7 +76,7 @@ export type AgentState = {
   answer?: string;
   error?: string;
   steps?: string[];
-  approval?: { id: string; toolName: string; preview: string; expiresAt: string };
+  approval?: { id: string; toolName: string; preview: string; expiresAt: string; workspaceKind: "INTERNAL" | "PROJECT"; projectId?: string };
   exportUrl?: string;
   conversationId?: string;
   clarification?: ClarificationPayload;
@@ -202,11 +203,26 @@ const jsonArgs = (raw: string): unknown => {
 };
 const norm = (s: string) => s.toLocaleLowerCase("vi-VN").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
 
-async function getAiPrincipal(user: { id: string; role: string }) {
+const INTERNAL_AI_WORKSPACE: AiWorkspaceContext = { workspaceKind: "INTERNAL", label: "Nội Bộ" };
+
+async function resolveAiWorkspace(user: { id: string; role: string }, rawProjectId: string): Promise<AiWorkspaceContext | null> {
+  const projectId = rawProjectId.trim();
+  if (!projectId) return INTERNAL_AI_WORKSPACE;
+  if (process.env.ENABLE_ZENITH_V2 !== "true") return null;
+  const project = await prisma.zProject.findFirst({
+    where: user.role === "ADMIN" ? { id: projectId } : { id: projectId, members: { some: { userId: user.id, active: true } } },
+    select: { id: true, name: true, code: true },
+  });
+  return project ? { workspaceKind: "PROJECT", projectId: project.id, label: `${project.code} · ${project.name}` } : null;
+}
+
+async function getAiPrincipal(user: { id: string; role: string }, workspace: AiWorkspaceContext = INTERNAL_AI_WORKSPACE) {
   const projectIds = process.env.ENABLE_ZENITH_V2 === "true"
-    ? (await prisma.zProjectMember.findMany({ where: { userId: user.id, active: true }, select: { projectId: true } })).map((row) => row.projectId)
+    ? user.role === "ADMIN"
+      ? (await prisma.zProject.findMany({ select: { id: true } })).map((row) => row.id)
+      : (await prisma.zProjectMember.findMany({ where: { userId: user.id, active: true }, select: { projectId: true } })).map((row) => row.projectId)
     : [];
-  return principalForUser(user, projectIds);
+  return principalForUser(user, projectIds, workspace);
 }
 
 function governanceBlock(principal: ReturnType<typeof principalForUser>, action: string, args: unknown, confirmationRequested: boolean, confirmationStage = false): string | null {
@@ -243,13 +259,16 @@ Công cụ được phép:
 - create_work_plan: chia một mục tiêu thành nhiệm vụ chính/phụ và lưu vào Kế hoạch; args {goal, tasks:[{title, note?, subtasks:[{title,note?}]}]}. Luôn preview trước khi lưu.
 Không tự đoán tên người, tháng, số tiền; nếu thiếu thì action=none và hỏi lại. Không gọi tool khác, không viết SQL, không sửa file trực tiếp.`;
 
-async function buildPlannerPrompt(question: string, userId: string, role: string, history: string): Promise<string> {
-  const context = await getAssistantContext();
-  const fileContext = await getAssistantFileContext(userId);
+async function buildPlannerPrompt(question: string, userId: string, role: string, history: string, workspace: AiWorkspaceContext): Promise<string> {
+  const context = workspace.workspaceKind === "INTERNAL" ? await getAssistantContext() : null;
+  const fileContext = workspace.workspaceKind === "INTERNAL" ? await getAssistantFileContext(userId) : "File context bị tắt trong Dự án cho đến khi có adapter project-local đã kiểm thử.";
   const accessNote = role === "ADMIN"
     ? "Người dùng hiện tại là ADMIN. Có thể dùng dữ liệu nghiệp vụ được cấp trong các read tool và toàn bộ kiến thức vận hành dưới đây để trả lời có căn cứ."
     : "Người dùng không phải ADMIN. Chỉ dùng số liệu tổng hợp và quy tắc không nhạy cảm; không suy đoán hoặc tiết lộ chi tiết lương, hồ sơ hay dữ liệu bị giới hạn.";
-  return `${actionHelp}\n\nQUYỀN TRUY CẬP:\n${accessNote}\n\nKIẾN THỨC VẬN HÀNH ĐÃ XÁC NHẬN:\n${BUSINESS_RULES_KNOWLEDGE}\n\nBỐI CẢNH SỐ LIỆU HIỆN TẠI:\n${formatAssistantContext(context)}\n\n${fileContext}\n\nLỊCH SỬ PHIÊN GẦN ĐÂY:\n${history || "Chưa có lịch sử."}\n\nYÊU CẦU MỚI NHẤT CỦA ANH:\n${question}\n\nNếu lịch sử đã cung cấp đủ tên, tháng, ngày hoặc điều kiện mà câu mới chỉ bổ sung xác nhận (ví dụ 'chưa nghỉ ngày nào', 'làm đi', 'anh là admin'), phải ghép ngữ cảnh và tiếp tục cùng action, không hỏi lại. Nếu câu mới nêu nhân sự khác, nhân sự mới luôn ghi đè nhân sự cũ; không giữ preview cũ. Nếu yêu cầu chấm công/ghi dữ liệu rõ ràng, chọn đúng tool thực thi; không dùng propose_system_change để thay cho thao tác nghiệp vụ. Chỉ dùng propose_system_change khi anh thực sự yêu cầu đổi code/cơ chế hệ thống. Yêu cầu sửa/ghi dữ liệu phải đặt requires_confirmation=true. Với câu hỏi 'đã làm chưa', hãy đối chiếu trạng thái approval thật thay vì đoán từ lịch sử hội thoại.`;
+  const workspaceNote = workspace.workspaceKind === "PROJECT"
+    ? `DỰ ÁN ĐANG CHỌN: ${workspace.label ?? workspace.projectId}. Chỉ được dùng dữ liệu/projectId đúng bằng ${workspace.projectId}. Các tool clinic-global hiện chưa có adapter dữ liệu Dự án; nếu tool không khai báo projectId thì phải dừng, không đọc dữ liệu Nội Bộ và không đoán dữ liệu.`
+    : "WORKSPACE ĐANG CHỌN: Nội Bộ. Không tự ý đọc dữ liệu của bất kỳ Dự án nào nếu người dùng chưa chọn Dự án và nêu rõ phạm vi.";
+  return `${actionHelp}\n\nPHẠM VI WORKSPACE:\n${workspaceNote}\n\nQUYỀN TRUY CẬP:\n${accessNote}\n\nKIẾN THỨC VẬN HÀNH ĐÃ XÁC NHẬN:\n${BUSINESS_RULES_KNOWLEDGE}\n\nBỐI CẢNH SỐ LIỆU HIỆN TẠI:\n${context ? formatAssistantContext(context) : "Chưa có snapshot dữ liệu Dự án; không được suy ra hoặc dùng số liệu Nội Bộ."}\n\n${fileContext}\n\nLỊCH SỬ PHIÊN GẦN ĐÂY:\n${history || "Chưa có lịch sử."}\n\nYÊU CẦU MỚI NHẤT CỦA ANH:\n${question}\n\nNếu lịch sử đã cung cấp đủ tên, tháng, ngày hoặc điều kiện mà câu mới chỉ bổ sung xác nhận (ví dụ 'chưa nghỉ ngày nào', 'làm đi', 'anh là admin'), phải ghép ngữ cảnh và tiếp tục cùng action, không hỏi lại. Nếu câu mới nêu nhân sự khác, nhân sự mới luôn ghi đè nhân sự cũ; không giữ preview cũ. Nếu yêu cầu chấm công/ghi dữ liệu rõ ràng, chọn đúng tool thực thi; không dùng propose_system_change để thay cho thao tác nghiệp vụ. Chỉ dùng propose_system_change khi anh thực sự yêu cầu đổi code/cơ chế hệ thống. Yêu cầu sửa/ghi dữ liệu phải đặt requires_confirmation=true. Với câu hỏi 'đã làm chưa', hãy đối chiếu trạng thái approval thật thay vì đoán từ lịch sử hội thoại.`;
 }
 
 function getCaseFinancialTotal(record: { services: Array<{ listPrice: unknown; unitPrice: unknown; quantity: unknown; discount: unknown; finalPrice: unknown }>; payments: Array<{ amount: unknown }>; voucherAmount: unknown }) {
@@ -444,8 +463,8 @@ function isApprovalStatusQuestion(text: string) {
   return /(da (thuc hien|lam|xong)|xong chua|lam chua|thuc hien chua|bao cao anh)/.test(value) && !value.includes("cham cong") && !value.includes("sua") && !value.includes("tao");
 }
 
-async function latestConversationApproval(userId: string, conversationId: string) {
-  const approval = await prisma.assistantApproval.findFirst({ where: { userId, conversationId }, orderBy: { createdAt: "desc" } });
+async function latestConversationApproval(userId: string, conversationId: string, workspace: AiWorkspaceContext) {
+  const approval = await prisma.assistantApproval.findFirst({ where: { userId, conversationId, workspaceKind: workspace.workspaceKind, projectId: workspace.projectId ?? null }, orderBy: { createdAt: "desc" } });
   if (approval?.status === "PENDING" && approval.expiresAt < new Date()) {
     return await prisma.assistantApproval.update({ where: { id: approval.id }, data: { status: "EXPIRED", resolvedAt: new Date() } });
   }
@@ -460,18 +479,18 @@ function approvalStatusAnswer(approval: { status: string; preview: Prisma.JsonVa
   return { answer: `Chưa thực hiện. Bản xem trước đã hết hạn nên không ghi dữ liệu:\n\n${preview}`, steps: ["Tìm approval gần nhất", "Đối chiếu thời hạn", "Báo cáo đã hết hạn; không ghi dữ liệu"] };
 }
 
-async function createApproval(userId: string, toolName: string, args: Prisma.InputJsonValue, preview: string, conversationId?: string): Promise<AgentState> {
+async function createApproval(userId: string, toolName: string, args: Prisma.InputJsonValue, preview: string, conversationId: string | undefined, workspace: AiWorkspaceContext): Promise<AgentState> {
   const expiresAt = new Date(Date.now() + 10 * 60_000);
   if (toolName === "bulk_upsert_attendance" && conversationId) {
-    const superseded = await prisma.assistantApproval.updateMany({ where: { userId, conversationId, toolName, status: "PENDING" }, data: { status: "REJECTED", resolvedAt: new Date() } });
-    if (superseded.count > 0) await audit(userId, "ASSISTANT_APPROVAL_SUPERSEDED", { entity: toolName, meta: { count: superseded.count, reason: "Yêu cầu chấm công mới thay thế preview cũ trong cùng phiên." } });
+    const superseded = await prisma.assistantApproval.updateMany({ where: { userId, conversationId, toolName, workspaceKind: workspace.workspaceKind, projectId: workspace.projectId ?? null, status: "PENDING" }, data: { status: "REJECTED", resolvedAt: new Date() } });
+    if (superseded.count > 0) await audit(userId, "ASSISTANT_APPROVAL_SUPERSEDED", { entity: toolName, meta: { count: superseded.count, reason: "Yêu cầu chấm công mới thay thế preview cũ trong cùng workspace.", workspaceKind: workspace.workspaceKind, projectId: workspace.projectId ?? null } });
   }
-  const approval = await prisma.assistantApproval.create({ data: { userId, toolName, arguments: args, preview, expiresAt, conversationId } });
+  const approval = await prisma.assistantApproval.create({ data: { userId, toolName, arguments: args, preview, expiresAt, conversationId, workspaceKind: workspace.workspaceKind, projectId: workspace.projectId ?? null } });
   return {
     ok: true,
     answer: `Em đã kiểm tra yêu cầu và chuẩn bị xong. Chưa ghi dữ liệu nào.\n\n${preview}\n\nAnh có thể bấm “Xác nhận thực hiện” hoặc nhắn “làm đi”; nếu không xác nhận, yêu cầu sẽ tự hết hạn sau 10 phút. Nếu đây là yêu cầu chấm công mới, preview chấm công cũ trong cùng phiên đã được đánh dấu thay thế để tránh xác nhận nhầm.`,
     steps: workflowSteps(toolName as ActionName, "preview"),
-    approval: { id: approval.id, toolName, preview, expiresAt: expiresAt.toISOString() },
+    approval: { id: approval.id, toolName, preview, expiresAt: expiresAt.toISOString(), workspaceKind: workspace.workspaceKind, ...(workspace.projectId ? { projectId: workspace.projectId } : {}) },
   };
 }
 
@@ -637,12 +656,10 @@ async function validateWrite(action: ActionName, args: unknown, userId: string):
   return { error: "Thao tác này không cần xác nhận hoặc chưa được mở." };
 }
 
-async function persistAssistantResult(userId: string, conversationId: string, state: AgentState) {
+async function persistAssistantResult(userId: string, conversationId: string, state: AgentState, workspace: AiWorkspaceContext) {
   const content = state.answer ?? state.error ?? "";
   if (content) {
-    const metadata = state.approval || state.steps || state.clarification || state.clarificationDraft
-      ? { ...(state.approval ? { approval: state.approval } : {}), ...(state.steps ? { steps: state.steps } : {}), ...(state.clarification ? { clarification: state.clarification } : {}), ...(state.clarificationDraft ? { clarificationDraft: state.clarificationDraft } : {}) }
-      : undefined;
+    const metadata = { ...(state.approval ? { approval: state.approval } : {}), ...(state.steps ? { steps: state.steps } : {}), ...(state.clarification ? { clarification: state.clarification } : {}), ...(state.clarificationDraft ? { clarificationDraft: state.clarificationDraft } : {}), workspaceKind: workspace.workspaceKind, ...(workspace.projectId ? { projectId: workspace.projectId } : {}) };
     await appendAssistantTurn(userId, conversationId, "ASSISTANT", content, metadata as Prisma.InputJsonValue);
   }
   return { ...state, conversationId };
@@ -650,7 +667,9 @@ async function persistAssistantResult(userId: string, conversationId: string, st
 
 export async function runAssistantAgent(_prev: AgentState, formData: FormData): Promise<AgentState> {
     const user = await requireCap("mod:tro-ly");
-  const aiPrincipal = await getAiPrincipal(user);
+  const workspace = await resolveAiWorkspace(user, String(formData.get("projectId") ?? ""));
+  if (!workspace) return planError("Workspace Dự án không tồn tại hoặc tài khoản không còn membership active.");
+  const aiPrincipal = await getAiPrincipal(user, workspace);
   const question = String(formData.get("question") ?? "").trim();
 
   if (!question) return planError("Vui lòng nhập yêu cầu.");
@@ -660,9 +679,9 @@ export async function runAssistantAgent(_prev: AgentState, formData: FormData): 
   const history = conversationContext.prompt;
   const userTurnCount = conversationContext.turns.filter((turn) => turn.role === "USER").length + 1;
   const shouldCompact = userTurnCount >= 8 && userTurnCount % 6 === 0;
-  await appendAssistantTurn(user.id, conversation.id, "USER", question);
+  await appendAssistantTurn(user.id, conversation.id, "USER", question, { workspaceKind: workspace.workspaceKind, ...(workspace.projectId ? { projectId: workspace.projectId } : {}) });
   const finish = async (state: AgentState) => {
-    const persisted = await persistAssistantResult(user.id, conversation.id, state);
+    const persisted = await persistAssistantResult(user.id, conversation.id, state, workspace);
     if (shouldCompact) await maybeCompactAssistantConversation(user.id, conversation.id).catch(() => undefined);
     return persisted;
   };
@@ -678,7 +697,7 @@ export async function runAssistantAgent(_prev: AgentState, formData: FormData): 
   if (!aiConfigured()) return finish(planError("Chưa cấu hình AI."));
 
   if (isBareApproval(question)) {
-    const latest = await latestConversationApproval(user.id, conversation.id);
+    const latest = await latestConversationApproval(user.id, conversation.id, workspace);
     if (!latest) return finish(planError("Hiện không có bản xem trước nào đang chờ xác nhận trong phiên này."));
     if (latest.status === "PENDING") {
       const fd = new FormData();
@@ -691,7 +710,7 @@ export async function runAssistantAgent(_prev: AgentState, formData: FormData): 
   }
 
   if (isApprovalStatusQuestion(question)) {
-    const latest = await latestConversationApproval(user.id, conversation.id);
+    const latest = await latestConversationApproval(user.id, conversation.id, workspace);
     if (!latest) return finish({ ok: true, answer: "Em chưa thấy một thao tác nào trong phiên này để báo cáo. Anh gửi yêu cầu cụ thể, em sẽ phân tích và báo rõ: đã làm, đang chờ anh xác nhận, hay chưa thể làm." });
     const status = approvalStatusAnswer(latest);
     return finish({ ok: true, answer: status.answer, steps: status.steps });
@@ -705,13 +724,13 @@ export async function runAssistantAgent(_prev: AgentState, formData: FormData): 
     const checked = await validateWrite("bulk_upsert_attendance", deterministicAttendance, user.id);
 
     if ("error" in checked) return finish(planError(checked.error));
-    const approval = await createApproval(user.id, "bulk_upsert_attendance", checked.args as Prisma.InputJsonValue, checked.preview, conversation.id);
+    const approval = await createApproval(user.id, "bulk_upsert_attendance", checked.args as Prisma.InputJsonValue, checked.preview, conversation.id, workspace);
     return finish(approval);
   }
 
   const planned = await generateStructured<PlannerOutput>({
     system: ASSISTANT_PLANNER_SYSTEM,
-    prompt: await buildPlannerPrompt(question, user.id, user.role, history),
+    prompt: await buildPlannerPrompt(question, user.id, user.role, history, workspace),
     schemaName: "zenith_agent_plan",
     schema: plannerSchema,
     maxTokens: 1400,
@@ -757,7 +776,7 @@ export async function runAssistantAgent(_prev: AgentState, formData: FormData): 
     const policy = evaluateDispatcherAction(aiPrincipal, action, args);
     if (policy.confirmationRequired) {
       if (!planned.data.requires_confirmation) return finish(planError(`${governanceMessage(policy)} Em đã tạo cảnh báo; anh cần xác nhận rõ ràng trước khi đọc dữ liệu.`));
-      const approval = await createApproval(user.id, action, args as Prisma.InputJsonValue, `${governanceMessage(policy)} Chỉ đọc trong phạm vi đã nêu; chưa hiển thị dữ liệu trước khi xác nhận.`, conversation.id);
+      const approval = await createApproval(user.id, action, args as Prisma.InputJsonValue, `${governanceMessage(policy)} Chỉ đọc trong phạm vi đã nêu; chưa hiển thị dữ liệu trước khi xác nhận.`, conversation.id, workspace);
       return finish(approval);
     }
     const result = await readAction(action, args, user.id);
@@ -775,18 +794,19 @@ export async function runAssistantAgent(_prev: AgentState, formData: FormData): 
   if ("error" in checked) return finish(planError(checked.error));
 
   if (!planned.data.requires_confirmation) return finish(planError("Thao tác ghi dữ liệu luôn phải có xác nhận ADMIN."));
-  const approval = await createApproval(user.id, action, checked.args as Prisma.InputJsonValue, checked.preview, conversation.id);
+  const approval = await createApproval(user.id, action, checked.args as Prisma.InputJsonValue, checked.preview, conversation.id, workspace);
   return finish(approval);
 }
 
 export async function confirmAssistantApproval(_prev: AgentState, formData: FormData): Promise<AgentState> {
     const user = await requireCap("mod:tro-ly");
   if (user.role !== "ADMIN") return planError("Chỉ ADMIN được xác nhận thao tác thay đổi dữ liệu.");
-  const aiPrincipal = await getAiPrincipal(user);
   const id = String(formData.get("approvalId") ?? "");
 
   const approval = await prisma.assistantApproval.findFirst({ where: { id, userId: user.id, status: "PENDING" } });
   if (!approval) return planError("Yêu cầu không tồn tại hoặc đã được xử lý.");
+  const workspace: AiWorkspaceContext = { workspaceKind: approval.workspaceKind, ...(approval.projectId ? { projectId: approval.projectId } : {}) };
+  const aiPrincipal = await getAiPrincipal(user, workspace);
   if (approval.expiresAt < new Date()) {
     await prisma.assistantApproval.update({ where: { id }, data: { status: "EXPIRED", resolvedAt: new Date() } });
     return planError("Yêu cầu đã hết hạn; hãy gửi lại yêu cầu để tạo bản xem trước mới.");
@@ -947,10 +967,10 @@ export async function confirmAssistantApproval(_prev: AgentState, formData: Form
       return planError("Công cụ xác nhận không còn được hỗ trợ.");
     }
     await prisma.assistantApproval.update({ where: { id }, data: { status: "APPROVED", resolvedAt: new Date() } });
-    await audit(user.id, "ASSISTANT_MUTATION_EXECUTED", { entity: approval.toolName, entityId: id });
+    await audit(user.id, "ASSISTANT_MUTATION_EXECUTED", { entity: approval.toolName, entityId: id, meta: { workspaceKind: workspace.workspaceKind, projectId: workspace.projectId ?? null } });
     const result: AgentState = { ok: true, answer: `Đã thực hiện xong. ${executionAnswer}`, steps: workflowSteps(approval.toolName as ActionName, "done") };
     if (approval.conversationId) {
-      await appendAssistantTurn(user.id, approval.conversationId, "ASSISTANT", result.answer ?? "Đã thực hiện.", { approvalId: id, toolName: approval.toolName, status: "APPROVED", steps: result.steps ?? [] });
+      await appendAssistantTurn(user.id, approval.conversationId, "ASSISTANT", result.answer ?? "Đã thực hiện.", { approvalId: id, toolName: approval.toolName, status: "APPROVED", steps: result.steps ?? [], workspaceKind: workspace.workspaceKind, ...(workspace.projectId ? { projectId: workspace.projectId } : {}) });
       result.conversationId = approval.conversationId;
     }
     return result;
@@ -962,12 +982,12 @@ export async function confirmAssistantApproval(_prev: AgentState, formData: Form
 export async function rejectAssistantApproval(_prev: AgentState, formData: FormData): Promise<AgentState> {
   const user = await requireCap("mod:tro-ly");
   const id = String(formData.get("approvalId") ?? "");
-  const approval = await prisma.assistantApproval.findFirst({ where: { id, userId: user.id, status: "PENDING" }, select: { conversationId: true } });
+  const approval = await prisma.assistantApproval.findFirst({ where: { id, userId: user.id, status: "PENDING" }, select: { conversationId: true, workspaceKind: true, projectId: true } });
   await prisma.assistantApproval.updateMany({ where: { id, userId: user.id, status: "PENDING" }, data: { status: "REJECTED", resolvedAt: new Date() } });
-  await audit(user.id, "ASSISTANT_APPROVAL_REJECTED", { entity: "AssistantApproval", entityId: id });
+  await audit(user.id, "ASSISTANT_APPROVAL_REJECTED", { entity: "AssistantApproval", entityId: id, meta: { workspaceKind: approval?.workspaceKind ?? "INTERNAL", projectId: approval?.projectId ?? null } });
   const result: AgentState = { ok: true, answer: "Đã hủy thao tác. Không có dữ liệu nào bị thay đổi.", steps: ["Đối chiếu approval", "Hủy trước khi ghi dữ liệu", "Ghi audit kết quả hủy"] };
   if (approval?.conversationId) {
-    await appendAssistantTurn(user.id, approval.conversationId, "ASSISTANT", result.answer ?? "Đã hủy thao tác.", { approvalId: id, status: "REJECTED", steps: result.steps ?? [] });
+    await appendAssistantTurn(user.id, approval.conversationId, "ASSISTANT", result.answer ?? "Đã hủy thao tác.", { approvalId: id, status: "REJECTED", steps: result.steps ?? [], workspaceKind: approval.workspaceKind, ...(approval.projectId ? { projectId: approval.projectId } : {}) });
     result.conversationId = approval.conversationId;
   }
   return result;
