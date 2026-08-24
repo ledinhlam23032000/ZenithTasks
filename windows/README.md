@@ -34,4 +34,4 @@ Sau khi test xong, bấm `Tat-AI-QA.bat`. File này xóa container QA và file `
 
 `Cau-Hinh-AI-QA.bat` và `Tat-AI-QA.bat` là luồng kiểm thử, **không thay thế** `Sua-Loi.bat` hoặc `Chay-Zenith.bat`; không chạy chúng như quy trình cập nhật máy vận hành.
 
-Hồ sơ đầy đủ về URL, database/container QA, role usernames, cách giữ credentials ngoài Git, bằng chứng kiểm thử và giới hạn V2/AI nằm tại [`../docs/PROJECT-HANDOFF-2026-08-24.md`](../docs/PROJECT-HANDOFF-2026-08-24.md). `Sua-Loi.bat` là updater clinic: hãy backup trước khi chạy. Bản hiện hành cũng bảo lưu thay đổi local nhưng bỏ qua `checks/` và `worktrees/` là artifact QA/repository lồng để không làm updater dừng vì dữ liệu kiểm thử cục bộ.
+Hồ sơ đầy đủ về URL, database/container QA, role usernames, cách giữ credentials ngoài Git, bằng chứng kiểm thử và giới hạn V2/AI nằm tại [`../docs/PROJECT-HANDOFF-2026-08-24.md`](../docs/PROJECT-HANDOFF-2026-08-24.md). `Sua-Loi.bat` là updater clinic: hãy backup trước khi chạy. Bản hiện hành cũng bảo lưu thay đổi local nhưng bỏ qua profile Chrome QA bị khóa (`checks/qa-chrome-profile/`) và `worktrees/` là repository lồng để không làm updater dừng vì dữ liệu kiểm thử cục bộ.

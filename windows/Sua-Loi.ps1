@@ -53,9 +53,9 @@ if (Test-Path $Dir) {
     # Hồ sơ Chrome QA có Cookies/Local Storage thường bị Chrome khóa. Đây là dữ liệu
     # kiểm thử cục bộ, không phải mã nguồn; không đưa vào stash để tránh làm hỏng
     # quy trình cập nhật. Các thay đổi tracked và untracked khác vẫn được bảo vệ.
-    # checks/ va worktrees/ la artifact QA/repository long; giu nguyen tren may
-    # nhung loai khoi stash de Git khong thu add credential/profile/repo long.
-    $stashPathspec = @('.', ':(exclude)checks/**', ':(exclude)worktrees/**')
+    # Chi bo qua profile Chrome QA dang bi khoa va repository long; cac file
+    # checks tracked/local khac van duoc stash de bao ve thay doi cua owner.
+    $stashPathspec = @('.', ':(exclude)checks/qa-chrome-profile/**', ':(exclude)worktrees/**')
     $stashOutput = & git -C $Dir stash push --include-untracked -m "Sua-Loi $Stamp - bao luu thay doi local truoc khi cap nhat master" -- $stashPathspec 2>&1
     $stashOutput | Write-Host
     if ($LASTEXITCODE -ne 0) {

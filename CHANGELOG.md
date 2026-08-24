@@ -6,7 +6,7 @@ Tài liệu này ghi các thay đổi đã được đẩy lên nhánh `master`.
 
 - Thêm [`docs/PROJECT-HANDOFF-2026-08-24.md`](docs/PROJECT-HANDOFF-2026-08-24.md) làm hồ sơ bàn giao hiện hành: đọc nhanh sản phẩm, Operating Framework V2, clarification A/B/C/D, AI governance, Training Studio MVP, QA DeepSeek, role convention, link local, bằng chứng kiểm thử và backlog còn lại.
 - Đồng bộ [`README.md`](README.md), [`docs/INDEX.md`](docs/INDEX.md), [`VERSION.md`](VERSION.md) và [`windows/README.md`](windows/README.md); loại các SHA/release/claim production cũ không còn là nguồn sự thật.
-- Sửa [`windows/Sua-Loi.ps1`](windows/Sua-Loi.ps1) để `git stash` loại trừ `checks/**` và `worktrees/**`, tránh cố đưa artifact QA hoặc repository lồng vào stash. Thay đổi local thật vẫn được tạo backup branch/stash; script không tự xóa hoặc tự pop stash.
+- Sửa [`windows/Sua-Loi.ps1`](windows/Sua-Loi.ps1) để `git stash` loại trừ profile Chrome QA bị khóa (`checks/qa-chrome-profile/**`) và `worktrees/**`, tránh cố đưa credential/profile hoặc repository lồng vào stash. Các file checks khác và thay đổi local thật vẫn được backup/stash; script không tự xóa hoặc tự pop stash.
 - Thêm test cô lập [`checks/test-sua-loi-stash-isolation.ps1`](checks/test-sua-loi-stash-isolation.ps1); kết quả `SUA_LOI_STASH_ISOLATION_PASS`. Không chạy updater trực tiếp trên production trong quality gate tài liệu này.
 - Nhắc lại giới hạn: QA URL `http://localhost:3300/login` chỉ có khi launcher chạy; credentials/password/API key không được lưu trong GitHub; Training Studio mới là MVP; L5 two-person approval chưa triển khai và các thao tác nguy hiểm vẫn bị chặn.
 
