@@ -10,6 +10,7 @@ import { pushPublicKey } from "@/lib/push";
 import { DismissibleBanner } from "@/components/ui/dismissible-banner";
 import { getWorkloadSummary } from "@/lib/workqueue-summary";
 import { prisma } from "@/lib/db";
+import { normalizedModuleKeys } from "@/lib/v2-modules";
 import type { WorkspaceOption } from "@/components/layout/app-shell";
 
 async function loadWorkspaceOptions(user: Awaited<ReturnType<typeof requireUser>>): Promise<WorkspaceOption[]> {
@@ -17,10 +18,10 @@ async function loadWorkspaceOptions(user: Awaited<ReturnType<typeof requireUser>
   try {
     const projects = await prisma.zProject.findMany({
       where: user.role === "ADMIN" ? undefined : { members: { some: { userId: user.id, active: true } } },
-      select: { id: true, code: true, name: true, status: true },
+      select: { id: true, code: true, name: true, status: true, enabledFeatures: true },
       orderBy: { updatedAt: "desc" },
     });
-    return projects.map((project) => ({ id: project.id, code: project.code, name: project.name, status: project.status }));
+    return projects.map((project) => ({ id: project.id, code: project.code, name: project.name, status: project.status, enabledFeatures: normalizedModuleKeys(project.enabledFeatures) }));
   } catch (error) {
     console.error("Không tải được danh sách workspace V2:", error);
     return [];

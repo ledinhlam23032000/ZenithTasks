@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "./db";
 import { requireUser } from "./auth";
 import { PROJECT_TYPES, type ProjectType } from "./v2-project-types";
+import { V2_DEFAULT_MODULE_KEYS } from "./v2-modules";
 
 export type ProjectActionState = { ok?: boolean; error?: string; message?: string };
 
@@ -41,7 +42,7 @@ export async function createV2ProjectAction(_prev: ProjectActionState, formData:
         status: "DRAFT",
         ownerUserId: user.id,
         currency: "VND",
-        enabledFeatures: ["organization", "mechanism", "simulation"],
+        enabledFeatures: V2_DEFAULT_MODULE_KEYS,
         settings: { demoOnly: false, source: "admin-created" },
       },
     });

@@ -12,7 +12,7 @@ export const V2_MODULES: readonly V2ModuleDefinition[] = [
   { key: "organization", label: "Tổ chức & vị trí", description: "Bộ phận, đội nhóm và vị trí của Dự án.", href: (id) => `/du-an/${id}/to-chuc`, available: true },
   { key: "mechanism", label: "Cơ chế", description: "Phiên bản cơ chế, giả định và trạng thái phê duyệt.", href: (id) => `/du-an/${id}/co-che`, available: true },
   { key: "simulation", label: "Mô phỏng", description: "Chạy thử rule-engine trước khi áp dụng.", href: (id) => `/du-an/${id}/co-che`, available: true },
-  { key: "tasks", label: "Task & quy trình", description: "Không gian task riêng của Dự án.", href: (id) => `/du-an/${id}?module=tasks`, available: false },
+  { key: "tasks", label: "Task & quy trình", description: "Không gian task riêng của Dự án.", href: (id) => `/du-an/${id}/tasks`, available: true },
   { key: "customers", label: "Khách hàng", description: "Hồ sơ khách riêng của Dự án.", href: (id) => `/du-an/${id}?module=customers`, available: false },
   { key: "appointments", label: "Lịch hẹn", description: "Lịch riêng của Dự án.", href: (id) => `/du-an/${id}?module=appointments`, available: false },
   { key: "finance", label: "Tài chính", description: "Doanh thu và chi phí riêng của Dự án.", href: (id) => `/du-an/${id}?module=finance`, available: false },

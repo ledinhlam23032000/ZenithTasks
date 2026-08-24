@@ -15,7 +15,7 @@ export async function requireProjectAccess(projectId: string) {
       ? { id: projectId }
       : { id: projectId, members: { some: { userId: user.id, active: true } } },
     include: {
-      _count: { select: { members: true, units: true, positions: true, mechanisms: true } },
+      _count: { select: { members: true, units: true, positions: true, mechanisms: true, workspaceTasks: true } },
     },
   });
   if (!project) redirect("/khong-co-quyen");

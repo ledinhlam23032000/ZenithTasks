@@ -54,6 +54,7 @@ import { CommandPalette } from "./command-palette";
 import { RouteProgress } from "./route-progress";
 import { PushNotificationButton } from "@/components/push-notification-button";
 import type { Role } from "@/generated/prisma/client";
+import { V2_MODULES } from "@/lib/v2-modules";
 
 const ICONS: Record<string, LucideIcon> = {
   LayoutDashboard,
@@ -91,7 +92,7 @@ const ICONS: Record<string, LucideIcon> = {
 export type NavItemData = { href: string; label: string; icon: string; group: string };
 export type ShellUser = { fullName: string; role: Role; roleLabel: string; username: string; avatarUrl?: string | null };
 export type WorkloadSummary = { total: number; followUps: number; appointments: number; newCustomers: number; debts: number };
-export type WorkspaceOption = { id: string; code: string; name: string; status: string };
+export type WorkspaceOption = { id: string; code: string; name: string; status: string; enabledFeatures: string[] };
 
 type RouteAlias = { prefix: string; label: string; parentHref: string; parentLabel: string };
 
@@ -182,13 +183,21 @@ export function AppShell({
     return pathname === href || pathname.startsWith(href + "/");
   };
 
-  const navGroups = nav.reduce<Record<string, NavItemData[]>>((groups, item) => {
+  const activeWorkspace = pathname.startsWith("/du-an/") ? workspaces.find((workspace) => pathname.startsWith(`/du-an/${workspace.id}`)) : undefined;
+  const workspaceIcon: Record<string, string> = { organization: "Building2", mechanism: "Calculator", simulation: "Activity", tasks: "ListTodo" };
+  const workspaceNav: NavItemData[] = activeWorkspace ? [
+    { href: `/du-an/${activeWorkspace.id}`, label: "Tổng quan workspace", icon: "LayoutDashboard", group: "Workspace" },
+    ...V2_MODULES.filter((module) => module.available && activeWorkspace.enabledFeatures.includes(module.key)).map((module) => ({ href: module.href(activeWorkspace.id), label: module.label, icon: workspaceIcon[module.key] ?? "Boxes", group: "Workspace" })),
+    ...(user.role === "ADMIN" ? [{ href: "/du-an", label: "Quản lý Dự án", icon: "Boxes", group: "Quản trị chung" }] : []),
+  ] : [];
+  const visibleNav = activeWorkspace ? workspaceNav : nav;
+  const navGroups = visibleNav.reduce<Record<string, NavItemData[]>>((groups, item) => {
     (groups[item.group] ??= []).push(item);
     return groups;
   }, {});
   // Trợ lý AI đứng ngay thanh đáy nếu tài khoản có quyền (đặc biệt cho Cổ đông).
   const preferredMobileHrefs =
-    workload.total > 0 && nav.some((item) => item.href === "/viec-hom-nay")
+    workload.total > 0 && visibleNav.some((item) => item.href === "/viec-hom-nay")
       ? ["/viec-hom-nay", "/lich-hen", "/khach-hang", "/dashboard"]
       : user.role === "RECEPTION" || user.role === "TELESALE"
         ? ["/dau-ca", "/tiep-nhan", "/lich-hen", "/viec-hom-nay"]
@@ -198,17 +207,17 @@ export function AppShell({
             ? ["/viec-hom-nay", "/cham-soc", "/cham-soc/hop-thu", "/khach-hang"]
             : ["/dashboard", "/tro-ly", "/viec-hom-nay", "/lich-hen"];
   const mobileNav = preferredMobileHrefs
-    .map((href) => nav.find((item) => item.href === href))
+    .map((href) => visibleNav.find((item) => item.href === href))
     .filter((item): item is NavItemData => Boolean(item));
-  for (const item of nav) {
+  for (const item of visibleNav) {
     if (mobileNav.length >= 3) break;
     if (!mobileNav.some((current) => current.href === item.href)) mobileNav.push(item);
   }
 
   const groupEntries = Object.entries(navGroups);
-  const directActiveNav = [...nav].sort((a, b) => b.href.length - a.href.length).find((item) => isActive(item.href));
+  const directActiveNav = [...visibleNav].sort((a, b) => b.href.length - a.href.length).find((item) => isActive(item.href));
   const activeAlias = ROUTE_ALIASES.find((alias) => pathname === alias.prefix || pathname.startsWith(`${alias.prefix}/`));
-  const aliasParentAllowed = activeAlias ? nav.some((item) => item.href === activeAlias.parentHref) : false;
+  const aliasParentAllowed = activeAlias ? visibleNav.some((item) => item.href === activeAlias.parentHref) : false;
   const activeNav = directActiveNav ?? (activeAlias && aliasParentAllowed ? {
     href: activeAlias.prefix,
     label: activeAlias.label,
@@ -216,7 +225,6 @@ export function AppShell({
     group: "Khách hàng",
   } : undefined);
 
-    const activeWorkspace = pathname.startsWith("/du-an/") ? workspaces.find((workspace) => pathname.startsWith(`/du-an/${workspace.id}`)) : undefined;
   const workspacePicker = (
     <div className="border-y border-slate-100 px-4 py-3">
       <p className="mb-2 px-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">Không gian làm việc</p>
