@@ -132,15 +132,10 @@ Write-Host "Log build: $BuildLog" -ForegroundColor DarkGray
 Write-Host "Docker dang build; dong nay se cap nhat lien tuc. Neu co loi, log van duoc ghi ngay." -ForegroundColor DarkGray
 # Không dùng pipeline Tee-Object cho BuildKit: trên một số PowerShell/Git for
 # Windows, pipeline này giữ host mở dù tiến trình con đã hoàn tất. Chạy Docker
-# bằng process có file log riêng, phát heartbeat định kỳ và lấy ExitCode sau
-# WaitForExit để wrapper kết thúc deterministic.
+# bằng process có file log riêng và `-Wait`; cách này lấy ExitCode sau khi
+# Docker client cùng compose/buildx kết thúc, để wrapper kết thúc deterministic.
 $BuildErr = Join-Path $Dir "docker-build-$Stamp.err.log"
-$buildProc = Start-Process -FilePath "docker" -ArgumentList @("compose", "build", "--no-cache", "app") -WorkingDirectory $Dir -RedirectStandardOutput $BuildLog -RedirectStandardError $BuildErr -PassThru -WindowStyle Hidden
-while (-not $buildProc.HasExited) {
-  Write-Host "." -NoNewline -ForegroundColor DarkGray
-  Start-Sleep -Seconds 5
-}
-$buildProc.WaitForExit()
+$buildProc = Start-Process -FilePath "docker" -ArgumentList @("compose", "build", "--no-cache", "--progress", "plain", "app") -WorkingDirectory $Dir -RedirectStandardOutput $BuildLog -RedirectStandardError $BuildErr -PassThru -WindowStyle Hidden -Wait
 $buildExit = $buildProc.ExitCode
 Write-Host ""
 if ($buildExit -ne 0) {
@@ -162,12 +157,7 @@ Start-Sleep -Seconds 10
 Write-Host "Ap dung migration:" -ForegroundColor Cyan
 $MigrationLog = Join-Path $Dir "docker-migrate-$Stamp.log"
 $MigrationErr = Join-Path $Dir "docker-migrate-$Stamp.err.log"
-$migrationProc = Start-Process -FilePath "docker" -ArgumentList @("compose", "exec", "-T", "app", "npx", "prisma", "migrate", "deploy") -WorkingDirectory $Dir -RedirectStandardOutput $MigrationLog -RedirectStandardError $MigrationErr -PassThru -WindowStyle Hidden
-while (-not $migrationProc.HasExited) {
-  Write-Host "." -NoNewline -ForegroundColor DarkGray
-  Start-Sleep -Seconds 2
-}
-$migrationProc.WaitForExit()
+$migrationProc = Start-Process -FilePath "docker" -ArgumentList @("compose", "exec", "-T", "app", "npx", "prisma", "migrate", "deploy") -WorkingDirectory $Dir -RedirectStandardOutput $MigrationLog -RedirectStandardError $MigrationErr -PassThru -WindowStyle Hidden -Wait
 $migrationExit = $migrationProc.ExitCode
 Write-Host ""
 if ($migrationExit -ne 0) {
