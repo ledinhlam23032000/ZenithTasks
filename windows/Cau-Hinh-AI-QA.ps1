@@ -86,13 +86,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 $secureKey = Read-Host 'Dan API key DeepSeek moi danh rieng cho QA (khong hien tren man hinh)' -AsSecureString
-$bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secureKey)
-try {
-    $apiKey = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
-}
-finally {
-    [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
-}
+$apiKey = [System.Net.NetworkCredential]::new('', $secureKey).Password
 
 if ([string]::IsNullOrWhiteSpace($apiKey)) {
     throw 'API key rong; khong thay doi container QA.'
@@ -115,6 +109,11 @@ $envLines = @(
     'AI_AGENT_MODEL=deepseek-chat'
 )
 [System.IO.File]::WriteAllLines($EnvFile, $envLines, (New-Object System.Text.UTF8Encoding($false)))
+$writtenKeyLine = [System.IO.File]::ReadAllLines($EnvFile) | Where-Object { $_ -like 'AI_API_KEY=*' } | Select-Object -First 1
+if (-not $writtenKeyLine -or $writtenKeyLine.Substring('AI_API_KEY='.Length).Length -lt 10) {
+    Remove-Item -LiteralPath $EnvFile -Force -ErrorAction SilentlyContinue
+    throw 'Khong xac nhan duoc API key trong env QA; khong khoi dong container.'
+}
 
 Write-Host '[1/3] Dung va tao lai container QA, giu nguyen database QA...' -ForegroundColor Yellow
 Invoke-Checked 'docker' @('rm', '-f', $Container)
@@ -132,6 +131,13 @@ $runArgs = @(
     'sh', '-lc', 'npx prisma generate && exec node_modules/.bin/next dev -p 3000'
 )
 Invoke-Checked 'docker' $runArgs | Out-Null
+$containerEnvLines = @(& docker inspect $Container --format '{{range .Config.Env}}{{println .}}{{end}}')
+$containerKeyLine = $containerEnvLines | Where-Object { $_ -like 'AI_API_KEY=*' } | Select-Object -First 1
+if (-not $containerKeyLine -or $containerKeyLine.Substring('AI_API_KEY='.Length).Length -lt 10) {
+    & docker rm -f $Container *> $null
+    Remove-Item -LiteralPath $EnvFile -Force -ErrorAction SilentlyContinue
+    throw 'Container QA khong nhan duoc API key; da dung va xoa container de an toan.'
+}
 
 Write-Host '[2/3] Cho app QA va DeepSeek san sang...' -ForegroundColor Yellow
 $ready = $false
