@@ -2,6 +2,14 @@
 
 Tài liệu này ghi các thay đổi đã được đẩy lên nhánh `master`. Commit mới hơn nằm ở phía trên. Phiên bản mô tả đầy đủ hiện tại nằm trong [`VERSION.md`](VERSION.md).
 
+## 2026-08-24 — Bật V2 production và bổ sung tạo Dự án độc lập
+
+- Xác định nguyên nhân người dùng không thấy tính năng: production đang có `ENABLE_ZENITH_V2=false`, đồng thời `permissions.ts` chưa đăng ký mục `Dự án` trong navigation dù route `/du-an` đã tồn tại.
+- Bật `ENABLE_ZENITH_V2=true` trong file `.env` local của stack clinic sau khi migration đã up to date; không bật `ALLOW_DEMO_SEED` và không thay đổi secret.
+- Thêm mục `Dự án` cho `ADMIN`/`MANAGER`; thêm icon/menu; thêm form Admin tạo `ZProject` mới ở trạng thái `DRAFT`, tạo membership `PROJECT_ADMIN`, kiểm tra mã trùng và không tạo dữ liệu khách hàng/ca điều trị/hóa đơn.
+- Manager chỉ được xem danh sách, tổ chức và cơ chế theo quyền route; không thấy nút tạo project hoặc seed demo. Seed demo vẫn chỉ dành cho Admin.
+- Build production đạt TypeScript/Next.js; container nhận V2 flag, migration báo `No pending migrations to apply`, app vẫn HTTP 200 tại `/login`. Commit triển khai: `3815547`.
+
 ## 2026-08-24 — Clinic migration xác nhận, diagnostic one-click và hotfix updater
 
 - Theo nhật ký owner cung cấp, production clinic đã chạy thành công `20260824000000_operating_framework_v2` và `20260824003000_ai_training_studio`; Prisma báo 56 migrations, database schema up to date và Next.js Ready. Đây là bằng chứng của máy clinic tại thời điểm log, không phải lý do để bỏ qua backup hoặc smoke test nghiệp vụ.

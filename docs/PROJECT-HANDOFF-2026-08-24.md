@@ -106,3 +106,15 @@ Mọi thay đổi liên quan tiền, lương, hồ sơ y tế, role, approval, m
 ## 9. Việc nên làm tiếp theo
 
 Ưu tiên tiếp theo là hoàn thiện Training Studio CRUD/evaluation/release/rollback, thiết kế two-person approval thật sự cho L5, bổ sung test live có dữ liệu nghiệp vụ mẫu không nhạy cảm và lập kế hoạch migrate production có backup/rollback rõ ràng. Giữ nguyên nguyên tắc clinic-first: mở rộng năng lực nhưng không làm workflow tiếp nhận, hồ sơ, thanh toán và thu–chi trở nên phức tạp hơn.
+
+## 11. Tính năng Dự án độc lập đã bật trên production
+
+Ngày 24/08/2026, `ENABLE_ZENITH_V2=true` đã được bật trong file môi trường local của stack clinic sau khi hai migration V2/Training đã báo up to date. Mục `Dự án` hiện được cấp cho `ADMIN` và `MANAGER` trong navigation; route chính là `/du-an`.
+
+Admin có thể dùng form **Thêm Dự án mới** để tạo một `ZProject` độc lập với bảng khách hàng clinic hiện tại. Dự án mới được tạo ở trạng thái `DRAFT`, gắn Admin tạo dự án với preset `PROJECT_ADMIN`, và mặc định bật các vùng cấu hình tổ chức, cơ chế và mô phỏng. Action không tạo hồ sơ khách hàng, ca điều trị, hóa đơn, khoản thu hoặc dữ liệu y tế.
+
+Form hiện hỗ trợ mã, tên, loại và mô tả; mã được chuẩn hóa in hoa và kiểm tra trùng. Manager được xem danh sách, tổ chức và cơ chế theo quyền route nhưng không thấy nút tạo demo hoặc tạo project. Nút seed demo vẫn chỉ dành cho Admin và dữ liệu demo được đánh dấu riêng.
+
+Commit triển khai tính năng là `3815547`. Sau deploy, container clinic nhận `ENABLE_ZENITH_V2=true`, app trả HTTP 200 tại `/login`, Prisma báo `56 migrations found` và `Database schema is up to date!`. Không dùng QA credentials cho production.
+
+**Giới hạn cần nhớ:** tính năng tạo project hiện mới tạo khung DRAFT và membership Admin. CRUD đầy đủ cho thành viên, đơn vị, vị trí và cơ chế; quy trình approval hai người; mapping dữ liệu khách hàng theo project; và kích hoạt settlement thực tế vẫn là các hạng mục tiếp theo, chưa được hiểu là đã hoàn thành.
