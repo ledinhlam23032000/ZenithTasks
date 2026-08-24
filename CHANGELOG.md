@@ -378,3 +378,11 @@ Commit chuẩn nội dung: [`87c131c`](https://github.com/ledinhlam23032000/Zeni
 ## Quy tắc ghi changelog cho các phiên sau
 
 Mỗi thay đổi nghiệp vụ phải ghi ngày, mục đích, tệp hoặc migration chính, ảnh hưởng dữ liệu, test đã chạy và việc chủ dự án cần làm. Không ghi “đã xong” nếu mới chỉ sửa giao diện mà chưa kiểm tra luồng server, quyền và dữ liệu.
+
+## 2026-08-24 — Workspace Nội Bộ/Dự án và one-click updater đã xác minh
+
+- Bổ sung workspace picker dưới tên bệnh viện; Nội Bộ giữ nguyên dữ liệu clinic, còn Dự án mở dashboard riêng tại `/du-an/[projectId]`.
+- Bổ sung registry module theo workspace, cấu hình Admin bật/tắt module đã triển khai bằng `enabledFeatures` và ghi audit; module chưa có schema/route như Khách hàng, Lịch hẹn, Tài chính, Lương/hoa hồng và Task vẫn hiển thị là Sắp tích hợp, không được bật giả.
+- Manager chỉ thấy Dự án có membership active; các trang dashboard, Tổ chức và Cơ chế đều kiểm tra phạm vi server-side. Admin có quyền tổng quan toàn cục trong lớp V2.
+- Tái chạy chính `windows/Sua-Loi.ps1`: backup vượt qua với `No local changes to save`, ignored `worktrees/` được giữ ngoài stash, Docker build đạt, app mới chạy, migration không pending và `/login` HTTP 200. Console vẫn có thể vỡ ký tự do code page cũ; trạng thái được xác minh bằng Docker/HTTP thay vì dựa vào text console.
+- Regression `checks/test-v2-workspace-boundary.ps1` đạt `V2_WORKSPACE_BOUNDARY_PASS`. Không đưa `.env`, credential QA, JWT hoặc API key vào commit.

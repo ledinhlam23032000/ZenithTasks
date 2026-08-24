@@ -124,3 +124,29 @@ Commit triển khai tính năng là `3815547`. Sau deploy, container clinic nh�
 Không được coi một tính năng là hoàn tất chỉ vì route xuất hiện trong manifest hoặc build TypeScript thành công. Với mỗi route có server component và client component, phải kiểm tra cả render runtime sau khi recreate container. Module có chỉ thị `use server` chỉ nên export các server action async; hằng số dùng chung cho client phải đặt trong module shared không có `use server`.
 
 Quy trình phát hành bắt buộc gồm: build image mới, recreate app, chờ `Ready`, kiểm tra migration/status, probe `/login`, sau đó kiểm tra route tính năng bằng phiên Admin và một phiên role bị giới hạn. Nếu không có phiên đăng nhập tự động, phải ghi rõ đó là phần chưa xác minh UI, không được tuyên bố “đã kiểm thử toàn bộ”. `Sua-Loi.bat` phải được kiểm thử như người dùng thật trên chính máy clinic; build/push GitHub một mình không chứng minh bản web đã được cập nhật.
+
+## 13. Workspace Nội Bộ và Dự án — trạng thái triển khai
+
+Dữ liệu clinic hiện tại tiếp tục là **Nội Bộ** và không bị di chuyển, nhân bản hoặc reset. Sidebar có bộ chọn workspace đặt dưới tên bệnh viện: Nội Bộ là lối vào các nghiệp vụ clinic hiện hành; các Dự án là những workspace riêng được tạo từ mục Quản lý Dự án. Số lượng Dự án không bị giới hạn bởi giao diện; mỗi bản ghi có mã duy nhất và có thể mở dashboard riêng tại `/du-an/[projectId]`.
+
+Một Dự án mới có ngay khung module V2 gồm Tổ chức & vị trí, Cơ chế và Mô phỏng. Admin có thể bật/tắt các module đã triển khai trong phần cấu hình của workspace; thao tác này chỉ thay đổi `enabledFeatures` và ghi audit, không xóa dữ liệu. Tasks, Khách hàng, Lịch hẹn, Tài chính và Lương/hoa hồng hiện mới là danh mục module định hướng; không được bật cho đến khi có schema, route, quyền, migration và test độc lập. Đây là cách mở rộng an toàn thay vì giả vờ rằng một module placeholder đã hoạt động.
+
+Admin nhìn được danh sách toàn cục và có thể cấu hình mọi Dự án. Manager chỉ nhìn thấy Dự án có `ZProjectMember.active=true`; dashboard, Tổ chức và Cơ chế đều kiểm tra membership server-side, không dựa vào việc ẩn nút ở giao diện. Nội Bộ không được coi là một `ZProject` mới và dữ liệu clinic không tự động trộn vào Dự án.
+
+AI về sau phải nhận workspace context rõ ràng gồm `workspaceKind` (INTERNAL hoặc PROJECT), `projectId` nếu là Dự án, capability, user scope và mục đích. Mọi thao tác liên workspace phải qua policy, preview tác động và audit; Admin toàn cục không đồng nghĩa với việc bỏ qua cảnh báo hoặc approval L5.
+
+## 13. Workspace Nội Bộ và Dự án — trạng thái triển khai
+
+Dữ liệu clinic hiện tại tiếp tục là **Nội Bộ** và không bị di chuyển, nhân bản hoặc reset. Sidebar có bộ chọn workspace đặt dưới tên bệnh viện: Nội Bộ là lối vào các nghiệp vụ clinic hiện hành; các Dự án là những workspace riêng được tạo từ mục Quản lý Dự án. Số lượng Dự án không bị giới hạn bởi giao diện; mỗi bản ghi có mã duy nhất và có thể mở dashboard riêng tại `/du-an/[projectId]`.
+
+Một Dự án mới có ngay khung module V2 gồm Tổ chức & vị trí, Cơ chế và Mô phỏng. Admin có thể bật/tắt các module đã triển khai trong phần cấu hình của workspace; thao tác này chỉ thay đổi `enabledFeatures` và ghi audit, không xóa dữ liệu. Tasks, Khách hàng, Lịch hẹn, Tài chính và Lương/hoa hồng hiện mới là danh mục module định hướng; không được bật cho đến khi có schema, route, quyền, migration và test độc lập. Đây là cách mở rộng an toàn thay vì giả vờ rằng một module placeholder đã hoạt động.
+
+Admin nhìn được danh sách toàn cục và có thể cấu hình mọi Dự án. Manager chỉ nhìn thấy Dự án có `ZProjectMember.active=true`; dashboard, Tổ chức và Cơ chế đều kiểm tra membership server-side, không dựa vào việc ẩn nút ở giao diện. Nội Bộ không được coi là một `ZProject` mới và dữ liệu clinic không tự động trộn vào Dự án.
+
+AI về sau phải nhận workspace context rõ ràng gồm `workspaceKind` (INTERNAL hoặc PROJECT), `projectId` nếu là Dự án, capability, user scope và mục đích. Mọi thao tác liên workspace phải qua policy, preview tác động và audit; Admin toàn cục không đồng nghĩa với việc bỏ qua cảnh báo hoặc approval L5.
+
+## 14. Bài học phát hành sau lỗi runtime `/du-an`
+
+Không được coi một tính năng là hoàn tất chỉ vì route xuất hiện trong manifest hoặc build TypeScript thành công. Với mỗi route có server component và client component, phải kiểm tra cả render runtime sau khi recreate container. Module có chỉ thị `use server` chỉ nên export các server action async; hằng số dùng chung cho client phải đặt trong module shared không có `use server`.
+
+Quy trình phát hành bắt buộc gồm: build image mới, recreate app, chờ `Ready`, kiểm tra migration/status, probe `/login`, sau đó kiểm tra route tính năng bằng phiên Admin và một phiên role bị giới hạn. Nếu không có phiên đăng nhập tự động, phải ghi rõ đó là phần chưa xác minh UI, không được tuyên bố “đã kiểm thử toàn bộ”. `Sua-Loi.bat` phải được kiểm thử như người dùng thật trên chính máy clinic; build/push GitHub một mình không chứng minh bản web đã được cập nhật.
