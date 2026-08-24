@@ -130,13 +130,13 @@ $env:COMPOSE_BAKE = "false"
 $BuildLog = Join-Path $Dir "docker-build-$Stamp.log"
 Write-Host "Log build: $BuildLog" -ForegroundColor DarkGray
 Write-Host "Docker dang build; dong nay se cap nhat lien tuc. Neu co loi, log van duoc ghi ngay." -ForegroundColor DarkGray
-# Không dùng pipeline Tee-Object cho BuildKit: trên một số PowerShell/Git for
-# Windows, pipeline này giữ host mở dù tiến trình con đã hoàn tất. Chạy Docker
-# bằng process có file log riêng và `-Wait`; cách này lấy ExitCode sau khi
-# Docker client cùng compose/buildx kết thúc, để wrapper kết thúc deterministic.
+# Không dùng pipeline Tee-Object hoặc Start-Process hidden cho BuildKit: trên một
+# số PowerShell/Git for Windows, các cách đó giữ host mở dù compose/buildx đã
+# ghi `DONE`. Gọi trực tiếp với redirect file để PowerShell chờ đúng Docker
+# client và nhận `$LASTEXITCODE`; progress plain giúp log không phụ thuộc TTY.
 $BuildErr = Join-Path $Dir "docker-build-$Stamp.err.log"
-$buildProc = Start-Process -FilePath "docker" -ArgumentList @("compose", "build", "--no-cache", "--progress", "plain", "app") -WorkingDirectory $Dir -RedirectStandardOutput $BuildLog -RedirectStandardError $BuildErr -PassThru -WindowStyle Hidden -Wait
-$buildExit = $buildProc.ExitCode
+& docker compose --progress plain build --no-cache app > $BuildLog 2> $BuildErr
+$buildExit = $LASTEXITCODE
 Write-Host ""
 if ($buildExit -ne 0) {
   Write-Host "`nBUILD THAT BAI - ung dung VAN chay ban cu (khong hong them)." -ForegroundColor Red
@@ -157,8 +157,8 @@ Start-Sleep -Seconds 10
 Write-Host "Ap dung migration:" -ForegroundColor Cyan
 $MigrationLog = Join-Path $Dir "docker-migrate-$Stamp.log"
 $MigrationErr = Join-Path $Dir "docker-migrate-$Stamp.err.log"
-$migrationProc = Start-Process -FilePath "docker" -ArgumentList @("compose", "exec", "-T", "app", "npx", "prisma", "migrate", "deploy") -WorkingDirectory $Dir -RedirectStandardOutput $MigrationLog -RedirectStandardError $MigrationErr -PassThru -WindowStyle Hidden -Wait
-$migrationExit = $migrationProc.ExitCode
+& docker compose exec -T app npx prisma migrate deploy > $MigrationLog 2> $MigrationErr
+$migrationExit = $LASTEXITCODE
 Write-Host ""
 if ($migrationExit -ne 0) {
   Write-Host "Migration that bai (ma $migrationExit). Khong tiep tuc smoke test." -ForegroundColor Red
