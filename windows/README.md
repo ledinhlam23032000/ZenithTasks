@@ -33,3 +33,5 @@ nhật ký tại `%USERPROFILE%\zenith-tu-dong-cap-nhat.log`. Muốn tắt: mở
 Sau khi test xong, bấm `Tat-AI-QA.bat`. File này xóa container QA và file `web/.env.qa.local`, nhưng giữ database QA để có thể đối chiếu; app clinic port 3000 không bị dừng. Nếu một API key đã từng xuất hiện trong tin nhắn, email, log hoặc ảnh chụp, hãy thu hồi key đó tại nhà cung cấp và tạo key QA mới.
 
 `Cau-Hinh-AI-QA.bat` và `Tat-AI-QA.bat` là luồng kiểm thử, **không thay thế** `Sua-Loi.bat` hoặc `Chay-Zenith.bat`; không chạy chúng như quy trình cập nhật máy vận hành.
+
+Hồ sơ đầy đủ về URL, database/container QA, role usernames, cách giữ credentials ngoài Git, bằng chứng kiểm thử và giới hạn V2/AI nằm tại [`../docs/PROJECT-HANDOFF-2026-08-24.md`](../docs/PROJECT-HANDOFF-2026-08-24.md). `Sua-Loi.bat` là updater clinic: hãy backup trước khi chạy. Bản hiện hành cũng bảo lưu thay đổi local nhưng bỏ qua `checks/` và `worktrees/` là artifact QA/repository lồng để không làm updater dừng vì dữ liệu kiểm thử cục bộ.

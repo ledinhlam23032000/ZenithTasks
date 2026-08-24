@@ -1,7 +1,7 @@
 # Ứng dụng quản trị — Trung tâm Phẫu thuật Tạo hình Thẩm mỹ (BVĐK Hồng Phúc)
 
-> **Phiên bản chuẩn hiện tại:** xem [`VERSION.md`](VERSION.md) — release code r6, commit `0f81781` · **Ngày:** 18/08/2026<br>
-> Muốn biết bản mới nhất có gì, đọc [`VERSION.md`](VERSION.md). Muốn xem lịch sử thay đổi, đọc [`CHANGELOG.md`](CHANGELOG.md).
+> **Phiên bản chuẩn hiện tại:** xem [`VERSION.md`](VERSION.md). Commit GitHub và trạng thái triển khai phải đối chiếu trực tiếp với `origin/master`; không tin SHA cũ được chép trong tài liệu lịch sử.<br>
+> Muốn tiếp quản nhanh, đọc [`docs/PROJECT-HANDOFF-2026-08-24.md`](docs/PROJECT-HANDOFF-2026-08-24.md). Muốn xem lịch sử thay đổi, đọc [`CHANGELOG.md`](CHANGELOG.md).
 
 Ứng dụng web **nội bộ** quản lý phòng khám thẩm mỹ: tiếp nhận khách, lịch hẹn, hồ sơ điều trị
 (dịch vụ · vật tư · thanh toán · ảnh trước/sau/tái khám/cận lâm sàng), sổ tư vấn điện tử, chăm sóc khách, báo cáo
@@ -22,10 +22,14 @@ Có **cổng khách hàng** (link riêng) và **đặt lịch online**.
 | **[`CHANGELOG.md`](CHANGELOG.md)** | Lịch sử các nâng cấp gần đây theo commit và nhóm chức năng. |
 | **[`web/BAN-GIAO.md`](web/BAN-GIAO.md)** | **BẮT ĐẦU KỸ THUẬT TỪ ĐÂY.** Kiến trúc, mô hình dữ liệu, phân quyền, logic nghiệp vụ, quy ước phát triển, bảo mật, cách chạy/kiểm thử và cạm bẫy đã gặp. |
 | **[`ROADMAP.md`](ROADMAP.md)** | **MUỐN LÀM TIẾP? ĐỌC ĐÂY.** Bảng theo dõi tiến độ A→E (✅ xong / ⏳ chưa / 🔑 cần khoá-tài khoản) + chi tiết từng đợt + việc còn lại + việc của chủ. Đây là nơi biết "nên làm gì tiếp theo". |
+| **[`docs/PROJECT-HANDOFF-2026-08-24.md`](docs/PROJECT-HANDOFF-2026-08-24.md)** | **ĐỌC SAU VERSION.** Hồ sơ bàn giao hiện hành: V2, AI clarification A/B/C/D, governance, Training Studio MVP, QA DeepSeek cô lập, role demo và các giới hạn phải nói đúng. |
 | [`docs/INDEX.md`](docs/INDEX.md) | Chỉ mục nguồn sự thật và thứ tự đọc dành cho AI/người tiếp quản. |
 | [`docs/PRODUCT-CAPABILITIES.md`](docs/PRODUCT-CAPABILITIES.md) | Bản đồ năng lực sản phẩm, luồng tự động, ưu điểm vận hành và nơi sửa từng phân hệ. **Đọc khi cần hiểu nhanh thành quả dự án.** |
 | [`docs/AI-ADMIN-GATEWAY.md`](docs/AI-ADMIN-GATEWAY.md) | Registry AI, quyền, preview, approval, audit và workflow thay đổi code. |
+| [`docs/AI-EXECUTIVE-GOVERNANCE-V3.md`](docs/AI-EXECUTIVE-GOVERNANCE-V3.md) | Chính sách L0–L5, sensitive reads, approval và giới hạn L5 hiện tại. |
+| [`docs/AI-TRAINING-STUDIO-SETUP.md`](docs/AI-TRAINING-STUDIO-SETUP.md) | Cách bật và kiểm tra Training Studio MVP; phần CRUD/evaluation/release còn hoãn. |
 | [`docs/OPERATIONS-RUNBOOK.md`](docs/OPERATIONS-RUNBOOK.md) | Runbook backup, cập nhật Windows, migration, smoke test và xử lý sự cố. |
+| [`windows/README.md`](windows/README.md) | Cách vận hành Windows, launcher QA và cập nhật clinic an toàn. |
 | [`UPGRADE-HANDOFF-2026-08.md`](UPGRADE-HANDOFF-2026-08.md) | Biên bản nâng cấp chi tiết và bằng chứng các release production. |
 | [`web/DU-AN.md`](web/DU-AN.md) | Nhật ký thay đổi chi tiết theo từng đợt (lịch sử + lý do từng quyết định). |
 | [`web/AGENTS.md`](web/AGENTS.md) | Lưu ý: Next.js 16 khác bản cũ — đọc docs trong `node_modules/next/dist/docs/` trước khi viết. |
@@ -37,7 +41,9 @@ Có **cổng khách hàng** (link riêng) và **đặt lịch online**.
 
 ## 🔄 Cập nhật lên bản mới nhất
 
-Nhánh chuẩn là `master`. Trên máy phát triển dùng `git pull --ff-only origin master`; trên máy Windows vận hành dùng `windows\\Sua-Loi.bat`, sau khi sao lưu nếu bản cập nhật có migration. Không chạy `prisma db push` trên dữ liệu thật.
+Nhánh chuẩn là `master`. Trên máy phát triển dùng `git pull --ff-only origin master`; trên máy Windows vận hành phải **sao lưu trước**, sau đó dùng `windows\\Sua-Loi.bat`. Updater sẽ bảo lưu thay đổi local, bỏ qua artifact QA/worktree, build lại app, chạy migration additive và smoke test. Không chạy `prisma db push`, `migrate reset` hoặc `docker compose down -v` trên dữ liệu thật.
+
+`windows\\Cau-Hinh-AI-QA.bat` chỉ tạo môi trường QA DeepSeek ở `http://localhost:3300/login` với database `zenith_v2_qa`; nó **không thay thế** `Sua-Loi.bat` và không được trỏ vào port `3000`. Tài khoản/mật khẩu QA không nằm trong GitHub; xem [`docs/PROJECT-HANDOFF-2026-08-24.md`](docs/PROJECT-HANDOFF-2026-08-24.md).
 
 ## 🚀 Chạy nhanh
 

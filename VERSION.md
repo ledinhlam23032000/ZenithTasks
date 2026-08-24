@@ -1,10 +1,11 @@
 # ZenithTasks — Trạng thái phiên bản hiện tại
 
-> **Phiên bản nội bộ:** `2026.08.24-r14`<br>
-> **Commit master:** [`803a880`](https://github.com/ledinhlam23032000/ZenithTasks/commit/803a880)<br>
+> **Phiên bản nội bộ:** `2026.08.24-r15`<br>
+> **Commit master:** phải đối chiếu trực tiếp bằng `git rev-parse HEAD` và `git ls-remote origin refs/heads/master`; không cố định một SHA trong tài liệu phát hành.<br>
+> **Baseline mã nguồn đã xác minh trước đợt tài liệu này:** `5aa5f6447c54b1f096fbcd07464133d03d23d2db`<br>
 > **PR gần nhất:** cập nhật trực tiếp trên `master` theo chỉ đạo owner<br>
 > **Ngày cập nhật:** 24/08/2026<br>
-> **Trạng thái:** Release candidate đã qua Prisma validate/generate, TypeScript, 75 file/397 test và Next webpack production build; V2/AI governance/clarification/Training Studio MVP đã được kiểm thử trong QA cô lập. Hotfix sau đó đã đồng bộ origin kỹ thuật IPv4, sửa `Xem-Loi.ps1` để không báo NativeCommandError giả, và đổi log startup khỏi `localhost:3000`; public `/login` đã xác nhận HTTP 200. Hai migration mới đã được báo schema up to date trên máy vận hành; không reset database/volume. Bộ tài liệu tiếp quản chuẩn nằm tại [`docs/INDEX.md`](docs/INDEX.md), bản đồ năng lực nằm tại [`docs/PRODUCT-CAPABILITIES.md`](docs/PRODUCT-CAPABILITIES.md).
+> **Trạng thái:** Release candidate đã qua Prisma validate/generate, TypeScript, 75 file/397 test và Next webpack production build; V2/AI governance/clarification/Training Studio MVP đã được kiểm thử trong QA cô lập. QA DeepSeek live đã xác nhận A/B/C/D, draft inactive, sensitive-read guard, role protection và safe block cho yêu cầu nguy hiểm. Production migration của V2/Training Studio **chưa được coi là đã xác nhận**; owner phải backup rồi chạy updater và kiểm tra tại máy clinic. Bộ tài liệu tiếp quản chuẩn nằm tại [`docs/PROJECT-HANDOFF-2026-08-24.md`](docs/PROJECT-HANDOFF-2026-08-24.md), [`docs/INDEX.md`](docs/INDEX.md) và [`docs/PRODUCT-CAPABILITIES.md`](docs/PRODUCT-CAPABILITIES.md).
 
 ## Quy tắc đọc tài liệu
 
@@ -49,7 +50,7 @@ Migration là **bổ sung dữ liệu, không được tự xóa hoặc reset da
 
 ## Kiểm tra chất lượng gần nhất
 
-Release candidate r14 đã được kiểm tra bằng Prisma generate/validate, TypeScript, Vitest **75 file / 397 test** và Next webpack production build. QA isolated đã kiểm tra migration/data demo, authenticated route smoke, feature flags on/off, role access và server-action seed; production clinic chưa migrate. `origin/master` đã xác minh ở commit `8bf7493`. Khi sửa nghiệp vụ tiền, lương, công nợ, phân quyền, hồ sơ y tế hoặc webhook, phải bổ sung test hồi quy trước khi commit.
+Release candidate r15 đã được kiểm tra bằng Prisma generate/validate, TypeScript, Vitest **75 file / 397 test** và Next webpack production build. QA isolated đã kiểm tra migration/data demo, authenticated route smoke, feature flags on/off, role access, server-action seed và live DeepSeek; production clinic chưa được kết luận đã migrate V2/Training. Baseline `origin/master` trước đợt tài liệu là `5aa5f64`; sau mỗi commit phải xác minh lại bằng Git. Khi sửa nghiệp vụ tiền, lương, công nợ, phân quyền, hồ sơ y tế hoặc webhook, phải bổ sung test hồi quy trước khi commit.
 
 ## Quy trình cập nhật máy vận hành
 
@@ -57,7 +58,7 @@ Trên máy Windows của phòng khám, chạy `windows\\Kiem-Tra-Phat-Hanh.bat` 
 
 ## Những phần chưa tự động hoàn toàn
 
-Đối soát tiền ngân hàng tự động vẫn cần API/webhook của ngân hàng hoặc nhà cung cấp đối soát. SMS/Email tự động và tổng đài điện thoại thật cần tài khoản nhà cung cấp riêng. Lịch chăm sóc sau dịch vụ không được tự đoán theo ngày cố định vì phải phụ thuộc từng dịch vụ và chỉ định của phòng khám. AI Admin Gateway được phép thực hiện nghiệp vụ theo quyền ADMIN và approval; thay đổi code vẫn phải đi qua diff, test, backup và triển khai có kiểm soát, không sửa mù trực tiếp trên production.
+Đối soát tiền ngân hàng tự động vẫn cần API/webhook của ngân hàng hoặc nhà cung cấp đối soát. SMS/Email tự động và tổng đài điện thoại thật cần tài khoản nhà cung cấp riêng. Lịch chăm sóc sau dịch vụ không được tự đoán theo ngày cố định vì phải phụ thuộc từng dịch vụ và chỉ định của phòng khám. AI Admin Gateway có policy/capability/approval phù hợp trong phạm vi đã triển khai; L5 nguy hiểm vẫn bị chặn vì workflow hai người chưa hoàn chỉnh. Thay đổi code vẫn phải đi qua diff, test, backup và triển khai có kiểm soát, không sửa mù trực tiếp trên production.
 
 ## Cách xác định bản mới nhất
 

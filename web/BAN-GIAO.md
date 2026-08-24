@@ -491,3 +491,8 @@ AI governance hiện có policy L0–L5 và adapter gắn role capability/projec
 QA dùng database `zenith_v2_qa` riêng trong container PostgreSQL, source-mounted app port 3300 và dữ liệu demo không phải dữ liệu clinic. Prisma migration/status, seed/upsert, authenticated HTTP route smoke, feature-on/off behavior, role smoke cho ADMIN/MANAGER/SHAREHOLDER/COLLABORATOR/RECEPTION/DOCTOR và server-action seed harness đã được kiểm tra. ADMIN seed trả `ok=true`; MANAGER bị redirect `/khong-co-quyen`; route V2/Training của ADMIN trả 200 với marker nội dung; các role không được cấp quyền nhận meta redirect `khong-co-quyen`. Credentials/token và browser profiles chỉ nằm trong artifact QA local bị ignore, không commit.
 
 Production **chưa apply** hai migration V2/Training. Trước khi mở flag trên máy vận hành phải backup database/uploads, chạy `prisma migrate deploy` trong maintenance window, kiểm tra dry-run/status và có rollback plan; tuyệt đối không dùng `prisma db push` hoặc `migrate reset`. Người tiếp quản phải đọc `docs/AI-EXECUTIVE-GOVERNANCE-V3.md` và `docs/AI-TRAINING-STUDIO-SETUP.md` để phân biệt target architecture với MVP thực tế.
+
+
+## 15. Điểm vào bàn giao hiện hành
+
+Đọc [`../docs/PROJECT-HANDOFF-2026-08-24.md`](../docs/PROJECT-HANDOFF-2026-08-24.md) trước khi vận hành hoặc thay đổi V2/AI. Tài liệu đó là checklist ngắn cho QA DeepSeek cô lập (`zenith_v2_qa`, port `3300`), role usernames, cách giữ password/API key ngoài GitHub, phân biệt `Cau-Hinh-AI-QA.bat` với `Sua-Loi.bat`, kết quả live QA và các giới hạn không được nói quá như Training Studio chỉ ở mức MVP và L5 two-person approval chưa triển khai. Khi tài liệu lịch sử trong file này khác trạng thái source, ưu tiên schema/migration/code trên `master`, sau đó cập nhật cả hai tài liệu.
