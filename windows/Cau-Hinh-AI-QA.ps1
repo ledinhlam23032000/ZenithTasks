@@ -103,14 +103,16 @@ $envLines = @(
     'ENABLE_ZENITH_V2=true',
     'ENABLE_AI_TRAINING_STUDIO=true',
     'AI_PROVIDER=openai',
-    'AI_API_KEY=' + $apiKey.Trim(),
+    ('AI_API_KEY=' + $apiKey.Trim()),
     'AI_BASE_URL=https://api.deepseek.com',
     'AI_MODEL=deepseek-chat',
     'AI_AGENT_MODEL=deepseek-chat'
 )
 [System.IO.File]::WriteAllLines($EnvFile, $envLines, (New-Object System.Text.UTF8Encoding($false)))
-$writtenKeyLine = [System.IO.File]::ReadAllLines($EnvFile) | Where-Object { $_ -like 'AI_API_KEY=*' } | Select-Object -First 1
-if (-not $writtenKeyLine -or $writtenKeyLine.Substring('AI_API_KEY='.Length).Length -lt 10) {
+$writtenKeyLine = [System.IO.File]::ReadAllLines($EnvFile) | Where-Object { $_ -match '^AI_API_KEY=' } | Select-Object -First 1
+$writtenKeyLength = 0
+if ($writtenKeyLine) { $writtenKeyLength = ($writtenKeyLine -split '=', 2)[1].Length }
+if (-not $writtenKeyLine -or $writtenKeyLength -lt 10) {
     Remove-Item -LiteralPath $EnvFile -Force -ErrorAction SilentlyContinue
     throw 'Khong xac nhan duoc API key trong env QA; khong khoi dong container.'
 }
@@ -132,8 +134,10 @@ $runArgs = @(
 )
 Invoke-Checked 'docker' $runArgs | Out-Null
 $containerEnvLines = @(& docker inspect $Container --format '{{range .Config.Env}}{{println .}}{{end}}')
-$containerKeyLine = $containerEnvLines | Where-Object { $_ -like 'AI_API_KEY=*' } | Select-Object -First 1
-if (-not $containerKeyLine -or $containerKeyLine.Substring('AI_API_KEY='.Length).Length -lt 10) {
+$containerKeyLine = $containerEnvLines | Where-Object { $_ -match '^AI_API_KEY=' } | Select-Object -First 1
+$containerKeyLength = 0
+if ($containerKeyLine) { $containerKeyLength = ($containerKeyLine -split '=', 2)[1].Length }
+if (-not $containerKeyLine -or $containerKeyLength -lt 10) {
     & docker rm -f $Container *> $null
     Remove-Item -LiteralPath $EnvFile -Force -ErrorAction SilentlyContinue
     throw 'Container QA khong nhan duoc API key; da dung va xoa container de an toan.'
