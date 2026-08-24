@@ -28,6 +28,7 @@ export const MODULES: ModuleDef[] = [
   { key: "dau-ca", href: "/dau-ca", label: "Đầu ca lễ tân", icon: "Sunrise", group: "Hôm nay", roles: ["RECEPTION", "TELESALE"] },
   { key: "cham-cong", href: "/cham-cong", label: "Chấm công", icon: "CalendarCheck", group: "Hôm nay", roles: ALL },
   { key: "lich-hen", href: "/lich-hen", label: "Lịch hẹn", icon: "CalendarClock", group: "Khách hàng", roles: ["ADMIN", "MANAGER", "TELESALE", "RECEPTION", "CONSULTANT", "SHAREHOLDER"] },
+  { key: "du-an", href: "/du-an", label: "Dự án", icon: "FolderKanban", group: "Khách hàng", roles: ["ADMIN", "MANAGER"] },
   { key: "khach-tham-khao", href: "/khach-tham-khao", label: "Khách tham khảo", icon: "UserSearch", group: "Khách hàng", roles: ["ADMIN", "MANAGER", "TELESALE", "RECEPTION"] },
   { key: "tiep-nhan", href: "/tiep-nhan", label: "Tiếp nhận khách", icon: "UserPlus", group: "Khách hàng", roles: ["ADMIN", "RECEPTION", "TELESALE"] },
   { key: "cong-no", href: "/cong-no", label: "Sổ công nợ", icon: "Wallet", group: "Khách hàng", roles: ["ADMIN", "MANAGER", "RECEPTION", "CONSULTANT", "SHAREHOLDER"] },
