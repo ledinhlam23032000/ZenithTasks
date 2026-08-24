@@ -2,6 +2,12 @@
 
 Tài liệu này ghi các thay đổi đã được đẩy lên nhánh `master`. Commit mới hơn nằm ở phía trên. Phiên bản mô tả đầy đủ hiện tại nằm trong [`VERSION.md`](VERSION.md).
 
+## 2026-08-24 — Fix runtime `/du-an` và xác nhận deploy lại
+
+- Tái hiện lỗi màn hình `Không tải được trang này` sau khi mục Dự án đã hiện trong sidebar. Nguyên nhân là form client import hằng số `PROJECT_TYPES` từ module có chỉ thị `use server`; Next.js build vẫn đạt nhưng render runtime route bị lỗi.
+- Tách các loại Dự án sang `web/src/lib/v2-project-types.ts`; module `use server` hiện chỉ export server action async. Build production sau sửa đạt compile, TypeScript, page generation và route `/du-an`.
+- Recreate container production bằng image mới, giữ nguyên PostgreSQL/volume; migration báo `No pending migrations to apply`, app đạt HTTP 200 tại `/login`. V2 flag vẫn là biến local bị ignore, không ghi secret vào GitHub.
+
 ## 2026-08-24 — Bật V2 production và bổ sung tạo Dự án độc lập
 
 - Xác định nguyên nhân người dùng không thấy tính năng: production đang có `ENABLE_ZENITH_V2=false`, đồng thời `permissions.ts` chưa đăng ký mục `Dự án` trong navigation dù route `/du-an` đã tồn tại.

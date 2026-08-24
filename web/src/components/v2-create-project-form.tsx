@@ -4,15 +4,8 @@ import { useEffect } from "react";
 import { FolderPlus, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useFormAction } from "@/lib/use-form-action";
-import { createV2ProjectAction, PROJECT_TYPES } from "@/lib/v2-project-actions";
-
-const TYPE_LABELS: Record<(typeof PROJECT_TYPES)[number], string> = {
-  INTERNAL_CLINIC: "Nội bộ clinic",
-  DISTRIBUTION: "Phân phối",
-  PARTNERSHIP: "Hợp tác",
-  SERVICE: "Dịch vụ",
-  OTHER: "Khác",
-};
+import { createV2ProjectAction } from "@/lib/v2-project-actions";
+import { PROJECT_TYPES, PROJECT_TYPE_LABELS } from "@/lib/v2-project-types";
 
 export function V2CreateProjectForm() {
   const router = useRouter();
@@ -40,7 +33,7 @@ export function V2CreateProjectForm() {
         <label className="grid gap-1 text-sm font-medium text-slate-700">
           Loại Dự án
           <select name="projectType" defaultValue="OTHER" className="min-h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100">
-            {PROJECT_TYPES.map((type) => <option key={type} value={type}>{TYPE_LABELS[type]}</option>)}
+            {PROJECT_TYPES.map((type) => <option key={type} value={type}>{PROJECT_TYPE_LABELS[type]}</option>)}
           </select>
         </label>
         <label className="grid gap-1 text-sm font-medium text-slate-700 sm:col-span-2">

@@ -118,3 +118,9 @@ Form hiện hỗ trợ mã, tên, loại và mô tả; mã được chuẩn hóa
 Commit triển khai tính năng là `3815547`. Sau deploy, container clinic nhận `ENABLE_ZENITH_V2=true`, app trả HTTP 200 tại `/login`, Prisma báo `56 migrations found` và `Database schema is up to date!`. Không dùng QA credentials cho production.
 
 **Giới hạn cần nhớ:** tính năng tạo project hiện mới tạo khung DRAFT và membership Admin. CRUD đầy đủ cho thành viên, đơn vị, vị trí và cơ chế; quy trình approval hai người; mapping dữ liệu khách hàng theo project; và kích hoạt settlement thực tế vẫn là các hạng mục tiếp theo, chưa được hiểu là đã hoàn thành.
+
+## 12. Bài học bắt buộc từ lỗi runtime `/du-an`
+
+Không được coi một tính năng là hoàn tất chỉ vì route xuất hiện trong manifest hoặc build TypeScript thành công. Với mỗi route có server component và client component, phải kiểm tra cả render runtime sau khi recreate container. Module có chỉ thị `use server` chỉ nên export các server action async; hằng số dùng chung cho client phải đặt trong module shared không có `use server`.
+
+Quy trình phát hành bắt buộc gồm: build image mới, recreate app, chờ `Ready`, kiểm tra migration/status, probe `/login`, sau đó kiểm tra route tính năng bằng phiên Admin và một phiên role bị giới hạn. Nếu không có phiên đăng nhập tự động, phải ghi rõ đó là phần chưa xác minh UI, không được tuyên bố “đã kiểm thử toàn bộ”. `Sua-Loi.bat` phải được kiểm thử như người dùng thật trên chính máy clinic; build/push GitHub một mình không chứng minh bản web đã được cập nhật.

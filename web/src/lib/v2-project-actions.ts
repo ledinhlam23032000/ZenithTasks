@@ -3,11 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "./db";
 import { requireUser } from "./auth";
+import { PROJECT_TYPES, type ProjectType } from "./v2-project-types";
 
 export type ProjectActionState = { ok?: boolean; error?: string; message?: string };
-
-const PROJECT_TYPES = ["INTERNAL_CLINIC", "DISTRIBUTION", "PARTNERSHIP", "SERVICE", "OTHER"] as const;
-type ProjectType = (typeof PROJECT_TYPES)[number];
 
 function readText(formData: FormData, key: string, max: number) {
   return String(formData.get(key) ?? "").trim().slice(0, max);
@@ -56,8 +54,6 @@ export async function createV2ProjectAction(_prev: ProjectActionState, formData:
   revalidatePath("/du-an");
   return { ok: true, message: `Đã tạo Dự án ${project.code} ở trạng thái DRAFT. Hãy mở Tổ chức/Cơ chế để cấu hình trước khi áp dụng.` };
 }
-
-export { PROJECT_TYPES };
 
 export async function listV2ProjectCodes() {
   await requireUser(["ADMIN", "MANAGER"]);
