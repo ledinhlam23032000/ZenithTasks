@@ -34,4 +34,10 @@ Sau khi test xong, bấm `Tat-AI-QA.bat`. File này xóa container QA và file `
 
 `Cau-Hinh-AI-QA.bat` và `Tat-AI-QA.bat` là luồng kiểm thử, **không thay thế** `Sua-Loi.bat` hoặc `Chay-Zenith.bat`; không chạy chúng như quy trình cập nhật máy vận hành.
 
-Hồ sơ đầy đủ về URL, database/container QA, role usernames, cách giữ credentials ngoài Git, bằng chứng kiểm thử và giới hạn V2/AI nằm tại [`../docs/PROJECT-HANDOFF-2026-08-24.md`](../docs/PROJECT-HANDOFF-2026-08-24.md). `Sua-Loi.bat` là updater clinic: hãy backup trước khi chạy. Bản hiện hành cũng bảo lưu thay đổi local nhưng bỏ qua profile Chrome QA bị khóa (`checks/qa-chrome-profile/`) và `worktrees/` là repository lồng để không làm updater dừng vì dữ liệu kiểm thử cục bộ.
+## Khi app có dấu hiệu lỗi
+
+Bấm `Xem-Loi.bat` một lần. Đây là công cụ **chỉ đọc**: không migrate, không restart, không reset và không xóa dữ liệu. Công cụ tự kiểm tra trạng thái Compose, migration clinic, 150 dòng log app, dấu hiệu Next.js đã sẵn sàng và nhầm lẫn QA/clinic; sau đó tự ghi `OK/WARN/FAIL` vào `Desktop\zenith-loi.txt` bằng UTF-8 không BOM và mở báo cáo. Người vận hành không cần tự giải mã chuỗi log hoặc tự đoán nguyên nhân.
+
+Nếu báo cáo có `FAIL`, chỉ gửi riêng file báo cáo đã được lọc thông tin nhạy cảm cho kỹ thuật. Không gửi `.env`, API key, JWT, password, browser profile hoặc dữ liệu khách. Nếu báo cáo chỉ có `WARN` về `localhost:3000` nhưng migration up to date và app Ready, đó có thể là log cũ; sau khi updater rebuild, startup chuẩn phải ghi origin `http://127.0.0.1:3000`. Xem nguyên tắc và bài học đầy đủ tại [`../docs/DI-CHUC-VAN-HANH-ZENITHTASKS.md`](../docs/DI-CHUC-VAN-HANH-ZENITHTASKS.md).
+
+Hồ sơ đầy đủ về URL, database/container QA, role usernames, cách giữ credentials ngoài Git, bằng chứng kiểm thử và giới hạn V2/AI nằm tại [`../docs/PROJECT-HANDOFF-2026-08-24.md`](../docs/PROJECT-HANDOFF-2026-08-24.md). Di chúc vận hành dài hạn nằm tại [`../docs/DI-CHUC-VAN-HANH-ZENITHTASKS.md`](../docs/DI-CHUC-VAN-HANH-ZENITHTASKS.md). `Sua-Loi.bat` là updater clinic: hãy backup trước khi chạy. Bản hiện hành cũng bảo lưu thay đổi local nhưng bỏ qua profile Chrome QA bị khóa (`checks/qa-chrome-profile/`) và `worktrees/` là repository lồng để không làm updater dừng vì dữ liệu kiểm thử cục bộ.

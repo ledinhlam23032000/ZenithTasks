@@ -14,6 +14,7 @@ Mã nguồn, Prisma schema và migration trên nhánh `master` là nguồn thự
 | Lịch sử thay đổi | [`../CHANGELOG.md`](../CHANGELOG.md) | Đọc các release mới nhất trước khi sửa. |
 | Kiến trúc và nghiệp vụ chi tiết | [`../web/BAN-GIAO.md`](../web/BAN-GIAO.md) | Tài liệu nền tảng của thư mục `web/`. |
 | Hồ sơ bàn giao hiện hành | [`PROJECT-HANDOFF-2026-08-24.md`](PROJECT-HANDOFF-2026-08-24.md) | Đọc sau VERSION/CHANGELOG; gồm V2, AI, QA demo, role convention, link local và giới hạn. |
+| Di chúc vận hành dài hạn | [`DI-CHUC-VAN-HANH-ZENITHTASKS.md`](DI-CHUC-VAN-HANH-ZENITHTASKS.md) | Nguyên tắc không mất dữ liệu, quy trình một lần bấm, bài học sự cố và checklist cho người/AI tiếp quản. |
 | Lịch sử nâng cấp và bàn giao | [`../UPGRADE-HANDOFF-2026-08.md`](../UPGRADE-HANDOFF-2026-08.md) | Tài liệu lịch sử; không thay thế trạng thái hiện hành. |
 | Trạng thái nhiệm vụ dài | `.task-memory/` và checkpoint trong project memory nếu tồn tại | Chỉ đọc khi cần khôi phục task; không coi memory cũ là nguồn sự thật của source. |
 | Kiểm chứng production | [`../checks/2026-08-18-r7-ai-colleague-production.md`](../checks/2026-08-18-r7-ai-colleague-production.md) | Đối chiếu code/compose, model Agent, database, UI và smoke test mới nhất. |
@@ -26,7 +27,7 @@ Mã nguồn, Prisma schema và migration trên nhánh `master` là nguồn thự
 
 ## Thứ tự đọc bắt buộc
 
-Đối với một AI hoặc lập trình viên mới, hãy đọc `VERSION.md`, `CHANGELOG.md`, `PROJECT-HANDOFF-2026-08-24.md`, `PRODUCT-CAPABILITIES.md`, file `web/AGENTS.md`, `web/BAN-GIAO.md`, `AI-ADMIN-GATEWAY.md`, `AI-EXECUTIVE-GOVERNANCE-V3.md`, `AI-TRAINING-STUDIO-SETUP.md`, `OPERATIONS-RUNBOOK.md` và `windows/README.md`, rồi mới mở các file nghiệp vụ cụ thể. Khi cần khôi phục một nhiệm vụ dài, chỉ đọc các file memory có thật trong checkout hiện tại; không tạo claim từ đường dẫn memory lịch sử đã bị xóa.
+Đối với một AI hoặc lập trình viên mới, hãy đọc `VERSION.md`, `CHANGELOG.md`, `PROJECT-HANDOFF-2026-08-24.md`, `DI-CHUC-VAN-HANH-ZENITHTASKS.md`, `PRODUCT-CAPABILITIES.md`, file `web/AGENTS.md`, `web/BAN-GIAO.md`, `AI-ADMIN-GATEWAY.md`, `AI-EXECUTIVE-GOVERNANCE-V3.md`, `AI-TRAINING-STUDIO-SETUP.md`, `OPERATIONS-RUNBOOK.md` và `windows/README.md`, rồi mới mở các file nghiệp vụ cụ thể. Khi cần khôi phục một nhiệm vụ dài, chỉ đọc các file memory có thật trong checkout hiện tại; không tạo claim từ đường dẫn memory lịch sử đã bị xóa.
 
 ## Bản đồ mã nguồn nhanh
 
@@ -47,6 +48,7 @@ Mã nguồn, Prisma schema và migration trên nhánh `master` là nguồn thự
 | Training Studio MVP | `web/src/app/(app)/he-thong/ai-dao-tao/`, `web/src/lib/ai-training-actions.ts` | Dashboard/counts và demo seed; không nhầm với full training lab. |
 | Governance policy | `web/src/lib/ai-governance.ts`, `web/src/lib/ai-governance-adapter.ts` | L0–L5, capability/scope, sensitive-read purpose/confirmation và chặn L5 nguy hiểm. |
 | QA launcher | `windows/Cau-Hinh-AI-QA.ps1`, `windows/Tat-AI-QA.ps1` | Tạo/dọn app QA port 3300; không chạm clinic port 3000. |
+| Clinic diagnostic | `windows/Xem-Loi.ps1`, `windows/Xem-Loi.bat` | Read-only one-click diagnostic, ghi UTF-8, tự phân loại OK/WARN/FAIL; không migrate/restart/reset. |
 
 ## Trạng thái hiện tại cần nhớ
 

@@ -5,7 +5,7 @@
 > **Baseline mã nguồn đã xác minh trước đợt tài liệu này:** `5aa5f6447c54b1f096fbcd07464133d03d23d2db`<br>
 > **PR gần nhất:** cập nhật trực tiếp trên `master` theo chỉ đạo owner<br>
 > **Ngày cập nhật:** 24/08/2026<br>
-> **Trạng thái:** Release candidate đã qua Prisma validate/generate, TypeScript, 75 file/397 test và Next webpack production build; V2/AI governance/clarification/Training Studio MVP đã được kiểm thử trong QA cô lập. QA DeepSeek live đã xác nhận A/B/C/D, draft inactive, sensitive-read guard, role protection và safe block cho yêu cầu nguy hiểm. Production migration của V2/Training Studio **chưa được coi là đã xác nhận**; owner phải backup rồi chạy updater và kiểm tra tại máy clinic. Bộ tài liệu tiếp quản chuẩn nằm tại [`docs/PROJECT-HANDOFF-2026-08-24.md`](docs/PROJECT-HANDOFF-2026-08-24.md), [`docs/INDEX.md`](docs/INDEX.md) và [`docs/PRODUCT-CAPABILITIES.md`](docs/PRODUCT-CAPABILITIES.md).
+> **Trạng thái:** Release candidate đã qua Prisma validate/generate, TypeScript, 75 file/397 test và Next webpack production build; V2/AI governance/clarification/Training Studio MVP đã được kiểm thử trong QA cô lập. QA DeepSeek live đã xác nhận A/B/C/D, draft inactive, sensitive-read guard, role protection và safe block cho yêu cầu nguy hiểm. Theo log clinic owner cung cấp ngày 24/08/2026, production đã áp dụng `20260824000000_operating_framework_v2` và `20260824003000_ai_training_studio`; Prisma báo `Database schema is up to date` và app đã `Ready`. Bằng chứng này không thay thế việc backup/kiểm tra nghiệp vụ sau phát hành. Bộ tài liệu tiếp quản chuẩn nằm tại [`docs/PROJECT-HANDOFF-2026-08-24.md`](docs/PROJECT-HANDOFF-2026-08-24.md), [`docs/DI-CHUC-VAN-HANH-ZENITHTASKS.md`](docs/DI-CHUC-VAN-HANH-ZENITHTASKS.md), [`docs/INDEX.md`](docs/INDEX.md) và [`docs/PRODUCT-CAPABILITIES.md`](docs/PRODUCT-CAPABILITIES.md).
 
 ## Quy tắc đọc tài liệu
 
@@ -43,14 +43,14 @@
 | `20260821130000_consultation_print_overrides` | Lưu nội dung chỉnh riêng cho bản in Phiếu tư vấn; migration additive, không thay đổi dữ liệu nguồn. **Đã merge master, chưa xác nhận production.** |
 | `20260821150000_ctv_identity_staff_lifecycle` | Thêm role CTV, liên kết CTV theo ID, cửa sổ hiển thị 6 tháng, trạng thái nghỉ việc/lịch sử thăng chức và liên kết payout; additive, có backfill tên khớp duy nhất. **Đã merge master, chưa xác nhận production.** |
 | `20260818120000_ai_admin_gateway` | Lưu AssistantConversation/AssistantMessage, liên kết approval với conversation và hỗ trợ chấm công hàng loạt qua AI. **Đã áp dụng trên production ngày 18/08/2026.** |
-| `20260824000000_operating_framework_v2` | Project/organization/position/membership/mechanism registry và simulation rule engine. **Đã apply QA cô lập; chưa production.** |
-| `20260824003000_ai_training_studio` | Agent profile/dataset/example/prompt/evaluation nền tảng. **Đã apply QA cô lập; MVP dashboard/demo seed; chưa production.** |
+| `20260824000000_operating_framework_v2` | Project/organization/position/membership/mechanism registry và simulation rule engine. **Đã apply QA; theo log clinic ngày 24/08/2026 đã apply production.** |
+| `20260824003000_ai_training_studio` | Agent profile/dataset/example/prompt/evaluation nền tảng. **Đã apply QA và production theo log clinic ngày 24/08/2026; MVP dashboard/demo seed, chưa phải full training lab.** |
 
 Migration là **bổ sung dữ liệu, không được tự xóa hoặc reset database**. Khi triển khai production phải dùng `prisma migrate deploy`, không dùng `prisma db push`.
 
 ## Kiểm tra chất lượng gần nhất
 
-Release candidate r15 đã được kiểm tra bằng Prisma generate/validate, TypeScript, Vitest **75 file / 397 test** và Next webpack production build. QA isolated đã kiểm tra migration/data demo, authenticated route smoke, feature flags on/off, role access, server-action seed và live DeepSeek; production clinic chưa được kết luận đã migrate V2/Training. Baseline `origin/master` trước đợt tài liệu là `5aa5f64`; sau mỗi commit phải xác minh lại bằng Git. Khi sửa nghiệp vụ tiền, lương, công nợ, phân quyền, hồ sơ y tế hoặc webhook, phải bổ sung test hồi quy trước khi commit.
+Release candidate r15 đã được kiểm tra bằng Prisma generate/validate, TypeScript, Vitest **75 file / 397 test** và Next webpack production build. QA isolated đã kiểm tra migration/data demo, authenticated route smoke, feature flags on/off, role access, server-action seed và live DeepSeek. Log clinic owner cung cấp ngày 24/08/2026 ghi nhận 56 migrations, hai migration V2/Training đã apply, database up to date và Next.js Ready; sau phát hành vẫn phải smoke test nghiệp vụ trên máy clinic. Baseline `origin/master` trước đợt handoff là `5aa5f64`; sau mỗi commit phải xác minh lại bằng Git. Khi sửa nghiệp vụ tiền, lương, công nợ, phân quyền, hồ sơ y tế hoặc webhook, phải bổ sung test hồi quy trước khi commit.
 
 ## Quy trình cập nhật máy vận hành
 

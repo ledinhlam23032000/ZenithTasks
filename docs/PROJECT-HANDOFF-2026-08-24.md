@@ -85,15 +85,15 @@ Các tài khoản trên chỉ dành cho QA. Mật khẩu phải đạt chính s�
 
 ## 6. Phát hành trên máy clinic
 
-Trước khi cập nhật, backup database và `uploads`. `windows/Sua-Loi.bat` sẽ fetch `origin/master`, bảo lưu thay đổi tracked an toàn, bỏ qua profile Chrome QA bị khóa (`checks/qa-chrome-profile/`) và `worktrees/` là repository lồng, rebuild image, recreate app, chạy `prisma migrate deploy` và health-check `/login`.
+Trước khi cập nhật, backup database và `uploads`. `windows/Sua-Loi.bat` sẽ fetch `origin/master`, bảo lưu thay đổi tracked an toàn, bỏ qua profile Chrome QA bị khóa (`checks/qa-chrome-profile/`) và `worktrees/` là repository lồng, rebuild image, recreate app, chạy `prisma migrate deploy` và health-check `/login`. Bằng log clinic owner cung cấp ngày 24/08/2026, hai migration V2/Training đã apply thành công, database báo `schema is up to date` và Next.js đã `Ready`.
 
-Các migration V2 và Training Studio là additive và đã được kiểm tra trong QA; production chỉ được migrate khi owner chủ động chạy updater sau backup. Không chạy `prisma db push`, `migrate reset`, hoặc `docker compose down -v` trên stack clinic. Sau cập nhật cần kiểm tra đăng nhập, dashboard, một hồ sơ điều trị, Thu–chi, Kế toán, Hệ thống, backup status và public hostname.
+Các migration V2 và Training Studio là additive; hiện đã có bằng chứng log production apply thành công, nhưng vẫn phải kiểm tra nghiệp vụ sau phát hành. Không chạy `prisma db push`, `migrate reset`, hoặc `docker compose down -v` trên stack clinic. Sau cập nhật cần kiểm tra đăng nhập, dashboard, một hồ sơ điều trị, Thu–chi, Kế toán, Hệ thống, backup status và public hostname.
 
-Nếu updater gặp lỗi build, giữ bản app cũ, không xóa volume; đọc log `docker-build-<timestamp>.log` và dùng `windows/Xem-Loi.bat`. Nếu thấy warning CRLF hoặc artifact `checks/worktrees`, đó không phải lý do để đưa các file này lên GitHub.
+Nếu updater gặp lỗi build, giữ bản app cũ, không xóa volume; chạy `windows/Xem-Loi.bat` để công cụ tự kiểm tra read-only, ghi báo cáo UTF-8, tự đối chiếu migration/app/QA và in `OK/WARN/FAIL`. Chỉ đọc log `docker-build-<timestamp>.log` khi báo cáo đã chỉ rõ cần điều tra build. Nếu thấy warning CRLF hoặc artifact `checks/worktrees`, đó không phải lý do để đưa các file này lên GitHub.
 
 ## 7. Bằng chứng kiểm thử đã có
 
-QA đã xác nhận migration/status, dữ liệu demo V2/Training, route authenticated, feature flags bật/tắt, server-action seed, role protection và launcher tự tạo container khi container cũ không tồn tại. Quality gate trước đó đạt Prisma validate/generate, TypeScript, Vitest 75 file/397 test và Next webpack production build.
+QA đã xác nhận migration/status, dữ liệu demo V2/Training, route authenticated, feature flags bật/tắt, server-action seed, role protection và launcher tự tạo container khi container cũ không tồn tại. Clinic diagnostic read-only đã chạy thực tế: báo cáo Desktop đọc được bằng UTF-8, nhận diện `Database schema is up to date`, không còn chuỗi mojibake và xác nhận đúng phạm vi clinic port `3000`. Quality gate trước đó đạt Prisma validate/generate, TypeScript, Vitest 75 file/397 test và Next webpack production build.
 
 Live DeepSeek đã đạt các điểm quan trọng: câu hỏi tiếng Việt UTF-8 trả A/B/C/D; lựa chọn A tạo draft chưa kích hoạt; câu hỏi doanh thu trả lời từ dữ liệu QA; sensitive read và yêu cầu nguy hiểm bị kiểm soát; `manager1` bị redirect khỏi agent route; `admin1` truy cập V2/Training Studio MVP. Sau test, container QA và env chứa key đã được xóa; database QA được giữ lại để tái lập.
 

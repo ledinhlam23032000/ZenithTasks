@@ -2,6 +2,14 @@
 
 Tài liệu này ghi các thay đổi đã được đẩy lên nhánh `master`. Commit mới hơn nằm ở phía trên. Phiên bản mô tả đầy đủ hiện tại nằm trong [`VERSION.md`](VERSION.md).
 
+## 2026-08-24 — Clinic migration xác nhận và chẩn đoán one-click
+
+- Theo nhật ký owner cung cấp, production clinic đã chạy thành công `20260824000000_operating_framework_v2` và `20260824003000_ai_training_studio`; Prisma báo 56 migrations, database schema up to date và Next.js Ready. Đây là bằng chứng của máy clinic tại thời điểm log, không phải lý do để bỏ qua backup hoặc smoke test nghiệp vụ.
+- Sửa `windows/Xem-Loi.ps1` thành diagnostic read-only: tự kiểm tra compose, migration, 150 dòng app log, QA/clinic scope và dấu hiệu Next.js Ready; tự ghi `OK/WARN/FAIL` vào báo cáo UTF-8 không BOM.
+- Sửa `windows/Xem-Loi.bat` để không xin UAC thừa cho tác vụ chỉ đọc. Một lần bấm sẽ chạy diagnostic, mở báo cáo và không migrate/restart/reset database.
+- Nguyên nhân lỗi trước đây là PowerShell giải mã native Docker output theo code page Windows, làm tiếng Việt/emoji thành mojibake. Regression test one-click được thêm để khóa hành vi UTF-8 và chống tái phạm.
+- Thêm [`docs/DI-CHUC-VAN-HANH-ZENITHTASKS.md`](docs/DI-CHUC-VAN-HANH-ZENITHTASKS.md), đồng bộ README/INDEX/handoff để người hoặc AI tiếp quản biết rõ nguồn sự thật, QA port 3300, clinic port 3000, giới hạn AI và quy trình phát hành.
+
 ## 2026-08-24 — r15: Hồ sơ tiếp quản, QA cô lập và hotfix Sua-Loi
 
 - Thêm [`docs/PROJECT-HANDOFF-2026-08-24.md`](docs/PROJECT-HANDOFF-2026-08-24.md) làm hồ sơ bàn giao hiện hành: đọc nhanh sản phẩm, Operating Framework V2, clarification A/B/C/D, AI governance, Training Studio MVP, QA DeepSeek, role convention, link local, bằng chứng kiểm thử và backlog còn lại.

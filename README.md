@@ -23,6 +23,7 @@ Có **cổng khách hàng** (link riêng) và **đặt lịch online**.
 | **[`web/BAN-GIAO.md`](web/BAN-GIAO.md)** | **BẮT ĐẦU KỸ THUẬT TỪ ĐÂY.** Kiến trúc, mô hình dữ liệu, phân quyền, logic nghiệp vụ, quy ước phát triển, bảo mật, cách chạy/kiểm thử và cạm bẫy đã gặp. |
 | **[`ROADMAP.md`](ROADMAP.md)** | **MUỐN LÀM TIẾP? ĐỌC ĐÂY.** Bảng theo dõi tiến độ A→E (✅ xong / ⏳ chưa / 🔑 cần khoá-tài khoản) + chi tiết từng đợt + việc còn lại + việc của chủ. Đây là nơi biết "nên làm gì tiếp theo". |
 | **[`docs/PROJECT-HANDOFF-2026-08-24.md`](docs/PROJECT-HANDOFF-2026-08-24.md)** | **ĐỌC SAU VERSION.** Hồ sơ bàn giao hiện hành: V2, AI clarification A/B/C/D, governance, Training Studio MVP, QA DeepSeek cô lập, role demo và các giới hạn phải nói đúng. |
+| **[`docs/DI-CHUC-VAN-HANH-ZENITHTASKS.md`](docs/DI-CHUC-VAN-HANH-ZENITHTASKS.md)** | **ĐỌC KHI TIẾP QUẢN.** Nguyên tắc không mất dữ liệu, thứ tự nguồn sự thật, quy trình một lần bấm, bài học lỗi encoding và checklist bàn giao dài hạn. |
 | [`docs/INDEX.md`](docs/INDEX.md) | Chỉ mục nguồn sự thật và thứ tự đọc dành cho AI/người tiếp quản. |
 | [`docs/PRODUCT-CAPABILITIES.md`](docs/PRODUCT-CAPABILITIES.md) | Bản đồ năng lực sản phẩm, luồng tự động, ưu điểm vận hành và nơi sửa từng phân hệ. **Đọc khi cần hiểu nhanh thành quả dự án.** |
 | [`docs/AI-ADMIN-GATEWAY.md`](docs/AI-ADMIN-GATEWAY.md) | Registry AI, quyền, preview, approval, audit và workflow thay đổi code. |
@@ -37,13 +38,13 @@ Có **cổng khách hàng** (link riêng) và **đặt lịch online**.
 | [`AI-AGENT-RESEARCH.md`](AI-AGENT-RESEARCH.md) | Nền tảng thiết kế Trợ lý AI: tool whitelist, structured output, approval và giới hạn an toàn. |
 | [`PROJECT-OVERVIEW.md`](PROJECT-OVERVIEW.md) | Bản giới thiệu tổng quan dự án (số liệu quy mô đã kiểm chứng). |
 
-> Nếu bạn dùng AI coding agent: hãy đọc [`docs/INDEX.md`](docs/INDEX.md) trước, sau đó đọc [`docs/PRODUCT-CAPABILITIES.md`](docs/PRODUCT-CAPABILITIES.md), `web/AGENTS.md` và tài liệu nền. `web/CLAUDE.md` vẫn mô tả các quy tắc nạp ngữ cảnh riêng cho Claude Code.
+> Nếu bạn dùng AI coding agent: hãy đọc [`docs/INDEX.md`](docs/INDEX.md) và [`docs/DI-CHUC-VAN-HANH-ZENITHTASKS.md`](docs/DI-CHUC-VAN-HANH-ZENITHTASKS.md) trước, sau đó đọc [`docs/PRODUCT-CAPABILITIES.md`](docs/PRODUCT-CAPABILITIES.md), `web/AGENTS.md` và tài liệu nền. `web/CLAUDE.md` vẫn mô tả các quy tắc nạp ngữ cảnh riêng cho Claude Code.
 
 ## 🔄 Cập nhật lên bản mới nhất
 
 Nhánh chuẩn là `master`. Trên máy phát triển dùng `git pull --ff-only origin master`; trên máy Windows vận hành phải **sao lưu trước**, sau đó dùng `windows\\Sua-Loi.bat`. Updater sẽ bảo lưu thay đổi local, bỏ qua artifact QA/worktree, build lại app, chạy migration additive và smoke test. Không chạy `prisma db push`, `migrate reset` hoặc `docker compose down -v` trên dữ liệu thật.
 
-`windows\\Cau-Hinh-AI-QA.bat` chỉ tạo môi trường QA DeepSeek ở `http://localhost:3300/login` với database `zenith_v2_qa`; nó **không thay thế** `Sua-Loi.bat` và không được trỏ vào port `3000`. Tài khoản/mật khẩu QA không nằm trong GitHub; xem [`docs/PROJECT-HANDOFF-2026-08-24.md`](docs/PROJECT-HANDOFF-2026-08-24.md).
+`windows\\Cau-Hinh-AI-QA.bat` chỉ tạo môi trường QA DeepSeek ở `http://localhost:3300/login` với database `zenith_v2_qa`; nó **không thay thế** `Sua-Loi.bat` và không được trỏ vào port `3000`. `windows\\Xem-Loi.bat` là diagnostic read-only: tự thu log, tự kiểm tra migration/app/QA và mở báo cáo UTF-8. Tài khoản/mật khẩu QA không nằm trong GitHub; xem [`docs/PROJECT-HANDOFF-2026-08-24.md`](docs/PROJECT-HANDOFF-2026-08-24.md) và [`docs/DI-CHUC-VAN-HANH-ZENITHTASKS.md`](docs/DI-CHUC-VAN-HANH-ZENITHTASKS.md).
 
 ## 🚀 Chạy nhanh
 
