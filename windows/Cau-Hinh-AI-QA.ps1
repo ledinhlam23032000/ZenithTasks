@@ -9,7 +9,7 @@ $Container = 'zenith_v2_qa_devsrc'
 $Network = 'zenithtasks_default'
 $Image = 'zenithtasks-app'
 $QaDatabaseMarker = 'zenith_v2_qa'
-$QaUrl = 'http://127.0.0.1:3300/login'
+$QaUrl = 'http://localhost:3300/login'
 
 function Invoke-Checked {
     param(
@@ -28,6 +28,14 @@ function Require-Command {
     if ($null -eq (Get-Command $Name -ErrorAction SilentlyContinue)) {
         throw "Chua tim thay $Name. Hay mo/cai dat cong cu nay roi chay lai."
     }
+}
+
+function New-RandomSecret {
+    param([Parameter(Mandatory = $true)][int]$Bytes)
+    $buffer = New-Object byte[] $Bytes
+    $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+    try { $rng.GetBytes($buffer) } finally { $rng.Dispose() }
+    return [Convert]::ToBase64String($buffer)
 }
 
 function Get-ContainerEnvValue {
@@ -64,15 +72,19 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 $existingContainer = @(& docker ps -aq -f "name=^$Container`$") | Where-Object { $_ -and $_.Trim() } | Select-Object -First 1
-if (-not $existingContainer) {
-    throw "Khong tim thay container QA $Container. Dung lai de khong tu tao tu database clinic."
+if ($existingContainer) {
+    $databaseUrl = Get-ContainerEnvValue -Name $Container -Key 'DATABASE_URL'
+    $authSecret = Get-ContainerEnvValue -Name $Container -Key 'AUTH_SECRET'
+    $phoneEncKey = Get-ContainerEnvValue -Name $Container -Key 'PHONE_ENC_KEY'
+    if ($databaseUrl -notlike "*$QaDatabaseMarker*") {
+        throw 'DATABASE_URL cua container hien tai khong phai database QA; da dung lai de bao ve du lieu clinic.'
+    }
 }
-
-$databaseUrl = Get-ContainerEnvValue -Name $Container -Key 'DATABASE_URL'
-$authSecret = Get-ContainerEnvValue -Name $Container -Key 'AUTH_SECRET'
-$phoneEncKey = Get-ContainerEnvValue -Name $Container -Key 'PHONE_ENC_KEY'
-if ($databaseUrl -notlike "*$QaDatabaseMarker*") {
-    throw 'DATABASE_URL cua container hien tai khong phai database QA; da dung lai de bao ve du lieu clinic.'
+else {
+    Write-Host "Khong co container QA cu; se tao moi $Container tu image da kiem tra." -ForegroundColor Yellow
+    $databaseUrl = 'postgresql://zenith:zenith_dev_pw@db:5432/zenith_v2_qa?schema=public'
+    $authSecret = New-RandomSecret -Bytes 48
+    $phoneEncKey = New-RandomSecret -Bytes 32
 }
 
 & docker network inspect $Network *> $null
@@ -118,7 +130,12 @@ if (-not $writtenKeyLine -or $writtenKeyLength -lt 10) {
 }
 
 Write-Host '[1/3] Dung va tao lai container QA, giu nguyen database QA...' -ForegroundColor Yellow
-Invoke-Checked 'docker' @('rm', '-f', $Container)
+if ($existingContainer) {
+    Invoke-Checked 'docker' @('rm', '-f', $Container)
+}
+else {
+    Write-Host 'Khong co container cu; bo qua buoc xoa va tao container QA moi.' -ForegroundColor DarkGray
+}
 
 $volumeSource = "$SourceDir`:/app/src"
 $volumePrisma = "$PrismaDir`:/app/prisma"
@@ -146,16 +163,13 @@ if (-not $containerKeyLine -or $containerKeyLength -lt 10) {
 Write-Host '[2/3] Cho app QA va DeepSeek san sang...' -ForegroundColor Yellow
 $ready = $false
 for ($i = 0; $i -lt 80; $i++) {
-    try {
-        $response = Invoke-WebRequest -UseBasicParsing -Uri $QaUrl -TimeoutSec 5
-        if ($response.StatusCode -ge 200 -and $response.StatusCode -lt 500) {
-            $ready = $true
-            break
-        }
+    $statusText = ''
+    try { $statusText = (& curl.exe -4 -sS --max-time 5 -o NUL -w '%{http_code}' $QaUrl 2>$null | Out-String).Trim() } catch { $statusText = '' }
+    if ($statusText -match '^[2-4][0-9][0-9]$') {
+        $ready = $true
+        break
     }
-    catch {
-        Start-Sleep -Seconds 3
-    }
+    Start-Sleep -Seconds 3
 }
 
 if (-not $ready) {
