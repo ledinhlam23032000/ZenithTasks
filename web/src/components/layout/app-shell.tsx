@@ -189,6 +189,7 @@ export function AppShell({
     { href: `/du-an/${activeWorkspace.id}`, label: "Tổng quan workspace", icon: "LayoutDashboard", group: "Workspace" },
     ...V2_MODULES.filter((module) => module.available && activeWorkspace.enabledFeatures.includes(module.key)).map((module) => ({ href: module.key === "simulation" ? `/du-an/${activeWorkspace.id}/co-che?tab=simulation` : module.href(activeWorkspace.id), label: module.label, icon: workspaceIcon[module.key] ?? "Boxes", group: "Workspace" })),
     { href: `/du-an/${activeWorkspace.id}/thanh-vien`, label: "Thành viên", icon: "Users", group: "Workspace" },
+    { href: `/tro-ly?p=${encodeURIComponent(activeWorkspace.id)}`, label: "Trợ lý AI", icon: "Sparkles", group: "Workspace" },
     ...(user.role === "ADMIN" ? [{ href: "/du-an", label: "Quản lý Dự án", icon: "Boxes", group: "Quản trị chung" }] : []),
   ] : [];
   const visibleNav = activeWorkspace ? workspaceNav : nav;
