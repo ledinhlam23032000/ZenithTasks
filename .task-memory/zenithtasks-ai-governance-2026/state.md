@@ -273,3 +273,8 @@ Theo yêu cầu ưu tiên tốc độ có kiểm soát: thực thi code/test ch�
 ## Documentation alignment checkpoint — 2026-08-26
 
 - Commit `f91ed43` pushed. Source-of-truth plan and `WORKSPACE-V3-REAL-PROJECT.md` now accurately state that Payroll calculation preview and two-person finalize/void exist, while payout/accounting integration, isolated DB proof and authenticated runtime remain open.
+
+## Payroll policy helper checkpoint — 2026-08-26
+
+- Commit `812a42b` pushed. Extracted pure two-person approval/void status policy and added unit tests; server actions now consume the helper.
+- Targeted governance/calculation/policy tests passed 16/16; TypeScript and Next build passed. This improves P05-T06 evidence but does not replace DB isolation or runtime role tests.
