@@ -133,3 +133,10 @@ Sandbox verification sau thay đổi: Prisma generate pass, TypeScript pass, gov
 Phản hồi của người dùng về việc không để browser/tab/process treo đã được ghi vào quy tắc vận hành của kế hoạch. Updater `windows/Sua-Loi.ps1` được harden thêm: build Docker dùng cache an toàn theo mặc định để giảm thời gian và phụ thuộc mạng; có thể chủ động đặt `ZENITH_FORCE_NO_CACHE=true` khi thật sự cần rebuild toàn bộ. Vẫn giữ `COMPOSE_BAKE=false`, redirect log, kiểm tra exit code, không `git clean`, không xóa volume/database.
 
 Bản hardening đã qua `git diff --check` và push master tại `90f6bef`. Lần triển khai Doanh số trước đó bị dừng vì no-cache build đứng ở base-image apt; app/db clinic vẫn running/healthy và `/login` 200. Commit Doanh số và config-version vẫn cần một lần updater thành công để ghi runtime evidence.
+
+
+## Plan cursor correction checkpoint — 2026-08-26
+
+Người dùng phát hiện con trỏ điều phối hiển thị phase 10 dễ bị hiểu là `10/10` đã xong. Nguyên nhân là em tạm chuyển cursor lên phase 10 để xử lý blocker updater, không phải do 10 phase hoặc 60 task đã hoàn thành. Đã sửa lại cursor về phase 3 (Project-local schema và lifecycle/config version). Nguồn sự thật vẫn là bảng 60 task với trạng thái từng mã; hiện không được đánh dấu complete giả.
+
+Quy tắc mới: không chuyển cursor phase chỉ để xử lý một blocker xuyên phase nếu việc đó có thể tạo tín hiệu hoàn thành sai; mọi báo cáo phải hiển thị riêng `phase cursor` và tổng trạng thái task.
