@@ -292,3 +292,7 @@ Sandbox verification confirmed `docker` is unavailable, so no isolated PostgreSQ
 
 - Full Vitest rerun passed: 78 files / 411 tests, 0 failures, 2.41 seconds. Evidence refreshed at `checks/full-vitest-regression-20260826.md`.
 - Mechanism rule-test runner is included in the suite. This is still sandbox-only evidence; no migration/runtime/clinic execution was performed.
+
+## P05 test coverage alignment — 2026-08-26
+
+- Plan P05-T06 moved to `review`: pure Payroll calculation/policy/Mechanism rule tests and rollback-only SQL now exist, but isolated DB and authenticated role runtime evidence remain required.
