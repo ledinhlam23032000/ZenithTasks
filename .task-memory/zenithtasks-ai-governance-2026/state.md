@@ -355,3 +355,8 @@ Sandbox verification confirmed `docker` is unavailable, so no isolated PostgreSQ
 
 - Full Vitest rerun passed: 81 files / 419 tests, 0 failures, 2.41 seconds. Evidence refreshed at `checks/full-vitest-regression-20260826.md`.
 - The suite includes Global console role scope and AI proposal governance. No database/runtime/clinic execution was performed.
+
+## Workspace layout policy checkpoint — 2026-08-26
+
+- Commit `61c29e6` pushed. Added pure validator for unique project module order; unknown, duplicate, disabled and planned modules are rejected. Payroll remains unavailable in registry.
+- Layout policy targeted gate passed 29/29 with TypeScript and Next build. Drag/drop, keyboard fallback, layout version save/preview/rollback UI and runtime remain open; P07-T01/T02/T03/T06 are not done.
