@@ -76,4 +76,4 @@ Không đánh dấu một giai đoạn hoàn tất chỉ vì route/build thành 
 
 ## 8. Trạng thái hiện tại và giới hạn
 
-Đã có nền workspace selector, project dashboard, membership, module registry, Task local, AI INTERNAL/PROJECT scope và patch GLOBAL aggregate cho Admin trong đợt hiện tại. Customer, Appointment, Sales/Finance và Payroll project-local vẫn chưa hoàn thành; vì vậy chưa tuyên bố toàn bộ Dự án đã độc lập hoàn toàn. Mỗi module chỉ được mở khi có schema, action, UI, quyền và isolation evidence.
+Đã có nền workspace selector, project dashboard, membership, module registry, Task local, AI INTERNAL/PROJECT scope và patch GLOBAL aggregate cho Admin. Đợt hiện tại đã thêm migration `20260826110000_workspace_core_modules`, model `ZWorkspaceCustomer`/`ZWorkspaceAppointment`/`ZWorkspaceSale`, cùng action và UI tạo/list Customer project-local; Customer mới ở mức nền `review`, chưa có đầy đủ sửa/xóa mềm, consent và lịch sử. Appointment, Sales/Finance và Payroll project-local vẫn chưa hoàn thành; vì vậy chưa tuyên bố toàn bộ Dự án đã độc lập hoàn toàn. Mỗi module chỉ được mở khi có schema, action, UI, quyền và isolation evidence tương ứng.

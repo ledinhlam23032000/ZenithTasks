@@ -71,3 +71,19 @@ Quality gate cuối đạt: `prisma validate`, `prisma generate`, `npx tsc --noE
 Commit `128b0889a918e9a1e5314457b2e5bd4b551b77b9` đã push thành công lên `origin/master`; `git ls-remote origin refs/heads/master` trả cùng SHA. Các thay đổi Windows local và `.task-memory/02_state.md`, `.task-memory/06_changelog.md` cũ vẫn ngoài commit, không bị xóa hoặc đưa vào release.
 
 Goal của phiên này hoàn tất. Production clinic vẫn chưa migrate hai migration V2/Training và feature flags chưa được bật trên máy vận hành. Người dùng chỉ nên backup trước, chạy `windows\\Sua-Loi.bat` để cập nhật commit, sau đó kiểm tra workflow clinic trước khi cân nhắc migration/flags theo runbook; không dùng `prisma db push` hoặc `migrate reset`.
+
+
+## Workspace V4 checkpoint — 2026-08-26 13:45 GMT+7
+
+Đã push commit `27bb015a05010e56715d7e325f7543f208ada7e9` lên `origin/master`. Commit này bổ sung context AI `GLOBAL`, guard Admin-only/explicit project target và migration additive `20260826100000_ai_global_workspace`; sandbox đã xác minh Prisma generate, 11 governance tests và Next build thành công.
+
+Đã tiếp tục P03/P04 nền trong working tree sandbox: migration additive `20260826110000_workspace_core_modules`; các model `ZWorkspaceCustomer`, `ZWorkspaceAppointment`, `ZWorkspaceSale` có `projectId` bắt buộc, index/unique theo project và foreign key tới `ZProject`. Đã tạo `createWorkspaceCustomerAction` với `requireProjectAccess`, không nhập số điện thoại đầy đủ, audit và revalidate; trang `/du-an/[projectId]/khach-hang` chỉ query `ZWorkspaceCustomer`; registry chuyển Customer thành module available với route local. Đã thêm rollback-only SQL check `checks/test-workspace-core-isolation.sql` để kiểm chứng hai project không đọc chéo và bảng legacy `Customer` không đổi.
+
+Bằng chứng sandbox: `prisma validate`, `prisma generate`, direct `tsc --noEmit`, `vitest run src/lib/ai-governance.test.ts` **11/11 pass**, `next build` pass và route `/du-an/[projectId]/khach-hang` được compile. Lần chạy `pnpm exec tsc --noEmit` bị chặn bởi pnpm policy `ERR_PNPM_IGNORED_BUILDS`, sau đó direct local `node_modules/.bin/tsc --noEmit` pass; đây là lỗi quy trình dependency, không phải TypeScript.
+
+Trạng thái: commit Customer foundation chưa commit/push/deploy; cần review diff, commit/push, rồi chờ sidecar Windows kết nối để chạy đúng `windows\\Sua-Loi.bat`. Chưa được tuyên bố Customer hoàn chỉnh: còn edit/soft-delete/consent/detail/history; Appointment/Sales/Finance/Payroll vẫn chưa có action/UI đầy đủ. Không được gọi toàn bộ Dự án là usable hoàn chỉnh.
+
+Next 3 actions:
+1. Review migration SQL/diff, thêm targeted static/isolation tests nếu cần, commit/push Customer foundation.
+2. Khi clinic reconnect, kiểm tra SHA/compose rồi chạy `Sua-Loi.bat`, xác minh migration 59 và `/login` 200; không merge local schema experiment.
+3. Tiếp tục P03/P04 theo thứ tự: customer edit/detail, appointment local, sale/ledger local; sau mỗi mốc chạy build/test và cập nhật checkpoint.

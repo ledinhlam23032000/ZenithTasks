@@ -15,35 +15,35 @@ Mỗi task có mã ổn định, phụ thuộc, đầu ra và cổng nghiệm th
 | P01-T03 | Chốt user journey chuyển Nội Bộ → Dự án → Nội Bộ | P01-T01 | Có đặc tả click, URL, mobile, back/refresh và hành vi khi membership hết hiệu lực | done |
 | P01-T04 | Chốt bản đồ module Nội Bộ so với module project-local | P01-T02 | Bảng mapping chỉ rõ model legacy nào giữ nguyên và model local nào phải tạo; không route giả | done |
 | P01-T05 | Chốt định nghĩa Dự án vận hành thật, không demo/trial | P01-T03 | Dự án có lifecycle, dữ liệu thật do người dùng tạo, không seed giả mặc định; có tiêu chí ACTIVE | done |
-| P01-T06 | Chốt quality gate 60 task và nguyên tắc không tuyên bố vượt bằng chứng | P01-T01 | Checklist build, migration, role, isolation, updater và browser walkthrough được lưu trong kế hoạch | in_progress |
+| P01-T06 | Chốt quality gate 60 task và nguyên tắc không tuyên bố vượt bằng chứng | P01-T01 | Checklist build, migration, role, isolation, updater và browser walkthrough được lưu trong kế hoạch | done |
 
 ## Phase 02 — Quyền, workspace context và boundary
 
 | Mã | Task | Phụ thuộc | Đầu ra và tiêu chí nghiệm thu | Trạng thái |
 |---|---|---|---|---|
-| P02-T01 | Chuẩn hóa `WorkspaceContext` với INTERNAL, PROJECT và GLOBAL | P01-T05 | Type/schema/action dùng cùng context; lịch sử cũ mặc định INTERNAL; migration additive | in_progress |
-| P02-T02 | Khóa Global Admin ở server-side | P02-T01 | ADMIN có global capability; role khác không thể giả mạo context bằng form/URL | not_started |
+| P02-T01 | Chuẩn hóa `WorkspaceContext` với INTERNAL, PROJECT và GLOBAL | P01-T05 | Type/schema/action dùng cùng context; lịch sử cũ mặc định INTERNAL; migration additive | review |
+| P02-T02 | Khóa Global Admin ở server-side | P02-T01 | ADMIN có global capability; role khác không thể giả mạo context bằng form/URL | review |
 | P02-T03 | Khóa Project Manager theo membership active | P02-T01 | Manager chỉ truy cập project được gán; revoke membership chặn ngay cả khi biết URL | review |
 | P02-T04 | Tạo policy ngăn đọc/ghi chéo project | P02-T01,P02-T02 | Mọi action local nhận projectId đã xác minh; cross-project trả deny và không query dữ liệu | review |
-| P02-T05 | Định nghĩa AI mode INTERNAL/PROJECT/GLOBAL | P02-T01,P02-T02 | Admin chọn GLOBAL; Manager không thấy/không gọi được GLOBAL; project target phải explicit | not_started |
-| P02-T06 | Viết regression test quyền và boundary | P02-T02,P02-T03,P02-T04 | Test Admin all-project, Manager scoped, fake projectId và missing projectId đều đạt | not_started |
+| P02-T05 | Định nghĩa AI mode INTERNAL/PROJECT/GLOBAL | P02-T01,P02-T02 | Admin chọn GLOBAL; Manager không thấy/không gọi được GLOBAL; project target phải explicit | review |
+| P02-T06 | Viết regression test quyền và boundary | P02-T02,P02-T03,P02-T04 | Test Admin all-project, Manager scoped, fake projectId và missing projectId đều đạt | review |
 
 ## Phase 03 — Mô hình dữ liệu project-local
 
 | Mã | Task | Phụ thuộc | Đầu ra và tiêu chí nghiệm thu | Trạng thái |
 |---|---|---|---|---|
-| P03-T01 | Hoàn thiện lifecycle và cấu hình vận hành của `ZProject` | P01-T05,P02-T01 | ACTIVE/DRAFT/ARCHIVED có hành vi rõ; project mới không bị gọi là demo; audit lifecycle | not_started |
+| P03-T01 | Hoàn thiện lifecycle và cấu hình vận hành của `ZProject` | P01-T05,P02-T01 | ACTIVE/DRAFT/ARCHIVED có hành vi rõ; project mới không bị gọi là demo; audit lifecycle | review |
 | P03-T02 | Tạo model version cho module/layout/config theo project | P03-T01 | Cấu hình có version, effective time, audit và rollback an toàn; không cấp quyền ngầm | not_started |
-| P03-T03 | Tạo `ZWorkspaceCustomer` và policy dữ liệu khách | P03-T01,P02-T04 | projectId bắt buộc, unique/index theo project, consent và CRUD scoped | not_started |
-| P03-T04 | Tạo `ZWorkspaceAppointment` | P03-T03 | Khách chỉ là customer cùng project, timezone/status/conflict scoped, không đọc Appointment legacy | not_started |
-| P03-T05 | Tạo `ZWorkspaceSale`/`ZWorkspaceLedgerEntry` | P03-T03,P03-T04 | Doanh số/thu chi theo project, immutable history phù hợp và tổng hợp được | not_started |
+| P03-T03 | Tạo `ZWorkspaceCustomer` và policy dữ liệu khách | P03-T01,P02-T04 | projectId bắt buộc, unique/index theo project, consent và CRUD scoped | review |
+| P03-T04 | Tạo `ZWorkspaceAppointment` | P03-T03 | Khách chỉ là customer cùng project, timezone/status/conflict scoped, không đọc Appointment legacy | review |
+| P03-T05 | Tạo `ZWorkspaceSale`/`ZWorkspaceLedgerEntry` | P03-T03,P03-T04 | Doanh số/thu chi theo project, immutable history phù hợp và tổng hợp được | review |
 | P03-T06 | Tạo payroll snapshot và liên kết mechanism theo project | P03-T05 | Kỳ lương/rule/snapshot/approval có projectId; không dùng bảng lương Nội Bộ trong Dự án | not_started |
 
 ## Phase 04 — Module Customer, Appointment và Sales
 
 | Mã | Task | Phụ thuộc | Đầu ra và tiêu chí nghiệm thu | Trạng thái |
 |---|---|---|---|---|
-| P04-T01 | Xây danh sách/tạo/sửa Customer project-local | P03-T03 | Form clinic-first, empty/loading/error state, create/list/edit chỉ trong active project | not_started |
+| P04-T01 | Xây danh sách/tạo/sửa Customer project-local | P03-T03 | Form clinic-first, empty/loading/error state, create/list/edit chỉ trong active project | review |
 | P04-T02 | Xây hồ sơ Customer và lịch sử local | P04-T01 | Detail chỉ hiển thị dữ liệu cùng project; không có link/lookup sang customer Nội Bộ | not_started |
 | P04-T03 | Xây lịch hẹn project-local | P03-T04,P04-T01 | Tạo/đổi trạng thái/hủy mềm; conflict và assignee đều scoped | not_started |
 | P04-T04 | Xây sale/service order tối thiểu | P03-T05,P04-T02 | Tạo giao dịch và snapshot giá/dịch vụ local; không ghi CaseRecord/Payment legacy | not_started |
@@ -65,8 +65,8 @@ Mỗi task có mã ổn định, phụ thuộc, đầu ra và cổng nghiệm th
 
 | Mã | Task | Phụ thuộc | Đầu ra và tiêu chí nghiệm thu | Trạng thái |
 |---|---|---|---|---|
-| P06-T01 | Sửa workspace picker active state và chuyển route | P01-T03,P02-T03 | Bấm Nội Bộ → `/dashboard`; bấm Dự án → `/du-an/[projectId]`; refresh giữ đúng context | in_progress |
-| P06-T02 | Ẩn toàn bộ menu vị trí/nghiệp vụ Nội Bộ trong Project | P06-T01 | Project sidebar/search/mobile không hiện `/khach-hang`, `/lich-hen`, `/thu-chi`, `/luong`, `/nhan-su` legacy | in_progress |
+| P06-T01 | Sửa workspace picker active state và chuyển route | P01-T03,P02-T03 | Bấm Nội Bộ → `/dashboard`; bấm Dự án → `/du-an/[projectId]`; refresh giữ đúng context | review |
+| P06-T02 | Ẩn toàn bộ menu vị trí/nghiệp vụ Nội Bộ trong Project | P06-T01 | Project sidebar/search/mobile không hiện `/khach-hang`, `/lich-hen`, `/thu-chi`, `/luong`, `/nhan-su` legacy | review |
 | P06-T03 | Chỉ render module link available/enabled của project | P03-T02 | Planned/blocked module không thành link; disable không xóa và không truy cập được | review |
 | P06-T04 | Hoàn thiện project dashboard app-inside-app | P04-T05 | Header/context/breadcrumb/stats mang project; không hiển thị claim demo/trial | review |
 | P06-T05 | Đồng bộ mobile drawer, bottom nav và collapsible groups | P06-T02 | Desktop/mobile đều ẩn/hiện đúng; group collapse vẫn hoạt động và có aria state | not_started |

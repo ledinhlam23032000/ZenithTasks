@@ -299,6 +299,10 @@ model User {
   roleChangesMade               StaffRoleHistory[]         @relation("StaffRoleChangedBy")
   workspaceTasksAssigned        ZWorkspaceTask[]            @relation("WorkspaceTaskAssignee")
   workspaceTasksCreated         ZWorkspaceTask[]            @relation("WorkspaceTaskCreator")
+  workspaceCustomersCreated     ZWorkspaceCustomer[]        @relation("WorkspaceCustomerCreator")
+  workspaceAppointmentsCreated  ZWorkspaceAppointment[]     @relation("WorkspaceAppointmentCreator")
+  workspaceAppointmentsAssigned ZWorkspaceAppointment[]     @relation("WorkspaceAppointmentAssignee")
+  workspaceSalesCreated         ZWorkspaceSale[]            @relation("WorkspaceSaleCreator")
 }
 
 // ============================ CHẤM CÔNG & LƯƠNG ============================
@@ -1352,6 +1356,13 @@ enum ZWorkspaceTaskPriority {
   URGENT
 }
 
+enum ZWorkspaceSaleStatus {
+  DRAFT
+  CONFIRMED
+  PAID
+  CANCELLED
+}
+
 enum ZMechanismKind {
   COMMISSION
   DISCOUNT
@@ -1389,6 +1400,9 @@ model ZProject {
   mechanisms          ZMechanismDefinition[]
   zprojectAssignments ZProjectAssignment[]
   workspaceTasks      ZWorkspaceTask[]
+  workspaceCustomers  ZWorkspaceCustomer[]
+  workspaceAppointments ZWorkspaceAppointment[]
+  workspaceSales      ZWorkspaceSale[]
 
   @@index([status, createdAt])
 }
@@ -1458,6 +1472,74 @@ model ZProjectAssignment {
 
   @@index([projectId, status])
   @@index([userId, status])
+}
+
+model ZWorkspaceCustomer {
+  id          String   @id @default(cuid())
+  projectId   String
+  code        String
+  fullName    String
+  phoneLast4  String?
+  source      String?
+  note        String?
+  active      Boolean  @default(true)
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  project     ZProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy   User     @relation("WorkspaceCustomerCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  appointments ZWorkspaceAppointment[]
+  sales       ZWorkspaceSale[]
+
+  @@unique([projectId, code])
+  @@index([projectId, fullName])
+  @@index([projectId, active])
+}
+
+model ZWorkspaceAppointment {
+  id             String            @id @default(cuid())
+  projectId      String
+  customerId     String?
+  scheduledAt    DateTime
+  type           AppointmentType   @default(NEW)
+  status         AppointmentStatus @default(BOOKED)
+  serviceInterest String?
+  note           String?
+  assignedToId   String?
+  createdById    String
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  project        ZProject          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  customer       ZWorkspaceCustomer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  assignedTo     User?             @relation("WorkspaceAppointmentAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  createdBy      User              @relation("WorkspaceAppointmentCreator", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([projectId, scheduledAt])
+  @@index([projectId, status])
+  @@index([projectId, customerId])
+}
+
+model ZWorkspaceSale {
+  id          String              @id @default(cuid())
+  projectId   String
+  customerId  String?
+  code        String
+  serviceName String
+  amount      Decimal             @db.Decimal(14, 0)
+  paidAmount  Decimal             @default(0) @db.Decimal(14, 0)
+  status      ZWorkspaceSaleStatus @default(DRAFT)
+  occurredAt  DateTime            @default(now())
+  note        String?
+  createdById String
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  project     ZProject            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  customer    ZWorkspaceCustomer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  createdBy   User                @relation("WorkspaceSaleCreator", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@unique([projectId, code])
+  @@index([projectId, occurredAt])
+  @@index([projectId, status])
 }
 
 model ZWorkspaceTask {
