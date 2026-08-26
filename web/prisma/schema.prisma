@@ -304,6 +304,7 @@ model User {
   workspaceAppointmentsAssigned ZWorkspaceAppointment[]     @relation("WorkspaceAppointmentAssignee")
   workspaceSalesCreated         ZWorkspaceSale[]            @relation("WorkspaceSaleCreator")
   workspaceLedgerEntriesCreated ZWorkspaceLedgerEntry[]      @relation("WorkspaceLedgerCreator")
+  workspaceReconciliationsMatched ZWorkspacePaymentReconciliation[] @relation("WorkspaceReconciliationMatcher")
   workspaceConfigVersionsCreated ZWorkspaceConfigVersion[]   @relation("WorkspaceConfigCreatedBy")
   workspaceConfigVersionsApproved ZWorkspaceConfigVersion[]  @relation("WorkspaceConfigApprovedBy")
 }
@@ -1389,6 +1390,12 @@ enum ZWorkspaceLedgerStatus {
   VOIDED
 }
 
+enum ZWorkspaceReconciliationStatus {
+  UNMATCHED
+  MATCHED
+  EXCEPTION
+}
+
 enum ZMechanismKind {
   COMMISSION
   DISCOUNT
@@ -1430,6 +1437,7 @@ model ZProject {
   workspaceAppointments ZWorkspaceAppointment[]
   workspaceSales      ZWorkspaceSale[]
   workspaceLedgerEntries ZWorkspaceLedgerEntry[]
+  workspaceReconciliations ZWorkspacePaymentReconciliation[]
   configVersions      ZWorkspaceConfigVersion[]
 
   @@index([status, createdAt])
@@ -1588,6 +1596,7 @@ model ZWorkspaceSale {
   customer    ZWorkspaceCustomer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
   createdBy   User                @relation("WorkspaceSaleCreator", fields: [createdById], references: [id], onDelete: Restrict)
   ledgerEntries ZWorkspaceLedgerEntry[]
+  paymentReconciliations ZWorkspacePaymentReconciliation[]
 
   @@unique([projectId, code])
   @@index([projectId, occurredAt])
@@ -1613,11 +1622,36 @@ model ZWorkspaceLedgerEntry {
   updatedAt     DateTime                  @updatedAt
   project       ZProject                  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   sale          ZWorkspaceSale?           @relation(fields: [saleId], references: [id], onDelete: SetNull)
+  reconciliationEntries ZWorkspacePaymentReconciliation[]
   createdBy     User                      @relation("WorkspaceLedgerCreator", fields: [createdById], references: [id], onDelete: Restrict)
 
   @@unique([projectId, code])
   @@index([projectId, direction, status, occurredAt])
   @@index([projectId, saleId])
+}
+
+model ZWorkspacePaymentReconciliation {
+  id            String                       @id @default(cuid())
+  projectId     String
+  saleId        String?
+  ledgerEntryId String?
+  paymentRef    String
+  amount        Decimal                      @db.Decimal(14, 0)
+  status        ZWorkspaceReconciliationStatus @default(UNMATCHED)
+  matchedAt     DateTime?
+  matchedById   String?
+  note          String?
+  createdAt     DateTime                     @default(now())
+  updatedAt     DateTime                     @updatedAt
+  project       ZProject                     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sale          ZWorkspaceSale?              @relation(fields: [saleId], references: [id], onDelete: SetNull)
+  ledgerEntry   ZWorkspaceLedgerEntry?       @relation(fields: [ledgerEntryId], references: [id], onDelete: SetNull)
+  matchedBy     User?                        @relation("WorkspaceReconciliationMatcher", fields: [matchedById], references: [id], onDelete: SetNull)
+
+  @@unique([projectId, paymentRef])
+  @@index([projectId, status, createdAt])
+  @@index([projectId, saleId])
+  @@index([projectId, ledgerEntryId])
 }
 
 model ZWorkspaceTask {
