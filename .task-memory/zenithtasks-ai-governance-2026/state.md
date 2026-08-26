@@ -282,3 +282,8 @@ Theo yêu cầu ưu tiên tốc độ có kiểm soát: thực thi code/test ch�
 ## QA environment checkpoint — 2026-08-26
 
 Sandbox verification confirmed `docker` is unavailable, so no isolated PostgreSQL runtime/migration/SQL test was attempted here. Unit tests, Prisma validation/generate, TypeScript and Next build remain valid sandbox evidence only. QA DB/runtime must be handled later in the isolated QA environment, never against clinic.
+
+## Mechanism rule test runner checkpoint — 2026-08-26
+
+- Commit `ffeb725` pushed. Mechanism DRAFT now stores bounded testCases; Admin can run explicit `TEST_RULE` against a project-local version, receiving audited PASS/FAIL aggregate. Activation remains a separate explicit `ACTIVATE` action.
+- Targeted gate passed: 19/19 tests, TypeScript and Next build. One parser narrowing issue was fixed before final pass. P05-T03 remains review pending isolated DB/runtime proof; no clinic updater/browser used.
