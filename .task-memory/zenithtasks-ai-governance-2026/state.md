@@ -360,3 +360,8 @@ Sandbox verification confirmed `docker` is unavailable, so no isolated PostgreSQ
 
 - Commit `61c29e6` pushed. Added pure validator for unique project module order; unknown, duplicate, disabled and planned modules are rejected. Payroll remains unavailable in registry.
 - Layout policy targeted gate passed 29/29 with TypeScript and Next build. Drag/drop, keyboard fallback, layout version save/preview/rollback UI and runtime remain open; P07-T01/T02/T03/T06 are not done.
+
+## Workspace layout editor checkpoint — 2026-08-26
+
+- Commit `39904c1` pushed. Admin-only project dashboard layout editor now supports native drag/drop and Move Up/Down keyboard fallback; it creates a LAYOUT DRAFT proposal and does not apply directly.
+- Targeted gate passed 29/29 with TypeScript and Next build. Runtime accessibility, persisted LAYOUT apply/rollback and isolated DB remain open; no clinic updater/browser used.
