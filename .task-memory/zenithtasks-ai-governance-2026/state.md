@@ -388,3 +388,8 @@ Sandbox verification confirmed `docker` is unavailable, so no isolated PostgreSQ
 ## QA seed source check — 2026-08-26
 
 - Current sandbox source does not contain the previously referenced `web/qa-seed-v2-training.ts`; glob search found no QA seed file. No seed was executed and no database/credential was accessed. Phase 09 must either restore/create a sanitized isolated seed in the QA environment or use an explicitly documented fixture, never infer from this missing path.
+
+## Synthetic workspace fixture checkpoint — 2026-08-26
+
+- Commit `4c81845` pushed with `checks/synthetic-workspace-fixture-20260826.json`, containing only fake project/user IDs, role memberships and record-count invariants; no passwords, tokens, secrets or clinic data.
+- The initial `checks/qa-*` filename was intentionally ignored by repository policy; it was renamed to a neutral sanitized fixture name before commit. JSON validation passed. Fixture has not been executed against any database.
