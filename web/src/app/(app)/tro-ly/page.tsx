@@ -17,8 +17,10 @@ export default async function AssistantPage({ searchParams }: { searchParams: Pr
   const workspaceOptions = process.env.ENABLE_ZENITH_V2 === "true"
     ? await prisma.zProject.findMany({ where: user.role === "ADMIN" ? undefined : { members: { some: { userId: user.id, active: true } } }, select: { id: true, code: true, name: true, status: true, enabledFeatures: true }, orderBy: { updatedAt: "desc" } })
     : [];
-  const selected = workspaceOptions.find((item) => item.id === String(sp.p ?? "").trim());
-  const conversation = await getOrCreateAssistantConversation(user.id, sp.c, selected ? "PROJECT" : "INTERNAL", selected?.id);
+  const selectedValue = String(sp.p ?? "").trim();
+  const selected = workspaceOptions.find((item) => item.id === selectedValue);
+  const selectedWorkspaceKind: "INTERNAL" | "PROJECT" | "GLOBAL" = selectedValue === "__GLOBAL__" && user.role === "ADMIN" ? "GLOBAL" : selected ? "PROJECT" : "INTERNAL";
+  const conversation = await getOrCreateAssistantConversation(user.id, sp.c, selectedWorkspaceKind, selected?.id);
   const messages = await getAssistantConversationTurns(user.id, conversation.id);
   const history = await listAssistantConversations(user.id);
   return (
@@ -36,7 +38,8 @@ export default async function AssistantPage({ searchParams }: { searchParams: Pr
         conversationId={conversation.id}
         initialMessages={messages}
         workspaceOptions={workspaceOptions.map((item) => ({ id: item.id, code: item.code, name: item.name, enabledFeatures: normalizedModuleKeys(item.enabledFeatures) }))}
-        selectedProjectId={selected?.id ?? ""}
+        selectedProjectId={selected?.id ?? (selectedWorkspaceKind === "GLOBAL" ? "__GLOBAL__" : "")}
+        allowGlobal={user.role === "ADMIN"}
       />
     </div>
   );

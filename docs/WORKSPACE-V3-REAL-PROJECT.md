@@ -17,6 +17,8 @@ Mỗi **Dự án** là một workspace vận hành thật, không phải demo, p
 | AI | Context `INTERNAL` | Context `PROJECT` + đúng `projectId`, không đọc chéo |
 | Tùy chỉnh | Giữ workflow clinic ổn định | Admin bật/tắt/sắp xếp module; AI chỉ đề xuất thay đổi có preview/audit |
 
+**Global Admin AI:** Admin có thêm context `GLOBAL` riêng, conversation riêng và action aggregate `get_workspace_overview`. Context này được phép đọc tổng hợp trạng thái/số Task của mọi Dự án trong danh sách phân quyền; thao tác nghiệp vụ chi tiết vẫn phải nêu `projectId` cụ thể. Manager không được cấp context GLOBAL hoặc capability aggregate.
+
 ## 2. Quy tắc chuyển workspace
 
 Bộ chọn workspace đặt ngay dưới tên bệnh viện và có thể thu gọn/mở rộng. Khi bấm **Nội Bộ**, shell phải đặt active workspace là `INTERNAL`, chuyển về `/dashboard` và render lại toàn bộ menu vị trí/nghiệp vụ Nội Bộ. Khi bấm một Dự án, shell phải đặt active workspace là `PROJECT`, chuyển đến `/du-an/[projectId]` và thay toàn bộ menu bằng menu của Dự án đó.
@@ -43,7 +45,7 @@ Mỗi module phải có đủ schema, migration additive, server query/action, a
 
 ## 4. Vòng đời Dự án
 
-Dự án mới được tạo ở trạng thái vận hành được quản trị rõ ràng, không gắn chữ “demo”. Tùy policy triển khai, trạng thái khởi tạo có thể là `DRAFT` để Admin hoàn thiện cấu hình, nhưng phải có nút **Kích hoạt Dự án** và khi kích hoạt mới nhận nghiệp vụ thật; tuyệt đối không tạo dữ liệu giả hoặc làm người dùng tưởng Dự án đã có doanh số. Trạng thái `ACTIVE` là workspace được phép nhận khách, lịch, doanh thu và task. `ARCHIVED` chỉ khóa ghi mới, giữ nguyên lịch sử.
+Dự án mới được tạo ở trạng thái `ACTIVE` và là workspace vận hành thật, không gắn chữ “demo” hay “thử nghiệm”. Dự án không tự tạo dữ liệu giả; doanh số, khách, lịch và task chỉ phát sinh từ nghiệp vụ được thực hiện trong chính project. Nếu về sau cần lifecycle cấu hình, `DRAFT` chỉ được dùng khi có nút kích hoạt rõ ràng; `ARCHIVED` chỉ khóa ghi mới và giữ nguyên lịch sử.
 
 Admin toàn cục được xem danh sách Dự án, tình trạng module và các aggregate đã được cấp quyền. Manager chỉ thấy Dự án có membership active, không được đọc tên, số liệu, audit hay module configuration của Dự án khác. Tắt module chỉ chặn route/action mới; không xóa dữ liệu và không làm mất lịch sử.
 
@@ -74,4 +76,4 @@ Không đánh dấu một giai đoạn hoàn tất chỉ vì route/build thành 
 
 ## 8. Trạng thái hiện tại và giới hạn
 
-Đã có nền workspace selector, project dashboard, membership, module registry, Task local và AI context/audit plumbing. Đợt nâng cấp tiếp theo phải hoàn thiện hành vi shell theo đúng quy tắc chuyển workspace, bỏ cách diễn đạt Dự án demo, bổ sung trạng thái vận hành thật và lần lượt triển khai các họ model Customer, Appointment, Sales/Finance và Payroll. Không tuyên bố Dự án đã độc lập hoàn toàn cho đến khi các module tương ứng có schema, action, UI và isolation evidence.
+Đã có nền workspace selector, project dashboard, membership, module registry, Task local, AI INTERNAL/PROJECT scope và patch GLOBAL aggregate cho Admin trong đợt hiện tại. Customer, Appointment, Sales/Finance và Payroll project-local vẫn chưa hoàn thành; vì vậy chưa tuyên bố toàn bộ Dự án đã độc lập hoàn toàn. Mỗi module chỉ được mở khi có schema, action, UI, quyền và isolation evidence.

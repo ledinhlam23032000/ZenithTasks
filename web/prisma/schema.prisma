@@ -164,6 +164,7 @@ enum AssistantMessageRole {
 enum AssistantWorkspaceKind {
   INTERNAL
   PROJECT
+  GLOBAL
 }
 
 enum PaymentRequestType {

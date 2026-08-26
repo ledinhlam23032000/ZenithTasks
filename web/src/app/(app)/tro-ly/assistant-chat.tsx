@@ -63,6 +63,7 @@ export function AssistantChat({
   initialMessages,
   workspaceOptions,
   selectedProjectId,
+  allowGlobal,
 }: {
   aiOn: boolean;
   greetName: string;
@@ -70,6 +71,7 @@ export function AssistantChat({
   initialMessages: readonly StoredAssistantMessage[];
   workspaceOptions: readonly AssistantWorkspaceOption[];
   selectedProjectId: string;
+  allowGlobal: boolean;
 }) {
   const [q, setQ] = useState("");
   const [turns, setTurns] = useState<Turn[]>(() => storedMessagesToTurns(initialMessages));
@@ -88,7 +90,7 @@ export function AssistantChat({
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const voiceChunksRef = useRef<Blob[]>([]);
-  const activeWorkspaceLabel = selectedProjectId ? (workspaceOptions.find((item) => item.id === selectedProjectId)?.name ?? "Dự án") : "Nội Bộ";
+  const activeWorkspaceLabel = selectedProjectId === "__GLOBAL__" ? "Toàn hệ thống" : selectedProjectId ? (workspaceOptions.find((item) => item.id === selectedProjectId)?.name ?? "Dự án") : "Nội Bộ";
   const voiceTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -224,7 +226,7 @@ export function AssistantChat({
   function newConversation() {
     if (actionPending) return;
     startAction(async () => {
-      const result = await startNewAssistantConversation(conversationId, selectedProjectId ? { workspaceKind: "PROJECT", projectId: selectedProjectId } : { workspaceKind: "INTERNAL" });
+      const result = await startNewAssistantConversation(conversationId, selectedProjectId === "__GLOBAL__" ? { workspaceKind: "GLOBAL" } : selectedProjectId ? { workspaceKind: "PROJECT", projectId: selectedProjectId } : { workspaceKind: "INTERNAL" });
       if (result.ok) {
         setConversationId(result.conversationId);
         setTurns([]);
@@ -328,7 +330,7 @@ export function AssistantChat({
                     {t.approval && (
 
                       <div className="rounded-xl border border-amber-200 bg-amber-50 p-3.5">
-                        <div className="flex items-start gap-2"><ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" /><div><p className="text-xs font-semibold text-amber-900">Xem trước thao tác — chưa thay đổi dữ liệu</p><p className="mt-1 text-sm text-amber-800">{t.approval.preview}</p><p className="mt-1 text-[11px] font-semibold text-amber-700">Phạm vi: {t.approval.workspaceKind === "PROJECT" ? `Dự án ${t.approval.projectId ?? "đã chọn"}` : "Nội Bộ"}</p><p className="mt-1 text-[11px] text-amber-700">Yêu cầu tự hết hạn sau 10 phút.</p></div></div>
+                        <div className="flex items-start gap-2"><ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" /><div><p className="text-xs font-semibold text-amber-900">Xem trước thao tác — chưa thay đổi dữ liệu</p><p className="mt-1 text-sm text-amber-800">{t.approval.preview}</p><p className="mt-1 text-[11px] font-semibold text-amber-700">Phạm vi: {t.approval.workspaceKind === "GLOBAL" ? "Toàn hệ thống" : t.approval.workspaceKind === "PROJECT" ? `Dự án ${t.approval.projectId ?? "đã chọn"}` : "Nội Bộ"}</p><p className="mt-1 text-[11px] text-amber-700">Yêu cầu tự hết hạn sau 10 phút.</p></div></div>
                         <div className="mt-3 flex gap-2">
                           <button type="button" disabled={actionPending} onClick={() => resolveApproval(i, true)} className="inline-flex items-center gap-1.5 rounded-lg bg-amber-700 px-3 py-2 text-xs font-semibold text-white hover:bg-amber-800 disabled:opacity-50">{actionPending && actionIndex === i ? <LoaderCircle className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} Xác nhận thực hiện</button>
                           <button type="button" disabled={actionPending} onClick={() => resolveApproval(i, false)} className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-white px-3 py-2 text-xs font-semibold text-amber-800 hover:bg-amber-100 disabled:opacity-50"><X className="h-3.5 w-3.5" /> Hủy</button>
@@ -349,7 +351,7 @@ export function AssistantChat({
         {voiceState === "recording" && <p className="mb-2 text-sm text-brand-700">Đang nghe {voiceSeconds}s… Bấm micro lần nữa để dừng và nhận diện.</p>}
         {voiceState === "transcribing" && <p className="mb-2 text-sm text-brand-700">Đang chuyển giọng nói thành văn bản…</p>}
         {fileMessage && <p className="mb-2 text-xs text-slate-600">{fileMessage}</p>}
-        <div className="mx-auto mb-2 flex max-w-2xl items-center gap-2"><label className="text-[11px] font-semibold uppercase tracking-wide text-slate-400" htmlFor="assistant-workspace">Phạm vi AI</label><select id="assistant-workspace" value={selectedProjectId} onChange={(e) => { const next = e.target.value; router.push(next ? `/tro-ly?p=${encodeURIComponent(next)}` : "/tro-ly"); }} disabled={pending || actionPending} className="min-h-9 max-w-[18rem] flex-1 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-500/15"><option value="">Nội Bộ</option>{workspaceOptions.map((workspace) => <option key={workspace.id} value={workspace.id}>{workspace.code} · {workspace.name}</option>)}</select><span className="text-[11px] text-slate-400">Tool chưa có projectId sẽ bị chặn</span></div>
+        <div className="mx-auto mb-2 flex max-w-2xl items-center gap-2"><label className="text-[11px] font-semibold uppercase tracking-wide text-slate-400" htmlFor="assistant-workspace">Phạm vi AI</label><select id="assistant-workspace" value={selectedProjectId} onChange={(e) => { const next = e.target.value; router.push(next ? `/tro-ly?p=${encodeURIComponent(next)}` : "/tro-ly"); }} disabled={pending || actionPending} className="min-h-9 max-w-[18rem] flex-1 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-500/15"><option value="">Nội Bộ</option>{allowGlobal && <option value="__GLOBAL__">GLOBAL · Toàn hệ thống</option>}{workspaceOptions.map((workspace) => <option key={workspace.id} value={workspace.id}>{workspace.code} · {workspace.name}</option>)}</select><span className="text-[11px] text-slate-400">Tool chưa có projectId sẽ bị chặn</span></div>
         <div className="mx-auto flex max-w-2xl items-end gap-2">
           <input ref={fileInputRef} type="file" className="hidden" accept=".txt,.csv,.json,.pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.webp" onChange={(e) => uploadFile(e.target.files?.[0])} />
           <button type="button" onClick={() => fileInputRef.current?.click()} disabled={filePending || pending || actionPending} className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40" title="Tải file"><Paperclip className="h-5 w-5" /></button>

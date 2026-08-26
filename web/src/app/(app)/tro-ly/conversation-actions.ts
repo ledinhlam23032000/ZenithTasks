@@ -7,9 +7,10 @@ import { archiveAssistantConversation, createNewAssistantConversation, deleteAss
 
 export async function startNewAssistantConversation(conversationId?: string, workspace?: AiWorkspaceContext) {
   const user = await requireCap("mod:tro-ly");
+  if (workspace?.workspaceKind === "GLOBAL" && user.role !== "ADMIN") return { ok: false as const, error: "Chỉ Global Admin được mở phạm vi Toàn hệ thống." };
   if (conversationId) await archiveAssistantConversation(user.id, conversationId);
-  const conversation = workspace?.workspaceKind === "PROJECT"
-    ? await prisma.assistantConversation.create({ data: { userId: user.id, title: null, workspaceKind: "PROJECT", projectId: workspace.projectId ?? null } })
+  const conversation = workspace?.workspaceKind === "PROJECT" || workspace?.workspaceKind === "GLOBAL"
+    ? await prisma.assistantConversation.create({ data: { userId: user.id, title: null, workspaceKind: workspace.workspaceKind, projectId: workspace.workspaceKind === "GLOBAL" ? null : workspace.projectId ?? null } })
     : await createNewAssistantConversation(user.id);
   return { ok: true as const, conversationId: conversation.id };
 }

@@ -30,6 +30,7 @@ const monthSchema = z.string().regex(/^\d{4}-\d{2}$/);
 const actionNames = [
   "none",
   "get_business_summary",
+  "get_workspace_overview",
   "get_payroll_row",
   "get_customer_profile",
   "get_debt_summary",
@@ -76,7 +77,7 @@ export type AgentState = {
   answer?: string;
   error?: string;
   steps?: string[];
-  approval?: { id: string; toolName: string; preview: string; expiresAt: string; workspaceKind: "INTERNAL" | "PROJECT"; projectId?: string };
+  approval?: { id: string; toolName: string; preview: string; expiresAt: string; workspaceKind: "INTERNAL" | "PROJECT" | "GLOBAL"; projectId?: string };
   exportUrl?: string;
   conversationId?: string;
   clarification?: ClarificationPayload;
@@ -204,10 +205,12 @@ const jsonArgs = (raw: string): unknown => {
 const norm = (s: string) => s.toLocaleLowerCase("vi-VN").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
 
 const INTERNAL_AI_WORKSPACE: AiWorkspaceContext = { workspaceKind: "INTERNAL", label: "Nội Bộ" };
+const GLOBAL_AI_WORKSPACE: AiWorkspaceContext = { workspaceKind: "GLOBAL", label: "Toàn hệ thống" };
 
 async function resolveAiWorkspace(user: { id: string; role: string }, rawProjectId: string): Promise<AiWorkspaceContext | null> {
   const projectId = rawProjectId.trim();
   if (!projectId) return INTERNAL_AI_WORKSPACE;
+  if (projectId === "__GLOBAL__") return user.role === "ADMIN" && process.env.ENABLE_ZENITH_V2 === "true" ? GLOBAL_AI_WORKSPACE : null;
   if (process.env.ENABLE_ZENITH_V2 !== "true") return null;
   const project = await prisma.zProject.findFirst({
     where: user.role === "ADMIN" ? { id: projectId } : { id: projectId, members: { some: { userId: user.id, active: true } } },
@@ -238,7 +241,8 @@ function governanceBlock(principal: ReturnType<typeof principalForUser>, action:
 
 const actionHelp = `
 Công cụ được phép:
-- get_business_summary: đọc tổng quan vận hành.
+- get_business_summary: đọc tổng quan vận hành Nội Bộ.
+- get_workspace_overview: ADMIN ở phạm vi GLOBAL đọc aggregate của mọi Dự án (trạng thái, số task; không trả toàn bộ bản ghi).
 - get_payroll_row: xem bảng lương của một nhân sự theo tháng; args {staffName, month?}.
 - get_customer_profile: đọc hồ sơ khách theo mã, chỉ hiển thị 5 số cuối điện thoại và dữ liệu được phép; args {customerCode}.
 - get_debt_summary: đọc tổng công nợ hiện tại.
@@ -267,7 +271,9 @@ async function buildPlannerPrompt(question: string, userId: string, role: string
     : "Người dùng không phải ADMIN. Chỉ dùng số liệu tổng hợp và quy tắc không nhạy cảm; không suy đoán hoặc tiết lộ chi tiết lương, hồ sơ hay dữ liệu bị giới hạn.";
   const workspaceNote = workspace.workspaceKind === "PROJECT"
     ? `DỰ ÁN ĐANG CHỌN: ${workspace.label ?? workspace.projectId}. Chỉ được dùng dữ liệu/projectId đúng bằng ${workspace.projectId}. Các tool clinic-global hiện chưa có adapter dữ liệu Dự án; nếu tool không khai báo projectId thì phải dừng, không đọc dữ liệu Nội Bộ và không đoán dữ liệu.`
-    : "WORKSPACE ĐANG CHỌN: Nội Bộ. Không tự ý đọc dữ liệu của bất kỳ Dự án nào nếu người dùng chưa chọn Dự án và nêu rõ phạm vi.";
+    : workspace.workspaceKind === "GLOBAL"
+      ? "PHẠM VI TOÀN HỆ THỐNG: Người dùng là Global Admin. Có thể dùng aggregate tool trên mọi Dự án và chọn projectId cụ thể cho từng thao tác. Không dùng tool nghiệp vụ thiếu projectId vì như vậy sẽ rơi nhầm về Nội Bộ; không trả toàn bộ bản ghi nhạy cảm trong một lần đọc."
+      : "WORKSPACE ĐANG CHỌN: Nội Bộ. Không tự ý đọc dữ liệu của bất kỳ Dự án nào nếu người dùng chưa chọn Dự án và nêu rõ phạm vi.";
   return `${actionHelp}\n\nPHẠM VI WORKSPACE:\n${workspaceNote}\n\nQUYỀN TRUY CẬP:\n${accessNote}\n\nKIẾN THỨC VẬN HÀNH ĐÃ XÁC NHẬN:\n${BUSINESS_RULES_KNOWLEDGE}\n\nBỐI CẢNH SỐ LIỆU HIỆN TẠI:\n${context ? formatAssistantContext(context) : "Chưa có snapshot dữ liệu Dự án; không được suy ra hoặc dùng số liệu Nội Bộ."}\n\n${fileContext}\n\nLỊCH SỬ PHIÊN GẦN ĐÂY:\n${history || "Chưa có lịch sử."}\n\nYÊU CẦU MỚI NHẤT CỦA ANH:\n${question}\n\nNếu lịch sử đã cung cấp đủ tên, tháng, ngày hoặc điều kiện mà câu mới chỉ bổ sung xác nhận (ví dụ 'chưa nghỉ ngày nào', 'làm đi', 'anh là admin'), phải ghép ngữ cảnh và tiếp tục cùng action, không hỏi lại. Nếu câu mới nêu nhân sự khác, nhân sự mới luôn ghi đè nhân sự cũ; không giữ preview cũ. Nếu yêu cầu chấm công/ghi dữ liệu rõ ràng, chọn đúng tool thực thi; không dùng propose_system_change để thay cho thao tác nghiệp vụ. Chỉ dùng propose_system_change khi anh thực sự yêu cầu đổi code/cơ chế hệ thống. Yêu cầu sửa/ghi dữ liệu phải đặt requires_confirmation=true. Với câu hỏi 'đã làm chưa', hãy đối chiếu trạng thái approval thật thay vì đoán từ lịch sử hội thoại.`;
 }
 
@@ -380,6 +386,20 @@ async function deleteCustomerForAgent(userId: string, customerId: string) {
 }
 
 async function readAction(action: ActionName, args: unknown, userId: string): Promise<AgentState> {
+  if (action === "get_workspace_overview") {
+    const actor = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
+    if (actor?.role !== "ADMIN") return planError("Chỉ Global Admin được đọc tổng hợp toàn bộ Dự án.");
+    const projects = await prisma.zProject.findMany({
+      orderBy: { name: "asc" },
+      take: 2_000,
+      select: { id: true, code: true, name: true, status: true, updatedAt: true, _count: { select: { workspaceTasks: true } } },
+    });
+    const active = projects.filter((project) => project.status === "ACTIVE").length;
+    const taskTotal = projects.reduce((sum, project) => sum + project._count.workspaceTasks, 0);
+    const rows = projects.slice(0, 100).map((project) => `${project.code} · ${project.name} · ${project.status} · ${project._count.workspaceTasks} task`).join("\\n");
+    const truncated = projects.length > 100 ? `\\n\\n(Đang hiển thị 100/${projects.length} Dự án; muốn xem chi tiết hãy chọn projectId cụ thể.)` : "";
+    return { ok: true, answer: `Tổng quan toàn hệ thống: ${projects.length} Dự án trong phạm vi Admin, ${active} Dự án ACTIVE, ${taskTotal} Task project-local.\\n\\n${rows || "Chưa có Dự án."}${truncated}` };
+  }
   if (action === "get_business_summary") {
     const context = await getAssistantContext();
     return { ok: true, answer: `Tôi đã đọc số liệu hiện tại.\n\n${formatAssistantContext(context)}` };
@@ -445,6 +465,7 @@ async function readAction(action: ActionName, args: unknown, userId: string): Pr
 
 const READ_ACTIONS = new Set<ActionName>([
   "get_business_summary",
+  "get_workspace_overview",
   "get_debt_summary",
   "get_lead_priorities",
   "get_financial_alerts",

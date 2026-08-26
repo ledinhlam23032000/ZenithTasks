@@ -3,6 +3,7 @@ import { evaluateAiToolRequest, type AiWorkspaceContext } from "./ai-governance"
 
 export const AI_READ_ACTIONS = new Set([
   "get_business_summary",
+  "get_workspace_overview",
   "get_payroll_row",
   "get_customer_profile",
   "get_debt_summary",
@@ -14,6 +15,7 @@ export const AI_READ_ACTIONS = new Set([
 const ADMIN_ACTIONS = [
   "none",
   "get_business_summary",
+  "get_workspace_overview",
   "get_payroll_row",
   "get_customer_profile",
   "get_debt_summary",

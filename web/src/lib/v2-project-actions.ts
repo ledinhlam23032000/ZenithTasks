@@ -39,7 +39,7 @@ export async function createV2ProjectAction(_prev: ProjectActionState, formData:
         name,
         description,
         projectType,
-        status: "DRAFT",
+        status: "ACTIVE",
         ownerUserId: user.id,
         currency: "VND",
         enabledFeatures: V2_DEFAULT_MODULE_KEYS,
@@ -53,12 +53,12 @@ export async function createV2ProjectAction(_prev: ProjectActionState, formData:
   });
 
   revalidatePath("/du-an");
-  return { ok: true, message: `Đã tạo Dự án ${project.code} ở trạng thái DRAFT. Hãy mở Tổ chức/Cơ chế để cấu hình trước khi áp dụng.` };
+  return { ok: true, message: `Đã tạo Dự án ${project.code} ở trạng thái ACTIVE. Dự án là workspace vận hành riêng; hãy mở cấu hình để bật các module đã triển khai.` };
 }
 
 export async function listV2ProjectCodes() {
-  await requireUser(["ADMIN", "MANAGER"]);
+  const user = await requireUser(["ADMIN", "MANAGER"]);
   if (process.env.ENABLE_ZENITH_V2 !== "true") return [];
-  return prisma.zProject.findMany({ select: { id: true, code: true, name: true }, orderBy: { updatedAt: "desc" } });
+  return prisma.zProject.findMany({ where: user.role === "ADMIN" ? undefined : { members: { some: { userId: user.id, active: true } } }, select: { id: true, code: true, name: true }, orderBy: { updatedAt: "desc" } });
 }
 
