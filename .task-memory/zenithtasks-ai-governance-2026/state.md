@@ -220,3 +220,12 @@ Theo yêu cầu ưu tiên tốc độ có kiểm soát: thực thi code/test ch�
 - Verification passed: `tsc --noEmit`, AI governance Vitest 11/11, Next production build.
 - Plan corrected: P03-T06 and P05-T03 are `review`; P05-T04 remains `review` with explicit missing commission calculation/finalize/void/sensitive policy/runtime gaps.
 - Next implementation focus: complete project-local commission calculation preview from immutable mechanism snapshot, then add tested approval/finalize/void policy without enabling Payroll module until quality gates pass.
+
+## Payroll calculation preview batch — 2026-08-26
+
+- Sandbox implementation committed/pushed as `fb2084a` (`feat: add project payroll calculation preview`).
+- Added an explicit project-local calculation contract: `SALE_PAID` or `INCOME_LEDGER`, integer `rateBps` 0..10000, deterministic equal allocation across PayrollLine user snapshots.
+- `CALCULATE` is Admin-only, requires a typed confirmation, operates only on a project-local DRAFT run, uses only local sale/ledger rows in the period, stores calculation metadata in line snapshot and aggregate audit, and never reads legacy payroll/payment/case tables.
+- Final verification: targeted Vitest 14/14, direct TypeScript pass, Next production build pass. Evidence: `checks/payroll-calculation-sandbox-20260826.md`.
+- One initial Prisma JSON typing failure was corrected before the final pass.
+- Still not done: runtime/QA DB proof, two-person sensitive payroll policy, finalize/void/payout, richer mechanism rule test/diff, and authenticated walkthrough. Payroll remains unavailable in module registry; do not run Windows updater for this sandbox batch yet.
