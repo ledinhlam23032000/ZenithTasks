@@ -173,3 +173,8 @@ P03-T02 vẫn ở `review`: schema/version history, save action, audit, preview/
 Đã thêm route `/du-an/[projectId]/tai-chinh`, form tạo ledger, liên kết sale cùng project, aggregate thu/chi và Admin void không xóa lịch sử. Module `finance` đã chuyển available với route local; module payroll vẫn blocked/planned. P05-T01 chuyển `review`; P05-T02–T06 vẫn chưa hoàn tất. Prisma generate, TypeScript, governance 11/11 và Next production build pass; route xuất hiện trong build. Commit code/spec/plan push master: `a30bbf5`.
 
 Lưu ý runtime: clinic đã deploy tới migration config version ở run trước; commit `a30bbf5` có module ledger UI mới và migration ledger `20260826130000_workspace_ledger_entries`, cần một lần updater thành công kế tiếp trước khi tuyên bố route này có trên clinic.
+
+
+## Payment reconciliation foundation checkpoint — 2026-08-26
+
+Đã thêm `ZWorkspacePaymentReconciliation` và enum `ZWorkspaceReconciliationStatus` với `paymentRef`, amount, match status, link sale/ledger, matcher và project indexes; migration additive `20260826140000_workspace_payment_reconciliation`. P05-T02 chuyển `review` vì đã có schema foundation; match/exception action/UI và authenticated test còn mở. Prisma generate, TypeScript, governance 11/11 và Next build pass. Commit code/plan/spec push master: `992b178`.
