@@ -154,3 +154,10 @@ Run trực tiếp tiếp theo đã phát hiện Docker Desktop Linux engine khô
 Sau khi owner xác nhận Docker Running, updater đã được chạy một lần duy nhất. Docker engine phản hồi `29.7.2`; checkout clinic fetch master tới `7ecb61a`. Build cache-safe hoàn tất với Next `Compiled successfully`, TypeScript và Prisma generate pass. App log ghi migration `20260826120000_workspace_config_versions` applied và `All migrations have been successfully applied.` Hậu kiểm DB có 68 migration rows, migration mới nhất đúng tên trên; app running, DB healthy, `/login=200`. Evidence chi tiết: `checks/workspace-config-deploy-20260826-rerun.md`.
 
 Giới hạn: sidecar timeout trong quá trình theo dõi nên chưa thu trực tiếp dòng cuối `DA XONG`/exit code wrapper. Vì vậy runtime đã được xác minh nhận bản build/migration, nhưng chưa đánh dấu P10-T02 `done` chỉ dựa trên evidence này.
+
+
+## Audited module rollback checkpoint — 2026-08-26
+
+Đã thêm action `rollbackProjectModulesAction` và UI `V2ModuleRollbackForm`. Luồng chỉ dành cho Admin, bắt buộc chọn version và nhập `ROLLBACK`; transaction tạo version ACTIVE mới từ config cũ, supersede bản ACTIVE hiện tại, cập nhật enabledFeatures tương thích, ghi `V2_PROJECT_MODULES_ROLLED_BACK` audit và không xóa lịch sử/dữ liệu module. TypeScript pass, governance test 11/11, Next production build pass. Commit đã push `b856e73`.
+
+P03-T02 vẫn ở `review`: schema/version history, save action, audit, preview/rollback UI đã có; chưa chạy authenticated browser walkthrough hoặc runtime apply rollback trên clinic, nên chưa đánh dấu done.
