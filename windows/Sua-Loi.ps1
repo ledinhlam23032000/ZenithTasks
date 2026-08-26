@@ -86,6 +86,28 @@ if (Test-Path $Dir) {
     Write-Host "Chi khoi phuc stash sau khi kiem tra tung file; khong tu dong pop de tranh de len master." -ForegroundColor Yellow
   }
   # Dua branch local ve dung master. Khong git clean de khong xoa log/QA/.env cua owner.
+  # Neu untracked local trung duong dan voi file tracked moi tren origin, Git se tu choi checkout.
+  # Chuyen rieng cac path xung dot vao backup ngoai repo; khong xoa va khong stash untracked.
+  $incomingFiles = @(& git -C $Dir ls-tree -r --name-only "origin/$Branch" 2>$null)
+  $untrackedLines = @(& git -C $Dir status --porcelain=v1 --untracked-files=all | Where-Object { $_ -match '^\?\? ' })
+  $conflictingUntracked = @()
+  foreach ($line in $untrackedLines) {
+    $relative = ([string]$line).Substring(3).Trim('"')
+    if (-not $relative) { continue }
+    $hasConflict = $incomingFiles -contains $relative -or ($incomingFiles | Where-Object { $_ -like "$relative/*" } | Select-Object -First 1)
+    if ($hasConflict) { $conflictingUntracked += $relative }
+  }
+  if ($conflictingUntracked.Count -gt 0) {
+    $untrackedBackup = Join-Path (Split-Path $Dir -Parent) "ZenithTasks-untracked-$Stamp"
+    foreach ($relative in ($conflictingUntracked | Sort-Object -Unique)) {
+      $source = Join-Path $Dir $relative
+      if (-not (Test-Path -LiteralPath $source)) { continue }
+      $destination = Join-Path $untrackedBackup $relative
+      New-Item -ItemType Directory -Force -Path (Split-Path $destination -Parent) | Out-Null
+      Move-Item -LiteralPath $source -Destination $destination -Force
+    }
+    Write-Host "Da bao toan untracked xung dot tai: $untrackedBackup" -ForegroundColor Yellow
+  }
   $checkoutOutput = & git -C $Dir checkout -B $Branch "origin/$Branch" 2>&1
   $checkoutOutput | Write-Host
   if ($LASTEXITCODE -ne 0) {
