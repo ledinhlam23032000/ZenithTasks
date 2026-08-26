@@ -341,3 +341,7 @@ Sandbox verification confirmed `docker` is unavailable, so no isolated PostgreSQ
 
 - Plan cursor moved to Phase 08 after sandbox work reached AI/config proposal foundation.
 - P08-T03 and P08-T04 moved to `review`: project-local proposal schema and explicit DRAFT → APPROVE → APPLY/REJECT/audit now exist; P08-T01/T02/T06 and real AI-originated proposal/runtime QA remain open.
+
+## AI context plan alignment — 2026-08-26
+
+- P08-T01, P08-T02 and P08-T06 moved from `not_started` to `review`: existing `/tro-ly` selector supports INTERNAL/PROJECT/GLOBAL with Admin-only `__GLOBAL__`, server policy requires explicit projectId outside aggregate, and regression covers scope boundaries. Multi-target integration, prompt isolation and authenticated runtime remain open.
