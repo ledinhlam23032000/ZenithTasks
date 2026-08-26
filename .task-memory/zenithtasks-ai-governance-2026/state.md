@@ -147,3 +147,10 @@ Quy tắc mới: không chuyển cursor phase chỉ để xử lý một blocker
 Nguyên nhân chính của hiện tượng cửa sổ đen khi agent gọi updater là cách khởi chạy nền/redirect làm mất trạng thái và một run có thể để `com.docker.build.exe` tách khỏi wrapper. `Sua-Loi.bat` đã được viết lại để hiện `[0/4]`, in thư mục/script đang chạy, kiểm tra `Sua-Loi.ps1` và PowerShell, ghi `Sua-Loi-launch.log`, hiển thị exit code và giữ cửa sổ ở cuối để người dùng đọc lỗi. Bản wrapper đã push tại `f9cddb8`.
 
 Run trực tiếp tiếp theo đã phát hiện Docker Desktop Linux engine không còn phản hồi sau khi orphan build bị dừng; app/db trước đó vẫn healthy, nhưng các lần kiểm tra sau trả `/login=000` và pipe Docker chưa mở. Không được tuyên bố deploy config/sales thành công. Cần để Docker Desktop tự hồi phục hoặc owner mở lại Docker Desktop trước khi chạy updater tiếp; không xóa volume, không reset DB, không mở browser treo.
+
+
+## Runtime deploy rerun checkpoint — 2026-08-26
+
+Sau khi owner xác nhận Docker Running, updater đã được chạy một lần duy nhất. Docker engine phản hồi `29.7.2`; checkout clinic fetch master tới `7ecb61a`. Build cache-safe hoàn tất với Next `Compiled successfully`, TypeScript và Prisma generate pass. App log ghi migration `20260826120000_workspace_config_versions` applied và `All migrations have been successfully applied.` Hậu kiểm DB có 68 migration rows, migration mới nhất đúng tên trên; app running, DB healthy, `/login=200`. Evidence chi tiết: `checks/workspace-config-deploy-20260826-rerun.md`.
+
+Giới hạn: sidecar timeout trong quá trình theo dõi nên chưa thu trực tiếp dòng cuối `DA XONG`/exit code wrapper. Vì vậy runtime đã được xác minh nhận bản build/migration, nhưng chưa đánh dấu P10-T02 `done` chỉ dựa trên evidence này.
