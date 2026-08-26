@@ -374,3 +374,8 @@ Sandbox verification confirmed `docker` is unavailable, so no isolated PostgreSQ
 
 - Commit `0bd18e2` pushed. `/du-an` now shows total matching projects from a bounded scoped count query alongside the 50-row cursor page and per-project aggregates.
 - Targeted policy/layout/AI/mechanism/payroll gate passed 29/29 with TypeScript and Next build. P07-T04/T05 remain review pending synthetic scale and authenticated runtime.
+
+## Global console synthetic pagination checkpoint — 2026-08-26
+
+- Commit `aee03dd` pushed. Global console now uses a pure cursor helper; synthetic 1,001-row walk verifies max 50 rows/page, no duplicate IDs and no missing IDs.
+- Targeted gate passed 30/30 with TypeScript and Next build. P07-T05 remains review pending PostgreSQL query-plan/scale runtime and authenticated role evidence; no clinic updater/browser used.
