@@ -242,3 +242,8 @@ Theo yêu cầu ưu tiên tốc độ có kiểm soát: thực thi code/test ch�
 - Governance sequence now enforces `CALCULATE -> PREVIEW -> APPROVE -> APPROVE_SECOND by a different Admin -> FINALIZE`; VOID of APPROVED/FINALIZED requires prior two-person approval and a reason. All changes are audited, no rows are deleted, and finalize does not create payout or touch Internal data.
 - Non-Admin payroll totals are masked. PREVIEW requires calculation snapshot. Prisma validate/generate, targeted Vitest 14/14, direct TypeScript and Next build pass.
 - P05-T05 moved to `review`; P05-T04 remains `review`. Do not deploy yet: migration/runtime QA, two-Admin authenticated walkthrough, isolated DB integration tests and payout/accounting integration remain open. Payroll registry stays unavailable.
+
+## Payroll isolation SQL checkpoint — 2026-08-26
+
+- Commit `3d06313` pushed. `checks/test-workspace-core-isolation.sql` now includes rollback-only synthetic checks for mechanism version, PayrollRun and PayrollLine project scope, while still asserting legacy Customer/Appointment counts do not change.
+- This SQL has not been run against clinic. It must run only against isolated QA or a deliberate transaction after migration `20260826160000_payroll_two_person_governance` is applied.
