@@ -301,3 +301,8 @@ Sandbox verification confirmed `docker` is unavailable, so no isolated PostgreSQ
 
 - Commit `b1c4b60` pushed. AppShell now consumes a pure workspace navigation helper; project menu excludes legacy Internal routes, Manager lacks global project-management link, and `__GLOBAL__` cannot become an active project.
 - Targeted navigation/mechanism/payroll/AI tests passed 22/22; TypeScript and Next build passed. No browser/database runtime used. P06-T02/T03 are strengthened but P06-T05/T06 authenticated mobile/runtime smoke remain open.
+
+## Final sandbox regression after AppShell refactor — 2026-08-26
+
+- Full Vitest rerun passed: 79 files / 414 tests, 0 failures, 2.37 seconds. Evidence refreshed at `checks/full-vitest-regression-20260826.md`.
+- Navigation boundary tests are included. This remains sandbox-only; migration/runtime/QA/authenticated walkthrough are still open and no clinic updater was run.
