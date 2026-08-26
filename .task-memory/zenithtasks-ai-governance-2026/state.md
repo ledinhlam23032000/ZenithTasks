@@ -178,3 +178,8 @@ Lưu ý runtime: clinic đã deploy tới migration config version ở run trư�
 ## Payment reconciliation foundation checkpoint — 2026-08-26
 
 Đã thêm `ZWorkspacePaymentReconciliation` và enum `ZWorkspaceReconciliationStatus` với `paymentRef`, amount, match status, link sale/ledger, matcher và project indexes; migration additive `20260826140000_workspace_payment_reconciliation`. P05-T02 chuyển `review` vì đã có schema foundation; match/exception action/UI và authenticated test còn mở. Prisma generate, TypeScript, governance 11/11 và Next build pass. Commit code/plan/spec push master: `992b178`.
+
+
+## Payment reconciliation workflow checkpoint — 2026-08-26
+
+Đã thêm workflow project-local: ghi payment reference ở `UNMATCHED`, liên kết optional tới Sale/Ledger cùng project, Admin xác nhận `MATCHED` bằng nhập `MATCH`, mọi thay đổi có audit và không đọc Payment legacy. Trang Tài chính đã hiển thị danh sách reconciliation và form match. TypeScript, governance 11/11 và Next build pass; commit code push master `ac832e2`. P05-T02 vẫn `review` cho đến khi migration/runtime/authenticated walkthrough được kiểm chứng trên clinic.
