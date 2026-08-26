@@ -306,3 +306,8 @@ Sandbox verification confirmed `docker` is unavailable, so no isolated PostgreSQ
 
 - Full Vitest rerun passed: 79 files / 414 tests, 0 failures, 2.37 seconds. Evidence refreshed at `checks/full-vitest-regression-20260826.md`.
 - Navigation boundary tests are included. This remains sandbox-only; migration/runtime/QA/authenticated walkthrough are still open and no clinic updater was run.
+
+## Reconciliation exception batch — 2026-08-26
+
+- Commit `75c7b5d` pushed. Project-local Finance now supports explicit Admin `UNMATCHED -> EXCEPTION` with reason and audit, alongside separate MATCH flow; no legacy Payment access.
+- Prisma validate/generate, targeted tests 22/22, TypeScript and Next build passed. P05-T02 remains review pending isolated DB and authenticated runtime proof.
