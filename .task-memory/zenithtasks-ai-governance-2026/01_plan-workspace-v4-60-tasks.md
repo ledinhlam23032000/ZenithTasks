@@ -89,8 +89,8 @@ Mỗi task có mã ổn định, phụ thuộc, đầu ra và cổng nghiệm th
 |---|---|---|---|---|
 | P08-T01 | Thêm AI GLOBAL context và global overview tool | P02-T05,P07-T04 | Admin hỏi tổng quan mọi project; tool dùng aggregate scoped, không nhầm snapshot Nội Bộ | not_started |
 | P08-T02 | Cho AI Admin chọn một hoặc nhiều project mục tiêu | P08-T01,P02-T04 | Target project explicit, kiểm tra tồn tại/quyền; query batch theo project IDs | not_started |
-| P08-T03 | Tạo configuration proposal schema | P07-T03,P08-T02 | Proposal có workspace, target, module, fields, before/after, risk, capability, rollback | not_started |
-| P08-T04 | Nối preview → approval → apply có audit | P08-T03 | Không apply khi chưa approve; audit actor/target/version/result; lỗi không partial unsafe | not_started |
+| P08-T03 | Tạo configuration proposal schema | P07-T03,P08-T02 | Proposal có workspace, target, module, fields, before/after, risk, capability, rollback; hiện có project-local schema/migration/UI foundation | review |
+| P08-T04 | Nối preview → approval → apply có audit | P08-T03 | Không apply khi chưa approve; audit actor/target/version/result; lỗi không partial unsafe; hiện có Admin project-local DRAFT → APPROVE → APPLY/REJECT và rollback link | review |
 | P08-T05 | Khóa AI khỏi hành động nguy hiểm không đủ workflow | P08-T04 | Xóa/đuổi người/đổi quyền/deploy vẫn L5, two-person blocker hiển thị rõ | review |
 | P08-T06 | Test AI INTERNAL/PROJECT/GLOBAL và prompt isolation | P08-T01,P08-T02,P08-T04 | AI không đọc chéo; GLOBAL chỉ Admin; preview/audit chứa đúng target; test không secret | not_started |
 

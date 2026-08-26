@@ -336,3 +336,8 @@ Sandbox verification confirmed `docker` is unavailable, so no isolated PostgreSQ
 
 - Full Vitest rerun passed: 80 files / 417 tests, 0 failures, 2.37 seconds. Evidence refreshed at `checks/full-vitest-regression-20260826.md`.
 - AI proposal policy and workspace boundary tests are included. No database/runtime/clinic execution was performed.
+
+## Phase 08 plan alignment — 2026-08-26
+
+- Plan cursor moved to Phase 08 after sandbox work reached AI/config proposal foundation.
+- P08-T03 and P08-T04 moved to `review`: project-local proposal schema and explicit DRAFT → APPROVE → APPLY/REJECT/audit now exist; P08-T01/T02/T06 and real AI-originated proposal/runtime QA remain open.
