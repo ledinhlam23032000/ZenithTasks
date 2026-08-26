@@ -166,3 +166,10 @@ P03-T02 vẫn ở `review`: schema/version history, save action, audit, preview/
 ## Ledger foundation checkpoint — 2026-08-26
 
 Đã thêm enum `ZWorkspaceLedgerDirection`/`ZWorkspaceLedgerStatus`, model `ZWorkspaceLedgerEntry` với projectId bắt buộc, sale link cùng project, source/category/amount/occurredAt, void metadata, indexes và migration additive `20260826130000_workspace_ledger_entries`. Mở rộng rollback SQL isolation cho Customer/Appointment/Sale/Ledger hai project; cập nhật đặc tả không tuyên bố Finance/Payroll/UI ledger hoàn tất. Prisma validate/generate, TypeScript, governance 11/11 và Next production build pass. Commit push master: `7e19486`.
+
+
+## Project-local finance ledger UI checkpoint — 2026-08-26
+
+Đã thêm route `/du-an/[projectId]/tai-chinh`, form tạo ledger, liên kết sale cùng project, aggregate thu/chi và Admin void không xóa lịch sử. Module `finance` đã chuyển available với route local; module payroll vẫn blocked/planned. P05-T01 chuyển `review`; P05-T02–T06 vẫn chưa hoàn tất. Prisma generate, TypeScript, governance 11/11 và Next production build pass; route xuất hiện trong build. Commit code/spec/plan push master: `a30bbf5`.
+
+Lưu ý runtime: clinic đã deploy tới migration config version ở run trước; commit `a30bbf5` có module ledger UI mới và migration ledger `20260826130000_workspace_ledger_entries`, cần một lần updater thành công kế tiếp trước khi tuyên bố route này có trên clinic.
