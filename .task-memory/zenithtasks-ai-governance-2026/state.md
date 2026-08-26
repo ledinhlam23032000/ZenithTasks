@@ -235,3 +235,10 @@ Theo yêu cầu ưu tiên tốc độ có kiểm soát: thực thi code/test ch�
 - Commit `b779de8` pushed: project Payroll page now masks gross/commission/net totals for non-Admin users; Admin alone sees sensitive totals and governance actions remain Admin-only.
 - Sandbox targeted tests 14/14, TypeScript, and Next build pass after the change.
 - This is a role-display safeguard, not the final two-person approval policy. Finalize/void/payout and runtime/QA proof remain open.
+
+## Payroll two-person governance batch — 2026-08-26
+
+- Commit `90c3a15` pushed. Added additive migration `20260826160000_payroll_two_person_governance` with second approver, finalizer, voider, timestamps and void reason on project-local PayrollRun.
+- Governance sequence now enforces `CALCULATE -> PREVIEW -> APPROVE -> APPROVE_SECOND by a different Admin -> FINALIZE`; VOID of APPROVED/FINALIZED requires prior two-person approval and a reason. All changes are audited, no rows are deleted, and finalize does not create payout or touch Internal data.
+- Non-Admin payroll totals are masked. PREVIEW requires calculation snapshot. Prisma validate/generate, targeted Vitest 14/14, direct TypeScript and Next build pass.
+- P05-T05 moved to `review`; P05-T04 remains `review`. Do not deploy yet: migration/runtime QA, two-Admin authenticated walkthrough, isolated DB integration tests and payout/accounting integration remain open. Payroll registry stays unavailable.
