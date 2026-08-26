@@ -107,3 +107,10 @@ Chưa authenticated browser walkthrough vì owner chưa thực hiện bước đ
 Đã thêm/hoàn chỉnh Lịch hẹn project-local ở commit `c4cb1fa`: create, assignee/customer cùng project, conflict trong khoảng ±30 phút và cập nhật trạng thái có audit. Build sandbox sau đó pass với các route `/lich-hen` và `/doanh-so`.
 
 Bằng chứng code hiện tại: `prisma generate`, direct `tsc --noEmit`, governance tests **11/11**, `next build` pass. Chưa deploy commit Doanh số mới lên clinic; cần commit/push rồi chạy `Sua-Loi.bat`. Doanh số hiện chưa phải ledger/đối soát immutable đầy đủ và chưa có period filter; Customer edit/consent/detail/history, Finance, Payroll vẫn mở.
+
+
+## 60-task coverage audit checkpoint — 2026-08-26
+
+Theo phản hồi của người dùng, đã rà soát lại source-of-truth kế hoạch: kiểm tra thực tế cho kết quả `TASK_ROWS=60`, `TASK_UNIQUE=60`, đúng cấu trúc 10 phase × 6 task. Không task nào bị xóa hoặc thay thế bởi bản điều phối 6 phase. Bảng đối chiếu yêu cầu ban đầu → task → bằng chứng/giới hạn được lưu tại `checks/60-task-coverage-audit-20260826.md`.
+
+Trạng thái kiểm kê: 6 `done`, 20 `review`, 34 `not_started`, không có `blocked`/`cancelled`. Các mục còn thiếu đã được ghi rõ: Customer edit/consent/detail/history, Finance/Ledger, Payroll/Commission, layout version/rollback/drag-drop, Global console scale, AI configuration proposal apply, QA seed/walkthrough và final handoff. Runtime updater Doanh số vẫn có process đang chạy; không khởi chạy chồng lấn và sẽ hậu kiểm sau khi process kết thúc.
