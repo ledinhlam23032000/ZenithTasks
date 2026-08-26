@@ -300,6 +300,7 @@ model User {
   workspaceTasksAssigned        ZWorkspaceTask[]            @relation("WorkspaceTaskAssignee")
   workspaceTasksCreated         ZWorkspaceTask[]            @relation("WorkspaceTaskCreator")
   workspaceCustomersCreated     ZWorkspaceCustomer[]        @relation("WorkspaceCustomerCreator")
+  workspaceCustomersDeleted     ZWorkspaceCustomer[]        @relation("WorkspaceCustomerDeleter")
   workspaceAppointmentsCreated  ZWorkspaceAppointment[]     @relation("WorkspaceAppointmentCreator")
   workspaceAppointmentsAssigned ZWorkspaceAppointment[]     @relation("WorkspaceAppointmentAssignee")
   workspaceSalesCreated         ZWorkspaceSale[]            @relation("WorkspaceSaleCreator")
@@ -1564,18 +1565,25 @@ model ZWorkspaceCustomer {
   phoneLast4  String?
   source      String?
   note        String?
+  consentStatus String?
+  consentedAt DateTime?
+  consentNote String?
   active      Boolean  @default(true)
+  deletedAt   DateTime?
+  deletedById String?
   createdById String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   project     ZProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
   createdBy   User     @relation("WorkspaceCustomerCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  deletedBy   User?    @relation("WorkspaceCustomerDeleter", fields: [deletedById], references: [id], onDelete: SetNull)
   appointments ZWorkspaceAppointment[]
   sales       ZWorkspaceSale[]
 
   @@unique([projectId, code])
   @@index([projectId, fullName])
   @@index([projectId, active])
+  @@index([projectId, deletedAt])
 }
 
 model ZWorkspaceAppointment {

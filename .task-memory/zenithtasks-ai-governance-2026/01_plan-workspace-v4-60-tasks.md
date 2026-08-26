@@ -44,7 +44,7 @@ Mỗi task có mã ổn định, phụ thuộc, đầu ra và cổng nghiệm th
 | Mã | Task | Phụ thuộc | Đầu ra và tiêu chí nghiệm thu | Trạng thái |
 |---|---|---|---|---|
 | P04-T01 | Xây danh sách/tạo/sửa Customer project-local | P03-T03 | Form clinic-first, empty/loading/error state, create/list/edit chỉ trong active project | review |
-| P04-T02 | Xây hồ sơ Customer và lịch sử local | P04-T01 | Detail chỉ hiển thị dữ liệu cùng project; không có link/lookup sang customer Nội Bộ | not_started |
+| P04-T02 | Xây hồ sơ Customer và lịch sử local | P04-T01 | Detail/edit/consent/soft-delete và history chỉ hiển thị dữ liệu cùng project; không có link/lookup sang customer Nội Bộ | review |
 | P04-T03 | Xây lịch hẹn project-local | P03-T04,P04-T01 | Tạo/đổi trạng thái/hủy mềm; conflict và assignee đều scoped | review |
 | P04-T04 | Xây sale/service order tối thiểu | P03-T05,P04-T02 | Tạo giao dịch và snapshot giá/dịch vụ local; không ghi CaseRecord/Payment legacy | review |
 | P04-T05 | Xây dashboard doanh số Dự án | P04-T04 | Doanh thu, số khách, lịch hẹn và tỷ lệ trạng thái chỉ lấy projectId; có period filter | review |
