@@ -16,6 +16,10 @@ DECLARE
   sale_b TEXT := 'qa-sale-b-' || substr(md5(random()::text), 1, 10);
   ledger_a TEXT := 'qa-ledger-a-' || substr(md5(random()::text), 1, 10);
   ledger_b TEXT := 'qa-ledger-b-' || substr(md5(random()::text), 1, 10);
+  mechanism_a TEXT := 'qa-mechanism-a-' || substr(md5(random()::text), 1, 10);
+  mechanism_version_a TEXT := 'qa-mechanism-version-a-' || substr(md5(random()::text), 1, 10);
+  payroll_run_a TEXT := 'qa-payroll-run-a-' || substr(md5(random()::text), 1, 10);
+  payroll_line_a TEXT := 'qa-payroll-line-a-' || substr(md5(random()::text), 1, 10);
   legacy_before BIGINT;
   legacy_appointment_before BIGINT;
   scoped_a BIGINT;
@@ -79,6 +83,28 @@ BEGIN
   END IF;
   IF (SELECT count(*) FROM "ZWorkspaceLedgerEntry" WHERE "projectId" = project_a) <> 1 OR (SELECT count(*) FROM "ZWorkspaceLedgerEntry" WHERE "projectId" = project_b) <> 1 THEN
     RAISE EXCEPTION 'Workspace ledger scope mismatch';
+  END IF;
+
+  INSERT INTO "ZMechanismDefinition" ("id", "projectId", "code", "name", "kind", "status", "createdAt", "updatedAt")
+  VALUES (mechanism_a, project_a, 'QA-COMMISSION-A', 'QA Commission A', 'COMMISSION', 'ACTIVE', now(), now());
+  INSERT INTO "ZMechanismVersion" ("id", "definitionId", "version", "status", "inputSchema", "ruleSpec", "createdById", "approvedById", "approvedAt", "effectiveFrom", "createdAt", "updatedAt")
+  VALUES (mechanism_version_a, mechanism_a, 1, 'ACTIVE', '{"type":"object"}'::jsonb, '{"basis":"SALE_PAID","rateBps":1000,"allocation":"EQUAL_ACTIVE_MEMBERS"}'::jsonb, actor_id, actor_id, now(), now(), now(), now());
+  INSERT INTO "ZWorkspacePayrollRun" ("id", "projectId", "mechanismVersionId", "code", "periodStart", "periodEnd", "status", "mechanismSnapshot", "createdById", "createdAt", "updatedAt")
+  VALUES (payroll_run_a, project_a, mechanism_version_a, 'QA-PAYROLL-A', current_date, current_date, 'DRAFT', '{"projectId":"project-a","ruleSpec":{"basis":"SALE_PAID","rateBps":1000,"allocation":"EQUAL_ACTIVE_MEMBERS"}}'::jsonb, actor_id, now(), now());
+  INSERT INTO "ZWorkspacePayrollLine" ("id", "runId", "projectId", "userId", "status", "grossAmount", "commissionAmount", "deductionAmount", "netAmount", "snapshot", "createdAt", "updatedAt")
+  VALUES (payroll_line_a, payroll_run_a, project_a, actor_id, 'CALCULATED', 0, 0, 0, 0, '{"projectId":"project-a","basis":"PENDING_CALCULATION"}'::jsonb, now(), now());
+
+  IF (SELECT count(*) FROM "ZWorkspacePayrollRun" WHERE "projectId" = project_a AND "id" = payroll_run_a) <> 1 THEN
+    RAISE EXCEPTION 'Workspace payroll run scope mismatch';
+  END IF;
+  IF (SELECT count(*) FROM "ZWorkspacePayrollRun" WHERE "projectId" = project_b AND "id" = payroll_run_a) <> 0 THEN
+    RAISE EXCEPTION 'Cross-project payroll run leaked into project B';
+  END IF;
+  IF (SELECT count(*) FROM "ZWorkspacePayrollLine" WHERE "projectId" = project_a AND "runId" = payroll_run_a) <> 1 THEN
+    RAISE EXCEPTION 'Workspace payroll line scope mismatch';
+  END IF;
+  IF (SELECT count(*) FROM "ZWorkspacePayrollLine" WHERE "projectId" = project_b AND "runId" = payroll_run_a) <> 0 THEN
+    RAISE EXCEPTION 'Cross-project payroll line leaked into project B';
   END IF;
 
   RAISE NOTICE 'WORKSPACE_CORE_ISOLATION_PASS';
