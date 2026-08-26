@@ -331,3 +331,8 @@ Sandbox verification confirmed `docker` is unavailable, so no isolated PostgreSQ
 - Commit `1d410a5` pushed. AI dispatcher now recognizes `propose_workspace_config` as Admin draft-only capability; policy tests explicit Global project target, Manager denial and no direct APPLY.
 - Config proposal schema/UI/actions remain project-local with separate DRAFT/APPROVE/APPLY/REJECT, before/after, risk, rollback and audit. Targeted gate passed 25/25 plus TypeScript/Next build.
 - P08-T01/T02/T03/T04 remain open/not done until real AI tool invocation, isolated DB and authenticated workflow evidence exist. No clinic updater/browser used.
+
+## Full regression after AI proposal governance — 2026-08-26
+
+- Full Vitest rerun passed: 80 files / 417 tests, 0 failures, 2.37 seconds. Evidence refreshed at `checks/full-vitest-regression-20260826.md`.
+- AI proposal policy and workspace boundary tests are included. No database/runtime/clinic execution was performed.
