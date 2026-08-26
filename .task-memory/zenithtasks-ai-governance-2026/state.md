@@ -345,3 +345,8 @@ Sandbox verification confirmed `docker` is unavailable, so no isolated PostgreSQ
 ## AI context plan alignment — 2026-08-26
 
 - P08-T01, P08-T02 and P08-T06 moved from `not_started` to `review`: existing `/tro-ly` selector supports INTERNAL/PROJECT/GLOBAL with Admin-only `__GLOBAL__`, server policy requires explicit projectId outside aggregate, and regression covers scope boundaries. Multi-target integration, prompt isolation and authenticated runtime remain open.
+
+## Global console scope helper checkpoint — 2026-08-26
+
+- Commit `56e0bfc` pushed. `/du-an` now uses a unit-tested `projectConsoleWhere` and shared page size 50; Admin all-project and Manager active-membership query scopes are explicit.
+- Targeted gate passed 27/27 plus TypeScript and Next build. P07-T04/T05 remain `review`; synthetic 1000-project scale, authenticated role denial and live aggregate verification remain open.
