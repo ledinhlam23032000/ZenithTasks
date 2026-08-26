@@ -252,3 +252,9 @@ Theo yêu cầu ưu tiên tốc độ có kiểm soát: thực thi code/test ch�
 
 - Commit `2505b7d` pushed. Synthetic PayrollRun/Line JSON snapshots in the rollback-only isolation SQL now bind to the generated project ID using `jsonb_build_object`, avoiding placeholder context in QA evidence.
 - No QA/clinic database was touched; SQL remains pending isolated QA execution after the new migration.
+
+## Customer lifecycle batch — 2026-08-26
+
+- Commit `54149c4` pushed. Added additive project-local consent/soft-delete fields and migration `20260826170000_workspace_customer_consent_lifecycle`.
+- Added scoped Customer edit, consent record, archive actions with audit; added detail route with project-local appointments, sales and audit history; list links to detail.
+- P04-T02 moved to `review`, not done. Sandbox Prisma validate/generate, targeted Vitest 14/14, TypeScript and Next build pass. Runtime authenticated walkthrough and isolated DB execution remain open; no clinic/browser touched.
