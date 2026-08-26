@@ -205,3 +205,8 @@ Lưu ý runtime: clinic đã deploy tới migration config version ở run trư�
 Sau khi Docker Running, đã chạy đúng một lần `Sua-Loi.bat` cache-safe. Wrapper mới ghi trực tiếp `END exit=0` lúc 21:39:49; clinic checkout ở `5d38fc0`. DB có 71 migrations; năm migration gần nhất gồm `20260826110000_workspace_core_modules`, `20260826120000_workspace_config_versions`, `20260826130000_workspace_ledger_entries`, `20260826140000_workspace_payment_reconciliation`, `20260826150000_workspace_payroll_runs`. App log ghi ba migration batch apply, `All migrations have been successfully applied.`, `Ready in 468ms`; app running, db healthy, `/login=200`. Evidence: `checks/payroll-batch-deploy-20260826.md`.
 
 Đã deploy ledger/reconciliation UI và PayrollRun DRAFT route/action; Payroll menu vẫn blocked, finalize/void/calculation/commission policy chưa hoàn tất. Không đánh dấu toàn bộ Finance/Payroll done chỉ vì updater exit 0.
+
+
+## Speed strategy checkpoint — 2026-08-26
+
+Theo yêu cầu ưu tiên tốc độ có kiểm soát: thực thi code/test chủ yếu trên sandbox; gom migration/UI thành release candidate; chỉ chạy `Sua-Loi.bat` một lần sau khi sandbox Prisma/TypeScript/governance/Next build pass. Không dùng browser hoặc updater nền để tạo cảm giác đang làm; mỗi deploy phải có exit code, migration, health và HTTP evidence. Current phase remains P05 Finance/Payroll; clinic đã nhận batch tới SHA `5d38fc0`, còn code mới sau đó sẽ gom thành batch kế tiếp.
