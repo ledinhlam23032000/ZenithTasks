@@ -320,3 +320,8 @@ Sandbox verification confirmed `docker` is unavailable, so no isolated PostgreSQ
 ## Global console plan alignment — 2026-08-26
 
 - P07-T04 and P07-T05 moved from `not_started` to `review` because scoped Global Admin console, per-project aggregates, bounded search and 50-row cursor pagination now exist. Synthetic scale/runtime and authenticated Manager denial remain open.
+
+## Config proposal governance checkpoint — 2026-08-26
+
+- Commit `462502a` pushed. Added project-local config proposal schema/migration and Admin-only DRAFT → APPROVE → APPLY/REJECT workflow with before/after preview, explicit PROJECT target, L5 fail-closed, rollback version link and audit.
+- Prisma validate/generate, TypeScript, Next build and proposal/navigation/mechanism/payroll/AI targeted tests passed 24/24. This is foundation evidence only; AI-originated proposals, isolated DB and authenticated runtime approval/apply remain open. No clinic updater/browser used.
