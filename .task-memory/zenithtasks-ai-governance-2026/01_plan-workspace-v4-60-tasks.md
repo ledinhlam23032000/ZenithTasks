@@ -79,8 +79,8 @@ Mỗi task có mã ổn định, phụ thuộc, đầu ra và cổng nghiệm th
 | P07-T01 | Tạo schema module layout/config version | P03-T02,P06-T03 | Order/group/default route lưu theo project; version và audit đầy đủ | not_started |
 | P07-T02 | Xây UI kéo-thả module accessible | P07-T01,P06-T05 | Keyboard fallback, drag handle, preview trước khi lưu; không drag module planned | not_started |
 | P07-T03 | Xây action save/preview/rollback layout | P07-T01,P02-T02 | Chỉ Admin hoặc capability hợp lệ; invalid key/duplicate/order bị reject | not_started |
-| P07-T04 | Xây Global Admin console tổng hợp | P02-T02,P04-T05 | Admin thấy toàn bộ project với aggregate rõ nguồn; Manager không thấy trang global | not_started |
-| P07-T05 | Tối ưu list/aggregate cho quy mô 1000 project | P07-T04 | Pagination/cursor/groupBy/index; không tải toàn bộ domain records vào memory một lần | not_started |
+| P07-T04 | Xây Global Admin console tổng hợp | P02-T02,P04-T05 | Admin thấy toàn bộ project với aggregate rõ nguồn; Manager không thấy trang global; hiện có `/du-an` scoped console và aggregate count theo project | review |
+| P07-T05 | Tối ưu list/aggregate cho quy mô 1000 project | P07-T04 | Pagination/cursor/groupBy/index; không tải toàn bộ domain records vào memory một lần; hiện có cursor 50 dòng và search bounded, còn synthetic scale/runtime | review |
 | P07-T06 | Test layout, global console và rollback | P07-T02,P07-T03,P07-T05 | Test Admin, Manager, stale version, disabled module và synthetic scale đều đạt | not_started |
 
 ## Phase 08 — AI global/project proposal và audit

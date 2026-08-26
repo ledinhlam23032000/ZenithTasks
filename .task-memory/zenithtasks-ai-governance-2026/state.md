@@ -316,3 +316,7 @@ Sandbox verification confirmed `docker` is unavailable, so no isolated PostgreSQ
 
 - Commit `8b1f5ec` pushed. `/du-an` now has bounded 50-row cursor pagination, code/name search, project-local aggregate counts, Admin all-project scope and Manager active-membership scope.
 - Prisma/TypeScript/Next and targeted tests 22/22 passed. P07-T05 remains review pending authenticated runtime, synthetic scale-data test and global aggregate verification.
+
+## Global console plan alignment — 2026-08-26
+
+- P07-T04 and P07-T05 moved from `not_started` to `review` because scoped Global Admin console, per-project aggregates, bounded search and 50-row cursor pagination now exist. Synthetic scale/runtime and authenticated Manager denial remain open.
