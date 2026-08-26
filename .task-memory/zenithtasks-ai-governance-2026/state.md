@@ -399,3 +399,9 @@ Sandbox verification confirmed `docker` is unavailable, so no isolated PostgreSQ
 - Current focus remains sandbox-first Phase 08/09 preparation. Latest master `1ecac2e`; 60 task rows verified; full sandbox regression latest is 83 files / 422 tests.
 - Next 3 actions: (1) when isolated QA PostgreSQL is available, apply additive migrations and run the sanitized fixture/isolation SQL in a transaction; (2) run Admin/Manager authenticated role walkthrough only with owner handling login; (3) after meaningful batch and QA proof, run one direct Windows `Sua-Loi.bat` and collect exit/migration/health/HTTP evidence.
 - Do not open browser, start updater, or use clinic data while QA environment is unavailable. Do not mark review/not_started tasks done from sandbox evidence alone.
+
+## Windows QA preflight — 2026-08-26
+
+- User re-granted access to `C:\Users\PC\ZenithTasks`; no `AGENTS.md` was present at repo or parent level. Read-only preflight found clinic app on port 3000 and clinic DB running; these were not changed.
+- QA DB container `zenithtasks-qa-db` is running on host port 55432. Existing QA app container `zenith_v2_qa_app` was exited 137; it was restarted only (no recreate/delete) and is now running, mapped to host port 3100. `curl http://127.0.0.1:3100/login` returned HTTP 200.
+- Existing QA image reports 56 migrations and no pending migrations; Windows checkout HEAD is `5d38fc0` while `origin/master` is `a803f9e`. Therefore QA is healthy but stale and is not evidence for the current sandbox release candidate. No credentials, env values, clinic data or browser session were read.
