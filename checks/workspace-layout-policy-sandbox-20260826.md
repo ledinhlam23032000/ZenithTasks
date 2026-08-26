@@ -1,6 +1,6 @@
-# Workspace layout policy sandbox evidence — 2026-08-26
+# Workspace layout policy/editor sandbox evidence — 2026-08-26
 
-Added a pure project-local layout validator for a future accessible module ordering UI. It accepts only unique module keys that are both available in the registry and enabled in the selected project. Duplicate, unknown, planned or disabled modules are rejected. Payroll remains blocked because it is not available in the registry.
+The project dashboard now includes an Admin-only layout editor using native drag/drop plus explicit Move Up/Move Down controls as a keyboard-accessible fallback. The editor creates a `LAYOUT` config proposal in DRAFT and does not apply changes directly. Planned or disabled modules remain excluded by the pure layout validator.
 
 | Check | Result |
 |---|---:|
@@ -10,4 +10,4 @@ Added a pure project-local layout validator for a future accessible module order
 | TypeScript | pass |
 | Next production build | pass |
 
-This is policy foundation only. Drag/drop keyboard fallback, preview/save/rollback UI, layout config migration/runtime and authenticated testing remain open; P07-T01/T02/T03/T06 are not marked done.
+This is sandbox evidence only. Runtime keyboard/screen-reader walkthrough, persisted LAYOUT version application, rollback verification and isolated DB migration remain open; P07-T01/T03/T06 are not done and P07-T02 remains review/foundation only.
