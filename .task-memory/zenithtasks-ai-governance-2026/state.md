@@ -296,3 +296,8 @@ Sandbox verification confirmed `docker` is unavailable, so no isolated PostgreSQ
 ## P05 test coverage alignment — 2026-08-26
 
 - Plan P05-T06 moved to `review`: pure Payroll calculation/policy/Mechanism rule tests and rollback-only SQL now exist, but isolated DB and authenticated role runtime evidence remain required.
+
+## Workspace navigation boundary checkpoint — 2026-08-26
+
+- Commit `b1c4b60` pushed. AppShell now consumes a pure workspace navigation helper; project menu excludes legacy Internal routes, Manager lacks global project-management link, and `__GLOBAL__` cannot become an active project.
+- Targeted navigation/mechanism/payroll/AI tests passed 22/22; TypeScript and Next build passed. No browser/database runtime used. P06-T02/T03 are strengthened but P06-T05/T06 authenticated mobile/runtime smoke remain open.
