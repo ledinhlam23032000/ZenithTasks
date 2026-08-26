@@ -1,0 +1,29 @@
+{
+  "purpose": "Synthetic QA fixture only; never use with the clinic database.",
+  "projects": [
+    { "id": "qa-project-alpha", "code": "QA-ALPHA", "name": "Dự án Alpha QA", "members": ["qa-admin", "qa-manager-alpha"] },
+    { "id": "qa-project-beta", "code": "QA-BETA", "name": "Dự án Beta QA", "members": ["qa-admin", "qa-manager-beta"] },
+    { "id": "qa-project-gamma", "code": "QA-GAMMA", "name": "Dự án Gamma QA", "members": ["qa-admin"] }
+  ],
+  "users": [
+    { "id": "qa-admin", "role": "ADMIN" },
+    { "id": "qa-manager-alpha", "role": "MANAGER" },
+    { "id": "qa-manager-beta", "role": "MANAGER" }
+  ],
+  "records": {
+    "customersPerProject": 2,
+    "appointmentsPerProject": 2,
+    "salesPerProject": 2,
+    "ledgerEntriesPerProject": 2,
+    "reconciliationsPerProject": 2,
+    "payrollRunsPerProject": 1,
+    "tasksPerProject": 2
+  },
+  "invariants": [
+    "qa-manager-alpha may read only qa-project-alpha",
+    "qa-manager-beta may read only qa-project-beta",
+    "qa-admin may aggregate all three projects only in explicit GLOBAL scope",
+    "no record may reference another project",
+    "legacy Internal tables are out of scope and must not be mutated"
+  ]
+}
