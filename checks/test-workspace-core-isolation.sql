@@ -90,9 +90,9 @@ BEGIN
   INSERT INTO "ZMechanismVersion" ("id", "definitionId", "version", "status", "inputSchema", "ruleSpec", "createdById", "approvedById", "approvedAt", "effectiveFrom", "createdAt", "updatedAt")
   VALUES (mechanism_version_a, mechanism_a, 1, 'ACTIVE', '{"type":"object"}'::jsonb, '{"basis":"SALE_PAID","rateBps":1000,"allocation":"EQUAL_ACTIVE_MEMBERS"}'::jsonb, actor_id, actor_id, now(), now(), now(), now());
   INSERT INTO "ZWorkspacePayrollRun" ("id", "projectId", "mechanismVersionId", "code", "periodStart", "periodEnd", "status", "mechanismSnapshot", "createdById", "createdAt", "updatedAt")
-  VALUES (payroll_run_a, project_a, mechanism_version_a, 'QA-PAYROLL-A', current_date, current_date, 'DRAFT', '{"projectId":"project-a","ruleSpec":{"basis":"SALE_PAID","rateBps":1000,"allocation":"EQUAL_ACTIVE_MEMBERS"}}'::jsonb, actor_id, now(), now());
+  VALUES (payroll_run_a, project_a, mechanism_version_a, 'QA-PAYROLL-A', current_date, current_date, 'DRAFT', jsonb_build_object('projectId', project_a, 'ruleSpec', jsonb_build_object('basis', 'SALE_PAID', 'rateBps', 1000, 'allocation', 'EQUAL_ACTIVE_MEMBERS')), actor_id, now(), now());
   INSERT INTO "ZWorkspacePayrollLine" ("id", "runId", "projectId", "userId", "status", "grossAmount", "commissionAmount", "deductionAmount", "netAmount", "snapshot", "createdAt", "updatedAt")
-  VALUES (payroll_line_a, payroll_run_a, project_a, actor_id, 'CALCULATED', 0, 0, 0, 0, '{"projectId":"project-a","basis":"PENDING_CALCULATION"}'::jsonb, now(), now());
+  VALUES (payroll_line_a, payroll_run_a, project_a, actor_id, 'CALCULATED', 0, 0, 0, 0, jsonb_build_object('projectId', project_a, 'basis', 'PENDING_CALCULATION'), now(), now());
 
   IF (SELECT count(*) FROM "ZWorkspacePayrollRun" WHERE "projectId" = project_a AND "id" = payroll_run_a) <> 1 THEN
     RAISE EXCEPTION 'Workspace payroll run scope mismatch';
