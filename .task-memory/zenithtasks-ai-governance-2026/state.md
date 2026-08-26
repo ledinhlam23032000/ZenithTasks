@@ -379,3 +379,8 @@ Sandbox verification confirmed `docker` is unavailable, so no isolated PostgreSQ
 
 - Commit `aee03dd` pushed. Global console now uses a pure cursor helper; synthetic 1,001-row walk verifies max 50 rows/page, no duplicate IDs and no missing IDs.
 - Targeted gate passed 30/30 with TypeScript and Next build. P07-T05 remains review pending PostgreSQL query-plan/scale runtime and authenticated role evidence; no clinic updater/browser used.
+
+## Full regression after cursor pagination — 2026-08-26
+
+- Full Vitest rerun passed: 83 files / 422 tests, 0 failures, 2.53 seconds. Evidence refreshed at `checks/full-vitest-regression-20260826.md`.
+- Cursor pagination synthetic 1,001-row test, Global console scope, layout and AI proposal governance are included. No database/runtime/clinic execution was performed.
