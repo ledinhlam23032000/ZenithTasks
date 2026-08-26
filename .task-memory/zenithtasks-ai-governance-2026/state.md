@@ -393,3 +393,9 @@ Sandbox verification confirmed `docker` is unavailable, so no isolated PostgreSQ
 
 - Commit `4c81845` pushed with `checks/synthetic-workspace-fixture-20260826.json`, containing only fake project/user IDs, role memberships and record-count invariants; no passwords, tokens, secrets or clinic data.
 - The initial `checks/qa-*` filename was intentionally ignored by repository policy; it was renamed to a neutral sanitized fixture name before commit. JSON validation passed. Fixture has not been executed against any database.
+
+## Continuation checkpoint — 2026-08-26
+
+- Current focus remains sandbox-first Phase 08/09 preparation. Latest master `1ecac2e`; 60 task rows verified; full sandbox regression latest is 83 files / 422 tests.
+- Next 3 actions: (1) when isolated QA PostgreSQL is available, apply additive migrations and run the sanitized fixture/isolation SQL in a transaction; (2) run Admin/Manager authenticated role walkthrough only with owner handling login; (3) after meaningful batch and QA proof, run one direct Windows `Sua-Loi.bat` and collect exit/migration/health/HTTP evidence.
+- Do not open browser, start updater, or use clinic data while QA environment is unavailable. Do not mark review/not_started tasks done from sandbox evidence alone.
