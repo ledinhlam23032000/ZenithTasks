@@ -369,3 +369,8 @@ Sandbox verification confirmed `docker` is unavailable, so no isolated PostgreSQ
 ## Phase 07 layout plan alignment — 2026-08-26
 
 - P07-T01/T02/T03 moved from `not_started` to `review`: LAYOUT config/proposal foundation, Admin drag/drop plus keyboard fallback, and invalid/duplicate/planned module validation now exist. Persisted layout rollback, runtime accessibility and synthetic scale tests remain open.
+
+## Global console scoped totals checkpoint — 2026-08-26
+
+- Commit `0bd18e2` pushed. `/du-an` now shows total matching projects from a bounded scoped count query alongside the 50-row cursor page and per-project aggregates.
+- Targeted policy/layout/AI/mechanism/payroll gate passed 29/29 with TypeScript and Next build. P07-T04/T05 remain review pending synthetic scale and authenticated runtime.
