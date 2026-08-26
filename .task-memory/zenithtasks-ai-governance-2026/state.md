@@ -278,3 +278,7 @@ Theo yêu cầu ưu tiên tốc độ có kiểm soát: thực thi code/test ch�
 
 - Commit `812a42b` pushed. Extracted pure two-person approval/void status policy and added unit tests; server actions now consume the helper.
 - Targeted governance/calculation/policy tests passed 16/16; TypeScript and Next build passed. This improves P05-T06 evidence but does not replace DB isolation or runtime role tests.
+
+## QA environment checkpoint — 2026-08-26
+
+Sandbox verification confirmed `docker` is unavailable, so no isolated PostgreSQL runtime/migration/SQL test was attempted here. Unit tests, Prisma validation/generate, TypeScript and Next build remain valid sandbox evidence only. QA DB/runtime must be handled later in the isolated QA environment, never against clinic.
