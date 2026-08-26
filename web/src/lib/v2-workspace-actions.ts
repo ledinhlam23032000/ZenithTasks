@@ -19,6 +19,10 @@ export async function updateProjectModulesAction(_prev: ModuleActionState, formD
   if (selected.length === 0) return { error: "Dự án cần giữ ít nhất một module đã triển khai." };
 
   await prisma.$transaction(async (tx) => {
+    const latest = await tx.zWorkspaceConfigVersion.findFirst({ where: { projectId: project.id, kind: "MODULES" }, orderBy: { version: "desc" }, select: { version: true } });
+    const nextVersion = (latest?.version ?? 0) + 1;
+    await tx.zWorkspaceConfigVersion.updateMany({ where: { projectId: project.id, kind: "MODULES", status: "ACTIVE" }, data: { status: "SUPERSEDED", effectiveTo: new Date() } });
+    await tx.zWorkspaceConfigVersion.create({ data: { projectId: project.id, kind: "MODULES", version: nextVersion, status: "ACTIVE", config: { enabledFeatures: selected }, effectiveFrom: new Date(), createdById: user.id, approvedById: user.id, note: "Admin lưu cấu hình module từ workspace settings" } });
     await tx.zProject.update({ where: { id: project.id }, data: { enabledFeatures: selected } });
     await tx.auditLog.create({
       data: {
@@ -26,7 +30,7 @@ export async function updateProjectModulesAction(_prev: ModuleActionState, formD
         action: "V2_PROJECT_MODULES_UPDATED",
         entity: "ZProject",
         entityId: project.id,
-        meta: { enabledFeatures: selected },
+        meta: { enabledFeatures: selected, configKind: "MODULES", configVersion: nextVersion },
       },
     });
   });

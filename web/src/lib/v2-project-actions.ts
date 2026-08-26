@@ -49,6 +49,9 @@ export async function createV2ProjectAction(_prev: ProjectActionState, formData:
     await tx.zProjectMember.create({
       data: { projectId: created.id, userId: user.id, preset: "PROJECT_ADMIN", active: true },
     });
+    await tx.zWorkspaceConfigVersion.create({
+      data: { projectId: created.id, kind: "MODULES", version: 1, status: "ACTIVE", config: { enabledFeatures: V2_DEFAULT_MODULE_KEYS }, effectiveFrom: new Date(), createdById: user.id, approvedById: user.id, note: "Cấu hình module khởi tạo cùng Dự án" },
+    });
     return created;
   });
 

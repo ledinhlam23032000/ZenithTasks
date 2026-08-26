@@ -119,3 +119,10 @@ Trạng thái kiểm kê: 6 `done`, 20 `review`, 34 `not_started`, không có `b
 ## Config version foundation checkpoint — 2026-08-26
 
 Đã thêm `ZWorkspaceConfigKind`, `ZWorkspaceConfigStatus` và model `ZWorkspaceConfigVersion` với `projectId`, version unique theo project/kind, effective time, JSON config, creator/approver và status draft/active/superseded/rolled-back. Migration additive là `20260826120000_workspace_config_versions`; Prisma validate/generate và direct TypeScript pass. Task P03-T02 được chuyển sang `review` vì nền schema đã có nhưng action preview/activation/rollback và UI chưa triển khai.
+
+
+## Config version UI checkpoint — 2026-08-26
+
+`updateProjectModulesAction` hiện tạo version MODULES mới trong transaction, supersede version ACTIVE trước, cập nhật `ZProject.enabledFeatures` để tương thích các loader hiện hữu và ghi audit kèm `configVersion`. Dự án mới tạo version MODULES 1 ACTIVE cùng lúc tạo project/member. Dashboard hiển thị 5 version gần nhất theo project.
+
+Sandbox verification sau thay đổi: Prisma generate pass, TypeScript pass, governance test **11/11**, Next production build pass và route list không lỗi. P03-T02 vẫn `review`: chưa có preview/rollback action và UI dành riêng cho rollback; không coi manual Admin save là full approval workflow.

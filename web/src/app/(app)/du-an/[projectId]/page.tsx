@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft, Boxes, CheckCircle2, CircleDashed, ListTodo, ShieldCheck } from "lucide-react";
 import { requireProjectAccess } from "@/lib/v2-access";
+import { prisma } from "@/lib/db";
 import { V2_MODULES, normalizedModuleKeys } from "@/lib/v2-modules";
 import { V2ModuleSettingsForm } from "@/components/v2-module-settings-form";
 
@@ -11,6 +12,7 @@ export default async function ProjectWorkspacePage({ params }: { params: Promise
   const { user, project } = await requireProjectAccess(projectId);
   const enabled = new Set(normalizedModuleKeys(project.enabledFeatures));
   const activeModules = V2_MODULES.filter((module) => enabled.has(module.key));
+  const moduleVersions = await prisma.zWorkspaceConfigVersion.findMany({ where: { projectId: project.id, kind: "MODULES" }, orderBy: { version: "desc" }, take: 5, select: { version: true, status: true, effectiveFrom: true, createdAt: true, note: true } });
 
   return <div className="space-y-6">
     <Link href="/du-an" className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-900"><ArrowLeft className="h-4 w-4" />Quay lại danh sách Dự án</Link>
@@ -21,6 +23,7 @@ export default async function ProjectWorkspacePage({ params }: { params: Promise
     <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"><div className="flex items-start gap-3"><ShieldCheck className="mt-0.5 h-5 w-5 text-emerald-600" /><div><h2 className="font-semibold text-slate-900">Các module của workspace</h2><p className="mt-1 text-sm text-slate-500">Module đang có thể mở trực tiếp; module kế tiếp được ghi nhận để AI hoặc Admin nối thêm sau khi có schema, quyền và test riêng.</p></div></div><div className="mt-5 grid gap-3 md:grid-cols-2">{V2_MODULES.map((module) => { const isEnabled = enabled.has(module.key); const canOpen = module.available && isEnabled; return <article key={module.key} className={`rounded-xl border p-4 ${canOpen ? "border-emerald-200 bg-emerald-50/50" : "border-slate-200 bg-slate-50"}`}><div className="flex items-start gap-3">{canOpen ? <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" /> : <CircleDashed className="mt-0.5 h-5 w-5 shrink-0 text-slate-400" />}<div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h3 className="font-semibold text-slate-800">{module.label}</h3><span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-500">{canOpen ? "ĐANG BẬT" : module.available ? "ĐANG TẮT" : "SẮP TÍCH HỢP"}</span></div><p className="mt-1 text-sm leading-5 text-slate-500">{module.description}</p>{canOpen && <Link href={module.href(project.id)} className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-brand-700 hover:underline">{module.key === "tasks" && <ListTodo className="h-4 w-4" />}Mở module →</Link>}</div></div></article>; })}</div></section>
 
     {user.role === "ADMIN" && <V2ModuleSettingsForm projectId={project.id} projectName={project.name} enabledKeys={Array.from(enabled)} />}
-    <div className="rounded-2xl border border-indigo-200 bg-indigo-50 p-5 text-sm leading-6 text-indigo-800">Đây là workspace riêng của <strong>{project.name}</strong>. Dữ liệu Nội Bộ không được tự động trộn vào đây. Các module Khách hàng, Lịch hẹn, Tài chính và Lương/hoa hồng sẽ chỉ được mở sau khi có bảng dữ liệu/phạm vi quyền riêng tương ứng.</div>
+    <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"><h2 className="font-semibold text-slate-900">Lịch sử cấu hình module</h2><p className="mt-1 text-sm leading-6 text-slate-500">Mỗi lần Admin lưu bật/tắt module tạo một version riêng. Bản ghi chỉ theo Dự án này và có thể làm nền cho preview/rollback tiếp theo.</p>{moduleVersions.length === 0 ? <p className="mt-4 text-sm text-slate-500">Chưa có version module được ghi nhận.</p> : <div className="mt-4 space-y-2">{moduleVersions.map((version) => <div key={version.version} className="flex flex-col justify-between gap-2 rounded-xl border border-slate-200 px-4 py-3 text-sm sm:flex-row sm:items-center"><div><span className="font-semibold text-slate-800">Version {version.version}</span><span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">{version.status}</span><p className="mt-1 text-xs text-slate-500">{version.note ?? "Cấu hình module"}</p></div><time className="text-xs text-slate-400">{new Intl.DateTimeFormat("vi-VN", { dateStyle: "medium", timeStyle: "short" }).format(version.createdAt)}</time></div>)}</div>}</section>
+    <div className="rounded-2xl border border-indigo-200 bg-indigo-50 p-5 text-sm leading-6 text-indigo-800">Đây là workspace riêng của <strong>{project.name}</strong>. Dữ liệu Nội Bộ không được tự động trộn vào đây. Khách hàng, Lịch hẹn và Doanh số đã có module local; Tài chính/Ledger và Lương/hoa hồng chỉ mở sau khi có schema, quyền, audit và test riêng.</div>
   </div>;
 }
