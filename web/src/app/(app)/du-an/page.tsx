@@ -3,9 +3,10 @@ import { ArrowLeft, ChevronRight, FolderKanban, Search, ShieldCheck } from "luci
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { V2CreateProjectForm } from "@/components/v2-create-project-form";
+import { GLOBAL_PROJECT_PAGE_SIZE, projectConsoleWhere } from "@/lib/v2-global-console-policy";
 
 export const dynamic = "force-dynamic";
-const PAGE_SIZE = 50;
+const PAGE_SIZE = GLOBAL_PROJECT_PAGE_SIZE;
 
 export default async function ProjectsPage({ searchParams }: { searchParams: Promise<{ cursor?: string; q?: string }> }) {
   const user = await requireUser(["ADMIN", "MANAGER"]);
@@ -14,10 +15,7 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Pro
   const search = String(query.q ?? "").trim().slice(0, 80);
   const cursor = String(query.cursor ?? "").trim().slice(0, 80) || undefined;
   const projects = await prisma.zProject.findMany({
-    where: {
-      ...(user.role === "ADMIN" ? {} : { members: { some: { userId: user.id, active: true } } }),
-      ...(search ? { OR: [{ code: { contains: search, mode: "insensitive" } }, { name: { contains: search, mode: "insensitive" } }] } : {}),
-    },
+    where: projectConsoleWhere(user.role, user.id, search),
     orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
     ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
     take: PAGE_SIZE + 1,
