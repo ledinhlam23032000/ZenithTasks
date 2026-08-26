@@ -183,3 +183,8 @@ Lưu ý runtime: clinic đã deploy tới migration config version ở run trư�
 ## Payment reconciliation workflow checkpoint — 2026-08-26
 
 Đã thêm workflow project-local: ghi payment reference ở `UNMATCHED`, liên kết optional tới Sale/Ledger cùng project, Admin xác nhận `MATCHED` bằng nhập `MATCH`, mọi thay đổi có audit và không đọc Payment legacy. Trang Tài chính đã hiển thị danh sách reconciliation và form match. TypeScript, governance 11/11 và Next build pass; commit code push master `ac832e2`. P05-T02 vẫn `review` cho đến khi migration/runtime/authenticated walkthrough được kiểm chứng trên clinic.
+
+
+## Mechanism draft/activation checkpoint — 2026-08-26
+
+Đã thêm action/UI tạo cơ chế project-local ở DRAFT từ JSON ruleSpec và Admin activate sau preview bằng xác nhận `ACTIVATE`; version ACTIVE cũ được retire, approvedBy/approvedAt/effective time và audit được ghi. Trang `/du-an/[projectId]/co-che` không chạm mechanism Nội Bộ. TypeScript, governance 11/11 và Next build pass; commit code push master `655f96f`. P05-T03 vẫn `review`/chưa hoàn tất vì chưa có rule test runner, proposal diff và runtime authenticated walkthrough; Payroll chưa được nối vào mechanism.
