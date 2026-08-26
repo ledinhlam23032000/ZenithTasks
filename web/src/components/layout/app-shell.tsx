@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
   Menu,
   X,
@@ -119,6 +119,7 @@ export function AppShell({
   workspaces: WorkspaceOption[];
 }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -177,13 +178,18 @@ export function AppShell({
   };
 
   const isActive = (href: string) => {
+    const [hrefPath, hrefQuery] = href.split("?", 2);
+    if (hrefQuery?.startsWith("p=")) return pathname === hrefPath && searchParams.get("p") === decodeURIComponent(hrefQuery.slice(2));
     if (href === "/he-thong") {
       return pathname === "/he-thong" || pathname.startsWith("/he-thong/") || pathname === "/nhat-ky" || pathname.startsWith("/nhat-ky/") || pathname === "/cham-soc/ket-noi" || pathname.startsWith("/cham-soc/ket-noi/");
     }
     return pathname === href || pathname.startsWith(href + "/");
   };
 
-  const activeWorkspace = pathname.startsWith("/du-an/") ? workspaces.find((workspace) => pathname.startsWith(`/du-an/${workspace.id}`)) : undefined;
+  const routeProjectId = pathname.match(/^\/du-an\/([^/]+)/)?.[1];
+  const queryProjectId = pathname === "/tro-ly" ? searchParams.get("p") ?? undefined : undefined;
+  const activeWorkspace = workspaces.find((workspace) => workspace.id === (routeProjectId ?? queryProjectId));
+  const isProjectWorkspace = Boolean(activeWorkspace);
   const workspaceIcon: Record<string, string> = { organization: "Building2", mechanism: "Calculator", simulation: "Activity", tasks: "ListTodo" };
   const workspaceNav: NavItemData[] = activeWorkspace ? [
     { href: `/du-an/${activeWorkspace.id}`, label: "Tổng quan workspace", icon: "LayoutDashboard", group: "Workspace" },
@@ -237,18 +243,18 @@ export function AppShell({
           <ChevronDown className="h-4 w-4 text-slate-400 transition-transform group-open:rotate-180" />
         </summary>
         <div className="space-y-1 border-t border-slate-200 bg-white p-2">
-          <Link href="/dashboard" onClick={() => setMobileOpen(false)} className={cn("flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm", !pathname.startsWith("/du-an") ? "bg-brand-50 font-semibold text-brand-700" : "text-slate-600 hover:bg-slate-50")}>
-            {!pathname.startsWith("/du-an") ? <Check className="h-3.5 w-3.5" /> : <span className="w-3.5" />} Nội Bộ <span className="ml-auto text-[10px] text-slate-400">clinic</span>
+          <Link href="/dashboard" onClick={() => setMobileOpen(false)} className={cn("flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm", !isProjectWorkspace ? "bg-brand-50 font-semibold text-brand-700" : "text-slate-600 hover:bg-slate-50")}>
+            {!isProjectWorkspace ? <Check className="h-3.5 w-3.5" /> : <span className="w-3.5" />} Nội Bộ <span className="ml-auto text-[10px] text-slate-400">clinic</span>
           </Link>
           {workspaces.map((workspace) => {
-            const active = pathname.startsWith(`/du-an/${workspace.id}`);
+            const active = activeWorkspace?.id === workspace.id;
             return <Link key={workspace.id} href={`/du-an/${workspace.id}`} onClick={() => setMobileOpen(false)} className={cn("flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm", active ? "bg-brand-50 font-semibold text-brand-700" : "text-slate-600 hover:bg-slate-50")}>
               {active ? <Check className="h-3.5 w-3.5" /> : <span className="w-3.5" />} <span className="min-w-0 flex-1 truncate">{workspace.name}</span> <span className="text-[10px] text-slate-400">{workspace.code}</span>
             </Link>;
           })}
-          <Link href="/du-an" onClick={() => setMobileOpen(false)} className="flex items-center gap-2 rounded-lg border-t border-slate-100 px-2.5 py-2 pt-3 text-sm font-semibold text-brand-700 hover:bg-brand-50">
-            <Plus className="h-3.5 w-3.5" /> Quản lý Dự án
-          </Link>
+          {user.role === "ADMIN" && <Link href="/du-an" onClick={() => setMobileOpen(false)} className="flex items-center gap-2 rounded-lg border-t border-slate-100 px-2.5 py-2 pt-3 text-sm font-semibold text-brand-700 hover:bg-brand-50">
+            <Plus className="h-3.5 w-3.5" /> Thêm / quản lý Dự án
+          </Link>}
         </div>
       </details>
     </div>
@@ -522,7 +528,7 @@ export function AppShell({
       </nav>
 
       <ChangePasswordModal open={pwOpen} onClose={() => setPwOpen(false)} />
-      <CommandPalette nav={nav} open={searchOpen} onOpenChange={setSearchOpen} />
+      <CommandPalette nav={visibleNav} open={searchOpen} onOpenChange={setSearchOpen} />
     </div>
   );
 }
