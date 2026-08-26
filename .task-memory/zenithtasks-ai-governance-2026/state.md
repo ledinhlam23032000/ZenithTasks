@@ -258,3 +258,8 @@ Theo yêu cầu ưu tiên tốc độ có kiểm soát: thực thi code/test ch�
 - Commit `54149c4` pushed. Added additive project-local consent/soft-delete fields and migration `20260826170000_workspace_customer_consent_lifecycle`.
 - Added scoped Customer edit, consent record, archive actions with audit; added detail route with project-local appointments, sales and audit history; list links to detail.
 - P04-T02 moved to `review`, not done. Sandbox Prisma validate/generate, targeted Vitest 14/14, TypeScript and Next build pass. Runtime authenticated walkthrough and isolated DB execution remain open; no clinic/browser touched.
+
+## Sales period filter batch — 2026-08-26
+
+- Commit `644207d` pushed. Project Sales now supports URL-scoped from/to period filtering; aggregate cards and table use the same project-local period query, with reset control.
+- Sandbox TypeScript, targeted Vitest 14/14 and Next build pass. P04-T05 remains review because runtime/authenticated regression is open. Clinic has not received this batch.
