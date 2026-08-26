@@ -1,12 +1,12 @@
 # Full sandbox regression — 2026-08-26
 
-The full Vitest suite was run from `web` after the Payroll governance, Customer lifecycle and Sales period-filter batches.
+The full Vitest suite was rerun after the Mechanism rule-test runner and Payroll policy batches.
 
 | Check | Result |
 |---|---:|
-| Test files | 76 passed |
-| Tests | 406 passed |
+| Test files | 78 passed |
+| Tests | 411 passed |
 | Failures | 0 |
-| Duration | 2.28 seconds |
+| Duration | 2.41 seconds |
 
-This is sandbox evidence only. It does not replace Prisma migration application, isolated SQL execution, authenticated role walkthrough or the Windows runtime deploy gate. The Vite native-config warning remains informational and was not treated as a test failure.
+The suite includes the project mechanism rule tests, Payroll calculation/policy tests and AI governance regression. This remains sandbox evidence only and does not replace isolated DB migration execution, authenticated role walkthrough or Windows runtime deployment. The Vite native-config warning remains informational.

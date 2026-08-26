@@ -287,3 +287,8 @@ Sandbox verification confirmed `docker` is unavailable, so no isolated PostgreSQ
 
 - Commit `ffeb725` pushed. Mechanism DRAFT now stores bounded testCases; Admin can run explicit `TEST_RULE` against a project-local version, receiving audited PASS/FAIL aggregate. Activation remains a separate explicit `ACTIVATE` action.
 - Targeted gate passed: 19/19 tests, TypeScript and Next build. One parser narrowing issue was fixed before final pass. P05-T03 remains review pending isolated DB/runtime proof; no clinic updater/browser used.
+
+## Full regression after mechanism tests — 2026-08-26
+
+- Full Vitest rerun passed: 78 files / 411 tests, 0 failures, 2.41 seconds. Evidence refreshed at `checks/full-vitest-regression-20260826.md`.
+- Mechanism rule-test runner is included in the suite. This is still sandbox-only evidence; no migration/runtime/clinic execution was performed.
