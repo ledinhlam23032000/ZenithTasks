@@ -384,3 +384,7 @@ Sandbox verification confirmed `docker` is unavailable, so no isolated PostgreSQ
 
 - Full Vitest rerun passed: 83 files / 422 tests, 0 failures, 2.53 seconds. Evidence refreshed at `checks/full-vitest-regression-20260826.md`.
 - Cursor pagination synthetic 1,001-row test, Global console scope, layout and AI proposal governance are included. No database/runtime/clinic execution was performed.
+
+## QA seed source check — 2026-08-26
+
+- Current sandbox source does not contain the previously referenced `web/qa-seed-v2-training.ts`; glob search found no QA seed file. No seed was executed and no database/credential was accessed. Phase 09 must either restore/create a sanitized isolated seed in the QA environment or use an explicitly documented fixture, never infer from this missing path.
