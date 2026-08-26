@@ -161,3 +161,8 @@ Giới hạn: sidecar timeout trong quá trình theo dõi nên chưa thu trực 
 Đã thêm action `rollbackProjectModulesAction` và UI `V2ModuleRollbackForm`. Luồng chỉ dành cho Admin, bắt buộc chọn version và nhập `ROLLBACK`; transaction tạo version ACTIVE mới từ config cũ, supersede bản ACTIVE hiện tại, cập nhật enabledFeatures tương thích, ghi `V2_PROJECT_MODULES_ROLLED_BACK` audit và không xóa lịch sử/dữ liệu module. TypeScript pass, governance test 11/11, Next production build pass. Commit đã push `b856e73`.
 
 P03-T02 vẫn ở `review`: schema/version history, save action, audit, preview/rollback UI đã có; chưa chạy authenticated browser walkthrough hoặc runtime apply rollback trên clinic, nên chưa đánh dấu done.
+
+
+## Ledger foundation checkpoint — 2026-08-26
+
+Đã thêm enum `ZWorkspaceLedgerDirection`/`ZWorkspaceLedgerStatus`, model `ZWorkspaceLedgerEntry` với projectId bắt buộc, sale link cùng project, source/category/amount/occurredAt, void metadata, indexes và migration additive `20260826130000_workspace_ledger_entries`. Mở rộng rollback SQL isolation cho Customer/Appointment/Sale/Ledger hai project; cập nhật đặc tả không tuyên bố Finance/Payroll/UI ledger hoàn tất. Prisma validate/generate, TypeScript, governance 11/11 và Next production build pass. Commit push master: `7e19486`.
