@@ -350,3 +350,8 @@ Sandbox verification confirmed `docker` is unavailable, so no isolated PostgreSQ
 
 - Commit `56e0bfc` pushed. `/du-an` now uses a unit-tested `projectConsoleWhere` and shared page size 50; Admin all-project and Manager active-membership query scopes are explicit.
 - Targeted gate passed 27/27 plus TypeScript and Next build. P07-T04/T05 remain `review`; synthetic 1000-project scale, authenticated role denial and live aggregate verification remain open.
+
+## Full regression after Global console scope helper — 2026-08-26
+
+- Full Vitest rerun passed: 81 files / 419 tests, 0 failures, 2.41 seconds. Evidence refreshed at `checks/full-vitest-regression-20260826.md`.
+- The suite includes Global console role scope and AI proposal governance. No database/runtime/clinic execution was performed.

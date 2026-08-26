@@ -1,12 +1,12 @@
 # Full sandbox regression — 2026-08-26
 
-The full Vitest suite was rerun after the AI project config proposal governance foundation.
+The full Vitest suite was rerun after the Global Admin project-console scope helper/refactor and AI project proposal governance.
 
 | Check | Result |
 |---|---:|
-| Test files | 80 passed |
-| Tests | 417 passed |
+| Test files | 81 passed |
+| Tests | 419 passed |
 | Failures | 0 |
-| Duration | 2.37 seconds |
+| Duration | 2.41 seconds |
 
-The suite includes AI GLOBAL/PROJECT governance, draft-only config proposal policy, workspace navigation boundaries, mechanism rule tests and Payroll calculation/two-person policy. This remains sandbox evidence only and does not replace isolated DB migration execution, authenticated role walkthrough or Windows runtime deployment. The Vite native-config warning remains informational.
+The suite includes the Global console Admin/Manager scope contract, AI INTERNAL/PROJECT/GLOBAL governance, project config proposal policy, workspace navigation, mechanism rule tests and Payroll calculation/two-person policy. This is sandbox evidence only; it does not replace isolated DB migration execution, authenticated role walkthrough or Windows runtime deployment. The Vite native-config warning remains informational.
