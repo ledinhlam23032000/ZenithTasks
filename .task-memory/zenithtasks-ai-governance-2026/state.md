@@ -193,3 +193,8 @@ Lưu ý runtime: clinic đã deploy tới migration config version ở run trư�
 ## Payroll snapshot foundation checkpoint — 2026-08-26
 
 Đã thêm `ZWorkspacePayrollRun` và `ZWorkspacePayrollLine` project-local, migration additive `20260826150000_workspace_payroll_runs`, gồm kỳ lương, status Draft/Preview/Approved/Finalized/Voided, mechanismVersion link, mechanism snapshot, line snapshot, gross/commission/deduction/net và project/member indexes. Prisma validate/generate, TypeScript, governance 11/11 và Next build pass. P05-T04 chuyển `review`; action/UI tạo run, finalize/void, commission calculation và sensitive role policy còn mở. Commit code/plan/spec push master `5817c3e`.
+
+
+## Payroll DRAFT action/UI checkpoint — 2026-08-26
+
+Đã thêm route `/du-an/[projectId]/luong` và Admin form/action tạo PayrollRun DRAFT: bắt buộc mechanism version ACTIVE thuộc project, snapshot ruleSpec, kỳ start/end, tạo line snapshot cho active project members với zero pending amounts, ghi audit; payroll route chưa bật trong registry menu vì finalize/void/calculation/policy chưa hoàn tất. TypeScript, governance 11/11 và Next build pass; commit code push master `8e28d84`. P05-T04 vẫn `review`.
