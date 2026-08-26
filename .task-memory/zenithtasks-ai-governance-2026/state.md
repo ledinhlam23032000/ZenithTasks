@@ -229,3 +229,9 @@ Theo yêu cầu ưu tiên tốc độ có kiểm soát: thực thi code/test ch�
 - Final verification: targeted Vitest 14/14, direct TypeScript pass, Next production build pass. Evidence: `checks/payroll-calculation-sandbox-20260826.md`.
 - One initial Prisma JSON typing failure was corrected before the final pass.
 - Still not done: runtime/QA DB proof, two-person sensitive payroll policy, finalize/void/payout, richer mechanism rule test/diff, and authenticated walkthrough. Payroll remains unavailable in module registry; do not run Windows updater for this sandbox batch yet.
+
+## Payroll sensitive display policy — 2026-08-26
+
+- Commit `b779de8` pushed: project Payroll page now masks gross/commission/net totals for non-Admin users; Admin alone sees sensitive totals and governance actions remain Admin-only.
+- Sandbox targeted tests 14/14, TypeScript, and Next build pass after the change.
+- This is a role-display safeguard, not the final two-person approval policy. Finalize/void/payout and runtime/QA proof remain open.
