@@ -365,3 +365,7 @@ Sandbox verification confirmed `docker` is unavailable, so no isolated PostgreSQ
 
 - Commit `39904c1` pushed. Admin-only project dashboard layout editor now supports native drag/drop and Move Up/Down keyboard fallback; it creates a LAYOUT DRAFT proposal and does not apply directly.
 - Targeted gate passed 29/29 with TypeScript and Next build. Runtime accessibility, persisted LAYOUT apply/rollback and isolated DB remain open; no clinic updater/browser used.
+
+## Phase 07 layout plan alignment — 2026-08-26
+
+- P07-T01/T02/T03 moved from `not_started` to `review`: LAYOUT config/proposal foundation, Admin drag/drop plus keyboard fallback, and invalid/duplicate/planned module validation now exist. Persisted layout rollback, runtime accessibility and synthetic scale tests remain open.
