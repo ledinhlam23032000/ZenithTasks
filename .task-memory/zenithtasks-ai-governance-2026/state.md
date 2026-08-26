@@ -87,3 +87,14 @@ Next 3 actions:
 1. Review migration SQL/diff, thêm targeted static/isolation tests nếu cần, commit/push Customer foundation.
 2. Khi clinic reconnect, kiểm tra SHA/compose rồi chạy `Sua-Loi.bat`, xác minh migration 59 và `/login` 200; không merge local schema experiment.
 3. Tiếp tục P03/P04 theo thứ tự: customer edit/detail, appointment local, sale/ledger local; sau mỗi mốc chạy build/test và cập nhật checkpoint.
+
+
+## Deploy checkpoint — 2026-08-26 14:20 GMT+7
+
+Clinic Windows đã nhận `origin/master` tại `0f07a8e5c3656914e93b577c3d267b98f96b3158`. Lần chạy `windows\\Sua-Loi.bat` hardened đã đi qua checkout, Docker build, recreate app, migration và báo `DA XONG`; bằng chứng tóm tắt lưu tại `checks/workspace-core-deploy-20260826.md`.
+
+Runtime hậu kiểm: app `running`, DB `running/healthy`, `/login` HTTP 200; `docker compose exec -T app npx prisma migrate status` trả `60 migrations found` và `Database schema is up to date!`. Source clinic có route Customer và migration `20260826110000_workspace_core_modules`. Local QA state/worktrees còn được giữ ngoài commit; tracked patch cũ đã nằm trong stash, không tự động pop.
+
+Updater issue đã được sửa và kiểm chứng: untracked path xung đột incoming tracked migration trước đây làm checkout fail; bản `0f07a8e` chuyển riêng các path xung đột ra backup ngoài repo, không xóa untracked/ignored, sau đó build thành công.
+
+Chưa authenticated browser walkthrough vì owner chưa thực hiện bước đăng nhập. Chưa được tuyên bố toàn bộ Dự án hoàn chỉnh: Customer mới là foundation create/list; Appointment/Sales/Ledger/Finance/Payroll/layout/Global console/proposal workflow vẫn mở.
