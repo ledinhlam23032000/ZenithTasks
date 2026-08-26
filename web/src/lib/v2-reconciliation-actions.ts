@@ -61,3 +61,20 @@ export async function matchWorkspaceReconciliationAction(_prev: ReconciliationAc
   revalidatePath(`/du-an/${project.id}/tai-chinh`);
   return { ok: true, message: "Đã chuyển bản ghi sang MATCHED và lưu audit." };
 }
+
+
+export async function exceptionWorkspaceReconciliationAction(_prev: ReconciliationActionState, formData: FormData): Promise<ReconciliationActionState> {
+  const projectId = text(formData, "projectId", 80);
+  const reconciliationId = text(formData, "reconciliationId", 80);
+  const confirmation = text(formData, "confirmation", 24).toUpperCase();
+  const reason = text(formData, "reason", 500);
+  const { user, project } = await requireProjectAccess(projectId);
+  if (user.role !== "ADMIN") return { error: "Chỉ Admin mới được đánh dấu ngoại lệ đối soát." };
+  if (confirmation !== "EXCEPTION") return { error: "Nhập EXCEPTION để xác nhận ngoại lệ." };
+  if (reason.length < 10) return { error: "Lý do ngoại lệ phải có ít nhất 10 ký tự." };
+  const result = await prisma.zWorkspacePaymentReconciliation.updateMany({ where: { id: reconciliationId, projectId: project.id, status: "UNMATCHED" }, data: { status: "EXCEPTION", note: reason } });
+  if (result.count !== 1) return { error: "Bản ghi không tồn tại, đã xử lý hoặc không thuộc Dự án này." };
+  await prisma.auditLog.create({ data: { actorId: user.id, action: "V2_WORKSPACE_RECONCILIATION_EXCEPTION", entity: "ZWorkspacePaymentReconciliation", entityId: reconciliationId, meta: { projectId: project.id, reason } } });
+  revalidatePath(`/du-an/${project.id}/tai-chinh`);
+  return { ok: true, message: "Đã đánh dấu EXCEPTION và lưu lý do/audit; chưa khớp thanh toán." };
+}
