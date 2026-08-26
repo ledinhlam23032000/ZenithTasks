@@ -303,6 +303,7 @@ model User {
   workspaceAppointmentsCreated  ZWorkspaceAppointment[]     @relation("WorkspaceAppointmentCreator")
   workspaceAppointmentsAssigned ZWorkspaceAppointment[]     @relation("WorkspaceAppointmentAssignee")
   workspaceSalesCreated         ZWorkspaceSale[]            @relation("WorkspaceSaleCreator")
+  workspaceLedgerEntriesCreated ZWorkspaceLedgerEntry[]      @relation("WorkspaceLedgerCreator")
   workspaceConfigVersionsCreated ZWorkspaceConfigVersion[]   @relation("WorkspaceConfigCreatedBy")
   workspaceConfigVersionsApproved ZWorkspaceConfigVersion[]  @relation("WorkspaceConfigApprovedBy")
 }
@@ -1378,6 +1379,16 @@ enum ZWorkspaceSaleStatus {
   CANCELLED
 }
 
+enum ZWorkspaceLedgerDirection {
+  INCOME
+  EXPENSE
+}
+
+enum ZWorkspaceLedgerStatus {
+  POSTED
+  VOIDED
+}
+
 enum ZMechanismKind {
   COMMISSION
   DISCOUNT
@@ -1418,6 +1429,7 @@ model ZProject {
   workspaceCustomers  ZWorkspaceCustomer[]
   workspaceAppointments ZWorkspaceAppointment[]
   workspaceSales      ZWorkspaceSale[]
+  workspaceLedgerEntries ZWorkspaceLedgerEntry[]
   configVersions      ZWorkspaceConfigVersion[]
 
   @@index([status, createdAt])
@@ -1575,10 +1587,37 @@ model ZWorkspaceSale {
   project     ZProject            @relation(fields: [projectId], references: [id], onDelete: Cascade)
   customer    ZWorkspaceCustomer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
   createdBy   User                @relation("WorkspaceSaleCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  ledgerEntries ZWorkspaceLedgerEntry[]
 
   @@unique([projectId, code])
   @@index([projectId, occurredAt])
   @@index([projectId, status])
+}
+
+model ZWorkspaceLedgerEntry {
+  id            String                    @id @default(cuid())
+  projectId     String
+  saleId        String?
+  code          String
+  direction     ZWorkspaceLedgerDirection
+  status        ZWorkspaceLedgerStatus     @default(POSTED)
+  category      String
+  description   String?
+  amount        Decimal                   @db.Decimal(14, 0)
+  occurredAt    DateTime                  @default(now())
+  sourceRef     String?
+  createdById   String
+  voidedAt      DateTime?
+  voidReason    String?
+  createdAt     DateTime                  @default(now())
+  updatedAt     DateTime                  @updatedAt
+  project       ZProject                  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sale          ZWorkspaceSale?           @relation(fields: [saleId], references: [id], onDelete: SetNull)
+  createdBy     User                      @relation("WorkspaceLedgerCreator", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@unique([projectId, code])
+  @@index([projectId, direction, status, occurredAt])
+  @@index([projectId, saleId])
 }
 
 model ZWorkspaceTask {

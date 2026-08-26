@@ -12,6 +12,10 @@ DECLARE
   customer_b TEXT := 'qa-customer-b-' || substr(md5(random()::text), 1, 10);
   appointment_a TEXT := 'qa-appointment-a-' || substr(md5(random()::text), 1, 10);
   appointment_b TEXT := 'qa-appointment-b-' || substr(md5(random()::text), 1, 10);
+  sale_a TEXT := 'qa-sale-a-' || substr(md5(random()::text), 1, 10);
+  sale_b TEXT := 'qa-sale-b-' || substr(md5(random()::text), 1, 10);
+  ledger_a TEXT := 'qa-ledger-a-' || substr(md5(random()::text), 1, 10);
+  ledger_b TEXT := 'qa-ledger-b-' || substr(md5(random()::text), 1, 10);
   legacy_before BIGINT;
   legacy_appointment_before BIGINT;
   scoped_a BIGINT;
@@ -58,6 +62,23 @@ BEGIN
   END IF;
   IF (SELECT count(*) FROM "Appointment") <> legacy_appointment_before THEN
     RAISE EXCEPTION 'Legacy Appointment table changed during project-local test';
+  END IF;
+
+  INSERT INTO "ZWorkspaceSale" ("id", "projectId", "customerId", "code", "serviceName", "amount", "paidAmount", "status", "occurredAt", "createdById", "createdAt", "updatedAt")
+  VALUES
+    (sale_a, project_a, customer_a, 'SALE-A-001', 'QA Service A', 100000, 100000, 'PAID', now(), actor_id, now(), now()),
+    (sale_b, project_b, customer_b, 'SALE-B-001', 'QA Service B', 200000, 0, 'CONFIRMED', now(), actor_id, now(), now());
+
+  INSERT INTO "ZWorkspaceLedgerEntry" ("id", "projectId", "saleId", "code", "direction", "status", "category", "description", "amount", "occurredAt", "createdById", "createdAt", "updatedAt")
+  VALUES
+    (ledger_a, project_a, sale_a, 'LEDGER-A-001', 'INCOME', 'POSTED', 'SALE', 'QA ledger A', 100000, now(), actor_id, now(), now()),
+    (ledger_b, project_b, sale_b, 'LEDGER-B-001', 'INCOME', 'POSTED', 'SALE', 'QA ledger B', 200000, now(), actor_id, now(), now());
+
+  IF (SELECT count(*) FROM "ZWorkspaceLedgerEntry" WHERE "projectId" = project_a AND "saleId" = sale_b) <> 0 THEN
+    RAISE EXCEPTION 'Cross-project ledger/sale link leaked into project A';
+  END IF;
+  IF (SELECT count(*) FROM "ZWorkspaceLedgerEntry" WHERE "projectId" = project_a) <> 1 OR (SELECT count(*) FROM "ZWorkspaceLedgerEntry" WHERE "projectId" = project_b) <> 1 THEN
+    RAISE EXCEPTION 'Workspace ledger scope mismatch';
   END IF;
 
   RAISE NOTICE 'WORKSPACE_CORE_ISOLATION_PASS';
