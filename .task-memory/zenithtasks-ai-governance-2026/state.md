@@ -269,3 +269,7 @@ Theo yêu cầu ưu tiên tốc độ có kiểm soát: thực thi code/test ch�
 - Full Vitest regression passed: 76 files / 406 tests, 0 failures. Evidence: `checks/full-vitest-regression-20260826.md`.
 - Evidence commit `1961316` pushed; local/remote master matched and tree was clean after commit.
 - This strengthens the sandbox release candidate but does not change production status: migrations/runtime/QA SQL/authenticated walkthrough remain pending, so no Windows updater was started.
+
+## Documentation alignment checkpoint — 2026-08-26
+
+- Commit `f91ed43` pushed. Source-of-truth plan and `WORKSPACE-V3-REAL-PROJECT.md` now accurately state that Payroll calculation preview and two-person finalize/void exist, while payout/accounting integration, isolated DB proof and authenticated runtime remain open.
