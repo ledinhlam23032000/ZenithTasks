@@ -311,3 +311,8 @@ Sandbox verification confirmed `docker` is unavailable, so no isolated PostgreSQ
 
 - Commit `75c7b5d` pushed. Project-local Finance now supports explicit Admin `UNMATCHED -> EXCEPTION` with reason and audit, alongside separate MATCH flow; no legacy Payment access.
 - Prisma validate/generate, targeted tests 22/22, TypeScript and Next build passed. P05-T02 remains review pending isolated DB and authenticated runtime proof.
+
+## Global project console checkpoint — 2026-08-26
+
+- Commit `8b1f5ec` pushed. `/du-an` now has bounded 50-row cursor pagination, code/name search, project-local aggregate counts, Admin all-project scope and Manager active-membership scope.
+- Prisma/TypeScript/Next and targeted tests 22/22 passed. P07-T05 remains review pending authenticated runtime, synthetic scale-data test and global aggregate verification.
