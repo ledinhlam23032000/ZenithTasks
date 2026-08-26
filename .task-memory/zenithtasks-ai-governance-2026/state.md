@@ -140,3 +140,10 @@ Bản hardening đã qua `git diff --check` và push master tại `90f6bef`. L�
 Người dùng phát hiện con trỏ điều phối hiển thị phase 10 dễ bị hiểu là `10/10` đã xong. Nguyên nhân là em tạm chuyển cursor lên phase 10 để xử lý blocker updater, không phải do 10 phase hoặc 60 task đã hoàn thành. Đã sửa lại cursor về phase 3 (Project-local schema và lifecycle/config version). Nguồn sự thật vẫn là bảng 60 task với trạng thái từng mã; hiện không được đánh dấu complete giả.
 
 Quy tắc mới: không chuyển cursor phase chỉ để xử lý một blocker xuyên phase nếu việc đó có thể tạo tín hiệu hoàn thành sai; mọi báo cáo phải hiển thị riêng `phase cursor` và tổng trạng thái task.
+
+
+## Sua-Loi wrapper diagnosis checkpoint — 2026-08-26
+
+Nguyên nhân chính của hiện tượng cửa sổ đen khi agent gọi updater là cách khởi chạy nền/redirect làm mất trạng thái và một run có thể để `com.docker.build.exe` tách khỏi wrapper. `Sua-Loi.bat` đã được viết lại để hiện `[0/4]`, in thư mục/script đang chạy, kiểm tra `Sua-Loi.ps1` và PowerShell, ghi `Sua-Loi-launch.log`, hiển thị exit code và giữ cửa sổ ở cuối để người dùng đọc lỗi. Bản wrapper đã push tại `f9cddb8`.
+
+Run trực tiếp tiếp theo đã phát hiện Docker Desktop Linux engine không còn phản hồi sau khi orphan build bị dừng; app/db trước đó vẫn healthy, nhưng các lần kiểm tra sau trả `/login=000` và pipe Docker chưa mở. Không được tuyên bố deploy config/sales thành công. Cần để Docker Desktop tự hồi phục hoặc owner mở lại Docker Desktop trước khi chạy updater tiếp; không xóa volume, không reset DB, không mở browser treo.
