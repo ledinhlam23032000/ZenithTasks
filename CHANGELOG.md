@@ -382,9 +382,9 @@ Mỗi thay đổi nghiệp vụ phải ghi ngày, mục đích, tệp hoặc mig
 ## 2026-08-24 — Workspace Nội Bộ/Dự án và one-click updater đã xác minh
 
 - Bổ sung workspace picker dưới tên bệnh viện; Nội Bộ giữ nguyên dữ liệu clinic, còn Dự án mở dashboard riêng tại `/du-an/[projectId]`.
-- Bổ sung registry module theo workspace, cấu hình Admin bật/tắt module đã triển khai bằng `enabledFeatures` và ghi audit; module chưa có schema/route như Khách hàng, Lịch hẹn, Tài chính, Lương/hoa hồng và Task vẫn hiển thị là Sắp tích hợp, không được bật giả.
+- Bổ sung registry module theo workspace, cấu hình Admin bật/tắt module đã triển khai bằng `enabledFeatures` và ghi audit; module chưa có schema/route như Khách hàng, Lịch hẹn, Tài chính và Lương/hoa hồng không được bật giả. Task đã có schema `ZWorkspaceTask`, route, CRUD tối thiểu và isolation test.
 - Manager chỉ thấy Dự án có membership active; các trang dashboard, Tổ chức và Cơ chế đều kiểm tra phạm vi server-side. Admin có quyền tổng quan toàn cục trong lớp V2.
-- Tái chạy chính `windows/Sua-Loi.ps1`: backup vượt qua với `No local changes to save`, ignored `worktrees/` được giữ ngoài stash, Docker build đạt, app mới chạy, migration không pending và `/login` HTTP 200. Console vẫn có thể vỡ ký tự do code page cũ; trạng thái được xác minh bằng Docker/HTTP thay vì dựa vào text console.
+- Tái chạy chính xác `windows/Sua-Loi.bat` cho master `d1e5ada`: backup vượt qua với `No local changes to save`, ignored `worktrees/` được giữ ngoài stash, Docker build/recreate đạt, app mới chạy, migration `20260824013000_ai_workspace_scope` apply thành công, tổng 58 migrations, `Ready` và `/login` HTTP 200. Console vẫn có thể vỡ ký tự do code page cũ; trạng thái được xác minh bằng Docker/HTTP/log UTF-8 thay vì dựa vào text console.
 - Regression `checks/test-v2-workspace-boundary.ps1` đạt `V2_WORKSPACE_BOUNDARY_PASS`. Không đưa `.env`, credential QA, JWT hoặc API key vào commit.
 
 ## 2026-08-24 — Workspace Task và AI scope
@@ -393,4 +393,4 @@ Mỗi thay đổi nghiệp vụ phải ghi ngày, mục đích, tệp hoặc mig
 - Bổ sung Admin membership management tại `/du-an/[projectId]/thanh-vien`; tạm dừng membership không xóa dữ liệu và mọi thay đổi có audit.
 - Sidebar workspace đổi sang menu module riêng khi ở Dự án; thêm link Trợ lý AI giữ `?p=projectId`.
 - Bổ sung migration AI scope cho conversation/approval, selector Nội Bộ/Dự án, planner không nạp snapshot Nội Bộ khi ở Project, policy chặn thiếu/sai projectId và metadata audit/preview theo workspace.
-- Đã đạt Prisma validate, TypeScript, Next production build và unit governance trong clone sandbox. Commit AI scope đã push master; cần chạy lại updater trên máy clinic sau khi kết nối trở lại trước khi xác nhận deployment cuối cùng.
+- Đã đạt Prisma validate, TypeScript, Next production build và 10 unit tests governance trong clone sandbox. Smoke `/du-an`, `/tro-ly` và URL project không hợp lệ trả redirect auth 307, không có runtime error mới. Commit AI scope đã được updater triển khai thật trên clinic; local checkout và `origin/master` cùng `d1e5ada`. UI authenticated Admin/Manager chưa được browser-verified trong phiên này.
