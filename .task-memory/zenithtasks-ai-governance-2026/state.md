@@ -210,3 +210,13 @@ Sau khi Docker Running, đã chạy đúng một lần `Sua-Loi.bat` cache-safe.
 ## Speed strategy checkpoint — 2026-08-26
 
 Theo yêu cầu ưu tiên tốc độ có kiểm soát: thực thi code/test chủ yếu trên sandbox; gom migration/UI thành release candidate; chỉ chạy `Sua-Loi.bat` một lần sau khi sandbox Prisma/TypeScript/governance/Next build pass. Không dùng browser hoặc updater nền để tạo cảm giác đang làm; mỗi deploy phải có exit code, migration, health và HTTP evidence. Current phase remains P05 Finance/Payroll; clinic đã nhận batch tới SHA `5d38fc0`, còn code mới sau đó sẽ gom thành batch kế tiếp.
+
+## Payroll governance batch — 2026-08-26
+
+- Sandbox implementation committed/pushed as `83effb4` (`feat: add payroll preview approval governance`).
+- Added project-scoped Admin `DRAFT -> PREVIEW` with explicit `PREVIEW` confirmation and audited `PREVIEW -> APPROVED` with explicit `APPROVE`, line snapshot/non-negative amount checks.
+- UI deliberately states finalize/chi trả are not available; no legacy PayrollEntry/Payment/CaseRecord access.
+- Evidence: `checks/payroll-governance-sandbox-20260826.md`.
+- Verification passed: `tsc --noEmit`, AI governance Vitest 11/11, Next production build.
+- Plan corrected: P03-T06 and P05-T03 are `review`; P05-T04 remains `review` with explicit missing commission calculation/finalize/void/sensitive policy/runtime gaps.
+- Next implementation focus: complete project-local commission calculation preview from immutable mechanism snapshot, then add tested approval/finalize/void policy without enabling Payroll module until quality gates pass.
