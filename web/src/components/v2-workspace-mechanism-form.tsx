@@ -1,0 +1,14 @@
+"use client";
+
+import { useEffect } from "react";
+import { Calculator, Loader2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useFormAction } from "@/lib/use-form-action";
+import { createWorkspaceMechanismAction } from "@/lib/v2-mechanism-actions";
+
+export function V2WorkspaceMechanismForm({ projectId }: { projectId: string }) {
+  const router = useRouter();
+  const [state, action, pending] = useFormAction(createWorkspaceMechanismAction, () => router.refresh());
+  useEffect(() => { if (state.ok) router.refresh(); }, [router, state.ok]);
+  return <details className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"><summary className="flex cursor-pointer list-none items-center gap-2 font-semibold text-slate-900"><Calculator className="h-5 w-5 text-brand-600" /> Tạo cơ chế project-local</summary><p className="mt-2 text-sm leading-6 text-slate-500">Cơ chế mới luôn ở DRAFT. Admin phải preview ruleSpec và nhập ACTIVATE trước khi áp dụng version.</p><form action={action} className="mt-5 grid gap-4 md:grid-cols-2"><input type="hidden" name="projectId" value={projectId} /><label className="text-sm font-medium text-slate-700">Mã cơ chế<input required name="code" placeholder="COMM-001" className="mt-1 min-h-10 w-full rounded-xl border border-slate-300 px-3" /></label><label className="text-sm font-medium text-slate-700">Tên cơ chế<input required name="name" placeholder="Hoa hồng dịch vụ" className="mt-1 min-h-10 w-full rounded-xl border border-slate-300 px-3" /></label><label className="text-sm font-medium text-slate-700">Loại<select name="kind" defaultValue="COMMISSION" className="mt-1 min-h-10 w-full rounded-xl border border-slate-300 bg-white px-3"><option value="COMMISSION">Commission</option><option value="DISCOUNT">Discount</option><option value="REVENUE_SHARE">Revenue share</option><option value="BONUS">Bonus</option><option value="RANK">Rank</option><option value="OTHER">Other</option></select></label><label className="text-sm font-medium text-slate-700 md:col-span-2">ruleSpec JSON<textarea required name="ruleSpec" rows={6} defaultValue={'{\n  "rate": 0.1,\n  "basis": "net_revenue"\n}'} className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 font-mono text-xs" /></label><button type="submit" disabled={pending} className="inline-flex min-h-10 w-fit items-center gap-2 rounded-xl bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60">{pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Calculator className="h-4 w-4" />}{pending ? "Đang tạo DRAFT…" : "Tạo DRAFT"}</button>{state.message && <p role="status" className="text-sm text-emerald-700 md:col-span-2">{state.message}</p>}{state.error && <p role="alert" className="text-sm text-rose-700 md:col-span-2">{state.error}</p>}</form></details>;
+}
