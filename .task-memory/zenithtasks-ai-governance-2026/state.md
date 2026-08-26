@@ -98,3 +98,12 @@ Runtime hậu kiểm: app `running`, DB `running/healthy`, `/login` HTTP 200; `d
 Updater issue đã được sửa và kiểm chứng: untracked path xung đột incoming tracked migration trước đây làm checkout fail; bản `0f07a8e` chuyển riêng các path xung đột ra backup ngoài repo, không xóa untracked/ignored, sau đó build thành công.
 
 Chưa authenticated browser walkthrough vì owner chưa thực hiện bước đăng nhập. Chưa được tuyên bố toàn bộ Dự án hoàn chỉnh: Customer mới là foundation create/list; Appointment/Sales/Ledger/Finance/Payroll/layout/Global console/proposal workflow vẫn mở.
+
+
+## Project operations checkpoint — 2026-08-26 18:30 GMT+7
+
+Đã thêm module Doanh số project-local: `createWorkspaceSaleAction` xác minh project/customer, giới hạn số tiền và điều kiện PAID, ghi audit `ZWorkspaceSale`; trang `/du-an/[projectId]/doanh-so` tổng hợp tổng giá trị/đã thu và liệt kê giao dịch theo projectId. Registry thêm key `sales` và route local; Finance ledger vẫn chưa mở.
+
+Đã thêm/hoàn chỉnh Lịch hẹn project-local ở commit `c4cb1fa`: create, assignee/customer cùng project, conflict trong khoảng ±30 phút và cập nhật trạng thái có audit. Build sandbox sau đó pass với các route `/lich-hen` và `/doanh-so`.
+
+Bằng chứng code hiện tại: `prisma generate`, direct `tsc --noEmit`, governance tests **11/11**, `next build` pass. Chưa deploy commit Doanh số mới lên clinic; cần commit/push rồi chạy `Sua-Loi.bat`. Doanh số hiện chưa phải ledger/đối soát immutable đầy đủ và chưa có period filter; Customer edit/consent/detail/history, Finance, Payroll vẫn mở.

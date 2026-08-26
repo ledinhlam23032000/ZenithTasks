@@ -1,4 +1,4 @@
-export type V2ModuleKey = "organization" | "mechanism" | "simulation" | "tasks" | "customers" | "appointments" | "finance" | "payroll";
+export type V2ModuleKey = "organization" | "mechanism" | "simulation" | "tasks" | "customers" | "appointments" | "sales" | "finance" | "payroll";
 
 export type V2ModuleDefinition = {
   key: V2ModuleKey;
@@ -15,7 +15,8 @@ export const V2_MODULES: readonly V2ModuleDefinition[] = [
   { key: "tasks", label: "Task & quy trình", description: "Không gian task riêng của Dự án.", href: (id) => `/du-an/${id}/tasks`, available: true },
   { key: "customers", label: "Khách hàng", description: "Hồ sơ khách riêng của Dự án.", href: (id) => `/du-an/${id}/khach-hang`, available: true },
   { key: "appointments", label: "Lịch hẹn", description: "Lịch riêng của Dự án.", href: (id) => `/du-an/${id}/lich-hen`, available: true },
-  { key: "finance", label: "Tài chính", description: "Doanh thu và chi phí riêng của Dự án.", href: (id) => `/du-an/${id}?module=finance`, available: false },
+  { key: "sales", label: "Doanh số", description: "Giao dịch dịch vụ và doanh thu riêng của Dự án.", href: (id) => `/du-an/${id}/doanh-so`, available: true },
+  { key: "finance", label: "Tài chính", description: "Sổ thu-chi và đối soát riêng của Dự án.", href: (id) => `/du-an/${id}?module=finance`, available: false },
   { key: "payroll", label: "Lương & hoa hồng", description: "Settlement riêng của Dự án.", href: (id) => `/du-an/${id}?module=payroll`, available: false },
 ];
 
