@@ -325,3 +325,9 @@ Sandbox verification confirmed `docker` is unavailable, so no isolated PostgreSQ
 
 - Commit `462502a` pushed. Added project-local config proposal schema/migration and Admin-only DRAFT → APPROVE → APPLY/REJECT workflow with before/after preview, explicit PROJECT target, L5 fail-closed, rollback version link and audit.
 - Prisma validate/generate, TypeScript, Next build and proposal/navigation/mechanism/payroll/AI targeted tests passed 24/24. This is foundation evidence only; AI-originated proposals, isolated DB and authenticated runtime approval/apply remain open. No clinic updater/browser used.
+
+## AI project proposal governance checkpoint — 2026-08-26
+
+- Commit `1d410a5` pushed. AI dispatcher now recognizes `propose_workspace_config` as Admin draft-only capability; policy tests explicit Global project target, Manager denial and no direct APPLY.
+- Config proposal schema/UI/actions remain project-local with separate DRAFT/APPROVE/APPLY/REJECT, before/after, risk, rollback and audit. Targeted gate passed 25/25 plus TypeScript/Next build.
+- P08-T01/T02/T03/T04 remain open/not done until real AI tool invocation, isolated DB and authenticated workflow evidence exist. No clinic updater/browser used.
