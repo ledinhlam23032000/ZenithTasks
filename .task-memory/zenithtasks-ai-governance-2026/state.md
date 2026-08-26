@@ -263,3 +263,9 @@ Theo yêu cầu ưu tiên tốc độ có kiểm soát: thực thi code/test ch�
 
 - Commit `644207d` pushed. Project Sales now supports URL-scoped from/to period filtering; aggregate cards and table use the same project-local period query, with reset control.
 - Sandbox TypeScript, targeted Vitest 14/14 and Next build pass. P04-T05 remains review because runtime/authenticated regression is open. Clinic has not received this batch.
+
+## Full regression checkpoint — 2026-08-26
+
+- Full Vitest regression passed: 76 files / 406 tests, 0 failures. Evidence: `checks/full-vitest-regression-20260826.md`.
+- Evidence commit `1961316` pushed; local/remote master matched and tree was clean after commit.
+- This strengthens the sandbox release candidate but does not change production status: migrations/runtime/QA SQL/authenticated walkthrough remain pending, so no Windows updater was started.
