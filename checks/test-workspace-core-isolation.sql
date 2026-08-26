@@ -10,7 +10,10 @@ DECLARE
   project_b TEXT := 'qa-core-b-' || substr(md5(random()::text), 1, 10);
   customer_a TEXT := 'qa-customer-a-' || substr(md5(random()::text), 1, 10);
   customer_b TEXT := 'qa-customer-b-' || substr(md5(random()::text), 1, 10);
+  appointment_a TEXT := 'qa-appointment-a-' || substr(md5(random()::text), 1, 10);
+  appointment_b TEXT := 'qa-appointment-b-' || substr(md5(random()::text), 1, 10);
   legacy_before BIGINT;
+  legacy_appointment_before BIGINT;
   scoped_a BIGINT;
   scoped_b BIGINT;
 BEGIN
@@ -20,6 +23,7 @@ BEGIN
   END IF;
 
   SELECT count(*) INTO legacy_before FROM "Customer";
+  SELECT count(*) INTO legacy_appointment_before FROM "Appointment";
 
   INSERT INTO "ZProject" ("id", "code", "name", "projectType", "status", "currency", "createdAt", "updatedAt")
   VALUES
@@ -42,6 +46,18 @@ BEGIN
   END IF;
   IF (SELECT count(*) FROM "Customer") <> legacy_before THEN
     RAISE EXCEPTION 'Legacy Customer table changed during project-local test';
+  END IF;
+
+  INSERT INTO "ZWorkspaceAppointment" ("id", "projectId", "customerId", "scheduledAt", "type", "status", "createdById", "createdAt", "updatedAt")
+  VALUES
+    (appointment_a, project_a, customer_a, now() + interval '1 day', 'NEW', 'BOOKED', actor_id, now(), now()),
+    (appointment_b, project_b, customer_b, now() + interval '2 days', 'FOLLOW_UP', 'CONFIRMED', actor_id, now(), now());
+
+  IF (SELECT count(*) FROM "ZWorkspaceAppointment" WHERE "projectId" = project_a AND "customerId" = customer_b) <> 0 THEN
+    RAISE EXCEPTION 'Cross-project appointment/customer link leaked into project A';
+  END IF;
+  IF (SELECT count(*) FROM "Appointment") <> legacy_appointment_before THEN
+    RAISE EXCEPTION 'Legacy Appointment table changed during project-local test';
   END IF;
 
   RAISE NOTICE 'WORKSPACE_CORE_ISOLATION_PASS';
