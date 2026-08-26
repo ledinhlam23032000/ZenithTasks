@@ -1,6 +1,8 @@
 # ============================================================================
 #  SUA LOI / CAP NHAT SACH - Zenith Clinic (Trung tam PTTH Tham my, BVDK Hong Phuc)
-#  Tai lai ma moi nhat + dung lai tu dau (khong cache) + ap dung cap nhat CSDL.
+#  Tai lai ma moi nhat + build co cache an toan + ap dung cap nhat CSDL.
+#  Dat ZENITH_FORCE_NO_CACHE=true neu can build lai toan bo image mot cach co chu y.
+
 #  KHONG mat du lieu (du lieu nam trong volume Docker rieng).
 # ============================================================================
 $Repo   = "https://github.com/ledinhlam23032000/ZenithTasks.git"
@@ -144,10 +146,13 @@ foreach ($strayName in @("pnpm-workspace.yaml", "pnpm-workspace.yml")) {
   }
 }
 
-Write-Host "`n[2/4] Dung lai ung dung tu dau (lau ~5-15 phut, vui long cho - dung tat)..." -ForegroundColor Cyan
+Write-Host "`n[2/4] Build va dung lai ung dung (vui long cho, khong tat cua so)..." -ForegroundColor Cyan
+
 # Docker Compose ban moi co the chuyen build qua Bake. Tren mot so may Windows,
 # Bake bi ngat voi ma 0xc000013a du build chua xong. Tat Bake va gom ca stdout/stderr
-# vao log co timestamp de lay duoc loi that thay vi thong bao tong quat.
+# vao log co timestamp de lay duoc loi that thay vi thong bao tong quat. Dung cache
+# de lan cap nhat thong thuong nhanh va it phu thuoc mang; force no-cache chi khi can.
+
 $env:COMPOSE_BAKE = "false"
 $BuildLog = Join-Path $Dir "docker-build-$Stamp.log"
 Write-Host "Log build: $BuildLog" -ForegroundColor DarkGray
@@ -157,14 +162,18 @@ Write-Host "Docker dang build; dong nay se cap nhat lien tuc. Neu co loi, log va
 # ghi `DONE`. Gọi trực tiếp với redirect file để PowerShell chờ đúng Docker
 # client và nhận `$LASTEXITCODE`; progress plain giúp log không phụ thuộc TTY.
 $BuildErr = Join-Path $Dir "docker-build-$Stamp.err.log"
-& docker compose --progress plain build --no-cache app > $BuildLog 2> $BuildErr
+$buildArgs = @("--progress", "plain", "build")
+if ($env:ZENITH_FORCE_NO_CACHE -eq "true") { $buildArgs += "--no-cache"; Write-Host "Build mode: FORCE NO-CACHE" -ForegroundColor Yellow } else { Write-Host "Build mode: CACHE-ENABLED" -ForegroundColor DarkGray }
+& docker compose @buildArgs app > $BuildLog 2> $BuildErr
+
 $buildExit = $LASTEXITCODE
 Write-Host ""
 if ($buildExit -ne 0) {
   Write-Host "`nBUILD THAT BAI - ung dung VAN chay ban cu (khong hong them)." -ForegroundColor Red
   Write-Host "Ma loi build: $buildExit" -ForegroundColor Yellow
   Write-Host "Log chi tiet: $BuildLog" -ForegroundColor Yellow
-  Write-Host "Neu ma loi la 0xc000013a, tien trinh build da bi ngat truoc khi Next.js bao loi; vui long khong dong cua so va chay lai sau khi Docker Desktop on dinh." -ForegroundColor Yellow
+  Write-Host "Neu ma loi la 0xc000013a, tien trinh build da bi ngat truoc khi Next.js bao loi; giu log lai va chay lai sau khi Docker Desktop on dinh." -ForegroundColor Yellow
+
   EndHere 1
 }
 
