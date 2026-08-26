@@ -126,3 +126,10 @@ Trạng thái kiểm kê: 6 `done`, 20 `review`, 34 `not_started`, không có `b
 `updateProjectModulesAction` hiện tạo version MODULES mới trong transaction, supersede version ACTIVE trước, cập nhật `ZProject.enabledFeatures` để tương thích các loader hiện hữu và ghi audit kèm `configVersion`. Dự án mới tạo version MODULES 1 ACTIVE cùng lúc tạo project/member. Dashboard hiển thị 5 version gần nhất theo project.
 
 Sandbox verification sau thay đổi: Prisma generate pass, TypeScript pass, governance test **11/11**, Next production build pass và route list không lỗi. P03-T02 vẫn `review`: chưa có preview/rollback action và UI dành riêng cho rollback; không coi manual Admin save là full approval workflow.
+
+
+## Updater reliability checkpoint — 2026-08-26
+
+Phản hồi của người dùng về việc không để browser/tab/process treo đã được ghi vào quy tắc vận hành của kế hoạch. Updater `windows/Sua-Loi.ps1` được harden thêm: build Docker dùng cache an toàn theo mặc định để giảm thời gian và phụ thuộc mạng; có thể chủ động đặt `ZENITH_FORCE_NO_CACHE=true` khi thật sự cần rebuild toàn bộ. Vẫn giữ `COMPOSE_BAKE=false`, redirect log, kiểm tra exit code, không `git clean`, không xóa volume/database.
+
+Bản hardening đã qua `git diff --check` và push master tại `90f6bef`. Lần triển khai Doanh số trước đó bị dừng vì no-cache build đứng ở base-image apt; app/db clinic vẫn running/healthy và `/login` 200. Commit Doanh số và config-version vẫn cần một lần updater thành công để ghi runtime evidence.
