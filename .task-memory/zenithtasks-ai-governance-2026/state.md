@@ -247,3 +247,8 @@ Theo yêu cầu ưu tiên tốc độ có kiểm soát: thực thi code/test ch�
 
 - Commit `3d06313` pushed. `checks/test-workspace-core-isolation.sql` now includes rollback-only synthetic checks for mechanism version, PayrollRun and PayrollLine project scope, while still asserting legacy Customer/Appointment counts do not change.
 - This SQL has not been run against clinic. It must run only against isolated QA or a deliberate transaction after migration `20260826160000_payroll_two_person_governance` is applied.
+
+## Isolation snapshot correction — 2026-08-26
+
+- Commit `2505b7d` pushed. Synthetic PayrollRun/Line JSON snapshots in the rollback-only isolation SQL now bind to the generated project ID using `jsonb_build_object`, avoiding placeholder context in QA evidence.
+- No QA/clinic database was touched; SQL remains pending isolated QA execution after the new migration.
