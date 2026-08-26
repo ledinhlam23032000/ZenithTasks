@@ -314,6 +314,9 @@ model User {
   workspacePayrollLines ZWorkspacePayrollLine[] @relation("WorkspacePayrollLineUser")
   workspaceConfigVersionsCreated ZWorkspaceConfigVersion[]   @relation("WorkspaceConfigCreatedBy")
   workspaceConfigVersionsApproved ZWorkspaceConfigVersion[]  @relation("WorkspaceConfigApprovedBy")
+  workspaceConfigProposalsCreated ZWorkspaceConfigProposal[] @relation("WorkspaceProposalCreator")
+  workspaceConfigProposalsApproved ZWorkspaceConfigProposal[] @relation("WorkspaceProposalApprover")
+  workspaceConfigProposalsApplied ZWorkspaceConfigProposal[] @relation("WorkspaceProposalApplier")
 }
 
 // ============================ CHẤM CÔNG & LƯƠNG ============================
@@ -1436,6 +1439,15 @@ enum ZMechanismStatus {
   SUPERSEDED
 }
 
+enum ZWorkspaceProposalStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  APPLIED
+  REJECTED
+  EXPIRED
+}
+
 model ZProject {
   id                  String                 @id @default(cuid())
   code                String                 @unique
@@ -1463,6 +1475,7 @@ model ZProject {
   payrollRuns         ZWorkspacePayrollRun[]
   payrollLines        ZWorkspacePayrollLine[]
   configVersions      ZWorkspaceConfigVersion[]
+  configProposals     ZWorkspaceConfigProposal[]
 
   @@index([status, createdAt])
 }
@@ -1532,6 +1545,34 @@ model ZProjectAssignment {
 
   @@index([projectId, status])
   @@index([userId, status])
+}
+
+model ZWorkspaceConfigProposal {
+  id             String                    @id @default(cuid())
+  projectId      String
+  moduleKey      String
+  targetScope    String                    @default("PROJECT")
+  status         ZWorkspaceProposalStatus  @default(DRAFT)
+  riskLevel      String
+  capability     String
+  beforeConfig   Json?
+  afterConfig    Json
+  rollbackVersionId String?
+  note           String?
+  createdById    String
+  approvedById   String?
+  appliedById    String?
+  approvedAt     DateTime?
+  appliedAt      DateTime?
+  createdAt      DateTime                  @default(now())
+  updatedAt      DateTime                  @updatedAt
+  project        ZProject                  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy      User                      @relation("WorkspaceProposalCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  approvedBy     User?                     @relation("WorkspaceProposalApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  appliedBy      User?                     @relation("WorkspaceProposalApplier", fields: [appliedById], references: [id], onDelete: SetNull)
+
+  @@index([projectId, status, createdAt])
+  @@index([projectId, moduleKey, status])
 }
 
 model ZWorkspaceConfigVersion {
