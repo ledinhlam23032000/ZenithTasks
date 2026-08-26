@@ -36,6 +36,7 @@ const ADMIN_ACTIONS = [
   "reject_payment_request",
   "pay_payment_request",
   "propose_system_change",
+  "propose_workspace_config",
   "create_work_plan",
 ] as const;
 

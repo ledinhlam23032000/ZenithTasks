@@ -53,6 +53,14 @@ describe("AI governance policy", () => {
     expect(result.requiredApprovals).toBe(2);
     expect(result.confirmationRequired).toBe(true);
   });
+  it("keeps AI config proposals project-targeted and draft-only", () => {
+    const proposer = { ...globalPrincipal, capabilities: [...globalPrincipal.capabilities, "propose_workspace_config"] };
+    const draft = evaluateAiToolRequest(proposer, { toolName: "propose_workspace_config", action: "propose_workspace_config", resource: "workspace_config", projectId: "project-1" });
+    expect(draft.decision).toBe("WARN");
+    expect(draft.reason).toBe("DRAFT_ONLY");
+    expect(evaluateAiToolRequest(proposer, { toolName: "propose_workspace_config", action: "propose_workspace_config", resource: "workspace_config" }).reason).toBe("GLOBAL_PROJECT_REQUIRED");
+    expect(evaluateAiToolRequest({ ...proposer, role: "MANAGER", capabilities: [] }, { toolName: "propose_workspace_config", action: "propose_workspace_config", resource: "workspace_config", projectId: "project-1" }).reason).toBe("CAPABILITY_DENIED");
+  });
   it("masks fields not allowed by policy", () => {
     expect(maskSensitiveRecord({ diagnosis: "x", phone: "y" }, ["diagnosis"])).toEqual({ diagnosis: "x", phone: "[ĐÃ ẨN THEO POLICY]" });
   });
