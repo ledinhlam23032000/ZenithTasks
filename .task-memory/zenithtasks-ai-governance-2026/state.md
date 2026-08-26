@@ -198,3 +198,10 @@ Lưu ý runtime: clinic đã deploy tới migration config version ở run trư�
 ## Payroll DRAFT action/UI checkpoint — 2026-08-26
 
 Đã thêm route `/du-an/[projectId]/luong` và Admin form/action tạo PayrollRun DRAFT: bắt buộc mechanism version ACTIVE thuộc project, snapshot ruleSpec, kỳ start/end, tạo line snapshot cho active project members với zero pending amounts, ghi audit; payroll route chưa bật trong registry menu vì finalize/void/calculation/policy chưa hoàn tất. TypeScript, governance 11/11 và Next build pass; commit code push master `8e28d84`. P05-T04 vẫn `review`.
+
+
+## Batch runtime deploy checkpoint — 2026-08-26
+
+Sau khi Docker Running, đã chạy đúng một lần `Sua-Loi.bat` cache-safe. Wrapper mới ghi trực tiếp `END exit=0` lúc 21:39:49; clinic checkout ở `5d38fc0`. DB có 71 migrations; năm migration gần nhất gồm `20260826110000_workspace_core_modules`, `20260826120000_workspace_config_versions`, `20260826130000_workspace_ledger_entries`, `20260826140000_workspace_payment_reconciliation`, `20260826150000_workspace_payroll_runs`. App log ghi ba migration batch apply, `All migrations have been successfully applied.`, `Ready in 468ms`; app running, db healthy, `/login=200`. Evidence: `checks/payroll-batch-deploy-20260826.md`.
+
+Đã deploy ledger/reconciliation UI và PayrollRun DRAFT route/action; Payroll menu vẫn blocked, finalize/void/calculation/commission policy chưa hoàn tất. Không đánh dấu toàn bộ Finance/Payroll done chỉ vì updater exit 0.
