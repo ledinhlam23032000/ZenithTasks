@@ -307,6 +307,9 @@ model User {
   workspaceReconciliationsMatched ZWorkspacePaymentReconciliation[] @relation("WorkspaceReconciliationMatcher")
   workspacePayrollRunsCreated ZWorkspacePayrollRun[] @relation("WorkspacePayrollRunCreator")
   workspacePayrollRunsApproved ZWorkspacePayrollRun[] @relation("WorkspacePayrollRunApprover")
+  workspacePayrollRunsSecondApproved ZWorkspacePayrollRun[] @relation("WorkspacePayrollRunSecondApprover")
+  workspacePayrollRunsFinalized ZWorkspacePayrollRun[] @relation("WorkspacePayrollRunFinalizer")
+  workspacePayrollRunsVoided ZWorkspacePayrollRun[] @relation("WorkspacePayrollRunVoider")
   workspacePayrollLines ZWorkspacePayrollLine[] @relation("WorkspacePayrollLineUser")
   workspaceConfigVersionsCreated ZWorkspaceConfigVersion[]   @relation("WorkspaceConfigCreatedBy")
   workspaceConfigVersionsApproved ZWorkspaceConfigVersion[]  @relation("WorkspaceConfigApprovedBy")
@@ -1688,13 +1691,22 @@ model ZWorkspacePayrollRun {
   createdById         String
   approvedById        String?
   approvedAt          DateTime?
+  secondApprovedById  String?
+  secondApprovedAt    DateTime?
+  finalizedById       String?
   finalizedAt         DateTime?
+  voidedById          String?
+  voidedAt            DateTime?
+  voidReason          String?
   createdAt           DateTime                  @default(now())
   updatedAt           DateTime                  @updatedAt
   project             ZProject                  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   mechanismVersion    ZMechanismVersion?        @relation(fields: [mechanismVersionId], references: [id], onDelete: SetNull)
   createdBy           User                      @relation("WorkspacePayrollRunCreator", fields: [createdById], references: [id], onDelete: Restrict)
   approvedBy          User?                     @relation("WorkspacePayrollRunApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  secondApprovedBy    User?                     @relation("WorkspacePayrollRunSecondApprover", fields: [secondApprovedById], references: [id], onDelete: SetNull)
+  finalizedBy         User?                     @relation("WorkspacePayrollRunFinalizer", fields: [finalizedById], references: [id], onDelete: SetNull)
+  voidedBy            User?                     @relation("WorkspacePayrollRunVoider", fields: [voidedById], references: [id], onDelete: SetNull)
   lines               ZWorkspacePayrollLine[]
 
   @@unique([projectId, code])
