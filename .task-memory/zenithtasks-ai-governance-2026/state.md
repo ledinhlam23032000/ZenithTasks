@@ -405,3 +405,9 @@ Sandbox verification confirmed `docker` is unavailable, so no isolated PostgreSQ
 - User re-granted access to `C:\Users\PC\ZenithTasks`; no `AGENTS.md` was present at repo or parent level. Read-only preflight found clinic app on port 3000 and clinic DB running; these were not changed.
 - QA DB container `zenithtasks-qa-db` is running on host port 55432. Existing QA app container `zenith_v2_qa_app` was exited 137; it was restarted only (no recreate/delete) and is now running, mapped to host port 3100. `curl http://127.0.0.1:3100/login` returned HTTP 200.
 - Existing QA image reports 56 migrations and no pending migrations; Windows checkout HEAD is `5d38fc0` while `origin/master` is `a803f9e`. Therefore QA is healthy but stale and is not evidence for the current sandbox release candidate. No credentials, env values, clinic data or browser session were read.
+
+## Critical QA isolation finding — 2026-08-26
+
+- After the owner authorized isolated QA deployment, read-only inspection showed existing `zenith_v2_qa_app` on host port 3100 resolved hostname `db` to `172.18.0.2`, the endpoint of `zenithtasks-db-1` (clinic DB) on `zenithtasks_default`, not `zenithtasks-qa-db` on the separate bridge network.
+- The QA app was stopped immediately as a protective action. Only `zenith_v2_qa_app` was stopped; clinic app `zenithtasks-app-1` and clinic DB `zenithtasks-db-1` remain running. QA DB `zenithtasks-qa-db` remains running. No migration, seed, query or browser walkthrough was run.
+- Do not restart this QA app or use the existing QA script until its DB/network wiring is corrected and verified by container-side DNS/connection checks. The existing script also targets a different container/network/port and prompts for an AI key, so it must not be used blindly.
