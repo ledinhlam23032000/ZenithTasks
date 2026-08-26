@@ -303,6 +303,8 @@ model User {
   workspaceAppointmentsCreated  ZWorkspaceAppointment[]     @relation("WorkspaceAppointmentCreator")
   workspaceAppointmentsAssigned ZWorkspaceAppointment[]     @relation("WorkspaceAppointmentAssignee")
   workspaceSalesCreated         ZWorkspaceSale[]            @relation("WorkspaceSaleCreator")
+  workspaceConfigVersionsCreated ZWorkspaceConfigVersion[]   @relation("WorkspaceConfigCreatedBy")
+  workspaceConfigVersionsApproved ZWorkspaceConfigVersion[]  @relation("WorkspaceConfigApprovedBy")
 }
 
 // ============================ CHẤM CÔNG & LƯƠNG ============================
@@ -1329,6 +1331,19 @@ enum ZProjectStatus {
   ARCHIVED
 }
 
+enum ZWorkspaceConfigKind {
+  MODULES
+  LAYOUT
+  SETTINGS
+}
+
+enum ZWorkspaceConfigStatus {
+  DRAFT
+  ACTIVE
+  SUPERSEDED
+  ROLLED_BACK
+}
+
 enum ZMemberPreset {
   PROJECT_ADMIN
   FINANCE
@@ -1403,6 +1418,7 @@ model ZProject {
   workspaceCustomers  ZWorkspaceCustomer[]
   workspaceAppointments ZWorkspaceAppointment[]
   workspaceSales      ZWorkspaceSale[]
+  configVersions      ZWorkspaceConfigVersion[]
 
   @@index([status, createdAt])
 }
@@ -1472,6 +1488,29 @@ model ZProjectAssignment {
 
   @@index([projectId, status])
   @@index([userId, status])
+}
+
+model ZWorkspaceConfigVersion {
+  id            String                 @id @default(cuid())
+  projectId     String
+  kind          ZWorkspaceConfigKind
+  version       Int
+  status        ZWorkspaceConfigStatus @default(DRAFT)
+  config        Json
+  note          String?
+  effectiveFrom DateTime?
+  effectiveTo   DateTime?
+  createdById   String
+  approvedById  String?
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+  project       ZProject               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy     User                   @relation("WorkspaceConfigCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  approvedBy    User?                  @relation("WorkspaceConfigApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+
+  @@unique([projectId, kind, version])
+  @@index([projectId, kind, status])
+  @@index([projectId, effectiveFrom])
 }
 
 model ZWorkspaceCustomer {

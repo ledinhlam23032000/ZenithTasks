@@ -114,3 +114,8 @@ Bằng chứng code hiện tại: `prisma generate`, direct `tsc --noEmit`, gove
 Theo phản hồi của người dùng, đã rà soát lại source-of-truth kế hoạch: kiểm tra thực tế cho kết quả `TASK_ROWS=60`, `TASK_UNIQUE=60`, đúng cấu trúc 10 phase × 6 task. Không task nào bị xóa hoặc thay thế bởi bản điều phối 6 phase. Bảng đối chiếu yêu cầu ban đầu → task → bằng chứng/giới hạn được lưu tại `checks/60-task-coverage-audit-20260826.md`.
 
 Trạng thái kiểm kê: 6 `done`, 20 `review`, 34 `not_started`, không có `blocked`/`cancelled`. Các mục còn thiếu đã được ghi rõ: Customer edit/consent/detail/history, Finance/Ledger, Payroll/Commission, layout version/rollback/drag-drop, Global console scale, AI configuration proposal apply, QA seed/walkthrough và final handoff. Runtime updater Doanh số vẫn có process đang chạy; không khởi chạy chồng lấn và sẽ hậu kiểm sau khi process kết thúc.
+
+
+## Config version foundation checkpoint — 2026-08-26
+
+Đã thêm `ZWorkspaceConfigKind`, `ZWorkspaceConfigStatus` và model `ZWorkspaceConfigVersion` với `projectId`, version unique theo project/kind, effective time, JSON config, creator/approver và status draft/active/superseded/rolled-back. Migration additive là `20260826120000_workspace_config_versions`; Prisma validate/generate và direct TypeScript pass. Task P03-T02 được chuyển sang `review` vì nền schema đã có nhưng action preview/activation/rollback và UI chưa triển khai.

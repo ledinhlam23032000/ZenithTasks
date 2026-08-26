@@ -33,7 +33,7 @@ Mỗi task có mã ổn định, phụ thuộc, đầu ra và cổng nghiệm th
 | Mã | Task | Phụ thuộc | Đầu ra và tiêu chí nghiệm thu | Trạng thái |
 |---|---|---|---|---|
 | P03-T01 | Hoàn thiện lifecycle và cấu hình vận hành của `ZProject` | P01-T05,P02-T01 | ACTIVE/DRAFT/ARCHIVED có hành vi rõ; project mới không bị gọi là demo; audit lifecycle | review |
-| P03-T02 | Tạo model version cho module/layout/config theo project | P03-T01 | Cấu hình có version, effective time, audit và rollback an toàn; không cấp quyền ngầm | not_started |
+| P03-T02 | Tạo model version cho module/layout/config theo project | P03-T01 | Cấu hình có version, effective time, audit và rollback an toàn; không cấp quyền ngầm | review |
 | P03-T03 | Tạo `ZWorkspaceCustomer` và policy dữ liệu khách | P03-T01,P02-T04 | projectId bắt buộc, unique/index theo project, consent và CRUD scoped | review |
 | P03-T04 | Tạo `ZWorkspaceAppointment` | P03-T03 | Khách chỉ là customer cùng project, timezone/status/conflict scoped, không đọc Appointment legacy | review |
 | P03-T05 | Tạo `ZWorkspaceSale`/`ZWorkspaceLedgerEntry` | P03-T03,P03-T04 | Doanh số/thu chi theo project, immutable history phù hợp và tổng hợp được | review |
