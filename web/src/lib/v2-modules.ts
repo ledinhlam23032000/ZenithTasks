@@ -16,7 +16,7 @@ export const V2_MODULES: readonly V2ModuleDefinition[] = [
   { key: "customers", label: "Khách hàng", description: "Hồ sơ khách riêng của Dự án.", href: (id) => `/du-an/${id}/khach-hang`, available: true },
   { key: "appointments", label: "Lịch hẹn", description: "Lịch riêng của Dự án.", href: (id) => `/du-an/${id}/lich-hen`, available: true },
   { key: "sales", label: "Doanh số", description: "Giao dịch dịch vụ và doanh thu riêng của Dự án.", href: (id) => `/du-an/${id}/doanh-so`, available: true },
-  { key: "finance", label: "Tài chính", description: "Sổ thu-chi và đối soát riêng của Dự án.", href: (id) => `/du-an/${id}?module=finance`, available: false },
+  { key: "finance", label: "Tài chính", description: "Sổ thu-chi project-local, audit và void không xóa lịch sử.", href: (id) => `/du-an/${id}/tai-chinh`, available: true },
   { key: "payroll", label: "Lương & hoa hồng", description: "Settlement riêng của Dự án.", href: (id) => `/du-an/${id}?module=payroll`, available: false },
 ];
 
