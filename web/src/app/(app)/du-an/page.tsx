@@ -4,6 +4,7 @@ import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { V2CreateProjectForm } from "@/components/v2-create-project-form";
 import { GLOBAL_PROJECT_PAGE_SIZE, projectConsoleWhere } from "@/lib/v2-global-console-policy";
+import { paginateCursorRows } from "@/lib/v2-cursor-pagination";
 
 export const dynamic = "force-dynamic";
 const PAGE_SIZE = GLOBAL_PROJECT_PAGE_SIZE;
@@ -25,9 +26,10 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Pro
     }),
     prisma.zProject.count({ where }),
   ]);
-  const hasNext = projects.length > PAGE_SIZE;
-  const visibleProjects = projects.slice(0, PAGE_SIZE);
-  const nextCursor = hasNext ? visibleProjects[visibleProjects.length - 1]?.id : undefined;
+  const page = paginateCursorRows(projects, PAGE_SIZE);
+  const hasNext = page.hasNext;
+  const visibleProjects = page.items;
+  const nextCursor = page.nextCursor;
   const nextHref = nextCursor ? `/du-an?${new URLSearchParams({ ...(search ? { q: search } : {}), cursor: nextCursor }).toString()}` : null;
   const baseHref = search ? `/du-an?q=${encodeURIComponent(search)}` : "/du-an";
 
