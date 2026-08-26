@@ -37,7 +37,7 @@ Mỗi task có mã ổn định, phụ thuộc, đầu ra và cổng nghiệm th
 | P03-T03 | Tạo `ZWorkspaceCustomer` và policy dữ liệu khách | P03-T01,P02-T04 | projectId bắt buộc, unique/index theo project, consent và CRUD scoped | review |
 | P03-T04 | Tạo `ZWorkspaceAppointment` | P03-T03 | Khách chỉ là customer cùng project, timezone/status/conflict scoped, không đọc Appointment legacy | review |
 | P03-T05 | Tạo `ZWorkspaceSale`/`ZWorkspaceLedgerEntry` | P03-T03,P03-T04 | Doanh số/thu chi theo project, immutable history phù hợp và tổng hợp được | review |
-| P03-T06 | Tạo payroll snapshot và liên kết mechanism theo project | P03-T05 | Kỳ lương/rule/snapshot/approval có projectId; không dùng bảng lương Nội Bộ trong Dự án | not_started |
+| P03-T06 | Tạo payroll snapshot và liên kết mechanism theo project | P03-T05 | Kỳ lương/rule/snapshot/approval có projectId; không dùng bảng lương Nội Bộ trong Dự án | review |
 
 ## Phase 04 — Module Customer, Appointment và Sales
 
@@ -56,8 +56,8 @@ Mỗi task có mã ổn định, phụ thuộc, đầu ra và cổng nghiệm th
 |---|---|---|---|---|
 | P05-T01 | Xây ledger ghi thu/chi local | P03-T05,P04-T04 | Entry có source, category, amount, createdBy, projectId; không sửa/xóa lịch sử tùy tiện | review |
 | P05-T02 | Xây payment reconciliation local | P05-T01 | Payment reference và trạng thái đối soát trong project; không chạm Payment legacy | review |
-| P05-T03 | Xây mechanism editor và version activation | P02-T04,P03-T06 | Draft → preview → approval → active; rule test có trace và chỉ áp dụng project | not_started |
-| P05-T04 | Xây payroll run local | P03-T06,P05-T03 | Chốt snapshot kỳ lương và tổng hợp commission theo project; sensitive fields có policy | review |
+| P05-T03 | Xây mechanism editor và version activation | P02-T04,P03-T06 | Draft → preview → approval → active; rule test có trace và chỉ áp dụng project | review |
+| P05-T04 | Xây payroll run local | P03-T06,P05-T03 | Chốt snapshot kỳ lương và tổng hợp commission theo project; sensitive fields có policy; hiện mới có DRAFT → PREVIEW → APPROVED, chưa finalize/commission calculation | review |
 | P05-T05 | Xây finance/payroll role actions | P02-T02,P05-T01,P05-T04 | ADMIN/Project Manager/capability được phân tách; audit thay đổi nhạy cảm | not_started |
 | P05-T06 | Viết test finance/payroll/mechanism không rò Nội Bộ | P05-T02,P05-T03,P05-T04 | Cross-project, wrong role, wrong mechanism và wrong period đều bị chặn hoặc trả đúng scope | not_started |
 
