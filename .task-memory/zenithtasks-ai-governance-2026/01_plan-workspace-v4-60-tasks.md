@@ -57,7 +57,7 @@ Mỗi task có mã ổn định, phụ thuộc, đầu ra và cổng nghiệm th
 | P05-T01 | Xây ledger ghi thu/chi local | P03-T05,P04-T04 | Entry có source, category, amount, createdBy, projectId; không sửa/xóa lịch sử tùy tiện | review |
 | P05-T02 | Xây payment reconciliation local | P05-T01 | Payment reference và trạng thái đối soát trong project; không chạm Payment legacy | review |
 | P05-T03 | Xây mechanism editor và version activation | P02-T04,P03-T06 | Draft → preview → approval → active; rule test có trace và chỉ áp dụng project | not_started |
-| P05-T04 | Xây payroll run local | P03-T06,P05-T03 | Chốt snapshot kỳ lương và tổng hợp commission theo project; sensitive fields có policy | not_started |
+| P05-T04 | Xây payroll run local | P03-T06,P05-T03 | Chốt snapshot kỳ lương và tổng hợp commission theo project; sensitive fields có policy | review |
 | P05-T05 | Xây finance/payroll role actions | P02-T02,P05-T01,P05-T04 | ADMIN/Project Manager/capability được phân tách; audit thay đổi nhạy cảm | not_started |
 | P05-T06 | Viết test finance/payroll/mechanism không rò Nội Bộ | P05-T02,P05-T03,P05-T04 | Cross-project, wrong role, wrong mechanism và wrong period đều bị chặn hoặc trả đúng scope | not_started |
 

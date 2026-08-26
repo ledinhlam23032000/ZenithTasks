@@ -305,6 +305,9 @@ model User {
   workspaceSalesCreated         ZWorkspaceSale[]            @relation("WorkspaceSaleCreator")
   workspaceLedgerEntriesCreated ZWorkspaceLedgerEntry[]      @relation("WorkspaceLedgerCreator")
   workspaceReconciliationsMatched ZWorkspacePaymentReconciliation[] @relation("WorkspaceReconciliationMatcher")
+  workspacePayrollRunsCreated ZWorkspacePayrollRun[] @relation("WorkspacePayrollRunCreator")
+  workspacePayrollRunsApproved ZWorkspacePayrollRun[] @relation("WorkspacePayrollRunApprover")
+  workspacePayrollLines ZWorkspacePayrollLine[] @relation("WorkspacePayrollLineUser")
   workspaceConfigVersionsCreated ZWorkspaceConfigVersion[]   @relation("WorkspaceConfigCreatedBy")
   workspaceConfigVersionsApproved ZWorkspaceConfigVersion[]  @relation("WorkspaceConfigApprovedBy")
 }
@@ -1396,6 +1399,21 @@ enum ZWorkspaceReconciliationStatus {
   EXCEPTION
 }
 
+enum ZWorkspacePayrollRunStatus {
+  DRAFT
+  PREVIEW
+  APPROVED
+  FINALIZED
+  VOIDED
+}
+
+enum ZWorkspacePayrollLineStatus {
+  CALCULATED
+  APPROVED
+  PAID
+  VOIDED
+}
+
 enum ZMechanismKind {
   COMMISSION
   DISCOUNT
@@ -1438,6 +1456,8 @@ model ZProject {
   workspaceSales      ZWorkspaceSale[]
   workspaceLedgerEntries ZWorkspaceLedgerEntry[]
   workspaceReconciliations ZWorkspacePaymentReconciliation[]
+  payrollRuns         ZWorkspacePayrollRun[]
+  payrollLines        ZWorkspacePayrollLine[]
   configVersions      ZWorkspaceConfigVersion[]
 
   @@index([status, createdAt])
@@ -1654,6 +1674,57 @@ model ZWorkspacePaymentReconciliation {
   @@index([projectId, ledgerEntryId])
 }
 
+model ZWorkspacePayrollRun {
+  id                  String                    @id @default(cuid())
+  projectId           String
+  mechanismVersionId  String?
+  code                String
+  periodStart         DateTime                  @db.Date
+  periodEnd           DateTime                  @db.Date
+  status              ZWorkspacePayrollRunStatus @default(DRAFT)
+  currency            String                    @default("VND")
+  mechanismSnapshot   Json?
+  note                String?
+  createdById         String
+  approvedById        String?
+  approvedAt          DateTime?
+  finalizedAt         DateTime?
+  createdAt           DateTime                  @default(now())
+  updatedAt           DateTime                  @updatedAt
+  project             ZProject                  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  mechanismVersion    ZMechanismVersion?        @relation(fields: [mechanismVersionId], references: [id], onDelete: SetNull)
+  createdBy           User                      @relation("WorkspacePayrollRunCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  approvedBy          User?                     @relation("WorkspacePayrollRunApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  lines               ZWorkspacePayrollLine[]
+
+  @@unique([projectId, code])
+  @@index([projectId, status, periodStart, periodEnd])
+  @@index([projectId, mechanismVersionId])
+}
+
+model ZWorkspacePayrollLine {
+  id              String                       @id @default(cuid())
+  runId           String
+  projectId       String
+  userId          String
+  status          ZWorkspacePayrollLineStatus @default(CALCULATED)
+  grossAmount     Decimal                      @db.Decimal(14, 0)
+  commissionAmount Decimal                     @db.Decimal(14, 0)
+  deductionAmount Decimal                      @default(0) @db.Decimal(14, 0)
+  netAmount       Decimal                      @db.Decimal(14, 0)
+  snapshot        Json
+  note            String?
+  createdAt       DateTime                     @default(now())
+  updatedAt       DateTime                     @updatedAt
+  run             ZWorkspacePayrollRun         @relation(fields: [runId], references: [id], onDelete: Cascade)
+  project         ZProject                     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user            User                         @relation("WorkspacePayrollLineUser", fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([runId, userId])
+  @@index([projectId, status])
+  @@index([projectId, userId])
+}
+
 model ZWorkspaceTask {
   id          String                    @id @default(cuid())
   projectId   String
@@ -1709,6 +1780,7 @@ model ZMechanismVersion {
   approvedById  String?
   approvedAt    DateTime?
   definition    ZMechanismDefinition @relation(fields: [definitionId], references: [id], onDelete: Cascade)
+  payrollRuns   ZWorkspacePayrollRun[]
   createdAt     DateTime             @default(now())
   updatedAt     DateTime             @updatedAt
 
