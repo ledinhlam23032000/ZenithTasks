@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "./db";
 import { requireProjectAccess } from "./v2-access";
+import { canVoidPayrollStatus, hasTwoDistinctPayrollApprovals } from "./v2-payroll-policy";
 
 export type PayrollGovernanceState = { ok?: boolean; error?: string; message?: string };
 
@@ -56,7 +57,7 @@ export async function finalizeWorkspacePayrollRunAction(_prev: PayrollGovernance
   if (confirmation !== "FINALIZE") return { error: "Nhập FINALIZE để xác nhận chốt kỳ lương." };
   const run = await prisma.zWorkspacePayrollRun.findFirst({ where: { id: runId, projectId: project.id, status: "APPROVED" }, select: { id: true, approvedById: true, secondApprovedById: true } });
   if (!run) return { error: "PayrollRun chưa ở APPROVED hoặc không thuộc Dự án này." };
-  if (!run.approvedById || !run.secondApprovedById || run.approvedById === run.secondApprovedById) return { error: "Chưa đủ hai Admin khác nhau phê duyệt; chưa finalize." };
+  if (!hasTwoDistinctPayrollApprovals(run.approvedById, run.secondApprovedById)) return { error: "Chưa đủ hai Admin khác nhau phê duyệt; chưa finalize." };
   await prisma.$transaction(async (tx) => {
     await tx.zWorkspacePayrollRun.update({ where: { id: run.id }, data: { status: "FINALIZED", finalizedById: user.id, finalizedAt: new Date() } });
     await tx.auditLog.create({ data: { actorId: user.id, action: "V2_PAYROLL_RUN_FINALIZED", entity: "ZWorkspacePayrollRun", entityId: run.id, meta: { projectId: project.id, firstApproverId: run.approvedById, secondApproverId: run.secondApprovedById, finalizedById: user.id, payoutCreated: false } } });
@@ -76,7 +77,7 @@ export async function voidWorkspacePayrollRunAction(_prev: PayrollGovernanceStat
   if (reason.length < 10) return { error: "Lý do void phải có ít nhất 10 ký tự." };
   const run = await prisma.zWorkspacePayrollRun.findFirst({ where: { id: runId, projectId: project.id, status: { in: ["APPROVED", "FINALIZED"] } }, select: { id: true, status: true, approvedById: true, secondApprovedById: true } });
   if (!run) return { error: "Chỉ được void PayrollRun APPROVED/FINALIZED cùng Dự án." };
-  if (!run.approvedById || !run.secondApprovedById || run.approvedById === run.secondApprovedById) return { error: "Void yêu cầu two-person approval trước đó." };
+  if (!canVoidPayrollStatus(run.status) || !hasTwoDistinctPayrollApprovals(run.approvedById, run.secondApprovedById)) return { error: "Void yêu cầu trạng thái hợp lệ và two-person approval trước đó." };
   await prisma.$transaction(async (tx) => {
     await tx.zWorkspacePayrollRun.update({ where: { id: run.id }, data: { status: "VOIDED", voidedById: user.id, voidedAt: new Date(), voidReason: reason } });
     await tx.auditLog.create({ data: { actorId: user.id, action: "V2_PAYROLL_RUN_VOIDED", entity: "ZWorkspacePayrollRun", entityId: run.id, meta: { projectId: project.id, previousStatus: run.status, reason, voidedById: user.id } } });
