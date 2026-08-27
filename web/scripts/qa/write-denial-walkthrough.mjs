@@ -98,9 +98,9 @@ const after = await verifyClient.query(`
 `);
 await verifyClient.end();
 
-const beforeMap = new Map(before.map((row) => [row.id, row]));
+const beforeMap = new Map(before.rows.map((row) => [row.id, row]));
 const afterMap = new Map(after.rows.map((row) => [row.id, row]));
-for (const row of before) {
+for (const row of before.rows) {
   const next = afterMap.get(row.id);
   if (!next || row.status === "ACTIVE" || row.customers !== next.customers || row.tasks !== next.tasks) {
     console.error(JSON.stringify({ failed: "post-write-count-check", before: row, after: next }, null, 2));
