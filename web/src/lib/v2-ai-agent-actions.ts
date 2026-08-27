@@ -51,8 +51,12 @@ export async function activateProjectAiAgentAction(_prev: AiAgentActionState, fo
   const { user, project } = await requireProjectCapability(projectId, "config.manage");
   if (confirmation !== "ACTIVATE") return { error: "Nhập ACTIVATE để xác nhận kích hoạt AI con." };
   if (project.status !== "ACTIVE") return { error: "Chỉ company ACTIVE mới được kích hoạt AI con." };
-  const result = await prisma.zAiAgent.updateMany({ where: { id: agentId, projectId: project.id, kind: "CHILD", status: "DRAFT" }, data: { status: "ACTIVE" } });
-  if (result.count !== 1) return { error: "AI con không tồn tại, sai company hoặc không còn ở DRAFT." };
+  const result = await prisma.$transaction(async (tx) => {
+    const active = await tx.zAiAgent.findFirst({ where: { projectId: project.id, kind: "CHILD", status: "ACTIVE" }, select: { id: true } });
+    if (active) return { count: 0 };
+    return tx.zAiAgent.updateMany({ where: { id: agentId, projectId: project.id, kind: "CHILD", status: "DRAFT" }, data: { status: "ACTIVE" } });
+  });
+  if (result.count !== 1) return { error: "AI con không tồn tại, sai company, không còn ở DRAFT hoặc company đã có AI con ACTIVE." };
   await prisma.auditLog.create({ data: { actorId: user.id, action: "V2_CHILD_AI_ACTIVATED", entity: "ZAiAgent", entityId: agentId, meta: { projectId: project.id, agentId, kind: "CHILD", status: "ACTIVE" } } });
   revalidatePath(`/du-an/${project.id}`);
   revalidatePath(`/du-an/${project.id}/ai`);
@@ -101,8 +105,12 @@ export async function activateGlobalAiAgentAction(_prev: AiAgentActionState, for
   const agentId = text(formData, "agentId", 80);
   const confirmation = text(formData, "confirmation", 16).toUpperCase();
   if (confirmation !== "ACTIVATE") return { error: "Nhập ACTIVATE để xác nhận kích hoạt AI Tổng." };
-  const result = await prisma.zAiAgent.updateMany({ where: { id: agentId, projectId: null, kind: "GLOBAL", status: "DRAFT" }, data: { status: "ACTIVE" } });
-  if (result.count !== 1) return { error: "AI Tổng không tồn tại hoặc không còn ở DRAFT." };
+  const result = await prisma.$transaction(async (tx) => {
+    const active = await tx.zAiAgent.findFirst({ where: { projectId: null, kind: "GLOBAL", status: "ACTIVE" }, select: { id: true } });
+    if (active) return { count: 0 };
+    return tx.zAiAgent.updateMany({ where: { id: agentId, projectId: null, kind: "GLOBAL", status: "DRAFT" }, data: { status: "ACTIVE" } });
+  });
+  if (result.count !== 1) return { error: "AI Tổng không tồn tại, không còn ở DRAFT hoặc hệ thống đã có AI Tổng ACTIVE." };
   await prisma.auditLog.create({ data: { actorId: user.id, action: "V2_GLOBAL_AI_ACTIVATED", entity: "ZAiAgent", entityId: agentId, meta: { agentId, kind: "GLOBAL", status: "ACTIVE" } } });
   revalidatePath("/du-an");
   revalidatePath("/tro-ly");
