@@ -35,12 +35,34 @@ async function get(username, path) {
     redirect: "manual",
     headers: { cookie: `zsession=${token}` },
   });
+  const body = await response.text();
   return {
     username,
     path,
     status: response.status,
     location: response.headers.get("location"),
     contentType: response.headers.get("content-type"),
+    responseUrl: response.url,
+    headers: {
+      location: response.headers.get("location"),
+      nextRedirect: response.headers.get("x-nextjs-redirect"),
+      middlewareRewrite: response.headers.get("x-middleware-rewrite"),
+    },
+    bodyLength: body.length,
+    bodyMarkers: {
+      forbiddenPage: body.includes("Bạn không có quyền truy cập mục này") || body.includes("Mỗi nhân sự chỉ xem được phần công việc thuộc vai trò của mình"),
+      metaForbidden: body.includes("/khong-co-quyen"),
+      projectA: body.includes("QA Company A"),
+      projectB: body.includes("QA Company B"),
+      projectDraft: body.includes("QA Company Draft"),
+      projectArchived: body.includes("QA Company Archived"),
+      workspacePage: body.includes("Các module của workspace"),
+      customersPage: body.includes("Hồ sơ khách hàng của"),
+      customerAData: body.includes("QA-QA-COMPANY-A-001"),
+      customerBData: body.includes("QA-QA-COMPANY-B-001"),
+      financePage: body.includes("Sổ thu/chi của"),
+      aiPage: body.includes("AI riêng của") || body.includes("Danh sách AI con"),
+    },
   };
 }
 
@@ -54,6 +76,7 @@ const cases = [
   ["qa.project.admin.b", "/du-an/qa-company-b"],
   ["qa.sales.a", "/du-an/qa-company-a/khach-hang"],
   ["qa.sales.a", "/du-an/qa-company-a/tai-chinh"],
+  ["qa.finance.a", "/du-an/qa-company-a/tai-chinh"],
   ["qa.viewer.b", "/du-an/qa-company-b"],
   ["qa.viewer.b", "/du-an/qa-company-b/khach-hang"],
   ["qa.revoked.a", "/du-an/qa-company-a"],
@@ -63,23 +86,35 @@ const cases = [
 
 const checks = await Promise.all(cases.map(([username, path]) => get(username, path)));
 const byKey = new Map(checks.map((check) => [`${check.username} ${check.path}`, check]));
-const isSuccess = (status) => status >= 200 && status < 300;
-const isDenied = (status) => status >= 300 && status < 400;
+const isHttpSuccess = (check) => check.status >= 200 && check.status < 300;
+const isForbiddenResponse = (check) => (check.status >= 300 && check.status < 500) || check.bodyMarkers?.forbiddenPage === true || check.bodyMarkers?.metaForbidden === true || Boolean(check.headers?.nextRedirect);
+const allowsOnly = (key, marker) => {
+  const check = byKey.get(key);
+  return Boolean(check && isHttpSuccess(check) && !isForbiddenResponse(check) && check.bodyMarkers?.[marker]);
+};
+const deniesWithoutRouteMarker = (key, routeMarker) => {
+  const check = byKey.get(key);
+  return Boolean(check && isForbiddenResponse(check) && !check.bodyMarkers?.[routeMarker]);
+};
 const required = [
-  ["qa.global.admin /du-an", isSuccess],
-  ["qa.global.admin /du-an/qa-company-a/ai", isSuccess],
-  ["qa.project.admin.a /du-an/qa-company-a", isSuccess],
-  ["qa.project.admin.a /du-an/qa-company-a/khach-hang", isSuccess],
-  ["qa.project.admin.a /du-an/qa-company-b", isDenied],
-  ["qa.project.admin.a /du-an/qa-company-b/khach-hang", isDenied],
-  ["qa.viewer.b /du-an/qa-company-b/khach-hang", isDenied],
-  ["qa.revoked.a /du-an/qa-company-a", isDenied],
-  ["qa.project.admin.a /du-an/qa-company-draft", isDenied],
-  ["qa.project.admin.a /du-an/qa-company-archived", isDenied],
+  ["qa.global.admin /du-an", () => allowsOnly("qa.global.admin /du-an", "projectA") && byKey.get("qa.global.admin /du-an")?.bodyMarkers?.projectB === true],
+  ["qa.global.admin /du-an/qa-company-a/ai", () => allowsOnly("qa.global.admin /du-an/qa-company-a/ai", "aiPage")],
+  ["qa.project.admin.a /du-an/qa-company-a", () => allowsOnly("qa.project.admin.a /du-an/qa-company-a", "workspacePage")],
+  ["qa.project.admin.a /du-an/qa-company-a/khach-hang", () => allowsOnly("qa.project.admin.a /du-an/qa-company-a/khach-hang", "customersPage") && byKey.get("qa.project.admin.a /du-an/qa-company-a/khach-hang")?.bodyMarkers?.customerAData === true],
+  ["qa.project.admin.a /du-an/qa-company-b", () => deniesWithoutRouteMarker("qa.project.admin.a /du-an/qa-company-b", "workspacePage")],
+  ["qa.project.admin.a /du-an/qa-company-b/khach-hang", () => deniesWithoutRouteMarker("qa.project.admin.a /du-an/qa-company-b/khach-hang", "customerBData")],
+  ["qa.project.admin.b /du-an/qa-company-b", () => allowsOnly("qa.project.admin.b /du-an/qa-company-b", "workspacePage")],
+  ["qa.sales.a /du-an/qa-company-a/khach-hang", () => allowsOnly("qa.sales.a /du-an/qa-company-a/khach-hang", "customersPage")],
+  ["qa.sales.a /du-an/qa-company-a/tai-chinh", () => deniesWithoutRouteMarker("qa.sales.a /du-an/qa-company-a/tai-chinh", "financePage")],
+  ["qa.finance.a /du-an/qa-company-a/tai-chinh", () => allowsOnly("qa.finance.a /du-an/qa-company-a/tai-chinh", "financePage")],
+  ["qa.viewer.b /du-an/qa-company-b/khach-hang", () => deniesWithoutRouteMarker("qa.viewer.b /du-an/qa-company-b/khach-hang", "customerBData")],
+  ["qa.revoked.a /du-an/qa-company-a", () => deniesWithoutRouteMarker("qa.revoked.a /du-an/qa-company-a", "workspacePage")],
+  ["qa.project.admin.a /du-an/qa-company-draft", () => deniesWithoutRouteMarker("qa.project.admin.a /du-an/qa-company-draft", "workspacePage")],
+  ["qa.project.admin.a /du-an/qa-company-archived", () => deniesWithoutRouteMarker("qa.project.admin.a /du-an/qa-company-archived", "workspacePage")],
 ];
 for (const [key, predicate] of required) {
   const check = byKey.get(key);
-  if (!check || !predicate(check.status)) {
+  if (!check || !predicate()) {
     console.error(JSON.stringify({ failed: key, check }, null, 2));
     process.exitCode = 1;
   }
