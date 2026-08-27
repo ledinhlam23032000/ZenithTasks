@@ -56,10 +56,10 @@ async function get(username, path) {
       projectB: body.includes("QA Company B"),
       projectDraft: body.includes("QA Company Draft"),
       projectArchived: body.includes("QA Company Archived"),
-      workspaceAHeading: body.includes("Workspace Dự án · QA-COMPANY-A"),
-      workspaceBHeading: body.includes("Workspace Dự án · QA-COMPANY-B"),
-      workspaceDraftHeading: body.includes("Workspace Dự án · QA-COMPANY-DRAFT"),
-      workspaceArchivedHeading: body.includes("Workspace Dự án · QA-COMPANY-ARCHIVED"),
+      workspacePage: body.includes("Các module của workspace"),
+      customersPage: body.includes("Hồ sơ khách hàng của"),
+      financePage: body.includes("Sổ thu/chi của"),
+      aiPage: body.includes("Quản trị AI con"),
     },
   };
 }
@@ -88,27 +88,27 @@ const isHttpSuccess = (check) => check.status >= 200 && check.status < 300;
 const isForbiddenResponse = (check) => (check.status >= 300 && check.status < 500) || check.bodyMarkers?.forbiddenPage === true || check.bodyMarkers?.metaForbidden === true || Boolean(check.headers?.nextRedirect);
 const allowsOnly = (key, marker) => {
   const check = byKey.get(key);
-  return Boolean(check && isHttpSuccess(check) && !check.bodyMarkers?.forbiddenPage && check.bodyMarkers?.[marker]);
+  return Boolean(check && isHttpSuccess(check) && !isForbiddenResponse(check) && check.bodyMarkers?.[marker]);
 };
-const deniesWithoutTenantMarker = (key, forbiddenMarker) => {
+const deniesWithoutRouteMarker = (key, routeMarker) => {
   const check = byKey.get(key);
-  return Boolean(check && isForbiddenResponse(check) && !check.bodyMarkers?.[forbiddenMarker]);
+  return Boolean(check && isForbiddenResponse(check) && !check.bodyMarkers?.[routeMarker]);
 };
 const required = [
   ["qa.global.admin /du-an", () => allowsOnly("qa.global.admin /du-an", "projectA") && byKey.get("qa.global.admin /du-an")?.bodyMarkers?.projectB === true],
-  ["qa.global.admin /du-an/qa-company-a/ai", () => allowsOnly("qa.global.admin /du-an/qa-company-a/ai", "projectA")],
-  ["qa.project.admin.a /du-an/qa-company-a", () => allowsOnly("qa.project.admin.a /du-an/qa-company-a", "projectA")],
-  ["qa.project.admin.a /du-an/qa-company-a/khach-hang", () => allowsOnly("qa.project.admin.a /du-an/qa-company-a/khach-hang", "projectA")],
-  ["qa.project.admin.a /du-an/qa-company-b", () => deniesWithoutTenantMarker("qa.project.admin.a /du-an/qa-company-b", "projectB")],
-  ["qa.project.admin.a /du-an/qa-company-b/khach-hang", () => deniesWithoutTenantMarker("qa.project.admin.a /du-an/qa-company-b/khach-hang", "projectB")],
-  ["qa.project.admin.b /du-an/qa-company-b", () => allowsOnly("qa.project.admin.b /du-an/qa-company-b", "projectB")],
-  ["qa.sales.a /du-an/qa-company-a/khach-hang", () => allowsOnly("qa.sales.a /du-an/qa-company-a/khach-hang", "projectA")],
-  ["qa.sales.a /du-an/qa-company-a/tai-chinh", () => deniesWithoutTenantMarker("qa.sales.a /du-an/qa-company-a/tai-chinh", "projectA")],
-  ["qa.finance.a /du-an/qa-company-a/tai-chinh", () => allowsOnly("qa.finance.a /du-an/qa-company-a/tai-chinh", "projectA")],
-  ["qa.viewer.b /du-an/qa-company-b/khach-hang", () => deniesWithoutTenantMarker("qa.viewer.b /du-an/qa-company-b/khach-hang", "projectB")],
-  ["qa.revoked.a /du-an/qa-company-a", () => deniesWithoutTenantMarker("qa.revoked.a /du-an/qa-company-a", "projectA")],
-  ["qa.project.admin.a /du-an/qa-company-draft", () => deniesWithoutTenantMarker("qa.project.admin.a /du-an/qa-company-draft", "projectDraft")],
-  ["qa.project.admin.a /du-an/qa-company-archived", () => deniesWithoutTenantMarker("qa.project.admin.a /du-an/qa-company-archived", "projectArchived")],
+  ["qa.global.admin /du-an/qa-company-a/ai", () => allowsOnly("qa.global.admin /du-an/qa-company-a/ai", "aiPage")],
+  ["qa.project.admin.a /du-an/qa-company-a", () => allowsOnly("qa.project.admin.a /du-an/qa-company-a", "workspacePage")],
+  ["qa.project.admin.a /du-an/qa-company-a/khach-hang", () => allowsOnly("qa.project.admin.a /du-an/qa-company-a/khach-hang", "customersPage")],
+  ["qa.project.admin.a /du-an/qa-company-b", () => deniesWithoutRouteMarker("qa.project.admin.a /du-an/qa-company-b", "workspacePage")],
+  ["qa.project.admin.a /du-an/qa-company-b/khach-hang", () => deniesWithoutRouteMarker("qa.project.admin.a /du-an/qa-company-b/khach-hang", "customersPage")],
+  ["qa.project.admin.b /du-an/qa-company-b", () => allowsOnly("qa.project.admin.b /du-an/qa-company-b", "workspacePage")],
+  ["qa.sales.a /du-an/qa-company-a/khach-hang", () => allowsOnly("qa.sales.a /du-an/qa-company-a/khach-hang", "customersPage")],
+  ["qa.sales.a /du-an/qa-company-a/tai-chinh", () => deniesWithoutRouteMarker("qa.sales.a /du-an/qa-company-a/tai-chinh", "financePage")],
+  ["qa.finance.a /du-an/qa-company-a/tai-chinh", () => allowsOnly("qa.finance.a /du-an/qa-company-a/tai-chinh", "financePage")],
+  ["qa.viewer.b /du-an/qa-company-b/khach-hang", () => deniesWithoutRouteMarker("qa.viewer.b /du-an/qa-company-b/khach-hang", "customersPage")],
+  ["qa.revoked.a /du-an/qa-company-a", () => deniesWithoutRouteMarker("qa.revoked.a /du-an/qa-company-a", "workspacePage")],
+  ["qa.project.admin.a /du-an/qa-company-draft", () => deniesWithoutRouteMarker("qa.project.admin.a /du-an/qa-company-draft", "workspacePage")],
+  ["qa.project.admin.a /du-an/qa-company-archived", () => deniesWithoutRouteMarker("qa.project.admin.a /du-an/qa-company-archived", "workspacePage")],
 ];
 for (const [key, predicate] of required) {
   const check = byKey.get(key);
