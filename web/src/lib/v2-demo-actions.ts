@@ -5,8 +5,13 @@ import { requireUser } from "./auth";
 
 export type V2DemoState = { ok?: boolean; error?: string; message?: string };
 
+export function canSeedV2Demo(nodeEnv = process.env.NODE_ENV) {
+  return nodeEnv !== "production";
+}
+
 export async function seedV2DemoAction(_prev: V2DemoState): Promise<V2DemoState> {
   const user = await requireUser(["ADMIN"]);
+  if (!canSeedV2Demo()) return { error: "Seed dữ liệu demo chỉ được phép chạy ở môi trường QA/dev, không chạy trên production." };
   if (process.env.ENABLE_ZENITH_V2 !== "true") return { error: "V2 đang khóa. Bật ENABLE_ZENITH_V2=true trong môi trường test trước." };
   const now = new Date();
   const result = await prisma.$transaction(async (tx) => {
