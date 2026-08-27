@@ -1,6 +1,6 @@
 # Project State
 
-- **Updated:** 2026-08-27 14:05 GMT+7
+- **Updated:** 2026-08-27 14:25 GMT+7
 - **Goal:** Xây dựng nền tảng quản lý nhiều công ty con với tài khoản/nhân viên/dữ liệu riêng, AI con theo công ty và AI Tổng cấp hệ thống.
 - **Current phase:** Phase 2 — tenant/account/membership và AI hierarchy contract.
 - **Overall status:** active
@@ -9,11 +9,11 @@
 
 Đã ghi nhận yêu cầu mới về AI phân cấp: mỗi company có AI con riêng; AI Tổng kiểm soát tổng quan tất cả company và AI con. Đã đọc quy trình long-task-memory, zenith-long-execution, canonical paths và safety/done. Đã reset checkout audit về `origin/master` `ab86fdc`, đọc `VERSION.md`, `web/AGENTS.md`, `web/BAN-GIAO.md`, `ROADMAP.md` và kế hoạch Workspace V4 60 task. Workbook canonical theo đường dẫn quy định chưa tồn tại trong sandbox.
 
-Đã khởi tạo bộ nhớ mới tại `.task-memory/multi-company-ai-2026-08-27/` với brief, plan, state, decisions, open questions, sources và inventory/ADR; mọi trạng thái quan trọng của chương trình mới phải ghi tại đây. MC-00 và MC-01 đã hoàn tất ở mức R0. MC-02 đã có code trên branch `agent/mc-02-tenant-lifecycle-20260827`: tạo company ở DRAFT, activate/archive/restore có Admin + audit, archived bị chặn vận hành, domain writes yêu cầu ACTIVE. Full gate MC-02 pass; đang chờ commit/CI.
+Đã khởi tạo bộ nhớ mới tại `.task-memory/multi-company-ai-2026-08-27/` với brief, plan, state, decisions, open questions, sources và inventory/ADR; mọi trạng thái quan trọng của chương trình mới phải ghi tại đây. MC-00 và MC-01 đã hoàn tất ở mức R0. MC-02 đã có code trên branch `agent/mc-02-tenant-lifecycle-20260827`: tạo company ở DRAFT, activate/archive/restore có Admin + audit, archived bị chặn vận hành, domain writes yêu cầu ACTIVE. Full gate MC-02 pass và đã merge PR #56 thành master `98c62c1`. MC-03 đã có code trên branch `agent/mc-03-company-accounts-20260827`: account company-local role `COLLABORATOR`, first-login password change, membership preset/capability, Project Admin member management, server-side active-only writes và navigation filtering. Full gate MC-03 pass và đã merge PR #57 thành master `6e2efa8`. Phase 2 contract đã hoàn tất ở mức code/CI; runtime isolation vẫn mở.
 
 ## Verified facts
 
-Mã nguồn hiện đã có `ZProject`, project membership, project-local models/actions/UI nền tảng, AI workspace context `INTERNAL/PROJECT/GLOBAL`, selector Global/project và server boundary fail-closed vừa merge. MC-02 hiện chặn company DRAFT/ARCHIVED khỏi các action customer/appointment/sale/task/ledger/reconciliation/payroll; DRAFT vẫn cho phép setup membership/config. Kế hoạch V4 hiện phân loại phần lớn Workspace task là `review`, chưa đạt runtime isolation/walkthrough đầy đủ. Payroll project-local chưa có payout/accounting local. Xóa cứng company vẫn bị khóa; hiện mới có archive/restore code-level.
+Mã nguồn hiện đã có `ZProject`, project membership, project-local models/actions/UI nền tảng, AI workspace context `INTERNAL/PROJECT/GLOBAL`, selector Global/project và server boundary fail-closed vừa merge. MC-02 chặn company DRAFT/ARCHIVED khỏi action vận hành; MC-03 thêm account/membership/capability boundary và menu theo preset. Full quality gate local/CI pass cho hai wave. Kế hoạch V4 hiện phân loại phần lớn Workspace task là `review`, chưa đạt DB fixture isolation/authenticated walkthrough đầy đủ. Payroll project-local chưa có payout/accounting local. Xóa cứng company vẫn bị khóa; hiện mới có archive/restore code-level.
 
 ## Active assumptions
 
@@ -29,9 +29,9 @@ Cần phục hồi workbook `ZENITH_PLAN_DUY_NHAT_2026.xlsx` hoặc owner xác n
 
 ## Next 3 actions
 
-1. Commit/CI/merge MC-02 sau khi review diff và full evidence.
-2. Hoàn tất MC-03 ở mức thiết kế trước: account/membership invite, company-local assignment và revoke semantics.
-3. Sau owner decision, mở MC-04/MC-05 cho synthetic isolation/context resolver; chưa mở AI child schema trước isolation gate.
+1. Mở branch MC-04/MC-05 cho synthetic two-company isolation và context resolver integration.
+2. Chạy test foreign URL, revoked membership, capability preset và aggregate/export boundary trên QA data không PII.
+3. Chỉ sau isolation gate pass mới mở AI child profile/tool registry và AI Tổng control-plane; chưa chạy migration/clinic walkthrough.
 
 ## Files to read first
 
