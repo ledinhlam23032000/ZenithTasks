@@ -54,12 +54,17 @@ async function get(username, path) {
       metaForbidden: body.includes("/khong-co-quyen"),
       projectA: body.includes("QA Company A"),
       projectB: body.includes("QA Company B"),
+      projectACode: body.includes("QA-COMPANY-A"),
+      projectBCode: body.includes("QA-COMPANY-B"),
       projectDraft: body.includes("QA Company Draft"),
       projectArchived: body.includes("QA Company Archived"),
-      workspacePage: body.includes("Các module của workspace"),
-      customersPage: body.includes("Hồ sơ khách hàng của"),
       customerAData: body.includes("QA-QA-COMPANY-A-001"),
       customerBData: body.includes("QA-QA-COMPANY-B-001"),
+      taskAData: body.includes("Synthetic QA-COMPANY-A Task 001"),
+      taskBData: body.includes("Synthetic QA-COMPANY-B Task 001"),
+      csv: (response.headers.get("content-type") ?? "").startsWith("text/csv"),
+      workspacePage: body.includes("Các module của workspace"),
+      customersPage: body.includes("Hồ sơ khách hàng của"),
       financePage: body.includes("Sổ thu/chi của"),
       aiPage: body.includes("AI riêng của") || body.includes("Danh sách AI con"),
     },
@@ -82,6 +87,13 @@ const cases = [
   ["qa.revoked.a", "/du-an/qa-company-a"],
   ["qa.project.admin.a", "/du-an/qa-company-draft"],
   ["qa.project.admin.a", "/du-an/qa-company-archived"],
+  ["qa.project.admin.a", "/du-an/qa-company-a/khach-hang/export"],
+  ["qa.project.admin.a", "/du-an/qa-company-a/tasks/export"],
+  ["qa.project.admin.b", "/du-an/qa-company-b/khach-hang/export"],
+  ["qa.project.admin.a", "/du-an/qa-company-b/khach-hang/export"],
+  ["qa.viewer.b", "/du-an/qa-company-b/khach-hang/export"],
+  ["qa.project.admin.a", "/du-an/qa-company-draft/khach-hang/export"],
+  ["qa.project.admin.a", "/du-an/qa-company-archived/khach-hang/export"],
 ];
 
 const checks = await Promise.all(cases.map(([username, path]) => get(username, path)));
@@ -111,6 +123,13 @@ const required = [
   ["qa.revoked.a /du-an/qa-company-a", () => deniesWithoutRouteMarker("qa.revoked.a /du-an/qa-company-a", "workspacePage")],
   ["qa.project.admin.a /du-an/qa-company-draft", () => deniesWithoutRouteMarker("qa.project.admin.a /du-an/qa-company-draft", "workspacePage")],
   ["qa.project.admin.a /du-an/qa-company-archived", () => deniesWithoutRouteMarker("qa.project.admin.a /du-an/qa-company-archived", "workspacePage")],
+  ["qa.project.admin.a /du-an/qa-company-a/khach-hang/export", () => { const check = byKey.get("qa.project.admin.a /du-an/qa-company-a/khach-hang/export"); return Boolean(check && check.bodyMarkers.csv && check.bodyMarkers.customerAData && !isForbiddenResponse(check)); }],
+  ["qa.project.admin.a /du-an/qa-company-a/tasks/export", () => { const check = byKey.get("qa.project.admin.a /du-an/qa-company-a/tasks/export"); return Boolean(check && check.bodyMarkers.csv && check.bodyMarkers.taskAData && !isForbiddenResponse(check)); }],
+  ["qa.project.admin.b /du-an/qa-company-b/khach-hang/export", () => { const check = byKey.get("qa.project.admin.b /du-an/qa-company-b/khach-hang/export"); return Boolean(check && check.bodyMarkers.csv && check.bodyMarkers.customerBData && !isForbiddenResponse(check)); }],
+  ["qa.project.admin.a /du-an/qa-company-b/khach-hang/export", () => deniesWithoutRouteMarker("qa.project.admin.a /du-an/qa-company-b/khach-hang/export", "customerBData")],
+  ["qa.viewer.b /du-an/qa-company-b/khach-hang/export", () => deniesWithoutRouteMarker("qa.viewer.b /du-an/qa-company-b/khach-hang/export", "customerBData")],
+  ["qa.project.admin.a /du-an/qa-company-draft/khach-hang/export", () => deniesWithoutRouteMarker("qa.project.admin.a /du-an/qa-company-draft/khach-hang/export", "customerAData")],
+  ["qa.project.admin.a /du-an/qa-company-archived/khach-hang/export", () => deniesWithoutRouteMarker("qa.project.admin.a /du-an/qa-company-archived/khach-hang/export", "customerAData")],
 ];
 for (const [key, predicate] of required) {
   const check = byKey.get(key);
