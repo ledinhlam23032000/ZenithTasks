@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "./db";
-import { requireProjectAccess } from "./v2-access";
+import { requireProjectCapability } from "./v2-access";
 import { V2_MODULES, normalizedModuleKeys, type V2ModuleKey } from "./v2-modules";
 
 export type ModuleActionState = { ok?: boolean; error?: string; message?: string };
@@ -10,8 +10,7 @@ export type ModuleActionState = { ok?: boolean; error?: string; message?: string
 export async function updateProjectModulesAction(_prev: ModuleActionState, formData: FormData): Promise<ModuleActionState> {
   const projectId = String(formData.get("projectId") ?? "").trim();
   if (!projectId) return { error: "Thiếu Dự án cần cập nhật." };
-  const { user, project } = await requireProjectAccess(projectId);
-  if (user.role !== "ADMIN") return { error: "Chỉ Admin mới được bật/tắt module của Dự án." };
+  const { user, project } = await requireProjectCapability(projectId, "config.manage");
 
   const requested = formData.getAll("moduleKey").map(String) as V2ModuleKey[];
   const available = new Set(V2_MODULES.filter((module) => module.available).map((module) => module.key));

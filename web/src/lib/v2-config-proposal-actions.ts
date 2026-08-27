@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { Prisma } from "../generated/prisma/client";
 import { prisma } from "./db";
-import { requireProjectAccess } from "./v2-access";
+import { requireProjectCapability } from "./v2-access";
 import { canApplyWorkspaceProposal, isSafeWorkspaceProposalRisk } from "./v2-config-proposal-policy";
 import { normalizedModuleKeys } from "./v2-modules";
 import { isCompleteWorkspaceLayout } from "./v2-workspace-navigation";
@@ -36,8 +36,7 @@ export async function createWorkspaceConfigProposalAction(_prev: ConfigProposalA
   const capability = text(formData, "capability", 120);
   const afterConfig = jsonObject(text(formData, "afterConfig", 8000));
   const note = text(formData, "note", 1000) || null;
-  const { user, project } = await requireProjectAccess(projectId);
-  if (user.role !== "ADMIN") return { error: "Chỉ Admin mới tạo được config proposal." };
+  const { user, project } = await requireProjectCapability(projectId, "config.manage");
   if (!moduleKey) return { error: "moduleKey phải là MODULES, LAYOUT hoặc SETTINGS." };
   if (!risks.has(riskLevel) || !isSafeWorkspaceProposalRisk(riskLevel)) return { error: "Risk L5 bị chặn; proposal chỉ nhận L1–L4." };
   if (capability.length < 3) return { error: "Proposal phải nêu capability cần thiết." };
@@ -53,8 +52,7 @@ export async function approveWorkspaceConfigProposalAction(_prev: ConfigProposal
   const projectId = text(formData, "projectId", 80);
   const proposalId = text(formData, "proposalId", 80);
   const confirmation = text(formData, "confirmation", 24).toUpperCase();
-  const { user, project } = await requireProjectAccess(projectId);
-  if (user.role !== "ADMIN") return { error: "Chỉ Admin mới phê duyệt config proposal." };
+  const { user, project } = await requireProjectCapability(projectId, "config.manage");
   if (confirmation !== "APPROVE") return { error: "Nhập APPROVE để xác nhận preview đã được kiểm tra." };
   const result = await prisma.zWorkspaceConfigProposal.updateMany({ where: { id: proposalId, projectId: project.id, targetScope: "PROJECT", status: "DRAFT" }, data: { status: "APPROVED", approvedById: user.id, approvedAt: new Date() } });
   if (result.count !== 1) return { error: "Proposal không tồn tại, sai project hoặc không còn ở DRAFT." };
@@ -67,8 +65,7 @@ export async function applyWorkspaceConfigProposalAction(_prev: ConfigProposalAc
   const projectId = text(formData, "projectId", 80);
   const proposalId = text(formData, "proposalId", 80);
   const confirmation = text(formData, "confirmation", 16).toUpperCase();
-  const { user, project } = await requireProjectAccess(projectId);
-  if (user.role !== "ADMIN") return { error: "Chỉ Admin mới APPLY config proposal." };
+  const { user, project } = await requireProjectCapability(projectId, "config.manage");
   if (!canApplyWorkspaceProposal("APPROVED", "PROJECT", confirmation)) return { error: "Nhập APPLY để xác nhận áp dụng proposal." };
   try {
     await prisma.$transaction(async (tx) => {
@@ -115,8 +112,7 @@ export async function rejectWorkspaceConfigProposalAction(_prev: ConfigProposalA
   const proposalId = text(formData, "proposalId", 80);
   const confirmation = text(formData, "confirmation", 16).toUpperCase();
   const reason = text(formData, "reason", 500);
-  const { user, project } = await requireProjectAccess(projectId);
-  if (user.role !== "ADMIN") return { error: "Chỉ Admin mới reject config proposal." };
+  const { user, project } = await requireProjectCapability(projectId, "config.manage");
   if (confirmation !== "REJECT") return { error: "Nhập REJECT để xác nhận từ chối proposal." };
   if (reason.length < 10) return { error: "Lý do reject phải có ít nhất 10 ký tự." };
   const result = await prisma.zWorkspaceConfigProposal.updateMany({ where: { id: proposalId, projectId: project.id, targetScope: "PROJECT", status: "DRAFT" }, data: { status: "REJECTED", note: reason } });
