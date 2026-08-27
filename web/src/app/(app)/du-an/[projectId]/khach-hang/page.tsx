@@ -2,14 +2,14 @@ import Link from "next/link";
 import { ArrowLeft, ContactRound, ShieldCheck } from "lucide-react";
 import { V2WorkspaceCustomerForm } from "@/components/v2-workspace-customer-form";
 import { prisma } from "@/lib/db";
-import { requireProjectAccess } from "@/lib/v2-access";
+import { requireProjectModule } from "@/lib/v2-access";
 import { normalizedModuleKeys } from "@/lib/v2-modules";
 
 export const dynamic = "force-dynamic";
 
 export default async function ProjectCustomersPage({ params }: { params: Promise<{ projectId: string }> }) {
   const { projectId } = await params;
-  const { project } = await requireProjectAccess(projectId);
+  const { project } = await requireProjectModule(projectId, "customers", { activeOnly: true });
   const enabled = new Set(normalizedModuleKeys(project.enabledFeatures));
   const moduleEnabled = enabled.has("customers");
   const customers = moduleEnabled

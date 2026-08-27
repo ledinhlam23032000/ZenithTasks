@@ -3,7 +3,7 @@ import { CalendarClock, CheckCircle2, ListTodo, ShieldCheck, UserRound } from "l
 import { V2WorkspaceTaskForm } from "@/components/v2-workspace-task-form";
 import { V2WorkspaceTaskStatusForm } from "@/components/v2-workspace-task-status-form";
 import { prisma } from "@/lib/db";
-import { requireProjectAccess } from "@/lib/v2-access";
+import { requireProjectModule } from "@/lib/v2-access";
 import { normalizedModuleKeys } from "@/lib/v2-modules";
 
 export const dynamic = "force-dynamic";
@@ -18,7 +18,7 @@ function dateLabel(value: Date | null) {
 
 export default async function ProjectTasksPage({ params }: { params: Promise<{ projectId: string }> }) {
   const { projectId } = await params;
-  const { project } = await requireProjectAccess(projectId);
+  const { project } = await requireProjectModule(projectId, "tasks", { activeOnly: true });
   const enabled = new Set(normalizedModuleKeys(project.enabledFeatures));
   const taskModuleEnabled = enabled.has("tasks");
 

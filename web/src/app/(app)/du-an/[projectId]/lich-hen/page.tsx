@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowLeft, CalendarDays, ShieldCheck } from "lucide-react";
 import { V2WorkspaceAppointmentForm, V2WorkspaceAppointmentStatusForm } from "@/components/v2-workspace-appointment-form";
 import { prisma } from "@/lib/db";
-import { requireProjectAccess } from "@/lib/v2-access";
+import { requireProjectModule } from "@/lib/v2-access";
 import { normalizedModuleKeys } from "@/lib/v2-modules";
 
 export const dynamic = "force-dynamic";
@@ -12,7 +12,7 @@ const statusTone: Record<string, string> = { BOOKED: "bg-blue-50 text-blue-700",
 
 export default async function ProjectAppointmentsPage({ params }: { params: Promise<{ projectId: string }> }) {
   const { projectId } = await params;
-  const { project } = await requireProjectAccess(projectId);
+  const { project } = await requireProjectModule(projectId, "appointments", { activeOnly: true });
   const enabled = new Set(normalizedModuleKeys(project.enabledFeatures));
   const moduleEnabled = enabled.has("appointments");
   const appointments = moduleEnabled ? await prisma.zWorkspaceAppointment.findMany({ where: { projectId: project.id }, orderBy: { scheduledAt: "asc" }, include: { customer: { select: { code: true, fullName: true } }, assignedTo: { select: { fullName: true, username: true } } } }) : [];

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowLeft, BadgeDollarSign, ShieldCheck } from "lucide-react";
 import { V2WorkspaceSaleForm } from "@/components/v2-workspace-sale-form";
 import { prisma } from "@/lib/db";
-import { requireProjectAccess } from "@/lib/v2-access";
+import { requireProjectModule } from "@/lib/v2-access";
 import { normalizedModuleKeys } from "@/lib/v2-modules";
 
 export const dynamic = "force-dynamic";
@@ -23,7 +23,7 @@ export default async function ProjectSalesPage({ params, searchParams }: { param
   const from = dateOnly(query.from);
   const to = dateOnly(query.to);
   const toExclusive = to ? new Date(to.getTime() + 24 * 60 * 60 * 1000) : null;
-  const { project } = await requireProjectAccess(projectId);
+  const { project } = await requireProjectModule(projectId, "sales", { activeOnly: true });
   const enabled = new Set(normalizedModuleKeys(project.enabledFeatures));
   const moduleEnabled = enabled.has("sales");
   const [sales, customers] = moduleEnabled ? await Promise.all([

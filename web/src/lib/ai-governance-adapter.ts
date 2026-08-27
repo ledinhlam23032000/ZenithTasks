@@ -57,14 +57,14 @@ export function capabilitiesForRole(role: string): string[] {
   return ["get_business_summary", "get_debt_summary", "get_lead_priorities", "get_financial_alerts"];
 }
 
-export function principalForUser(user: { id: string; role: string }, projectIds: string[] = [], workspace: AiWorkspaceContext = { workspaceKind: "INTERNAL" }): AiPrincipal {
+export function principalForUser(user: { id: string; role: string }, projectIds: string[] = [], workspace?: AiWorkspaceContext): AiPrincipal {
   return {
     userId: user.id,
     role: user.role,
     agentProfile: user.role === "ADMIN" ? "EXECUTIVE" : user.role === "MANAGER" ? "OPERATOR" : "VIEWER",
     projectIds,
-    workspaceKind: workspace.workspaceKind,
-    activeProjectId: workspace.projectId,
+    ...(workspace?.workspaceKind ? { workspaceKind: workspace.workspaceKind } : {}),
+    ...(workspace?.projectId ? { activeProjectId: workspace.projectId } : {}),
     capabilities: capabilitiesForRole(user.role),
   };
 }

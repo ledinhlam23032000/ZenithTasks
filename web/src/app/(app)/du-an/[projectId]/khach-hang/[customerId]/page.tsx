@@ -3,13 +3,13 @@ import { ArrowLeft, CalendarDays, History, ShieldCheck, ShoppingBag } from "luci
 import { notFound } from "next/navigation";
 import { V2WorkspaceCustomerDetailForms } from "@/components/v2-workspace-customer-detail-forms";
 import { prisma } from "@/lib/db";
-import { requireProjectAccess } from "@/lib/v2-access";
+import { requireProjectModule } from "@/lib/v2-access";
 
 export const dynamic = "force-dynamic";
 
 export default async function ProjectCustomerDetailPage({ params }: { params: Promise<{ projectId: string; customerId: string }> }) {
   const { projectId, customerId } = await params;
-  const { project } = await requireProjectAccess(projectId);
+  const { project } = await requireProjectModule(projectId, "customers", { activeOnly: true });
   const customer = await prisma.zWorkspaceCustomer.findFirst({ where: { id: customerId, projectId: project.id }, include: { appointments: { orderBy: { scheduledAt: "desc" }, take: 20, select: { id: true, scheduledAt: true, status: true, type: true, serviceInterest: true } }, sales: { orderBy: { occurredAt: "desc" }, take: 20, select: { id: true, occurredAt: true, code: true, serviceName: true, amount: true, paidAmount: true, status: true } } } });
   if (!customer) notFound();
   const history = await prisma.auditLog.findMany({ where: { entity: "ZWorkspaceCustomer", entityId: customer.id, meta: { path: ["projectId"], equals: project.id } }, orderBy: { at: "desc" }, take: 30, select: { id: true, action: true, at: true } });
