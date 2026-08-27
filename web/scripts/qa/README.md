@@ -50,7 +50,7 @@ cd web
 pnpm qa:walkthrough:auth | tee ../.task-memory/multi-company-ai-2026-08-27/checks/mc13-auth-walkthrough-YYYYMMDD.json
 ```
 
-Script phải trả `ok: true`, mỗi route local hợp lệ trả 2xx, còn foreign URL, revoked membership, DRAFT/ARCHIVED và capability-denied route trả redirect 3xx. Đây là bằng chứng authenticated HTTP trên QA, không phải bằng chứng production.
+Script phải trả `ok: true`. Mỗi route local hợp lệ trả 2xx và có marker nội dung route tương ứng; foreign URL, revoked membership, DRAFT/ARCHIVED và capability-denied route phải không trả nội dung tenant bị yêu cầu. Vì Next.js có thể render `ForbiddenPage` trong App Router với HTTP 200, checker ghi nhận thêm marker `/khong-co-quyen`/header redirect và không dùng status 3xx đơn độc làm tiêu chí. Đây là bằng chứng authenticated HTTP trên QA, không phải bằng chứng production.
 
 ## 4. Điều kiện đóng MC-12/MC-13
 
