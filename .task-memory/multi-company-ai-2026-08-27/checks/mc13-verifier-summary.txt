@@ -1,0 +1,3 @@
+verifier_tsc=0
+fixture_policy_boundary_vitest=0
+execution=not_run_no_QA_DATABASE_URL
