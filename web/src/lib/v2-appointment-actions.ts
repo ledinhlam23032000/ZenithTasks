@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "./db";
-import { requireProjectAccess } from "./v2-access";
+import { requireProjectCapability } from "./v2-access";
 
 export type WorkspaceAppointmentActionState = { ok?: boolean; error?: string; message?: string };
 const statuses = new Set(["BOOKED", "CONFIRMED", "ARRIVED", "IN_CONSULT", "IN_SERVICE", "DONE", "CANCELLED", "NO_SHOW"] as const);
@@ -31,7 +31,7 @@ export async function createWorkspaceAppointmentAction(
   formData: FormData,
 ): Promise<WorkspaceAppointmentActionState> {
   const projectId = text(formData, "projectId", 80);
-  const { user, project } = await requireProjectAccess(projectId, { activeOnly: true });
+  const { user, project } = await requireProjectCapability(projectId, "appointments.manage", { activeOnly: true });
   if (project.status === "ARCHIVED") return { error: "Dự án đã lưu trữ, không thể tạo lịch hẹn mới." };
 
   const customerId = text(formData, "customerId", 80) || null;
@@ -78,7 +78,7 @@ export async function updateWorkspaceAppointmentStatusAction(
   const projectId = text(formData, "projectId", 80);
   const appointmentId = text(formData, "appointmentId", 80);
   const rawStatus = text(formData, "status", 20);
-  const { project, user } = await requireProjectAccess(projectId, { activeOnly: true });
+  const { project, user } = await requireProjectCapability(projectId, "appointments.manage", { activeOnly: true });
   const status: AppointmentStatus = statuses.has(rawStatus as AppointmentStatus) ? (rawStatus as AppointmentStatus) : "BOOKED";
   if (!appointmentId) return { error: "Thiếu lịch hẹn cần cập nhật." };
   const existing = await prisma.zWorkspaceAppointment.findFirst({ where: { id: appointmentId, projectId: project.id }, select: { id: true, status: true } });

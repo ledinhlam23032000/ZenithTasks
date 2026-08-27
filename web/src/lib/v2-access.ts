@@ -1,9 +1,10 @@
 import { redirect } from "next/navigation";
 import { prisma } from "./db";
 import { requireUser } from "./auth";
+import { projectMemberCan, type ProjectCapability } from "./v2-project-capabilities";
 
 export async function requireV2User() {
-  const user = await requireUser(["ADMIN", "MANAGER"]);
+  const user = await requireUser();
   if (process.env.ENABLE_ZENITH_V2 !== "true") redirect("/khong-co-quyen");
   return user;
 }
@@ -20,7 +21,15 @@ export async function requireProjectAccess(projectId: string, options: { activeO
     },
   });
   if (!project) redirect("/khong-co-quyen");
-  return { user, project };
+  const membership = user.role === "ADMIN" ? null : await prisma.zProjectMember.findFirst({ where: { projectId: project.id, userId: user.id, active: true }, select: { id: true, preset: true, permissions: true } });
+  if (user.role !== "ADMIN" && !membership) redirect("/khong-co-quyen");
+  return { user, project, membership };
+}
+
+export async function requireProjectCapability(projectId: string, capability: ProjectCapability, options: { activeOnly?: boolean } = {}) {
+  const access = await requireProjectAccess(projectId, options);
+  if (access.user.role !== "ADMIN" && (!access.membership || !projectMemberCan(access.membership, capability))) redirect("/khong-co-quyen");
+  return access;
 }
 
 export function isWorkspaceAdmin(role: string) {

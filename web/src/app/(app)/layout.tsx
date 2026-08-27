@@ -19,7 +19,7 @@ async function loadWorkspaceOptions(user: Awaited<ReturnType<typeof requireUser>
   try {
     const projects = await prisma.zProject.findMany({
       where: user.role === "ADMIN" ? undefined : { members: { some: { userId: user.id, active: true } } },
-      select: { id: true, code: true, name: true, status: true, enabledFeatures: true },
+      select: { id: true, code: true, name: true, status: true, enabledFeatures: true, members: { where: { userId: user.id, active: true }, select: { preset: true, permissions: true } } },
       orderBy: { updatedAt: "desc" },
     });
     if (projects.length === 0) return [];
@@ -35,7 +35,7 @@ async function loadWorkspaceOptions(user: Awaited<ReturnType<typeof requireUser>
       const order = normalizeWorkspaceLayoutOrder(config?.order, normalizedModuleKeys(projects.find((project) => project.id === version.projectId)?.enabledFeatures));
       if (order.length > 0) layoutByProject.set(version.projectId, order);
     }
-    return projects.map((project) => ({ id: project.id, code: project.code, name: project.name, status: project.status, enabledFeatures: normalizedModuleKeys(project.enabledFeatures), layoutOrder: layoutByProject.get(project.id) }));
+    return projects.map((project) => ({ id: project.id, code: project.code, name: project.name, status: project.status, enabledFeatures: normalizedModuleKeys(project.enabledFeatures), layoutOrder: layoutByProject.get(project.id), membership: project.members[0] ?? null }));
   } catch (error) {
     console.error("Không tải được danh sách workspace V2:", error);
     return [];

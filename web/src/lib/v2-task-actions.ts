@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "./db";
-import { requireProjectAccess } from "./v2-access";
+import { requireProjectCapability } from "./v2-access";
 
 export type WorkspaceTaskActionState = { ok?: boolean; error?: string; message?: string };
 
@@ -35,7 +35,7 @@ async function validateAssignee(projectId: string, assigneeId: string | null) {
 
 export async function createWorkspaceTaskAction(_prev: WorkspaceTaskActionState, formData: FormData): Promise<WorkspaceTaskActionState> {
   const projectId = text(formData, "projectId", 80);
-  const { user, project } = await requireProjectAccess(projectId, { activeOnly: true });
+  const { user, project } = await requireProjectCapability(projectId, "tasks.manage", { activeOnly: true });
   if (project.status === "ARCHIVED") return { error: "Dự án đã lưu trữ, không thể tạo Task mới." };
 
   const title = text(formData, "title", 160);
@@ -84,7 +84,7 @@ export async function updateWorkspaceTaskStatusAction(_prev: WorkspaceTaskAction
   const projectId = text(formData, "projectId", 80);
   const taskId = text(formData, "taskId", 80);
   const rawStatus = text(formData, "status", 20);
-  const { project, user } = await requireProjectAccess(projectId, { activeOnly: true });
+  const { project, user } = await requireProjectCapability(projectId, "tasks.manage", { activeOnly: true });
   const status: TaskStatus = statuses.has(rawStatus as TaskStatus) ? (rawStatus as TaskStatus) : "TODO";
   if (!taskId) return { error: "Thiếu Task cần cập nhật." };
 
