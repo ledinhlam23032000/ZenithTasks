@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { Prisma } from "../generated/prisma/client";
 import { prisma } from "./db";
-import { requireProjectAccess } from "./v2-access";
+import { requireProjectCapability } from "./v2-access";
 
 export type ConfigRollbackState = { ok?: boolean; error?: string; message?: string };
 
@@ -19,8 +19,7 @@ export async function rollbackProjectModulesAction(_prev: ConfigRollbackState, f
   if (!projectId || !version) return { error: "Thiếu Dự án hoặc version cần khôi phục." };
   if (confirmation !== "ROLLBACK") return { error: "Hãy nhập ROLLBACK để xác nhận khôi phục cấu hình module." };
 
-  const { user, project } = await requireProjectAccess(projectId);
-  if (user.role !== "ADMIN") return { error: "Chỉ Global Admin mới được khôi phục cấu hình module." };
+  const { user, project } = await requireProjectCapability(projectId, "config.manage");
 
   await prisma.$transaction(async (tx) => {
     const target = await tx.zWorkspaceConfigVersion.findFirst({
