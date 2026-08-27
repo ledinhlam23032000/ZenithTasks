@@ -35,8 +35,9 @@ export function evaluateAiAgentRequest(agent: AiAgentDescriptor, caller: AiAgent
     if (request.workspaceKind !== "PROJECT") return { ok: false, reason: "AGENT_KIND_SCOPE_MISMATCH" };
     if (!agent.projectId || request.projectId !== agent.projectId) return { ok: false, reason: "AGENT_PROJECT_MISMATCH" };
     const membership = caller.memberships.find((item) => item.projectId === agent.projectId && item.active);
-    if (!membership) return { ok: false, reason: "CALLER_MEMBERSHIP_REQUIRED" };
-    if (!membership.capabilities.includes("workspace.view")) return { ok: false, reason: "CALLER_CAPABILITY_REQUIRED" };
+    const globalAdminAccess = caller.role === "ADMIN" && caller.accessibleProjectIds.includes(agent.projectId);
+    if (!membership && !globalAdminAccess) return { ok: false, reason: "CALLER_MEMBERSHIP_REQUIRED" };
+    if (membership && !membership.capabilities.includes("workspace.view")) return { ok: false, reason: "CALLER_CAPABILITY_REQUIRED" };
     return { ok: true, scope: "CHILD", projectId: agent.projectId };
   }
 

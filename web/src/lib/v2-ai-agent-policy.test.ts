@@ -13,6 +13,7 @@ describe("AI agent runtime policy", () => {
     expect(evaluateAiAgentRequest(child, memberA, childRequest)).toEqual({ ok: true, scope: "CHILD", projectId: "company-a" });
     expect(evaluateAiAgentRequest(child, memberA, { ...childRequest, projectId: "company-b" })).toEqual({ ok: false, reason: "AGENT_PROJECT_MISMATCH" });
     expect(evaluateAiAgentRequest(child, memberA, { ...childRequest, workspaceKind: "INTERNAL" })).toEqual({ ok: false, reason: "AGENT_KIND_SCOPE_MISMATCH" });
+    expect(evaluateAiAgentRequest(child, admin, childRequest)).toEqual({ ok: true, scope: "CHILD", projectId: "company-a" });
   });
 
   it("requires ACTIVE status and an allowlisted tool", () => {
