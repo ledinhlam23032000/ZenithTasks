@@ -19,8 +19,8 @@
 | MC-06 | 4 | Lifecycle company: create → draft → active → archived; soft-delete/restore | MC-03,MC-05 | Preview, approval, audit, dependency check, rollback/restore test | R3 | not_started |
 | MC-07 | 5 | Hoàn thiện Customer/Appointment/Sales/Finance/Task local theo tenant | MC-04,MC-05 | CRUD/permission/aggregate tests và UI empty/loading/error states | R2/R3 | not_started |
 | MC-08 | 5 | Payroll/mechanism local với payout/accounting contract rõ ràng | MC-07 | Calculation snapshot, two-person approval, no Internal mixing; owner decision | R3 | blocked_pending_owner |
-| MC-09 | 5 | AI con cho từng company: profile, model/config, knowledge, tool allowlist, context | MC-05,MC-07 | AI child cannot read foreign/Internal; tool registry and audit tests | R3 | not_started |
-| MC-10 | 6 | AI Tổng: global aggregate, company selector, child health/status/audit view | MC-03,MC-09 | ADMIN-only global scope; bounded aggregate; no hidden escalation | R3 | not_started |
+| MC-09 | 5 | AI con cho từng company: profile, model/config, knowledge, tool allowlist, context | MC-05,MC-07 | AI child cannot read foreign/Internal; tool registry and audit tests | R3 | in_progress |
+| MC-10 | 6 | AI Tổng: global aggregate, company selector, child health/status/audit view | MC-03,MC-09 | ADMIN-only global scope; bounded aggregate; no hidden escalation | R3 | in_progress |
 | MC-11 | 6 | AI Tổng điều phối AI con bằng message/job contract, không truyền dữ liệu thừa | MC-09,MC-10 | Target explicit, trace child/source, timeout/retry/idempotency, no prompt-only trust | R3 | not_started |
 | MC-12 | 7 | QA seed 2–3 company, Admin/Manager/employee roles, non-PII | MC-04,MC-09 | Reproducible seed + reset only isolated QA DB | R3 | not_started |
 | MC-13 | 7 | Security/RBAC/isolation/runtime walkthrough | MC-06,MC-07,MC-10,MC-12 | Foreign URL, revoked membership, AI child/global, delete/restore all tested | R3 | not_started |

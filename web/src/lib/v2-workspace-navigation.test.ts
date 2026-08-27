@@ -33,6 +33,7 @@ describe("workspace navigation boundary", () => {
       "/du-an/project-a",
       "/du-an/project-a/doanh-so",
       "/du-an/project-a/khach-hang",
+      "/du-an/project-a/ai",
       "/du-an/project-a/thanh-vien",
       "/tro-ly?p=project-a",
       "/du-an",
