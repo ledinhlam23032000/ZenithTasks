@@ -42,13 +42,24 @@ async function get(username, path) {
     status: response.status,
     location: response.headers.get("location"),
     contentType: response.headers.get("content-type"),
+    responseUrl: response.url,
+    headers: {
+      location: response.headers.get("location"),
+      nextRedirect: response.headers.get("x-nextjs-redirect"),
+      middlewareRewrite: response.headers.get("x-middleware-rewrite"),
+    },
     bodyLength: body.length,
     bodyMarkers: {
-      forbiddenPage: body.includes("Bạn không có quyền truy cập mục này"),
+      forbiddenPage: body.includes("Bạn không có quyền truy cập mục này") || body.includes("Mỗi nhân sự chỉ xem được phần công việc thuộc vai trò của mình"),
+      metaForbidden: body.includes("/khong-co-quyen"),
       projectA: body.includes("QA Company A"),
       projectB: body.includes("QA Company B"),
       projectDraft: body.includes("QA Company Draft"),
       projectArchived: body.includes("QA Company Archived"),
+      workspaceAHeading: body.includes("Workspace Dự án · QA-COMPANY-A"),
+      workspaceBHeading: body.includes("Workspace Dự án · QA-COMPANY-B"),
+      workspaceDraftHeading: body.includes("Workspace Dự án · QA-COMPANY-DRAFT"),
+      workspaceArchivedHeading: body.includes("Workspace Dự án · QA-COMPANY-ARCHIVED"),
     },
   };
 }
@@ -74,7 +85,7 @@ const cases = [
 const checks = await Promise.all(cases.map(([username, path]) => get(username, path)));
 const byKey = new Map(checks.map((check) => [`${check.username} ${check.path}`, check]));
 const isHttpSuccess = (check) => check.status >= 200 && check.status < 300;
-const isForbiddenResponse = (check) => (check.status >= 300 && check.status < 500) || check.bodyMarkers?.forbiddenPage === true;
+const isForbiddenResponse = (check) => (check.status >= 300 && check.status < 500) || check.bodyMarkers?.forbiddenPage === true || check.bodyMarkers?.metaForbidden === true || Boolean(check.headers?.nextRedirect);
 const allowsOnly = (key, marker) => {
   const check = byKey.get(key);
   return Boolean(check && isHttpSuccess(check) && !check.bodyMarkers?.forbiddenPage && check.bodyMarkers?.[marker]);
