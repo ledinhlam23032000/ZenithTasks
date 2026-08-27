@@ -12,6 +12,14 @@ if (password.length < 12) throw new Error("QA_DEMO_PASSWORD must be supplied fro
 
 const adapter = new PrismaPg({ connectionString: qaUrl });
 const prisma = new PrismaClient({ adapter });
+const resolvedUserIds = new Map<string, string>();
+
+const userIdFor = (seedId: string) => {
+  const resolvedId = resolvedUserIds.get(seedId);
+  if (!resolvedId) throw new Error(`QA user was not resolved: ${seedId}`);
+  return resolvedId;
+};
+
 const users = [
   { id: "qa-global-admin", code: "QA-ADMIN", username: "qa.global.admin", fullName: "QA Global Admin", role: "ADMIN" as const },
   { id: "qa-project-admin-a", code: "QA-ADMIN-A", username: "qa.project.admin.a", fullName: "QA Project Admin A", role: "COLLABORATOR" as const },
@@ -41,44 +49,47 @@ const memberships = [
 async function main() {
   const passwordHash = await bcrypt.hash(password, 12);
   for (const user of users) {
+    const existingByUsername = await prisma.user.findUnique({ where: { username: user.username }, select: { id: true } });
+    const resolvedId = existingByUsername?.id ?? user.id;
     await prisma.user.upsert({
-      where: { id: user.id },
+      where: { id: resolvedId },
       update: { code: user.code, username: user.username, fullName: user.fullName, role: user.role, passwordHash, mustChangePassword: true, active: true },
-      create: { ...user, passwordHash, mustChangePassword: true, active: true },
+      create: { ...user, id: resolvedId, passwordHash, mustChangePassword: true, active: true },
     });
+    resolvedUserIds.set(user.id, resolvedId);
   }
   for (const project of projects) {
     await prisma.zProject.upsert({
       where: { id: project.id },
-      update: { code: project.code, name: project.name, status: project.status, ownerUserId: "qa-global-admin", enabledFeatures: ["organization", "tasks", "customers", "appointments", "sales", "finance", "payroll"] },
-      create: { ...project, ownerUserId: "qa-global-admin", enabledFeatures: ["organization", "tasks", "customers", "appointments", "sales", "finance", "payroll"] },
+      update: { code: project.code, name: project.name, status: project.status, ownerUserId: userIdFor("qa-global-admin"), enabledFeatures: ["organization", "tasks", "customers", "appointments", "sales", "finance", "payroll"] },
+      create: { ...project, ownerUserId: userIdFor("qa-global-admin"), enabledFeatures: ["organization", "tasks", "customers", "appointments", "sales", "finance", "payroll"] },
     });
   }
   for (const membership of memberships) {
     await prisma.zProjectMember.upsert({
-      where: { projectId_userId: { projectId: membership.projectId, userId: membership.userId } },
+      where: { projectId_userId: { projectId: membership.projectId, userId: userIdFor(membership.userId) } },
       update: { preset: membership.preset, active: membership.active, leftAt: membership.active ? null : new Date("2026-01-01T00:00:00.000Z") },
-      create: { ...membership, leftAt: membership.active ? null : new Date("2026-01-01T00:00:00.000Z") },
+      create: { ...membership, userId: userIdFor(membership.userId), leftAt: membership.active ? null : new Date("2026-01-01T00:00:00.000Z") },
     });
   }
   for (const project of projects) {
     await prisma.zAiAgent.upsert({
       where: { id: `qa-agent-child-${project.id}` },
-      update: { code: `QA-CHILD-${project.code}`, name: `QA Child ${project.code}`, kind: "CHILD", status: project.status === "ACTIVE" ? "ACTIVE" : "DRAFT", projectId: project.id, createdById: "qa-global-admin", systemPrompt: "Synthetic QA child agent restricted to this company only.", toolAllowlist: ["get_project_overview", "get_project_customers", "get_project_tasks"], config: { qa: true, projectId: project.id } },
-      create: { id: `qa-agent-child-${project.id}`, code: `QA-CHILD-${project.code}`, name: `QA Child ${project.code}`, kind: "CHILD", status: project.status === "ACTIVE" ? "ACTIVE" : "DRAFT", projectId: project.id, createdById: "qa-global-admin", systemPrompt: "Synthetic QA child agent restricted to this company only.", toolAllowlist: ["get_project_overview", "get_project_customers", "get_project_tasks"], config: { qa: true, projectId: project.id } },
+      update: { code: `QA-CHILD-${project.code}`, name: `QA Child ${project.code}`, kind: "CHILD", status: project.status === "ACTIVE" ? "ACTIVE" : "DRAFT", projectId: project.id, createdById: userIdFor("qa-global-admin"), systemPrompt: "Synthetic QA child agent restricted to this company only.", toolAllowlist: ["get_project_overview", "get_project_customers", "get_project_tasks"], config: { qa: true, projectId: project.id } },
+      create: { id: `qa-agent-child-${project.id}`, code: `QA-CHILD-${project.code}`, name: `QA Child ${project.code}`, kind: "CHILD", status: project.status === "ACTIVE" ? "ACTIVE" : "DRAFT", projectId: project.id, createdById: userIdFor("qa-global-admin"), systemPrompt: "Synthetic QA child agent restricted to this company only.", toolAllowlist: ["get_project_overview", "get_project_customers", "get_project_tasks"], config: { qa: true, projectId: project.id } },
     });
   }
   await prisma.zAiAgent.upsert({
     where: { id: "qa-agent-global" },
-    update: { code: "QA-GLOBAL", name: "QA Global AI", kind: "GLOBAL", status: "ACTIVE", projectId: null, createdById: "qa-global-admin", systemPrompt: "Synthetic QA global agent limited to aggregate and explicit targets.", toolAllowlist: ["get_workspace_overview"], config: { qa: true, scope: "GLOBAL", requiresExplicitProjectTarget: true } },
-    create: { id: "qa-agent-global", code: "QA-GLOBAL", name: "QA Global AI", kind: "GLOBAL", status: "ACTIVE", projectId: null, createdById: "qa-global-admin", systemPrompt: "Synthetic QA global agent limited to aggregate and explicit targets.", toolAllowlist: ["get_workspace_overview"], config: { qa: true, scope: "GLOBAL", requiresExplicitProjectTarget: true } },
+    update: { code: "QA-GLOBAL", name: "QA Global AI", kind: "GLOBAL", status: "ACTIVE", projectId: null, createdById: userIdFor("qa-global-admin"), systemPrompt: "Synthetic QA global agent limited to aggregate and explicit targets.", toolAllowlist: ["get_workspace_overview"], config: { qa: true, scope: "GLOBAL", requiresExplicitProjectTarget: true } },
+    create: { id: "qa-agent-global", code: "QA-GLOBAL", name: "QA Global AI", kind: "GLOBAL", status: "ACTIVE", projectId: null, createdById: userIdFor("qa-global-admin"), systemPrompt: "Synthetic QA global agent limited to aggregate and explicit targets.", toolAllowlist: ["get_workspace_overview"], config: { qa: true, scope: "GLOBAL", requiresExplicitProjectTarget: true } },
   });
   for (const project of projects) {
     for (const suffix of ["001", "002"]) {
       await prisma.zWorkspaceCustomer.upsert({
         where: { projectId_code: { projectId: project.id, code: `QA-${project.code}-${suffix}` } },
-        update: { fullName: `Synthetic ${project.code} Customer ${suffix}`, phoneLast4: suffix.slice(-4), source: "QA", note: "NON-PII synthetic fixture", active: true, deletedAt: null, deletedById: null, createdById: "qa-global-admin" },
-        create: { projectId: project.id, code: `QA-${project.code}-${suffix}`, fullName: `Synthetic ${project.code} Customer ${suffix}`, phoneLast4: suffix.slice(-4), source: "QA", note: "NON-PII synthetic fixture", createdById: "qa-global-admin" },
+        update: { fullName: `Synthetic ${project.code} Customer ${suffix}`, phoneLast4: suffix.slice(-4), source: "QA", note: "NON-PII synthetic fixture", active: true, deletedAt: null, deletedById: null, createdById: userIdFor("qa-global-admin") },
+        create: { projectId: project.id, code: `QA-${project.code}-${suffix}`, fullName: `Synthetic ${project.code} Customer ${suffix}`, phoneLast4: suffix.slice(-4), source: "QA", note: "NON-PII synthetic fixture", createdById: userIdFor("qa-global-admin") },
       });
     }
   }
@@ -86,8 +97,8 @@ async function main() {
     for (const suffix of ["001", "002"]) {
       await prisma.zWorkspaceTask.upsert({
         where: { id: `qa-task-${project.id}-${suffix}` },
-        update: { projectId: project.id, title: `Synthetic ${project.code} Task ${suffix}`, description: "NON-PII synthetic fixture", priority: "NORMAL", status: "TODO", order: Number(suffix), createdById: "qa-global-admin", assigneeId: null },
-        create: { id: `qa-task-${project.id}-${suffix}`, projectId: project.id, title: `Synthetic ${project.code} Task ${suffix}`, description: "NON-PII synthetic fixture", priority: "NORMAL", status: "TODO", order: Number(suffix), createdById: "qa-global-admin" },
+        update: { projectId: project.id, title: `Synthetic ${project.code} Task ${suffix}`, description: "NON-PII synthetic fixture", priority: "NORMAL", status: "TODO", order: Number(suffix), createdById: userIdFor("qa-global-admin"), assigneeId: null },
+        create: { id: `qa-task-${project.id}-${suffix}`, projectId: project.id, title: `Synthetic ${project.code} Task ${suffix}`, description: "NON-PII synthetic fixture", priority: "NORMAL", status: "TODO", order: Number(suffix), createdById: userIdFor("qa-global-admin") },
       });
     }
   }
