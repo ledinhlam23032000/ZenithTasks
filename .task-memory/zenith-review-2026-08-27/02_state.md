@@ -1,9 +1,9 @@
 # Project State
 
-- **Updated:** 2026-08-27 12:40 GMT+7
+- **Updated:** 2026-08-27 13:02 GMT+7
 - **Goal:** Rà soát và hoàn thiện Workspace V4 của ZenithTasks bằng bằng chứng kiểm chứng.
-- **Current phase:** Phase 5 — triển khai sửa chữa an toàn.
-- **Overall status:** review
+- **Current phase:** Phase 6 — kiểm thử hồi quy và bàn giao.
+- **Overall status:** review_with_blockers
 
 ## Completed since last checkpoint
 
@@ -21,7 +21,7 @@ Payroll project-local đã có create/calculate/preview/approve/second-approve/f
 
 Nguồn canonical workbook tại `/home/ubuntu/task-memory/zenith-upgrade-execution` không tồn tại trong sandbox; kế hoạch 60 task V4 tồn tại ở checkout Windows dưới `.task-memory/zenithtasks-ai-governance-2026/` nhưng không nằm trong origin checkout. Đây là thiếu hụt quản trị trạng thái, không được che bằng claim hoàn tất.
 
-Đã sửa trên checkout audit: active layout được chuẩn hóa và truyền từ `ZWorkspaceConfigVersion` ACTIVE vào AppShell; project navigation sắp xếp theo layout đã áp dụng, còn lọc module available/enabled; server apply validate đủ order duy nhất; layout editor bắt đầu từ active order. Đã thêm AI workspace boundary: Internal giữ legacy actions, Global chỉ aggregate overview, Project chặn legacy read/write và không còn query staff candidates trước khi planner chạy. Đã thêm 9 assertion mới cho navigation/layout/AI boundary.
+Đã sửa trên checkout audit: active layout được chuẩn hóa và truyền từ `ZWorkspaceConfigVersion` ACTIVE vào AppShell; project navigation sắp xếp theo layout đã áp dụng, còn lọc module available/enabled; server apply validate đủ order duy nhất; layout editor bắt đầu từ active order. Đã thêm AI workspace boundary: Internal giữ legacy actions, Global chỉ aggregate overview, Project chặn legacy read/write và không còn query staff candidates trước khi planner chạy. Đã thêm 9 assertion mới cho navigation/layout/AI boundary. Hai thay đổi đã pass CI và merge vào master: PR #53 → `2fb3e95`, PR #54 → `1bfb80f`; demo seed production guard có thêm 1 test.
 
 ## Open blockers/questions
 
@@ -29,9 +29,9 @@ Chưa có authenticated Admin/Manager runtime walkthrough trong phiên này. Ch�
 
 ## Next 3 actions
 
-1. Rà soát diff, tạo branch riêng và commit các sửa layout/AI boundary.
-2. Chạy lại toàn bộ quality gate và lưu final evidence.
-3. Chuẩn bị handoff cho owner: runtime walkthrough, backup, updater và quyết định payroll settlement.
+1. Owner cập nhật checkout Windows lên `origin/master` bằng updater an toàn sau backup, không xóa untracked artifacts.
+2. Chạy authenticated Admin/Manager walkthrough và migration/runtime checks trên môi trường được owner cho phép.
+3. Quyết định và triển khai tiếp payroll settlement, project-local AI adapters, layout rollback UI và canonical workbook/state.
 
 ## Files to read first
 
@@ -44,4 +44,4 @@ Chưa có authenticated Admin/Manager runtime walkthrough trong phiên này. Ch�
 
 ## Quality risks
 
-Quality gates xanh chỉ chứng minh compile/unit-level, không chứng minh isolation runtime, role walkthrough, migration trên clinic hoặc AI không rơi nhầm về Internal. Không được pull/reset checkout Windows vì có untracked QA/worktree. Không chạy `migrate dev`, `db push`, `migrate reset` hoặc test ghi/xóa trên production.
+Quality gates xanh chỉ chứng minh compile/unit-level, không chứng minh isolation runtime, role walkthrough, migration trên clinic hoặc AI không rơi nhầm về Internal. Không được pull/reset checkout Windows vì có untracked QA/worktree. Không chạy `migrate dev`, `db push`, `migrate reset` hoặc test ghi/xóa trên production. Đầu ra bàn giao: `artifacts/final-handoff.md`; gap register: `checks/gap-register-2026-08-27.md`; changelog: `06_changelog.md`; decisions: `03_decisions.md`; sources: `04_sources.md`.
