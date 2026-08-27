@@ -12,8 +12,6 @@ if (password.length < 12) throw new Error("QA_DEMO_PASSWORD must be supplied fro
 
 const adapter = new PrismaPg({ connectionString: qaUrl });
 const prisma = new PrismaClient({ adapter });
-const passwordHash = await bcrypt.hash(password, 12);
-
 const users = [
   { id: "qa-global-admin", code: "QA-ADMIN", username: "qa.global.admin", fullName: "QA Global Admin", role: "ADMIN" as const },
   { id: "qa-project-admin-a", code: "QA-ADMIN-A", username: "qa.project.admin.a", fullName: "QA Project Admin A", role: "COLLABORATOR" as const },
@@ -41,6 +39,7 @@ const memberships = [
 ];
 
 async function main() {
+  const passwordHash = await bcrypt.hash(password, 12);
   for (const user of users) {
     await prisma.user.upsert({
       where: { id: user.id },
@@ -95,8 +94,11 @@ async function main() {
   console.log(JSON.stringify({ ok: true, qaOnly: true, users: users.length, projects: projects.length, memberships: memberships.length, agents: projects.length + 1, customers: projects.length * 2, tasks: projects.length * 2 }, null, 2));
 }
 
-try {
-  await main();
-} finally {
-  await prisma.$disconnect();
-}
+void main()
+  .catch((error: unknown) => {
+    console.error(error instanceof Error ? error.message : error);
+    process.exitCode = 1;
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });
