@@ -5,6 +5,7 @@ import { prisma } from "./db";
 import { requireUser } from "./auth";
 import { PROJECT_TYPES, type ProjectType } from "./v2-project-types";
 import { V2_DEFAULT_MODULE_KEYS } from "./v2-modules";
+import { transitionProjectStatus, type ProjectLifecycleStatus } from "./v2-project-lifecycle";
 
 export type ProjectActionState = { ok?: boolean; error?: string; message?: string };
 
@@ -39,7 +40,7 @@ export async function createV2ProjectAction(_prev: ProjectActionState, formData:
         name,
         description,
         projectType,
-        status: "ACTIVE",
+        status: "DRAFT",
         ownerUserId: user.id,
         currency: "VND",
         enabledFeatures: V2_DEFAULT_MODULE_KEYS,
@@ -56,7 +57,30 @@ export async function createV2ProjectAction(_prev: ProjectActionState, formData:
   });
 
   revalidatePath("/du-an");
-  return { ok: true, message: `Đã tạo Dự án ${project.code} ở trạng thái ACTIVE. Dự án là workspace vận hành riêng; hãy mở cấu hình để bật các module đã triển khai.` };
+  return { ok: true, message: `Đã tạo Dự án ${project.code} ở trạng thái DRAFT. Hãy cấu hình thành viên và module trước khi kích hoạt vận hành.` };
+}
+
+export async function setV2ProjectStatusAction(_prev: ProjectActionState, formData: FormData): Promise<ProjectActionState> {
+  const user = await requireUser(["ADMIN"]);
+  if (process.env.ENABLE_ZENITH_V2 !== "true") return { error: "Lớp đa Dự án đang tắt." };
+  const projectId = readText(formData, "projectId", 80);
+  const targetStatus = readText(formData, "status", 12) as ProjectLifecycleStatus;
+  if (!["ACTIVE", "ARCHIVED"].includes(targetStatus)) return { error: "Trạng thái chuyển không hợp lệ." };
+  const project = await prisma.zProject.findUnique({ where: { id: projectId }, select: { id: true, code: true, name: true, status: true } });
+  if (!project) return { error: "Không tìm thấy Dự án." };
+  const transition = transitionProjectStatus(project.status, targetStatus);
+  if (!transition.ok) return { error: transition.error };
+  if (targetStatus === "ACTIVE") {
+    const memberCount = await prisma.zProjectMember.count({ where: { projectId: project.id, active: true } });
+    if (memberCount === 0) return { error: "Không thể kích hoạt Dự án chưa có thành viên active." };
+  }
+  await prisma.$transaction(async (tx) => {
+    await tx.zProject.update({ where: { id: project.id }, data: { status: targetStatus } });
+    await tx.auditLog.create({ data: { actorId: user.id, action: targetStatus === "ARCHIVED" ? "V2_PROJECT_ARCHIVED" : "V2_PROJECT_ACTIVATED", entity: "ZProject", entityId: project.id, meta: { projectId: project.id, from: project.status, to: targetStatus, reason: readText(formData, "reason", 500) || null } } });
+  });
+  revalidatePath("/du-an");
+  revalidatePath(`/du-an/${project.id}`);
+  return { ok: true, message: targetStatus === "ARCHIVED" ? `Đã lưu trữ Dự án ${project.code}. Dữ liệu vẫn được giữ để audit/khôi phục.` : `Đã kích hoạt Dự án ${project.code}.` };
 }
 
 export async function listV2ProjectCodes() {

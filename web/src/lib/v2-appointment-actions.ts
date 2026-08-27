@@ -31,7 +31,7 @@ export async function createWorkspaceAppointmentAction(
   formData: FormData,
 ): Promise<WorkspaceAppointmentActionState> {
   const projectId = text(formData, "projectId", 80);
-  const { user, project } = await requireProjectAccess(projectId);
+  const { user, project } = await requireProjectAccess(projectId, { activeOnly: true });
   if (project.status === "ARCHIVED") return { error: "Dự án đã lưu trữ, không thể tạo lịch hẹn mới." };
 
   const customerId = text(formData, "customerId", 80) || null;
@@ -78,7 +78,7 @@ export async function updateWorkspaceAppointmentStatusAction(
   const projectId = text(formData, "projectId", 80);
   const appointmentId = text(formData, "appointmentId", 80);
   const rawStatus = text(formData, "status", 20);
-  const { project, user } = await requireProjectAccess(projectId);
+  const { project, user } = await requireProjectAccess(projectId, { activeOnly: true });
   const status: AppointmentStatus = statuses.has(rawStatus as AppointmentStatus) ? (rawStatus as AppointmentStatus) : "BOOKED";
   if (!appointmentId) return { error: "Thiếu lịch hẹn cần cập nhật." };
   const existing = await prisma.zWorkspaceAppointment.findFirst({ where: { id: appointmentId, projectId: project.id }, select: { id: true, status: true } });

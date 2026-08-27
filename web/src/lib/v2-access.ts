@@ -8,12 +8,13 @@ export async function requireV2User() {
   return user;
 }
 
-export async function requireProjectAccess(projectId: string) {
+export async function requireProjectAccess(projectId: string, options: { activeOnly?: boolean } = {}) {
   const user = await requireV2User();
+  const statusFilter = options.activeOnly ? { status: "ACTIVE" as const } : { status: { not: "ARCHIVED" as const } };
   const project = await prisma.zProject.findFirst({
     where: user.role === "ADMIN"
-      ? { id: projectId }
-      : { id: projectId, members: { some: { userId: user.id, active: true } } },
+      ? { id: projectId, ...statusFilter }
+      : { id: projectId, ...statusFilter, members: { some: { userId: user.id, active: true } } },
     include: {
       _count: { select: { members: true, units: true, positions: true, mechanisms: true, workspaceTasks: true, workspaceCustomers: true, workspaceAppointments: true, workspaceSales: true } },
     },

@@ -21,7 +21,7 @@ function money(formData: FormData, key: string) {
 
 export async function createWorkspaceSaleAction(_prev: WorkspaceSaleActionState, formData: FormData): Promise<WorkspaceSaleActionState> {
   const projectId = text(formData, "projectId", 80);
-  const { user, project } = await requireProjectAccess(projectId);
+  const { user, project } = await requireProjectAccess(projectId, { activeOnly: true });
   if (project.status === "ARCHIVED") return { error: "Dự án đã lưu trữ, không thể tạo giao dịch mới." };
 
   const customerId = text(formData, "customerId", 80) || null;
