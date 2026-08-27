@@ -43,6 +43,15 @@ Thực hiện bằng tài khoản QA tương ứng, lưu request/response status
 
 Mỗi case cần evidence runtime thật từ DB QA hoặc authenticated browser. Pure Vitest/TypeScript/Next build chỉ là prerequisite, không thay thế walkthrough.
 
+Có thể chạy authenticated HTTP walkthrough bằng script versioned (script tự ký session synthetic bằng `AUTH_SECRET` của container, không ghi password và chỉ gửi GET read-only):
+
+```bash
+cd web
+pnpm qa:walkthrough:auth | tee ../.task-memory/multi-company-ai-2026-08-27/checks/mc13-auth-walkthrough-YYYYMMDD.json
+```
+
+Script phải trả `ok: true`, mỗi route local hợp lệ trả 2xx, còn foreign URL, revoked membership, DRAFT/ARCHIVED và capability-denied route trả redirect 3xx. Đây là bằng chứng authenticated HTTP trên QA, không phải bằng chứng production.
+
 ## 4. Điều kiện đóng MC-12/MC-13
 
 Chỉ chuyển task sang `done` khi seed chạy thành công, verifier pass, toàn bộ case trên có evidence path, foreign/revoked/DRAFT/ARCHIVED denial đã quan sát được, và checkpoint đã cập nhật ở `02_state.md`, `06_changelog.md`, `07_task_ledger.md`. Nếu thiếu QA database hoặc owner walkthrough, giữ trạng thái `PARTIAL/BLOCKED`.

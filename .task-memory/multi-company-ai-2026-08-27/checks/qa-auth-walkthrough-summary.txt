@@ -1,0 +1,3 @@
+node_check=0
+tsc=0
+fixture_policy_boundary_vitest=0
