@@ -17,5 +17,8 @@ describe("AI workspace action boundary", () => {
     const workspace = { workspaceKind: "PROJECT" as const, projectId: "project-a" };
     expect(getAiWorkspaceActionError(workspace, "get_debt_summary")).toContain("chưa có adapter project-local");
     expect(getAiWorkspaceActionError(workspace, "create_appointment")).toContain("chưa có adapter project-local");
+    expect(getAiWorkspaceActionError(workspace, "get_project_customers")).toBeNull();
+    expect(getAiWorkspaceActionError({ workspaceKind: "INTERNAL" }, "get_project_customers")).toContain("không fallback về Nội Bộ");
+    expect(getAiWorkspaceActionError({ workspaceKind: "GLOBAL" }, "get_project_customers")).toContain("aggregate");
   });
 });

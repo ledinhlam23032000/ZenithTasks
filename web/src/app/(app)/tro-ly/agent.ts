@@ -34,6 +34,9 @@ const actionNames = [
   "none",
   "get_business_summary",
   "get_workspace_overview",
+  "get_project_overview",
+  "get_project_customers",
+  "get_project_tasks",
   "get_payroll_row",
   "get_customer_profile",
   "get_debt_summary",
@@ -228,7 +231,10 @@ async function getAiPrincipal(user: { id: string; role: string }, workspace: AiW
       ? (await prisma.zProject.findMany({ where: { status: "ACTIVE" }, select: { id: true } })).map((row) => row.id)
       : (await prisma.zProjectMember.findMany({ where: { userId: user.id, active: true, project: { status: "ACTIVE" } }, select: { projectId: true } })).map((row) => row.projectId)
     : [];
-  return principalForUser(user, projectIds, workspace);
+  const principal = principalForUser(user, projectIds, workspace);
+  return workspace.workspaceKind === "PROJECT"
+    ? { ...principal, capabilities: [...principal.capabilities, "get_project_overview", "get_project_customers", "get_project_tasks"] }
+    : principal;
 }
 
 function governanceBlock(principal: ReturnType<typeof principalForUser>, action: string, args: unknown, confirmationRequested: boolean, confirmationStage = false): string | null {
@@ -246,6 +252,9 @@ const actionHelp = `
 Công cụ được phép:
 - get_business_summary: đọc tổng quan vận hành Nội Bộ.
 - get_workspace_overview: ADMIN ở phạm vi GLOBAL đọc aggregate của mọi Dự án (trạng thái, số task; không trả toàn bộ bản ghi).
+- get_project_overview: đọc aggregate của đúng company ACTIVE đang chọn (số khách, task, lịch hẹn, doanh số).
+- get_project_customers: đọc tối đa 100 khách project-local của đúng company đang chọn, không đọc Customer Nội Bộ.
+- get_project_tasks: đọc tối đa 100 task project-local của đúng company đang chọn.
 - get_payroll_row: xem bảng lương của một nhân sự theo tháng; args {staffName, month?}.
 - get_customer_profile: đọc hồ sơ khách theo mã, chỉ hiển thị 5 số cuối điện thoại và dữ liệu được phép; args {customerCode}.
 - get_debt_summary: đọc tổng công nợ hiện tại.
@@ -405,6 +414,20 @@ async function readAction(action: ActionName, args: unknown, userId: string, wor
     const truncated = projects.length > 100 ? `\\n\\n(Đang hiển thị 100/${projects.length} Dự án; muốn xem chi tiết hãy chọn projectId cụ thể.)` : "";
     return { ok: true, answer: `Tổng quan toàn hệ thống: ${projects.length} Dự án trong phạm vi Admin, ${active} Dự án ACTIVE, ${taskTotal} Task project-local.\\n\\n${rows || "Chưa có Dự án."}${truncated}` };
   }
+  if (["get_project_overview", "get_project_customers", "get_project_tasks"].includes(action)) {
+    if (workspace.workspaceKind !== "PROJECT" || !workspace.projectId) return planError("Project-local tool cần workspace PROJECT và projectId cụ thể.");
+    if (action === "get_project_overview") {
+      const project = await prisma.zProject.findFirst({ where: { id: workspace.projectId, status: "ACTIVE" }, select: { code: true, name: true, _count: { select: { workspaceCustomers: true, workspaceTasks: true, workspaceAppointments: true, workspaceSales: true } } } });
+      if (!project) return planError("Company không tồn tại hoặc chưa ACTIVE.");
+      return { ok: true, answer: `Tổng quan ${project.code} · ${project.name}: ${project._count.workspaceCustomers} khách, ${project._count.workspaceTasks} task, ${project._count.workspaceAppointments} lịch hẹn, ${project._count.workspaceSales} giao dịch doanh số.` };
+    }
+    if (action === "get_project_customers") {
+      const customers = await prisma.zWorkspaceCustomer.findMany({ where: { projectId: workspace.projectId, active: true }, orderBy: { fullName: "asc" }, take: 100, select: { code: true, fullName: true, phoneLast4: true, source: true, consentStatus: true } });
+      return { ok: true, answer: customers.length ? `Khách trong ${workspace.projectId} (${customers.length} bản ghi tối đa 100):\n${customers.map((customer) => `- ${customer.code} · ${customer.fullName} · ******${customer.phoneLast4 ?? ""} · ${customer.source ?? "chưa rõ nguồn"} · consent ${customer.consentStatus}`).join("\n")}` : "Company chưa có khách project-local active." };
+    }
+    const tasks = await prisma.zWorkspaceTask.findMany({ where: { projectId: workspace.projectId }, orderBy: { createdAt: "desc" }, take: 100, select: { title: true, status: true, priority: true, dueAt: true, assignee: { select: { fullName: true } } } });
+    return { ok: true, answer: tasks.length ? `Task trong ${workspace.projectId} (${tasks.length} bản ghi tối đa 100):\n${tasks.map((task) => `- ${task.title} · ${task.status} · ${task.priority} · hạn ${task.dueAt?.toLocaleDateString("vi-VN") ?? "chưa đặt"} · ${task.assignee?.fullName ?? "chưa giao"}`).join("\n")}` : "Company chưa có task project-local." };
+  }
   if (action === "get_business_summary") {
     const context = await getAssistantContext();
     return { ok: true, answer: `Tôi đã đọc số liệu hiện tại.\n\n${formatAssistantContext(context)}` };
@@ -471,6 +494,9 @@ async function readAction(action: ActionName, args: unknown, userId: string, wor
 const READ_ACTIONS = new Set<ActionName>([
   "get_business_summary",
   "get_workspace_overview",
+  "get_project_overview",
+  "get_project_customers",
+  "get_project_tasks",
   "get_debt_summary",
   "get_lead_priorities",
   "get_financial_alerts",

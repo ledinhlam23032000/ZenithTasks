@@ -35,7 +35,7 @@ export async function createProjectAiAgentAction(_prev: AiAgentActionState, form
   const existing = await prisma.zAiAgent.findUnique({ where: { code }, select: { id: true } });
   if (existing) return { error: "Mã AI đã tồn tại trong hệ thống." };
   const created = await prisma.$transaction(async (tx) => {
-    const agent = await tx.zAiAgent.create({ data: { code, name, kind: "CHILD", status: "DRAFT", projectId: project.id, createdById: user.id, systemPrompt, model, toolAllowlist: [], config: { scope: "PROJECT", projectId: project.id } } });
+    const agent = await tx.zAiAgent.create({ data: { code, name, kind: "CHILD", status: "DRAFT", projectId: project.id, createdById: user.id, systemPrompt, model, toolAllowlist: ["get_project_overview", "get_project_customers", "get_project_tasks"], config: { scope: "PROJECT", projectId: project.id, defaultTools: ["get_project_overview", "get_project_customers", "get_project_tasks"] } } });
     await tx.auditLog.create({ data: { actorId: user.id, action: "V2_CHILD_AI_CREATED", entity: "ZAiAgent", entityId: agent.id, meta: { projectId: project.id, agentId: agent.id, kind: "CHILD", status: "DRAFT", code } } });
     return agent;
   });
