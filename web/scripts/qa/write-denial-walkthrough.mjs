@@ -45,7 +45,7 @@ const actions = {
 };
 
 async function invoke(action, fields, path) {
-  const form = new URLSearchParams();
+  const form = new FormData();
   form.set("$ACTION_KEY", "");
   form.set("projectId", fields.projectId);
   for (const [key, value] of Object.entries(fields)) {
@@ -57,7 +57,6 @@ async function invoke(action, fields, path) {
     headers: {
       cookie: `zsession=${token}`,
       "next-action": action,
-      "content-type": "application/x-www-form-urlencoded",
       "next-router-state-tree": "[\"\",{\"children\":[\"(app)\",{\"children\":[\"du-an\",{\"children\":[\"__PAGE__\",{}]}]}]}]",
     },
     body: form,
