@@ -44,14 +44,14 @@ const actions = {
   taskCreate: actionId("src/lib/v2-task-actions.ts", "createWorkspaceTaskAction"),
 };
 
-async function invoke(action, fields) {
+async function invoke(action, fields, path) {
   const form = new URLSearchParams();
   form.set("$ACTION_KEY", "");
   form.set("projectId", fields.projectId);
   for (const [key, value] of Object.entries(fields)) {
     if (key !== "projectId") form.set(key, value);
   }
-  const response = await fetch("http://127.0.0.1:3000/du-an", {
+  const response = await fetch(`http://127.0.0.1:3000${path}`, {
     method: "POST",
     redirect: "manual",
     headers: {
@@ -75,16 +75,18 @@ const cases = [
   {
     name: "customer-create-draft",
     action: actions.customerCreate,
+    path: "/du-an/qa-company-draft/khach-hang",
     fields: { projectId: "qa-company-draft", code: "QA-DENY-DRAFT", fullName: "Synthetic Denied Draft", phoneLast4: "0000", source: "QA", note: "denial test" },
   },
   {
     name: "task-create-archived",
     action: actions.taskCreate,
+    path: "/du-an/qa-company-archived/tasks",
     fields: { projectId: "qa-company-archived", title: "Synthetic Denied Archived", description: "denial test", priority: "NORMAL", dueDate: "2026-12-31", assigneeId: "" },
   },
 ];
 const results = [];
-for (const test of cases) results.push({ name: test.name, response: await invoke(test.action, test.fields) });
+for (const test of cases) results.push({ name: test.name, response: await invoke(test.action, test.fields, test.path) });
 
 const verifyClient = new Client({ connectionString: databaseUrl });
 await verifyClient.connect();
