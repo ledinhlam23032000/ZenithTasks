@@ -28,7 +28,7 @@ export async function createWorkspaceLedgerEntryAction(_prev: LedgerActionState,
   const value = amount(formData);
   const occurredAtRaw = text(formData, "occurredAt", 32);
 
-  const { user, project } = await requireProjectAccess(projectId);
+  const { user, project } = await requireProjectAccess(projectId, { activeOnly: true });
   if (!/[A-Z0-9][A-Z0-9_-]{2,47}/.test(code)) return { error: "Mã ledger cần 3–48 ký tự chữ in hoa, số, gạch ngang hoặc gạch dưới." };
   if (direction !== "INCOME" && direction !== "EXPENSE") return { error: "Chọn đúng hướng INCOME hoặc EXPENSE." };
   if (category.length < 2) return { error: "Nhóm thu/chi cần ít nhất 2 ký tự." };
@@ -58,7 +58,7 @@ export async function voidWorkspaceLedgerEntryAction(_prev: LedgerActionState, f
   const entryId = text(formData, "entryId", 80);
   const confirmation = text(formData, "confirmation", 16).toUpperCase();
   const reason = text(formData, "reason", 300);
-  const { user, project } = await requireProjectAccess(projectId);
+  const { user, project } = await requireProjectAccess(projectId, { activeOnly: true });
   if (user.role !== "ADMIN") return { error: "Chỉ Global Admin mới được void ledger." };
   if (confirmation !== "VOID") return { error: "Nhập VOID để xác nhận; hệ thống không xóa lịch sử." };
   if (reason.length < 5) return { error: "Cần nêu lý do void ít nhất 5 ký tự." };

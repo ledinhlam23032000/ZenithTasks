@@ -21,7 +21,7 @@ export async function calculateWorkspacePayrollRunAction(_prev: PayrollActionSta
   const projectId = text(formData, "projectId", 80);
   const runId = text(formData, "runId", 80);
   const confirmation = text(formData, "confirmation", 16).toUpperCase();
-  const { user, project } = await requireProjectAccess(projectId);
+  const { user, project } = await requireProjectAccess(projectId, { activeOnly: true });
   if (user.role !== "ADMIN") return { error: "Chỉ Admin mới được tính preview PayrollRun project-local." };
   if (confirmation !== "CALCULATE") return { error: "Nhập CALCULATE để xác nhận tính preview." };
   const run = await prisma.zWorkspacePayrollRun.findFirst({ where: { id: runId, projectId: project.id, status: "DRAFT" }, select: { id: true, code: true, periodStart: true, periodEnd: true, mechanismSnapshot: true, lines: { select: { id: true, userId: true, grossAmount: true, deductionAmount: true } } } });
@@ -61,7 +61,7 @@ export async function createWorkspacePayrollRunAction(_prev: PayrollActionState,
   const periodEnd = dateOnly(text(formData, "periodEnd", 10));
   const mechanismVersionId = text(formData, "mechanismVersionId", 80) || null;
   const note = text(formData, "note", 400) || null;
-  const { user, project } = await requireProjectAccess(projectId);
+  const { user, project } = await requireProjectAccess(projectId, { activeOnly: true });
   if (user.role !== "ADMIN") return { error: "Chỉ Admin mới được tạo PayrollRun project-local." };
   if (!/^[A-Z0-9][A-Z0-9_-]{2,47}$/.test(code)) return { error: "Mã kỳ lương không hợp lệ." };
   if (!periodStart || !periodEnd || periodStart > periodEnd) return { error: "Khoảng kỳ lương không hợp lệ." };

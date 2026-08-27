@@ -24,7 +24,7 @@ export async function createWorkspaceReconciliationAction(_prev: ReconciliationA
   const ledgerEntryId = text(formData, "ledgerEntryId", 80) || null;
   const note = text(formData, "note", 300) || null;
   const amount = positiveAmount(text(formData, "amount", 20));
-  const { user, project } = await requireProjectAccess(projectId);
+  const { user, project } = await requireProjectAccess(projectId, { activeOnly: true });
   if (paymentRef.length < 3) return { error: "Payment reference cần ít nhất 3 ký tự." };
   if (amount === null) return { error: "Số tiền đối soát phải là số nguyên dương tối đa 14 chữ số." };
 
@@ -51,7 +51,7 @@ export async function matchWorkspaceReconciliationAction(_prev: ReconciliationAc
   const projectId = text(formData, "projectId", 80);
   const reconciliationId = text(formData, "reconciliationId", 80);
   const confirmation = text(formData, "confirmation", 16).toUpperCase();
-  const { user, project } = await requireProjectAccess(projectId);
+  const { user, project } = await requireProjectAccess(projectId, { activeOnly: true });
   if (user.role !== "ADMIN") return { error: "Chỉ Global Admin mới được xác nhận đối soát." };
   if (confirmation !== "MATCH") return { error: "Nhập MATCH để xác nhận đối soát." };
 
@@ -68,7 +68,7 @@ export async function exceptionWorkspaceReconciliationAction(_prev: Reconciliati
   const reconciliationId = text(formData, "reconciliationId", 80);
   const confirmation = text(formData, "confirmation", 24).toUpperCase();
   const reason = text(formData, "reason", 500);
-  const { user, project } = await requireProjectAccess(projectId);
+  const { user, project } = await requireProjectAccess(projectId, { activeOnly: true });
   if (user.role !== "ADMIN") return { error: "Chỉ Admin mới được đánh dấu ngoại lệ đối soát." };
   if (confirmation !== "EXCEPTION") return { error: "Nhập EXCEPTION để xác nhận ngoại lệ." };
   if (reason.length < 10) return { error: "Lý do ngoại lệ phải có ít nhất 10 ký tự." };
