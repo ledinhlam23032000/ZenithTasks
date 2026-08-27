@@ -35,12 +35,21 @@ async function get(username, path) {
     redirect: "manual",
     headers: { cookie: `zsession=${token}` },
   });
+  const body = await response.text();
   return {
     username,
     path,
     status: response.status,
     location: response.headers.get("location"),
     contentType: response.headers.get("content-type"),
+    bodyLength: body.length,
+    bodyMarkers: {
+      forbiddenPage: body.includes("Bạn không có quyền truy cập mục này"),
+      projectA: body.includes("QA Company A"),
+      projectB: body.includes("QA Company B"),
+      projectDraft: body.includes("QA Company Draft"),
+      projectArchived: body.includes("QA Company Archived"),
+    },
   };
 }
 
@@ -54,6 +63,7 @@ const cases = [
   ["qa.project.admin.b", "/du-an/qa-company-b"],
   ["qa.sales.a", "/du-an/qa-company-a/khach-hang"],
   ["qa.sales.a", "/du-an/qa-company-a/tai-chinh"],
+  ["qa.finance.a", "/du-an/qa-company-a/tai-chinh"],
   ["qa.viewer.b", "/du-an/qa-company-b"],
   ["qa.viewer.b", "/du-an/qa-company-b/khach-hang"],
   ["qa.revoked.a", "/du-an/qa-company-a"],
@@ -63,23 +73,35 @@ const cases = [
 
 const checks = await Promise.all(cases.map(([username, path]) => get(username, path)));
 const byKey = new Map(checks.map((check) => [`${check.username} ${check.path}`, check]));
-const isSuccess = (status) => status >= 200 && status < 300;
-const isDenied = (status) => status >= 300 && status < 400;
+const isHttpSuccess = (check) => check.status >= 200 && check.status < 300;
+const isForbiddenResponse = (check) => (check.status >= 300 && check.status < 500) || check.bodyMarkers?.forbiddenPage === true;
+const allowsOnly = (key, marker) => {
+  const check = byKey.get(key);
+  return Boolean(check && isHttpSuccess(check) && !check.bodyMarkers?.forbiddenPage && check.bodyMarkers?.[marker]);
+};
+const deniesWithoutTenantMarker = (key, forbiddenMarker) => {
+  const check = byKey.get(key);
+  return Boolean(check && isForbiddenResponse(check) && !check.bodyMarkers?.[forbiddenMarker]);
+};
 const required = [
-  ["qa.global.admin /du-an", isSuccess],
-  ["qa.global.admin /du-an/qa-company-a/ai", isSuccess],
-  ["qa.project.admin.a /du-an/qa-company-a", isSuccess],
-  ["qa.project.admin.a /du-an/qa-company-a/khach-hang", isSuccess],
-  ["qa.project.admin.a /du-an/qa-company-b", isDenied],
-  ["qa.project.admin.a /du-an/qa-company-b/khach-hang", isDenied],
-  ["qa.viewer.b /du-an/qa-company-b/khach-hang", isDenied],
-  ["qa.revoked.a /du-an/qa-company-a", isDenied],
-  ["qa.project.admin.a /du-an/qa-company-draft", isDenied],
-  ["qa.project.admin.a /du-an/qa-company-archived", isDenied],
+  ["qa.global.admin /du-an", () => allowsOnly("qa.global.admin /du-an", "projectA") && byKey.get("qa.global.admin /du-an")?.bodyMarkers?.projectB === true],
+  ["qa.global.admin /du-an/qa-company-a/ai", () => allowsOnly("qa.global.admin /du-an/qa-company-a/ai", "projectA")],
+  ["qa.project.admin.a /du-an/qa-company-a", () => allowsOnly("qa.project.admin.a /du-an/qa-company-a", "projectA")],
+  ["qa.project.admin.a /du-an/qa-company-a/khach-hang", () => allowsOnly("qa.project.admin.a /du-an/qa-company-a/khach-hang", "projectA")],
+  ["qa.project.admin.a /du-an/qa-company-b", () => deniesWithoutTenantMarker("qa.project.admin.a /du-an/qa-company-b", "projectB")],
+  ["qa.project.admin.a /du-an/qa-company-b/khach-hang", () => deniesWithoutTenantMarker("qa.project.admin.a /du-an/qa-company-b/khach-hang", "projectB")],
+  ["qa.project.admin.b /du-an/qa-company-b", () => allowsOnly("qa.project.admin.b /du-an/qa-company-b", "projectB")],
+  ["qa.sales.a /du-an/qa-company-a/khach-hang", () => allowsOnly("qa.sales.a /du-an/qa-company-a/khach-hang", "projectA")],
+  ["qa.sales.a /du-an/qa-company-a/tai-chinh", () => deniesWithoutTenantMarker("qa.sales.a /du-an/qa-company-a/tai-chinh", "projectA")],
+  ["qa.finance.a /du-an/qa-company-a/tai-chinh", () => allowsOnly("qa.finance.a /du-an/qa-company-a/tai-chinh", "projectA")],
+  ["qa.viewer.b /du-an/qa-company-b/khach-hang", () => deniesWithoutTenantMarker("qa.viewer.b /du-an/qa-company-b/khach-hang", "projectB")],
+  ["qa.revoked.a /du-an/qa-company-a", () => deniesWithoutTenantMarker("qa.revoked.a /du-an/qa-company-a", "projectA")],
+  ["qa.project.admin.a /du-an/qa-company-draft", () => deniesWithoutTenantMarker("qa.project.admin.a /du-an/qa-company-draft", "projectDraft")],
+  ["qa.project.admin.a /du-an/qa-company-archived", () => deniesWithoutTenantMarker("qa.project.admin.a /du-an/qa-company-archived", "projectArchived")],
 ];
 for (const [key, predicate] of required) {
   const check = byKey.get(key);
-  if (!check || !predicate(check.status)) {
+  if (!check || !predicate()) {
     console.error(JSON.stringify({ failed: key, check }, null, 2));
     process.exitCode = 1;
   }
