@@ -1,5 +1,8 @@
 import { requireCap } from "@/lib/auth";
 import { aiConfigured } from "@/lib/ai";
+import { redirect } from "next/navigation";
+import { requireV2User } from "@/lib/v2-access";
+import { resolveRuntimeAiAgent } from "@/lib/v2-ai-agent-runtime";
 import { prisma } from "@/lib/db";
 import { normalizedModuleKeys } from "@/lib/v2-modules";
 import { shortName } from "@/lib/format";
@@ -11,16 +14,19 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Trợ lý AI" };
 
 export default async function AssistantPage({ searchParams }: { searchParams: Promise<{ c?: string; p?: string }> }) {
-  const user = await requireCap("mod:tro-ly");
-  const aiOn = aiConfigured();
   const sp = await searchParams;
-  const workspaceOptions = process.env.ENABLE_ZENITH_V2 === "true"
-    ? await prisma.zProject.findMany({ where: user.role === "ADMIN" ? undefined : { members: { some: { userId: user.id, active: true } } }, select: { id: true, code: true, name: true, status: true, enabledFeatures: true }, orderBy: { updatedAt: "desc" } })
-    : [];
   const selectedValue = String(sp.p ?? "").trim();
+  const user = selectedValue && selectedValue !== "__GLOBAL__" ? await requireV2User() : await requireCap("mod:tro-ly");
+  const aiOn = aiConfigured();
+  const workspaceOptions = process.env.ENABLE_ZENITH_V2 === "true"
+    ? await prisma.zProject.findMany({ where: user.role === "ADMIN" ? { status: "ACTIVE" } : { status: "ACTIVE", members: { some: { userId: user.id, active: true } } }, select: { id: true, code: true, name: true, status: true, enabledFeatures: true }, orderBy: { updatedAt: "desc" } })
+    : [];
   const selected = workspaceOptions.find((item) => item.id === selectedValue);
+  if (selectedValue && selectedValue !== "__GLOBAL__" && !selected) redirect("/khong-co-quyen");
   const selectedWorkspaceKind: "INTERNAL" | "PROJECT" | "GLOBAL" = selectedValue === "__GLOBAL__" && user.role === "ADMIN" ? "GLOBAL" : selected ? "PROJECT" : "INTERNAL";
-  const conversation = await getOrCreateAssistantConversation(user.id, sp.c, selectedWorkspaceKind, selected?.id);
+  const runtimeAgentResult = await resolveRuntimeAiAgent(user, selectedWorkspaceKind === "PROJECT" ? { workspaceKind: "PROJECT", projectId: selected?.id ?? "" } : { workspaceKind: selectedWorkspaceKind });
+  const selectedAgentId = runtimeAgentResult.ok ? runtimeAgentResult.agent?.id : undefined;
+  const conversation = await getOrCreateAssistantConversation(user.id, sp.c, selectedWorkspaceKind, selected?.id, selectedAgentId);
   const messages = await getAssistantConversationTurns(user.id, conversation.id);
   const history = await listAssistantConversations(user.id);
   return (
@@ -39,6 +45,7 @@ export default async function AssistantPage({ searchParams }: { searchParams: Pr
         initialMessages={messages}
         workspaceOptions={workspaceOptions.map((item) => ({ id: item.id, code: item.code, name: item.name, enabledFeatures: normalizedModuleKeys(item.enabledFeatures) }))}
         selectedProjectId={selected?.id ?? (selectedWorkspaceKind === "GLOBAL" ? "__GLOBAL__" : "")}
+        selectedAgentId={selectedAgentId}
         allowGlobal={user.role === "ADMIN"}
       />
     </div>

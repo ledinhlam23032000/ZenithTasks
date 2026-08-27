@@ -63,6 +63,7 @@ export function AssistantChat({
   initialMessages,
   workspaceOptions,
   selectedProjectId,
+  selectedAgentId,
   allowGlobal,
 }: {
   aiOn: boolean;
@@ -71,6 +72,7 @@ export function AssistantChat({
   initialMessages: readonly StoredAssistantMessage[];
   workspaceOptions: readonly AssistantWorkspaceOption[];
   selectedProjectId: string;
+  selectedAgentId?: string;
   allowGlobal: boolean;
 }) {
   const [q, setQ] = useState("");
@@ -111,6 +113,7 @@ export function AssistantChat({
     fd.set("question", text);
     fd.set("conversationId", conversationId);
     fd.set("projectId", selectedProjectId);
+    if (selectedAgentId) fd.set("agentId", selectedAgentId);
     start(async () => {
       const r = await runAssistantAgent({}, fd);
       if (r.error) setErr(r.error);
