@@ -1,0 +1,3 @@
+tsc=0
+fixture_policy_boundary_vitest=0
+prior_qa_seed_failure=duplicate_username_bootstrap
