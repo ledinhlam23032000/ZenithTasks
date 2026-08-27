@@ -1,23 +1,21 @@
 # Project State
 
-- **Updated:** 2026-08-27 16:50 GMT+7
+- **Updated:** 2026-08-28 00:40 GMT+7
 - **Goal:** Xây dựng nền tảng quản lý nhiều công ty con với tài khoản/nhân viên/dữ liệu riêng, AI con theo công ty và AI Tổng cấp hệ thống.
-- **Current phase:** Phase 3 — bổ sung và chờ runtime isolation evidence trên QA DB cô lập.
+- **Current phase:** Phase 4 — checkpoint sau khi hoàn tất QA seed/verifier/authenticated route evidence; chuẩn bị mở MC-13.1.
 - **Overall status:** active
 
 ## Completed since last checkpoint
 
-Đã ghi nhận yêu cầu mới về AI phân cấp: mỗi company có AI con riêng; AI Tổng kiểm soát tổng quan tất cả company và AI con. Đã đọc quy trình long-task-memory, zenith-long-execution, canonical paths và safety/done. Đã reset checkout audit về `origin/master` `ab86fdc`, đọc `VERSION.md`, `web/AGENTS.md`, `web/BAN-GIAO.md`, `ROADMAP.md` và kế hoạch Workspace V4 60 task. Workbook canonical theo đường dẫn quy định chưa tồn tại trong sandbox.
-
-Đã khởi tạo bộ nhớ mới tại `.task-memory/multi-company-ai-2026-08-27/` với brief, plan, state, decisions, open questions, sources và inventory/ADR; task ledger `07_task_ledger.md` và ma trận mục tiêu `artifacts/objective-audit-20260827.md` hiện là checkpoint điều phối bổ sung. Objective audit đã merge PR #67; read-only DB verifier đã merge PR #68. Mọi trạng thái quan trọng của chương trình mới phải ghi tại đây. MC-00 và MC-01 đã hoàn tất ở mức R0. MC-02 đã có code trên branch `agent/mc-02-tenant-lifecycle-20260827`: tạo company ở DRAFT, activate/archive/restore có Admin + audit, archived bị chặn vận hành, domain writes yêu cầu ACTIVE. Full gate MC-02 pass và đã merge PR #56 thành master `98c62c1`. MC-03 đã có code trên branch `agent/mc-03-company-accounts-20260827`: account company-local role `COLLABORATOR`, first-login password change, membership preset/capability, Project Admin member management, server-side active-only writes và navigation filtering. Full gate MC-03 pass và đã merge PR #57 thành master `6e2efa8`. Phase 2 contract đã hoàn tất ở mức code/CI; runtime isolation vẫn mở. MC-04/MC-05 hiện có module-level direct URL guard, preset-filtered navigation và shared `resolveWorkspaceContext` nối vào AI governance; toàn bộ config/setup actions cũng đã dùng `config.manage` thay vì global role cứng. Full local quality gate pass, nhưng chưa có DB fixture/authenticated walkthrough hai company. AI hierarchy wave đã thêm `ZAiAgent` schema cho CHILD/GLOBAL, lifecycle actions DRAFT/ACTIVE/SUSPENDED/ARCHIVED và UI tạo/quản trị; runtime đã resolve agent ACTIVE, lưu `agentId` vào conversation/approval và có ba read tools project-local (`get_project_overview`, `get_project_customers`, `get_project_tasks`) khóa bằng `projectId`. Các PR #60–#68 đều CI/local gate pass cho các wave tương ứng. PR #65 seed và PR #68 verifier đã sẵn sàng cho QA DB nhưng chưa thực thi vì sandbox không có `QA_DATABASE_URL`; chưa chạy migration và chưa có DB-backed authenticated walkthrough; project-local mutation/message-job orchestration vẫn chưa triển khai.
+Đã hoàn tất một wave authenticated QA độc lập cho tenant route isolation. QA image được rebuild/recreate; script versioned hiện diện trong `/app/scripts/qa/`; app báo 68 migrations và không có pending migration. Guarded seed, read-only verifier và authenticated GET-only walkthrough chạy theo đúng thứ tự và đều pass. PR #75 đã merge walkthrough checker; PR #76 đã merge tài liệu semantics ForbiddenPage.
 
 ## Verified facts
 
-Mã nguồn hiện đã có `ZProject`, project membership, project-local models/actions/UI nền tảng, AI workspace context `INTERNAL/PROJECT/GLOBAL`, selector Global/project và server boundary fail-closed. MC-02 chặn company DRAFT/ARCHIVED khỏi action vận hành; MC-03 thêm account/membership/capability boundary và menu theo preset; MC-04/MC-05 thêm requireProjectModule, direct URL guard và shared AI context resolver; PR #60 thêm `ZAiAgent` registry/lifecycle/UI; PR #61 thêm pure two-company fixture; PR #62 thêm fail-closed agent policy; PR #63 nối agentId/runtime resolver; PR #64 thêm ba project-local read tools. Full quality gate local/CI pass cho các wave. Đây vẫn là code-level/pure evidence, chưa phải DB-backed authenticated runtime proof. Project-local mutation, Global message/job orchestration, migration/backup/deploy và payroll settlement chưa đạt. Xóa cứng company vẫn bị khóa; hiện mới có archive/restore code-level.
+Mã nguồn và QA evidence hiện có: `ZProject`/membership/project-local models; server-side `requireProjectAccess/Capability/Module`; AI context/policy/runtime resolver; `ZAiAgent` CHILD/GLOBAL lifecycle; ba project-local read tools. QA verifier pass với 7 users, 4 projects (2 ACTIVE + DRAFT/ARCHIVED), 6 memberships, 8 customers, 8 tasks, 2 ACTIVE child agents và 1 ACTIVE Global agent aggregate-only. Auth walkthrough pass: local A/B, foreign URL, revoked member, DRAFT/ARCHIVED, Sales-vs-Finance và Viewer-vs-Customer. Đây là bằng chứng DB-backed authenticated route/body isolation trên QA, chưa phải production proof. Export/list-detail/aggregate completeness, authenticated server-action write denial, AI dispatcher/message-job, payroll settlement, migration/backup/deploy vẫn chưa đạt. Xóa cứng company vẫn bị khóa; chỉ archive/restore.
 
 ## Active assumptions
 
-Mặc định công ty con là tenant logic trong cùng hệ thống PostgreSQL, mỗi record nghiệp vụ phải có projectId hoặc quan hệ không thể suy diễn chéo. Tài khoản người dùng là identity cấp hệ thống; membership mới quyết định quyền trong từng company. AI con là agent profile/config/tool allowlist theo project, không phải một tài khoản vượt RBAC. AI Tổng chỉ có Global aggregate/observability và điều phối có trace, không tự bypass approval.
+Mặc định công ty con là tenant logic trong cùng hệ thống PostgreSQL, mỗi record nghiệp vụ phải có `projectId` hoặc quan hệ không thể suy diễn chéo. Tài khoản người dùng là identity cấp hệ thống; membership mới quyết định quyền trong từng company. AI con là agent profile/config/tool allowlist theo project, không phải một tài khoản vượt RBAC. AI Tổng chỉ có Global aggregate/observability và điều phối có trace, không tự bypass approval.
 
 ## Decisions made
 
@@ -25,24 +23,24 @@ Mặc định công ty con là tenant logic trong cùng hệ thống PostgreSQL,
 
 ## Open blockers/questions
 
-Cần phục hồi workbook `ZENITH_PLAN_DUY_NHAT_2026.xlsx` hoặc owner xác nhận kế hoạch V4 trong repo là canonical tạm thời. Cần chốt company schema/lifecycle, membership invite/revoke, role/capability model, chính sách AI Tổng được xem dữ liệu nào, AI child có được tạo approval hay chỉ đề xuất, retention/cost/LLM provider, hard-delete hay chỉ archive. Cần owner gate cho migration, backup, clinic updater và authenticated walkthrough.
+Cần phục hồi workbook `ZENITH_PLAN_DUY_NHAT_2026.xlsx` hoặc owner xác nhận kế hoạch V4 trong repo là canonical tạm thời. Cần chốt invite email, multi-company UX hoàn chỉnh, chính sách AI Tổng raw-data, child mutation/approval, retention/cost/LLM provider, hard-delete hay chỉ archive. Cần owner gate cho migration, backup, clinic updater và production authenticated walkthrough.
 
 ## Next 3 actions
 
-1. Owner cung cấp PostgreSQL QA cô lập, `QA_DATABASE_URL`, `QA_CONFIRM=YES` và secret QA ngoài source/log.
-2. Chạy `seed-multi-company.ts` rồi `verify-multi-company-qa.ts` read-only; lưu JSON evidence counts/assertions.
-3. Thực hiện authenticated walkthrough foreign URL, revoke, export/list/detail/aggregate, DRAFT/ARCHIVED write denial và AI child/Global; sau đó cập nhật MC-13.
+1. Giữ QA stack độc lập và evidence v3/v8; không đưa `.env`, compose override hoặc password vào Git/log.
+2. Mở MC-13.1: bổ sung export isolation, list/detail/aggregate route checks và authenticated DRAFT/ARCHIVED server-action write denial có rollback-safe fixture.
+3. Sau MC-13.1 mới thiết kế MC-11 AI Tổng message/job explicit target, timeout/retry/idempotency; giữ MC-14/15/16 blocked theo owner gate.
 
 ## Files to read first
 
 - `.task-memory/multi-company-ai-2026-08-27/01_plan.md`
 - `.task-memory/multi-company-ai-2026-08-27/03_decisions.md`
 - `.task-memory/multi-company-ai-2026-08-27/05_open_questions.md`
-- `.task-memory/zenithtasks-ai-governance-2026/01_plan-workspace-v4-60-tasks.md`
-- `web/prisma/schema.prisma`
+- `.task-memory/multi-company-ai-2026-08-27/07_task_ledger.md`
+- `.task-memory/multi-company-ai-2026-08-27/checks/mc13-auth-runtime-20260828.md`
+- `web/scripts/qa/README.md`
 - `web/src/lib/v2-access.ts`
-- `web/src/lib/ai-governance.ts`
 
 ## Quality risks
 
-Project build xanh không chứng minh tenant isolation, revoked membership, AI child/global scope, xóa/restore hay production migration. Không chạm checkout Windows clinic, không đọc secret, không reset DB/volume, không ghi/xóa dữ liệu thật trong phase thiết kế.
+Không chạm checkout Windows clinic; QA dùng volume/port riêng. Không ghi secret vào evidence; seed là idempotent, verifier read-only, walkthrough GET-only. Chưa reset DB/volume, chưa migrate clinic, chưa payout thật, chưa hard-delete. Workbook `ZENITH_PLAN_DUY_NHAT_2026.xlsx` vẫn chưa có trong sandbox; kế hoạch Workspace V4/crosswalk MC là tham chiếu tạm thời, không thay thế canonical E00–E09.

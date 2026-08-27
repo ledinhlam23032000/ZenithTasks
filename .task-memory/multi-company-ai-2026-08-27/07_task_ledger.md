@@ -22,11 +22,11 @@
 | MC-04 | Server-side module/direct URL tenant boundary | MC-03 | PARTIAL | PR #58, commit `63abd9e`; `checks/mc04-*` | Chưa có DB-backed foreign URL/revoked proof | MC-12 |
 | MC-05 | Workspace context và AI legacy fail-closed boundary | MC-04 | PARTIAL | `v2-workspace-context.test.ts`, `ai-workspace-boundary.test.ts` | Chưa có authenticated runtime trace | MC-12/MC-10 |
 | MC-07 | Project-local AI tools và business adapter | MC-04, MC-05, MC-09 | PARTIAL | PR #64, commit `2456982`; `checks/mc07-ai-read-full-summary.txt` | Mới có 3 read tools; chưa có mutation/approval adapter đầy đủ | Sau DB evidence, thiết kế mutation contract |
-| MC-09 | AI con registry/lifecycle/control UI | MC-02, MC-03 | PARTIAL | PR #60, commit `8d1bcdc`; schema/UI tests | Chưa migration; chưa runtime health/heartbeat | MC-12 rồi MC-11 |
-| MC-10 | AI runtime scope, agentId, allowlist và dispatcher gate | MC-05, MC-09 | PARTIAL | PR #62/#63, commits `6b14846`/`0e25f8e`; `checks/ai-runtime-release-summary.txt` | Chưa DB-backed two-company authenticated proof; message/job chưa có | MC-12 |
+| MC-09 | AI con registry/lifecycle/control UI | MC-02, MC-03 | PARTIAL | PR #60, commit `8d1bcdc`; schema/UI tests; QA verifier | Additive hierarchy migration verified only on independent QA; clinic migration/health/heartbeat not proven | MC-11 after runtime scope evidence |
+| MC-10 | AI runtime scope, agentId, allowlist và dispatcher gate | MC-05, MC-09 | PARTIAL | PR #62/#63, commits `6b14846`/`0e25f8e`; `checks/ai-runtime-release-summary.txt`; QA verifier and authenticated route evidence | Route-level DB-backed proof now exists; dispatcher child/global end-to-end and message/job orchestration remain | MC-11 |
 | MC-11 | AI Tổng control plane, bounded aggregate, child health/audit/usage | MC-10, MC-12 | NOT_STARTED | Chưa có | Cần explicit target, trace, timeout, idempotency và owner policy | Sau MC-12 |
-| MC-12 | DB-backed synthetic QA two-company fixture + authenticated walkthrough | MC-03..MC-10 | PARTIAL | PR #61 pure fixture; PR #65 seed script; `checks/mc12-qa-seed-summary.txt` | Sandbox thiếu `QA_DATABASE_URL`; chưa chạy seed/walkthrough | Owner cung cấp PostgreSQL QA cô lập |
-| MC-13 | Export/list/detail/foreign URL/revoked membership isolation proof | MC-12 | NOT_STARTED | Chưa có runtime artifact | Cần authenticated sessions và DB fixture | Sau seed QA |
+| MC-12 | DB-backed synthetic QA two-company fixture + authenticated walkthrough | MC-03..MC-10 | DONE | PR #61 pure fixture; PR #65 seed script; QA `mc12-qa-seed-evidence-v3.json`; QA `mc12-qa-verifier-evidence-v3.json`; QA `mc13-auth-walkthrough-evidence-v8.json` | QA-only evidence complete; production/clinic remains separate | Duy trì QA fixture và không dùng secret trong repo |
+| MC-13 | Export/list/detail/foreign URL/revoked membership isolation proof | MC-12 | PARTIAL | `.task-memory/multi-company-ai-2026-08-27/checks/mc13-auth-runtime-20260828.md`; QA `mc13-auth-walkthrough-evidence-v8.json`; PR #75 | Authenticated route/body-marker proof complete for foreign/revoked/DRAFT/ARCHIVED/capability deny; export/list-detail aggregate and authenticated write-denial evidence remain | Add export isolation and safe server-action write-denial QA evidence before DONE |
 | MC-14 | Additive Prisma migration, backup/rollback drill | MC-09, MC-12, owner approval | NOT_STARTED | Chưa tạo migration | Không chạy clinic DB; cần backup/rollback evidence | Sau schema acceptance |
 | MC-15 | Payroll payout/accounting local và money safety gates | MC-03, MC-12, owner approval | NOT_STARTED | Chưa có settlement local | Cần owner approval, reconciliation, idempotency, no real payment | Sau isolation |
 | MC-16 | Clinic deploy, Windows updater, health check, final acceptance | MC-12..MC-15, owner approval | BLOCKED | Chưa được phép deploy | Thiếu backup, migration, authenticated walkthrough và owner sign-off | Chỉ mở khi toàn bộ R3 gate pass |
@@ -42,12 +42,12 @@ Sau mỗi wave, ghi lại commit/PR, test result, runtime result và blocker. N�
 
 | Mục | Giá trị |
 |---|---|
-| HEAD trước ledger branch | `2478a0a` — PR #65 đã merge |
-| Branch hiện tại | `agent/mc-00-task-ledger-20260827` |
-| Full quality status gần nhất | PR #64 và #65 CI pass; local Prisma/TSC/Vitest/Next build pass cho các wave đã chạy |
-| DB runtime status | Chưa chạy; không có `DATABASE_URL` hoặc `QA_DATABASE_URL` trong sandbox |
+| HEAD trước ledger branch | `7c33cd5` — PR #76 đã merge |
+| Branch hiện tại | `master` (sandbox); QA runtime worktree riêng trên Windows |
+| Full quality status gần nhất | PR #75 và #76 CI push/pull_request pass; QA Docker build/Next production build pass; node --check và git diff --check pass |
+| DB runtime status | QA độc lập đã seed/verifier/walkthrough pass; không có clinic DB access |
 | Production/clinic status | Chưa migration, chưa deploy, chưa chạm clinic DB |
-| Immediate next action | Owner cung cấp QA PostgreSQL cô lập; nếu chưa có thì tiếp tục hoàn thiện contract/tool test nhưng không tuyên bố runtime proof |
+| Immediate next action | Mở MC-13.1: export isolation và authenticated DRAFT/ARCHIVED write-denial trên QA; chưa chạm clinic |
 
 ## Latest audit checkpoint — 2026-08-27 16:50 GMT+7
 
@@ -59,4 +59,4 @@ Sau mỗi wave, ghi lại commit/PR, test result, runtime result và blocker. N�
 | QA seed | PR #65 đã merge; seed guarded, idempotent, non-PII, không delete/reset. |
 | QA verifier | PR #68 đã merge; verifier read-only đã compile nhưng chưa chạy DB do thiếu `QA_DATABASE_URL`. |
 | Production/clinic | Chưa migration, backup production, updater Windows hoặc deploy; trạng thái đúng là blocked bởi owner gate. |
-| Next canonical action | Cung cấp PostgreSQL QA cô lập, chạy seed → verifier → authenticated walkthrough; nếu chưa có DB thì giữ MC-12/MC-13 ở `PARTIAL/BLOCKED`, không tuyên bố runtime proof. |
+| Next canonical action | QA seed → verifier → authenticated walkthrough đã pass; giữ MC-13 `PARTIAL` vì export/list-detail/aggregate và write-denial evidence chưa hoàn tất; không tuyên bố production proof. |
