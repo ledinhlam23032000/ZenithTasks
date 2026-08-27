@@ -5,10 +5,15 @@ import { GripVertical, Loader2, MoveDown, MoveUp } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { createWorkspaceConfigProposalAction } from "@/lib/v2-config-proposal-actions";
 import { V2_MODULES, type V2ModuleKey } from "@/lib/v2-modules";
+import { normalizeWorkspaceLayoutOrder } from "@/lib/v2-workspace-navigation";
 
-export function V2WorkspaceLayoutEditor({ projectId, enabledKeys }: { projectId: string; enabledKeys: readonly V2ModuleKey[] }) {
+export function V2WorkspaceLayoutEditor({ projectId, enabledKeys, initialOrder }: { projectId: string; enabledKeys: readonly V2ModuleKey[]; initialOrder?: unknown }) {
   const router = useRouter();
-  const initial = useMemo(() => enabledKeys.filter((key) => V2_MODULES.some((module) => module.key === key && module.available)), [enabledKeys]);
+  const initial = useMemo(() => {
+    const enabled = enabledKeys.filter((key) => V2_MODULES.some((module) => module.key === key && module.available));
+    const activeOrder = normalizeWorkspaceLayoutOrder(initialOrder, enabled);
+    return [...activeOrder, ...enabled.filter((key) => !activeOrder.includes(key))];
+  }, [enabledKeys, initialOrder]);
   const [order, setOrder] = useState<V2ModuleKey[]>(initial);
   const [dragging, setDragging] = useState<V2ModuleKey | null>(null);
   const [state, setState] = useState<{ ok?: boolean; message?: string; error?: string }>({});

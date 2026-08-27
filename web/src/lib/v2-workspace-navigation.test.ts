@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildProjectWorkspaceNav, resolveActiveProjectWorkspace } from "./v2-workspace-navigation";
+import { buildProjectWorkspaceNav, isCompleteWorkspaceLayout, normalizeWorkspaceLayoutOrder, resolveActiveProjectWorkspace } from "./v2-workspace-navigation";
 
 describe("workspace navigation boundary", () => {
   const workspaces = [{ id: "project-a", enabledFeatures: ["customers", "sales", "tasks"] }];
@@ -25,5 +25,27 @@ describe("workspace navigation boundary", () => {
   it("hides global project-management link from Manager navigation", () => {
     expect(buildProjectWorkspaceNav(workspaces[0], "MANAGER").some((item) => item.href === "/du-an")).toBe(false);
     expect(buildProjectWorkspaceNav(workspaces[0], "ADMIN").some((item) => item.href === "/du-an")).toBe(true);
+  });
+
+  it("uses the applied layout order while keeping only enabled available modules", () => {
+    const nav = buildProjectWorkspaceNav({ id: "project-a", enabledFeatures: ["customers", "sales", "payroll"], layoutOrder: ["sales", "payroll", "sales", "unknown", "customers"] }, "ADMIN");
+    expect(nav.map((item) => item.href)).toEqual([
+      "/du-an/project-a",
+      "/du-an/project-a/doanh-so",
+      "/du-an/project-a/khach-hang",
+      "/du-an/project-a/thanh-vien",
+      "/tro-ly?p=project-a",
+      "/du-an",
+    ]);
+  });
+
+  it("normalizes layout order without allowing duplicate or unavailable keys", () => {
+    expect(normalizeWorkspaceLayoutOrder(["sales", "sales", "payroll", "customers"], ["sales", "customers", "payroll"])).toEqual(["sales", "customers"]);
+  });
+
+  it("accepts only a complete unique order of available enabled modules", () => {
+    expect(isCompleteWorkspaceLayout(["sales", "customers"], ["sales", "customers", "payroll"])).toBe(true);
+    expect(isCompleteWorkspaceLayout(["sales", "sales"], ["sales", "customers"])).toBe(false);
+    expect(isCompleteWorkspaceLayout(["sales", "customers", "payroll"], ["sales", "customers", "payroll"])).toBe(false);
   });
 });

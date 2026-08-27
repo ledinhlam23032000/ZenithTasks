@@ -5,6 +5,8 @@ import { Prisma } from "../generated/prisma/client";
 import { prisma } from "./db";
 import { requireProjectAccess } from "./v2-access";
 import { canApplyWorkspaceProposal, isSafeWorkspaceProposalRisk } from "./v2-config-proposal-policy";
+import { normalizedModuleKeys } from "./v2-modules";
+import { isCompleteWorkspaceLayout } from "./v2-workspace-navigation";
 
 export type ConfigProposalActionState = { ok?: boolean; error?: string; message?: string };
 const kinds = new Set(["MODULES", "LAYOUT", "SETTINGS"]);
@@ -76,6 +78,11 @@ export async function applyWorkspaceConfigProposalAction(_prev: ConfigProposalAc
       if (!kind || (proposal.riskLevel as string) === "L5") throw new Error("PROPOSAL_RISK_BLOCKED");
       if (!proposal.afterConfig || typeof proposal.afterConfig !== "object" || Array.isArray(proposal.afterConfig)) throw new Error("PROPOSAL_CONFIG_EMPTY");
       const afterConfig = proposal.afterConfig as Prisma.InputJsonValue;
+      if (kind === "LAYOUT") {
+        const config = afterConfig as { order?: unknown };
+        const enabled = normalizedModuleKeys(project.enabledFeatures);
+        if (!isCompleteWorkspaceLayout(config.order, enabled)) throw new Error("LAYOUT_CONFIG_INVALID");
+      }
       const latest = await tx.zWorkspaceConfigVersion.findFirst({ where: { projectId: project.id, kind }, orderBy: { version: "desc" }, select: { version: true, id: true } });
       const nextVersion = (latest?.version ?? 0) + 1;
       await tx.zWorkspaceConfigVersion.updateMany({ where: { projectId: project.id, kind, status: "ACTIVE" }, data: { status: "SUPERSEDED", effectiveTo: new Date() } });
@@ -94,6 +101,7 @@ export async function applyWorkspaceConfigProposalAction(_prev: ConfigProposalAc
     if (error instanceof Error && error.message === "PROPOSAL_NOT_APPROVED") return { error: "Proposal chưa APPROVED, sai project hoặc đã được xử lý." };
     if (error instanceof Error && error.message === "PROPOSAL_RISK_BLOCKED") return { error: "Proposal risk không hợp lệ; L5 bị chặn." };
     if (error instanceof Error && error.message === "MODULES_CONFIG_EMPTY") return { error: "MODULES proposal phải có enabledFeatures không rỗng." };
+    if (error instanceof Error && error.message === "LAYOUT_CONFIG_INVALID") return { error: "LAYOUT phải chứa đúng một lần toàn bộ module available đang bật trong Dự án." };
     if (error instanceof Error && error.message === "PROPOSAL_CONFIG_EMPTY") return { error: "afterConfig phải là object JSON không rỗng." };
     throw error;
   }

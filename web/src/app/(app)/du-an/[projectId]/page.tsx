@@ -15,10 +15,14 @@ export default async function ProjectWorkspacePage({ params }: { params: Promise
   const { user, project } = await requireProjectAccess(projectId);
   const enabled = new Set(normalizedModuleKeys(project.enabledFeatures));
   const activeModules = V2_MODULES.filter((module) => enabled.has(module.key));
-  const [moduleVersions, proposals] = await Promise.all([
+  const [moduleVersions, activeLayout, proposals] = await Promise.all([
     prisma.zWorkspaceConfigVersion.findMany({ where: { projectId: project.id, kind: "MODULES" }, orderBy: { version: "desc" }, take: 5, select: { version: true, status: true, effectiveFrom: true, createdAt: true, note: true } }),
+    prisma.zWorkspaceConfigVersion.findFirst({ where: { projectId: project.id, kind: "LAYOUT", status: "ACTIVE" }, orderBy: { version: "desc" }, select: { config: true } }),
     user.role === "ADMIN" ? prisma.zWorkspaceConfigProposal.findMany({ where: { projectId: project.id }, orderBy: { createdAt: "desc" }, take: 20, select: { id: true, moduleKey: true, status: true, riskLevel: true, capability: true, beforeConfig: true, afterConfig: true, note: true } }) : Promise.resolve([]),
   ]);
+  const activeLayoutOrder = activeLayout?.config && typeof activeLayout.config === "object" && !Array.isArray(activeLayout.config)
+    ? (activeLayout.config as { order?: unknown }).order
+    : undefined;
 
   return <div className="space-y-6">
     <Link href="/du-an" className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-900"><ArrowLeft className="h-4 w-4" />Quay lại danh sách Dự án</Link>
@@ -31,7 +35,7 @@ export default async function ProjectWorkspacePage({ params }: { params: Promise
     {user.role === "ADMIN" && <V2ModuleSettingsForm projectId={project.id} projectName={project.name} enabledKeys={Array.from(enabled)} />}
     {user.role === "ADMIN" && <V2ModuleRollbackForm projectId={project.id} versions={moduleVersions.map((version) => ({ version: version.version, status: version.status, note: version.note }))} />}
     {user.role === "ADMIN" && <V2WorkspaceConfigProposalForm projectId={project.id} proposals={proposals} />}
-    {user.role === "ADMIN" && <V2WorkspaceLayoutEditor projectId={project.id} enabledKeys={Array.from(enabled)} />}
+    {user.role === "ADMIN" && <V2WorkspaceLayoutEditor projectId={project.id} enabledKeys={Array.from(enabled)} initialOrder={activeLayoutOrder} />}
     <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"><h2 className="font-semibold text-slate-900">Lịch sử cấu hình module</h2><p className="mt-1 text-sm leading-6 text-slate-500">Mỗi lần Admin lưu bật/tắt module tạo một version riêng. Bản ghi chỉ theo Dự án này và có thể làm nền cho preview/rollback tiếp theo.</p>{moduleVersions.length === 0 ? <p className="mt-4 text-sm text-slate-500">Chưa có version module được ghi nhận.</p> : <div className="mt-4 space-y-2">{moduleVersions.map((version) => <div key={version.version} className="flex flex-col justify-between gap-2 rounded-xl border border-slate-200 px-4 py-3 text-sm sm:flex-row sm:items-center"><div><span className="font-semibold text-slate-800">Version {version.version}</span><span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">{version.status}</span><p className="mt-1 text-xs text-slate-500">{version.note ?? "Cấu hình module"}</p></div><time className="text-xs text-slate-400">{new Intl.DateTimeFormat("vi-VN", { dateStyle: "medium", timeStyle: "short" }).format(version.createdAt)}</time></div>)}</div>}</section>
     <div className="rounded-2xl border border-indigo-200 bg-indigo-50 p-5 text-sm leading-6 text-indigo-800">Đây là workspace riêng của <strong>{project.name}</strong>. Dữ liệu Nội Bộ không được tự động trộn vào đây. Khách hàng, Lịch hẹn và Doanh số đã có module local; Tài chính/Ledger và Lương/hoa hồng chỉ mở sau khi có schema, quyền, audit và test riêng.</div>
   </div>;
