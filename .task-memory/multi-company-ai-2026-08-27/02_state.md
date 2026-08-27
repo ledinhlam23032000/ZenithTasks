@@ -1,6 +1,6 @@
 # Project State
 
-- **Updated:** 2026-08-27 14:50 GMT+7
+- **Updated:** 2026-08-27 15:05 GMT+7
 - **Goal:** Xây dựng nền tảng quản lý nhiều công ty con với tài khoản/nhân viên/dữ liệu riêng, AI con theo công ty và AI Tổng cấp hệ thống.
 - **Current phase:** Phase 2 — tenant/account/membership và AI hierarchy contract.
 - **Overall status:** active
@@ -9,11 +9,11 @@
 
 Đã ghi nhận yêu cầu mới về AI phân cấp: mỗi company có AI con riêng; AI Tổng kiểm soát tổng quan tất cả company và AI con. Đã đọc quy trình long-task-memory, zenith-long-execution, canonical paths và safety/done. Đã reset checkout audit về `origin/master` `ab86fdc`, đọc `VERSION.md`, `web/AGENTS.md`, `web/BAN-GIAO.md`, `ROADMAP.md` và kế hoạch Workspace V4 60 task. Workbook canonical theo đường dẫn quy định chưa tồn tại trong sandbox.
 
-Đã khởi tạo bộ nhớ mới tại `.task-memory/multi-company-ai-2026-08-27/` với brief, plan, state, decisions, open questions, sources và inventory/ADR; mọi trạng thái quan trọng của chương trình mới phải ghi tại đây. MC-00 và MC-01 đã hoàn tất ở mức R0. MC-02 đã có code trên branch `agent/mc-02-tenant-lifecycle-20260827`: tạo company ở DRAFT, activate/archive/restore có Admin + audit, archived bị chặn vận hành, domain writes yêu cầu ACTIVE. Full gate MC-02 pass và đã merge PR #56 thành master `98c62c1`. MC-03 đã có code trên branch `agent/mc-03-company-accounts-20260827`: account company-local role `COLLABORATOR`, first-login password change, membership preset/capability, Project Admin member management, server-side active-only writes và navigation filtering. Full gate MC-03 pass và đã merge PR #57 thành master `6e2efa8`. Phase 2 contract đã hoàn tất ở mức code/CI; runtime isolation vẫn mở. MC-04/MC-05 hiện có module-level direct URL guard, preset-filtered navigation và shared `resolveWorkspaceContext` nối vào AI governance; toàn bộ config/setup actions cũng đã dùng `config.manage` thay vì global role cứng. Full local quality gate pass, nhưng chưa có DB fixture/authenticated walkthrough hai company.
+Đã khởi tạo bộ nhớ mới tại `.task-memory/multi-company-ai-2026-08-27/` với brief, plan, state, decisions, open questions, sources và inventory/ADR; mọi trạng thái quan trọng của chương trình mới phải ghi tại đây. MC-00 và MC-01 đã hoàn tất ở mức R0. MC-02 đã có code trên branch `agent/mc-02-tenant-lifecycle-20260827`: tạo company ở DRAFT, activate/archive/restore có Admin + audit, archived bị chặn vận hành, domain writes yêu cầu ACTIVE. Full gate MC-02 pass và đã merge PR #56 thành master `98c62c1`. MC-03 đã có code trên branch `agent/mc-03-company-accounts-20260827`: account company-local role `COLLABORATOR`, first-login password change, membership preset/capability, Project Admin member management, server-side active-only writes và navigation filtering. Full gate MC-03 pass và đã merge PR #57 thành master `6e2efa8`. Phase 2 contract đã hoàn tất ở mức code/CI; runtime isolation vẫn mở. MC-04/MC-05 hiện có module-level direct URL guard, preset-filtered navigation và shared `resolveWorkspaceContext` nối vào AI governance; toàn bộ config/setup actions cũng đã dùng `config.manage` thay vì global role cứng. Full local quality gate pass, nhưng chưa có DB fixture/authenticated walkthrough hai company. AI hierarchy wave đã thêm `ZAiAgent` schema cho CHILD/GLOBAL, lifecycle actions DRAFT/ACTIVE/SUSPENDED/ARCHIVED và UI tạo/quản trị; Prisma/TypeScript/test/build đều pass. Chưa chạy migration và chưa nối agent registry vào execution dispatcher/AI child tool allowlist.
 
 ## Verified facts
 
-Mã nguồn hiện đã có `ZProject`, project membership, project-local models/actions/UI nền tảng, AI workspace context `INTERNAL/PROJECT/GLOBAL`, selector Global/project và server boundary fail-closed. MC-02 chặn company DRAFT/ARCHIVED khỏi action vận hành; MC-03 thêm account/membership/capability boundary và menu theo preset; MC-04/MC-05 thêm requireProjectModule, direct URL guard và shared AI context resolver. Full quality gate local/CI pass cho bốn wave. Kế hoạch V4 vẫn chưa đạt DB fixture isolation/authenticated walkthrough đầy đủ. Payroll project-local chưa có payout/accounting local. Xóa cứng company vẫn bị khóa; hiện mới có archive/restore code-level.
+Mã nguồn hiện đã có `ZProject`, project membership, project-local models/actions/UI nền tảng, AI workspace context `INTERNAL/PROJECT/GLOBAL`, selector Global/project và server boundary fail-closed. MC-02 chặn company DRAFT/ARCHIVED khỏi action vận hành; MC-03 thêm account/membership/capability boundary và menu theo preset; MC-04/MC-05 thêm requireProjectModule, direct URL guard và shared AI context resolver; AI wave thêm `ZAiAgent` CHILD/GLOBAL registry, lifecycle và management UI. Full quality gate local pass cho các wave hiện tại; PR AI chưa tạo/merge. Kế hoạch V4 vẫn chưa đạt DB fixture isolation/authenticated walkthrough đầy đủ. Payroll project-local chưa có payout/accounting local. Xóa cứng company vẫn bị khóa; hiện mới có archive/restore code-level.
 
 ## Active assumptions
 
@@ -29,9 +29,9 @@ Cần phục hồi workbook `ZENITH_PLAN_DUY_NHAT_2026.xlsx` hoặc owner xác n
 
 ## Next 3 actions
 
-1. Commit/CI/merge config capability boundary sau full gate.
-2. Tạo fixture QA không PII cho Company A/B và test list/detail/aggregate/export + revoked membership.
-3. Chỉ sau isolation gate pass mới mở AI child profile/tool registry và AI Tổng control-plane; chưa chạy migration/clinic walkthrough.
+1. Commit/CI/merge AI agent registry/lifecycle/UI sau full gate.
+2. Nối agent registry vào assistant conversation/dispatcher: CHILD phải có projectId, GLOBAL chỉ aggregate và explicit target.
+3. Tạo fixture QA không PII cho Company A/B và test runtime isolation/AI child/global trước migration/clinic walkthrough.
 
 ## Files to read first
 

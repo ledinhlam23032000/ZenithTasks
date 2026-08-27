@@ -42,6 +42,7 @@ export function buildProjectWorkspaceNav(workspace: WorkspaceNavigationOption | 
   return [
     { href: `/du-an/${workspace.id}`, label: "Tổng quan workspace", icon: "LayoutDashboard", group: "Workspace" },
     ...orderedModules.map((module) => ({ href: module.key === "simulation" ? `/du-an/${workspace.id}/co-che?tab=simulation` : module.href(workspace.id), label: module.label, icon: workspaceIcon[module.key] ?? "Boxes", group: "Workspace" })),
+    ...((!workspace.membership || projectMemberCan(workspace.membership, "config.manage")) ? [{ href: `/du-an/${workspace.id}/ai`, label: "AI công ty", icon: "Sparkles", group: "Workspace" }] : []),
     ...((!workspace.membership || projectMemberCan(workspace.membership, "members.manage")) ? [{ href: `/du-an/${workspace.id}/thanh-vien`, label: "Thành viên", icon: "Users", group: "Workspace" }] : []),
     { href: `/tro-ly?p=${encodeURIComponent(workspace.id)}`, label: "Trợ lý AI", icon: "Sparkles", group: "Workspace" },
     ...(role === "ADMIN" ? [{ href: "/du-an", label: "Quản lý Dự án", icon: "Boxes", group: "Quản trị chung" }] : []),

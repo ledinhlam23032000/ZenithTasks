@@ -167,6 +167,18 @@ enum AssistantWorkspaceKind {
   GLOBAL
 }
 
+enum ZAiAgentKind {
+  CHILD
+  GLOBAL
+}
+
+enum ZAiAgentStatus {
+  DRAFT
+  ACTIVE
+  SUSPENDED
+  ARCHIVED
+}
+
 enum PaymentRequestType {
   EXPENSE
   SALARY
@@ -292,6 +304,7 @@ model User {
   consultationsCreated          ConsultationRecord[]       @relation("ConsultationCreatedBy")
   assistantFeedback             AssistantFeedback[]
   assistantFiles                AssistantFile[]
+  aiAgentsCreated               ZAiAgent[]                 @relation("AiAgentCreator")
   collaboratorProfile           Collaborator?
   collaboratorDocumentsUploaded CollaboratorDocument[]     @relation("CollaboratorDocumentUploadedBy")
   collaboratorPayoutRecordsPaid CollaboratorPayoutRecord[] @relation("CollaboratorPayoutRecordPaidBy")
@@ -1016,6 +1029,8 @@ model AssistantConversation {
   memoryVersion   Int                         @default(1)
   workspaceKind   AssistantWorkspaceKind      @default(INTERNAL)
   projectId       String?
+  agentId         String?
+  agent           ZAiAgent?                   @relation(fields: [agentId], references: [id], onDelete: SetNull)
   lastCompactedAt DateTime?
   lastMessageAt   DateTime                    @default(now())
   createdAt       DateTime                    @default(now())
@@ -1053,6 +1068,8 @@ model AssistantApproval {
     preview         Json
   workspaceKind   AssistantWorkspaceKind   @default(INTERNAL)
   projectId       String?
+  agentId         String?
+  agent           ZAiAgent?                @relation(fields: [agentId], references: [id], onDelete: SetNull)
   status          AssistantApprovalStatus @default(PENDING)
   expiresAt      DateTime
   createdAt      DateTime                @default(now())
@@ -1461,8 +1478,9 @@ model ZProject {
   settings            Json?
   createdAt           DateTime               @default(now())
   updatedAt           DateTime               @updatedAt
-  members             ZProjectMember[]
-  units               ZOrganizationUnit[]
+    members             ZProjectMember[]
+  aiAgents            ZAiAgent[]
+  units                ZOrganizationUnit[]
   positions           ZProjectPosition[]
   mechanisms          ZMechanismDefinition[]
   zprojectAssignments ZProjectAssignment[]
@@ -1478,6 +1496,30 @@ model ZProject {
   configProposals     ZWorkspaceConfigProposal[]
 
   @@index([status, createdAt])
+}
+
+model ZAiAgent {
+  id              String         @id @default(cuid())
+  code            String         @unique
+  name            String
+  kind            ZAiAgentKind
+  status          ZAiAgentStatus @default(DRAFT)
+  projectId       String?
+  project         ZProject?      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdById     String?
+  createdBy       User?          @relation("AiAgentCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  model           String?
+  systemPrompt    String?        @db.Text
+  toolAllowlist   Json?
+  config          Json?
+  lastHeartbeatAt DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  conversations   AssistantConversation[]
+  approvals       AssistantApproval[]
+
+  @@index([projectId, kind, status])
+  @@index([status, lastHeartbeatAt])
 }
 
 model ZProjectMember {
