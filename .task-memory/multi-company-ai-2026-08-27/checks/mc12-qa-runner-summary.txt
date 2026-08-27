@@ -1,0 +1,3 @@
+tsc=0
+qa_regression_vitest=0
+qa_db_execution=not_run_without_QA_DATABASE_URL

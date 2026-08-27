@@ -13,6 +13,8 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:bootstrap-admin": "tsx scripts/bootstrap-admin.ts",
     "db:check-integrity": "tsx scripts/check-financial-integrity.ts",
+    "qa:seed:multi-company": "tsx scripts/qa/seed-multi-company.ts",
+    "qa:verify:multi-company": "tsx scripts/qa/verify-multi-company-qa.ts",
     "db:reset": "prisma migrate reset --force && npm run db:seed",
     "db:studio": "prisma studio",
     "rotate:phone": "tsx prisma/rotate-phone-key.ts",

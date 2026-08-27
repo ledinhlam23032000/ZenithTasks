@@ -1,0 +1,6 @@
+prisma_validate=0
+prisma_generate=0
+tsc=0
+vitest=0
+next_build=0
+qa_database_apply=not_run_from_sandbox
