@@ -63,6 +63,7 @@ async function get(username, path) {
       taskAData: body.includes("Synthetic QA-COMPANY-A Task 001"),
       taskBData: body.includes("Synthetic QA-COMPANY-B Task 001"),
       csv: (response.headers.get("content-type") ?? "").startsWith("text/csv"),
+      actionIds: [...body.matchAll(/\$ACTION_ID_[A-Za-z0-9_-]+/g)].map((match) => match[0]).slice(0, 20),
       workspacePage: body.includes("Các module của workspace"),
       customersPage: body.includes("Hồ sơ khách hàng của"),
       financePage: body.includes("Sổ thu/chi của"),
