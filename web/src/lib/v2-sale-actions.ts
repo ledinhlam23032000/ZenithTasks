@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "./db";
-import { requireProjectAccess } from "./v2-access";
+import { requireProjectCapability } from "./v2-access";
 
 export type WorkspaceSaleActionState = { ok?: boolean; error?: string; message?: string };
 const statuses = new Set(["DRAFT", "CONFIRMED", "PAID", "CANCELLED"] as const);
@@ -21,7 +21,7 @@ function money(formData: FormData, key: string) {
 
 export async function createWorkspaceSaleAction(_prev: WorkspaceSaleActionState, formData: FormData): Promise<WorkspaceSaleActionState> {
   const projectId = text(formData, "projectId", 80);
-  const { user, project } = await requireProjectAccess(projectId, { activeOnly: true });
+  const { user, project } = await requireProjectCapability(projectId, "sales.manage", { activeOnly: true });
   if (project.status === "ARCHIVED") return { error: "Dự án đã lưu trữ, không thể tạo giao dịch mới." };
 
   const customerId = text(formData, "customerId", 80) || null;

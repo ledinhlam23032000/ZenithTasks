@@ -1,6 +1,7 @@
 import { V2_MODULES, type V2ModuleKey } from "./v2-modules";
+import { projectMemberCan, projectModuleCanView, type ProjectMembershipLike } from "./v2-project-capabilities";
 
-export type WorkspaceNavigationOption = { id: string; enabledFeatures: string[]; layoutOrder?: string[]; name?: string };
+export type WorkspaceNavigationOption = { id: string; enabledFeatures: string[]; layoutOrder?: string[]; name?: string; membership?: ProjectMembershipLike | null };
 export type WorkspaceNavigationItem = { href: string; label: string; icon: string; group: string };
 
 export function normalizeWorkspaceLayoutOrder(raw: unknown, enabledFeatures: readonly string[]): V2ModuleKey[] {
@@ -31,7 +32,7 @@ export function resolveActiveProjectWorkspace(pathname: string, queryProjectId: 
 
 export function buildProjectWorkspaceNav(workspace: WorkspaceNavigationOption | undefined, role: string): WorkspaceNavigationItem[] {
   if (!workspace) return [];
-  const enabledModules = V2_MODULES.filter((module) => module.available && workspace.enabledFeatures.includes(module.key));
+  const enabledModules = V2_MODULES.filter((module) => module.available && workspace.enabledFeatures.includes(module.key) && projectModuleCanView(workspace.membership, module.key));
   const layoutRank = new Map(normalizeWorkspaceLayoutOrder(workspace.layoutOrder, workspace.enabledFeatures).map((key, index) => [key, index]));
   const orderedModules = [...enabledModules].sort((left, right) => {
     const leftRank = layoutRank.get(left.key) ?? Number.MAX_SAFE_INTEGER;
@@ -41,7 +42,7 @@ export function buildProjectWorkspaceNav(workspace: WorkspaceNavigationOption | 
   return [
     { href: `/du-an/${workspace.id}`, label: "Tổng quan workspace", icon: "LayoutDashboard", group: "Workspace" },
     ...orderedModules.map((module) => ({ href: module.key === "simulation" ? `/du-an/${workspace.id}/co-che?tab=simulation` : module.href(workspace.id), label: module.label, icon: workspaceIcon[module.key] ?? "Boxes", group: "Workspace" })),
-    { href: `/du-an/${workspace.id}/thanh-vien`, label: "Thành viên", icon: "Users", group: "Workspace" },
+    ...((!workspace.membership || projectMemberCan(workspace.membership, "members.manage")) ? [{ href: `/du-an/${workspace.id}/thanh-vien`, label: "Thành viên", icon: "Users", group: "Workspace" }] : []),
     { href: `/tro-ly?p=${encodeURIComponent(workspace.id)}`, label: "Trợ lý AI", icon: "Sparkles", group: "Workspace" },
     ...(role === "ADMIN" ? [{ href: "/du-an", label: "Quản lý Dự án", icon: "Boxes", group: "Quản trị chung" }] : []),
   ];

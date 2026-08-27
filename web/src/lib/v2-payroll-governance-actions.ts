@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "./db";
-import { requireProjectAccess } from "./v2-access";
+import { requireProjectCapability } from "./v2-access";
 import { canVoidPayrollStatus, hasTwoDistinctPayrollApprovals } from "./v2-payroll-policy";
 
 export type PayrollGovernanceState = { ok?: boolean; error?: string; message?: string };
@@ -15,7 +15,7 @@ export async function previewWorkspacePayrollRunAction(_prev: PayrollGovernanceS
   const projectId = text(formData, "projectId", 80);
   const runId = text(formData, "runId", 80);
   const confirmation = text(formData, "confirmation", 16).toUpperCase();
-  const { user, project } = await requireProjectAccess(projectId, { activeOnly: true });
+  const { user, project } = await requireProjectCapability(projectId, "payroll.manage", { activeOnly: true });
   if (user.role !== "ADMIN") return { error: "Chỉ Admin mới được chuyển PayrollRun sang PREVIEW." };
   if (confirmation !== "PREVIEW") return { error: "Nhập PREVIEW để xác nhận bước xem trước." };
   const run = await prisma.zWorkspacePayrollRun.findFirst({ where: { id: runId, projectId: project.id, status: "DRAFT" }, select: { id: true, lines: { select: { snapshot: true } } } });
@@ -33,7 +33,7 @@ export async function secondApproveWorkspacePayrollRunAction(_prev: PayrollGover
   const projectId = text(formData, "projectId", 80);
   const runId = text(formData, "runId", 80);
   const confirmation = text(formData, "confirmation", 24).toUpperCase();
-  const { user, project } = await requireProjectAccess(projectId, { activeOnly: true });
+  const { user, project } = await requireProjectCapability(projectId, "payroll.manage", { activeOnly: true });
   if (user.role !== "ADMIN") return { error: "Chỉ Admin mới được xác nhận bước thứ hai." };
   if (confirmation !== "APPROVE_SECOND") return { error: "Nhập APPROVE_SECOND để xác nhận độc lập." };
   const run = await prisma.zWorkspacePayrollRun.findFirst({ where: { id: runId, projectId: project.id, status: "APPROVED" }, select: { id: true, approvedById: true, secondApprovedById: true } });
@@ -52,7 +52,7 @@ export async function finalizeWorkspacePayrollRunAction(_prev: PayrollGovernance
   const projectId = text(formData, "projectId", 80);
   const runId = text(formData, "runId", 80);
   const confirmation = text(formData, "confirmation", 16).toUpperCase();
-  const { user, project } = await requireProjectAccess(projectId, { activeOnly: true });
+  const { user, project } = await requireProjectCapability(projectId, "payroll.manage", { activeOnly: true });
   if (user.role !== "ADMIN") return { error: "Chỉ Admin mới được finalize PayrollRun." };
   if (confirmation !== "FINALIZE") return { error: "Nhập FINALIZE để xác nhận chốt kỳ lương." };
   const run = await prisma.zWorkspacePayrollRun.findFirst({ where: { id: runId, projectId: project.id, status: "APPROVED" }, select: { id: true, approvedById: true, secondApprovedById: true } });
@@ -71,7 +71,7 @@ export async function voidWorkspacePayrollRunAction(_prev: PayrollGovernanceStat
   const runId = text(formData, "runId", 80);
   const confirmation = text(formData, "confirmation", 16).toUpperCase();
   const reason = text(formData, "reason", 500);
-  const { user, project } = await requireProjectAccess(projectId, { activeOnly: true });
+  const { user, project } = await requireProjectCapability(projectId, "payroll.manage", { activeOnly: true });
   if (user.role !== "ADMIN") return { error: "Chỉ Admin mới được void PayrollRun." };
   if (confirmation !== "VOID") return { error: "Nhập VOID để xác nhận hủy kỳ có audit." };
   if (reason.length < 10) return { error: "Lý do void phải có ít nhất 10 ký tự." };
@@ -90,7 +90,7 @@ export async function approveWorkspacePayrollRunAction(_prev: PayrollGovernanceS
   const projectId = text(formData, "projectId", 80);
   const runId = text(formData, "runId", 80);
   const confirmation = text(formData, "confirmation", 16).toUpperCase();
-  const { user, project } = await requireProjectAccess(projectId, { activeOnly: true });
+  const { user, project } = await requireProjectCapability(projectId, "payroll.manage", { activeOnly: true });
   if (user.role !== "ADMIN") return { error: "Chỉ Admin mới được phê duyệt PayrollRun." };
   if (confirmation !== "APPROVE") return { error: "Nhập APPROVE để xác nhận phê duyệt bản preview." };
   const run = await prisma.zWorkspacePayrollRun.findFirst({ where: { id: runId, projectId: project.id, status: "PREVIEW" }, select: { id: true, lines: { select: { grossAmount: true, commissionAmount: true, deductionAmount: true, netAmount: true } } } });

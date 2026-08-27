@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "./db";
-import { requireProjectAccess } from "./v2-access";
+import { requireProjectCapability } from "./v2-access";
 import { parseMechanismTestCases, runMechanismRuleTests } from "./v2-mechanism-test";
 
 export type MechanismActionState = { ok?: boolean; error?: string; message?: string };
@@ -38,8 +38,8 @@ export async function createWorkspaceMechanismAction(_prev: MechanismActionState
   const kind = text(formData, "kind", 32);
   const ruleSpec = parseJsonObject(text(formData, "ruleSpec", 4000));
   const testCases = parseMechanismTestCases(parseJsonArray(text(formData, "testCases", 4000)));
-  const { user, project } = await requireProjectAccess(projectId);
-  if (user.role !== "ADMIN") return { error: "Chỉ Admin mới được tạo cơ chế project-local." };
+  const { user, project } = await requireProjectCapability(projectId, "mechanism.manage");
+
   if (!/^[A-Z0-9][A-Z0-9_-]{2,47}$/.test(code)) return { error: "Mã cơ chế không hợp lệ." };
   if (name.length < 2) return { error: "Tên cơ chế cần ít nhất 2 ký tự." };
   if (!ruleSpec) return { error: "ruleSpec phải là JSON object hợp lệ." };
@@ -61,8 +61,8 @@ export async function testWorkspaceMechanismAction(_prev: MechanismActionState, 
   const projectId = text(formData, "projectId", 80);
   const versionId = text(formData, "versionId", 80);
   const confirmation = text(formData, "confirmation", 24).toUpperCase();
-  const { user, project } = await requireProjectAccess(projectId);
-  if (user.role !== "ADMIN") return { error: "Chỉ Admin mới được chạy rule test." };
+  const { user, project } = await requireProjectCapability(projectId, "mechanism.manage");
+
   if (confirmation !== "TEST_RULE") return { error: "Nhập TEST_RULE để chạy mô phỏng trước activation." };
   const version = await prisma.zMechanismVersion.findFirst({ where: { id: versionId, definition: { projectId: project.id } }, select: { id: true, ruleSpec: true, testCases: true, version: true, definition: { select: { code: true } } } });
   if (!version) return { error: "Không tìm thấy version cơ chế trong Dự án này." };
@@ -78,8 +78,8 @@ export async function activateWorkspaceMechanismAction(_prev: MechanismActionSta
   const projectId = text(formData, "projectId", 80);
   const versionId = text(formData, "versionId", 80);
   const confirmation = text(formData, "confirmation", 16).toUpperCase();
-  const { user, project } = await requireProjectAccess(projectId);
-  if (user.role !== "ADMIN") return { error: "Chỉ Admin mới được activate cơ chế." };
+  const { user, project } = await requireProjectCapability(projectId, "mechanism.manage");
+
   if (confirmation !== "ACTIVATE") return { error: "Nhập ACTIVATE để xác nhận sau khi đã preview ruleSpec." };
 
   await prisma.$transaction(async (tx) => {

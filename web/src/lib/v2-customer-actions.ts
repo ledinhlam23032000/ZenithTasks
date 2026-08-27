@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "./db";
-import { requireProjectAccess } from "./v2-access";
+import { requireProjectCapability } from "./v2-access";
 
 export type WorkspaceCustomerActionState = { ok?: boolean; error?: string; message?: string };
 
@@ -15,7 +15,7 @@ export async function createWorkspaceCustomerAction(
   formData: FormData,
 ): Promise<WorkspaceCustomerActionState> {
   const projectId = text(formData, "projectId", 80);
-  const { user, project } = await requireProjectAccess(projectId, { activeOnly: true });
+  const { user, project } = await requireProjectCapability(projectId, "customers.manage", { activeOnly: true });
   if (project.status === "ARCHIVED") return { error: "Dự án đã lưu trữ, không thể tạo khách hàng mới." };
 
   const code = text(formData, "code", 48).toUpperCase().replace(/\s+/g, "-");
@@ -59,7 +59,7 @@ export async function createWorkspaceCustomerAction(
 export async function updateWorkspaceCustomerAction(_prev: WorkspaceCustomerActionState, formData: FormData): Promise<WorkspaceCustomerActionState> {
   const projectId = text(formData, "projectId", 80);
   const customerId = text(formData, "customerId", 80);
-  const { user, project } = await requireProjectAccess(projectId, { activeOnly: true });
+  const { user, project } = await requireProjectCapability(projectId, "customers.manage", { activeOnly: true });
   if (project.status === "ARCHIVED") return { error: "Dự án đã lưu trữ, không thể sửa khách hàng." };
   const code = text(formData, "code", 48).toUpperCase().replace(/\s+/g, "-");
   const fullName = text(formData, "fullName", 160);
@@ -85,7 +85,7 @@ export async function recordWorkspaceCustomerConsentAction(_prev: WorkspaceCusto
   const customerId = text(formData, "customerId", 80);
   const consentStatus = text(formData, "consentStatus", 32).toUpperCase();
   const consentNote = text(formData, "consentNote", 1000) || null;
-  const { user, project } = await requireProjectAccess(projectId, { activeOnly: true });
+  const { user, project } = await requireProjectCapability(projectId, "customers.manage", { activeOnly: true });
   if (!["GRANTED", "REFUSED", "PENDING"].includes(consentStatus)) return { error: "Trạng thái consent không hợp lệ." };
   const result = await prisma.zWorkspaceCustomer.updateMany({ where: { id: customerId, projectId: project.id, active: true }, data: { consentStatus, consentedAt: new Date(), consentNote } });
   if (result.count !== 1) return { error: "Không tìm thấy hồ sơ active trong Dự án này." };
@@ -99,7 +99,7 @@ export async function archiveWorkspaceCustomerAction(_prev: WorkspaceCustomerAct
   const projectId = text(formData, "projectId", 80);
   const customerId = text(formData, "customerId", 80);
   const confirmation = text(formData, "confirmation", 16).toUpperCase();
-  const { user, project } = await requireProjectAccess(projectId, { activeOnly: true });
+  const { user, project } = await requireProjectCapability(projectId, "customers.manage", { activeOnly: true });
   if (confirmation !== "ARCHIVE") return { error: "Nhập ARCHIVE để xác nhận tạm dừng hồ sơ." };
   const result = await prisma.zWorkspaceCustomer.updateMany({ where: { id: customerId, projectId: project.id, active: true }, data: { active: false, deletedAt: new Date(), deletedById: user.id } });
   if (result.count !== 1) return { error: "Không tìm thấy hồ sơ active trong Dự án này." };

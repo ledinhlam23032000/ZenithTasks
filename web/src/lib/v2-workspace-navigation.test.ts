@@ -48,4 +48,16 @@ describe("workspace navigation boundary", () => {
     expect(isCompleteWorkspaceLayout(["sales", "sales"], ["sales", "customers"])).toBe(false);
     expect(isCompleteWorkspaceLayout(["sales", "customers", "payroll"], ["sales", "customers", "payroll"])).toBe(false);
   });
+
+  it("filters workspace modules by membership preset", () => {
+    const salesNav = buildProjectWorkspaceNav({ id: "project-a", enabledFeatures: ["customers", "appointments", "sales", "finance"], membership: { preset: "SALES" } }, "COLLABORATOR");
+    const salesHrefs = salesNav.map((item) => item.href);
+    expect(salesHrefs).toContain("/du-an/project-a/khach-hang");
+    expect(salesHrefs).toContain("/du-an/project-a/doanh-so");
+    expect(salesHrefs).not.toContain("/du-an/project-a/tai-chinh");
+    expect(salesHrefs).not.toContain("/du-an/project-a/thanh-vien");
+
+    const viewerNav = buildProjectWorkspaceNav({ id: "project-a", enabledFeatures: ["customers", "sales"], membership: { preset: "VIEWER" } }, "COLLABORATOR");
+    expect(viewerNav.map((item) => item.href)).toEqual(["/du-an/project-a", "/tro-ly?p=project-a"]);
+  });
 });
