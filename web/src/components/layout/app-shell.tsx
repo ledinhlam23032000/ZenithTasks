@@ -92,7 +92,7 @@ const ICONS: Record<string, LucideIcon> = {
 export type NavItemData = { href: string; label: string; icon: string; group: string };
 export type ShellUser = { fullName: string; role: Role; roleLabel: string; username: string; avatarUrl?: string | null };
 export type WorkloadSummary = { total: number; followUps: number; appointments: number; newCustomers: number; debts: number };
-export type WorkspaceOption = { id: string; code: string; name: string; status: string; enabledFeatures: string[] };
+export type WorkspaceOption = { id: string; code: string; name: string; status: string; enabledFeatures: string[]; layoutOrder?: string[] };
 
 type RouteAlias = { prefix: string; label: string; parentHref: string; parentLabel: string };
 

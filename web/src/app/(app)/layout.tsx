@@ -11,6 +11,7 @@ import { DismissibleBanner } from "@/components/ui/dismissible-banner";
 import { getWorkloadSummary } from "@/lib/workqueue-summary";
 import { prisma } from "@/lib/db";
 import { normalizedModuleKeys } from "@/lib/v2-modules";
+import { normalizeWorkspaceLayoutOrder } from "@/lib/v2-workspace-navigation";
 import type { WorkspaceOption } from "@/components/layout/app-shell";
 
 async function loadWorkspaceOptions(user: Awaited<ReturnType<typeof requireUser>>): Promise<WorkspaceOption[]> {
@@ -21,7 +22,20 @@ async function loadWorkspaceOptions(user: Awaited<ReturnType<typeof requireUser>
       select: { id: true, code: true, name: true, status: true, enabledFeatures: true },
       orderBy: { updatedAt: "desc" },
     });
-    return projects.map((project) => ({ id: project.id, code: project.code, name: project.name, status: project.status, enabledFeatures: normalizedModuleKeys(project.enabledFeatures) }));
+    if (projects.length === 0) return [];
+    const layoutVersions = await prisma.zWorkspaceConfigVersion.findMany({
+      where: { projectId: { in: projects.map((project) => project.id) }, kind: "LAYOUT", status: "ACTIVE" },
+      orderBy: { version: "desc" },
+      select: { projectId: true, config: true },
+    });
+    const layoutByProject = new Map<string, string[]>();
+    for (const version of layoutVersions) {
+      if (layoutByProject.has(version.projectId)) continue;
+      const config = version.config && typeof version.config === "object" && !Array.isArray(version.config) ? version.config as { order?: unknown } : null;
+      const order = normalizeWorkspaceLayoutOrder(config?.order, normalizedModuleKeys(projects.find((project) => project.id === version.projectId)?.enabledFeatures));
+      if (order.length > 0) layoutByProject.set(version.projectId, order);
+    }
+    return projects.map((project) => ({ id: project.id, code: project.code, name: project.name, status: project.status, enabledFeatures: normalizedModuleKeys(project.enabledFeatures), layoutOrder: layoutByProject.get(project.id) }));
   } catch (error) {
     console.error("Không tải được danh sách workspace V2:", error);
     return [];

@@ -24,6 +24,7 @@ import { inferAttendanceIntent } from "./attendance-intent";
 import type { Prisma } from "@/generated/prisma/client";
 import { evaluateDispatcherAction, governanceMessage, principalForUser } from "@/lib/ai-governance-adapter";
 import type { AiWorkspaceContext } from "@/lib/ai-governance";
+import { getAiWorkspaceActionError } from "@/lib/ai-workspace-boundary";
 import { applyClarificationChoice, buildClarificationPayload, clarificationAnswer, findActiveClarificationPayload, parseClarificationChoice, type ClarificationPayload } from "@/lib/ai-clarification";
 
 const monthSchema = z.string().regex(/^\d{4}-\d{2}$/);
@@ -385,7 +386,9 @@ async function deleteCustomerForAgent(userId: string, customerId: string) {
   });
 }
 
-async function readAction(action: ActionName, args: unknown, userId: string): Promise<AgentState> {
+async function readAction(action: ActionName, args: unknown, userId: string, workspace: AiWorkspaceContext): Promise<AgentState> {
+  const boundaryError = getAiWorkspaceActionError(workspace, action);
+  if (boundaryError) return planError(boundaryError);
   if (action === "get_workspace_overview") {
     const actor = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
     if (actor?.role !== "ADMIN") return planError("Chỉ Global Admin được đọc tổng hợp toàn bộ Dự án.");
@@ -737,7 +740,7 @@ export async function runAssistantAgent(_prev: AgentState, formData: FormData): 
     return finish({ ok: true, answer: status.answer, steps: status.steps });
   }
 
-  const staffCandidates = await prisma.user.findMany({ where: { active: true }, select: { id: true, fullName: true } });
+  const staffCandidates = workspace.workspaceKind === "INTERNAL" ? await prisma.user.findMany({ where: { active: true }, select: { id: true, fullName: true } }) : [];
     const deterministicAttendance = inferAttendanceIntent(question, history, staffCandidates);
   if (deterministicAttendance) {
     const governanceError = governanceBlock(aiPrincipal, "bulk_upsert_attendance", deterministicAttendance, true);
@@ -773,7 +776,7 @@ export async function runAssistantAgent(_prev: AgentState, formData: FormData): 
       if (args === null) return finish(planError(`Tham số của bước ${index + 1} chưa hợp lệ; em chưa chạy bước nào tiếp theo.`));
       const governanceError = governanceBlock(aiPrincipal, step.action, args, step.requires_confirmation);
       if (governanceError) return finish(planError(governanceError));
-      const result = await readAction(step.action, args, user.id);
+      const result = await readAction(step.action, args, user.id, workspace);
 
       await audit(user.id, "ASSISTANT_READ_TOOL", { entity: step.action, meta: { ok: result.ok, step: index + 1, note: step.note ?? null } });
       stepLabels.push(`Bước ${index + 1}: đọc ${step.action}`);
@@ -800,7 +803,7 @@ export async function runAssistantAgent(_prev: AgentState, formData: FormData): 
       const approval = await createApproval(user.id, action, args as Prisma.InputJsonValue, `${governanceMessage(policy)} Chỉ đọc trong phạm vi đã nêu; chưa hiển thị dữ liệu trước khi xác nhận.`, conversation.id, workspace);
       return finish(approval);
     }
-    const result = await readAction(action, args, user.id);
+    const result = await readAction(action, args, user.id, workspace);
 
     await audit(user.id, "ASSISTANT_READ_TOOL", { entity: action, meta: { ok: result.ok } });
     const answer = result.answer
@@ -809,7 +812,9 @@ export async function runAssistantAgent(_prev: AgentState, formData: FormData): 
     return finish({ ...result, answer, steps: workflowSteps(action, "read") });
   }
 
-    const governanceError = governanceBlock(aiPrincipal, action, args, planned.data.requires_confirmation);
+    const workspaceActionError = getAiWorkspaceActionError(workspace, action);
+  if (workspaceActionError) return finish(planError(workspaceActionError));
+  const governanceError = governanceBlock(aiPrincipal, action, args, planned.data.requires_confirmation);
   if (governanceError) return finish(planError(governanceError));
   const checked = await validateWrite(action, args, user.id);
   if ("error" in checked) return finish(planError(checked.error));
@@ -836,10 +841,12 @@ export async function confirmAssistantApproval(_prev: AgentState, formData: Form
     const args = approval.arguments as Record<string, unknown>;
   const governanceError = governanceBlock(aiPrincipal, approval.toolName, args, true, true);
   if (governanceError) return planError(governanceError);
+  const workspaceActionError = getAiWorkspaceActionError(workspace, approval.toolName);
+  if (workspaceActionError) return planError(workspaceActionError);
     try {
     let executionAnswer = approval.preview;
     if (READ_ACTIONS.has(approval.toolName as ActionName)) {
-      const result = await readAction(approval.toolName as ActionName, args, user.id);
+      const result = await readAction(approval.toolName as ActionName, args, user.id, workspace);
       if (result.error) return planError(result.error);
       executionAnswer = result.answer ?? approval.preview;
     } else if (approval.toolName === "bulk_upsert_attendance") {
