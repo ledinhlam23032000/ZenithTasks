@@ -31,3 +31,7 @@ Không thêm payroll payout, AI tool write, permission editor hoặc delete th�
 ## D-08 — Canonical uncertainty
 
 Workbook `ZENITH_PLAN_DUY_NHAT_2026.xlsx` chưa có trong sandbox. Kế hoạch Workspace V4 trong repo là nguồn tham chiếu tạm thời; mọi task mới phải gắn crosswalk và giữ trạng thái `review` cho tới khi workbook/owner decision được phục hồi.
+
+## D-09 — Additive AI hierarchy migration, archive-safe
+
+Migration `20260827190000_ai_agent_hierarchy` chỉ thêm enum/table/agentId/index/foreign key cho AI hierarchy. Constraint `ZAiAgent_scope_check` buộc CHILD có `projectId` và GLOBAL không có `projectId`; partial unique indexes bảo đảm tối đa một CHILD ACTIVE mỗi project và một GLOBAL ACTIVE toàn hệ thống, trong khi vẫn giữ lịch sử DRAFT/SUSPENDED/ARCHIVED. Migration chưa được apply trên clinic; chỉ được apply trên QA cô lập sau review và backup gate.
