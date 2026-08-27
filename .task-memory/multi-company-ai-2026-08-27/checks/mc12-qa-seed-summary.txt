@@ -1,0 +1,3 @@
+seed_tsc=0
+policy_fixture_vitest=0
+execution=not_run_no_QA_DATABASE_URL
