@@ -1,3 +1,5 @@
+import { resolveWorkspaceContext } from "./v2-workspace-context";
+
 export type AiRiskLevel = "L0" | "L1" | "L2" | "L3" | "L4" | "L5";
 export type AiDecision = "ALLOW" | "WARN" | "REQUIRE_CONFIRMATION" | "REQUIRE_APPROVAL" | "DENY";
 
@@ -49,12 +51,12 @@ const medicalFields = ["caseCode", "diagnosis", "consultation", "clinicalNotes",
 
 export function evaluateAiToolRequest(principal: AiPrincipal, request: AiToolRequest): AiPolicyResult {
   const currentWorkspace = principal.workspaceKind ?? "INTERNAL";
-  if (request.workspaceKind && request.workspaceKind !== currentWorkspace) return { decision: "DENY", riskLevel: "L5", consequences: ["Yêu cầu khác workspace đang được chọn."], requiredApprovals: 0, confirmationRequired: false, purposeRequired: false, rollback: "NOT_AVAILABLE", reason: "WORKSPACE_SCOPE_DENIED" };
+  const context = resolveWorkspaceContext({ workspaceKind: principal.workspaceKind, requestWorkspaceKind: request.workspaceKind, action: request.action, requestedProjectId: request.projectId, activeProjectId: principal.activeProjectId, accessibleProjectIds: principal.projectIds });
+  if (!context.ok) {
+    const message = context.reason === "GLOBAL_PROJECT_REQUIRED" ? "Global AI chỉ được gọi aggregate tool hoặc phải nêu rõ projectId; không được rơi về dữ liệu Nội Bộ." : context.reason === "PROJECT_SCOPE_REQUIRED" ? "Tool chưa khai báo projectId nên AI không được đọc/ghi dữ liệu trong Dự án này." : context.reason === "WORKSPACE_SCOPE_DENIED" ? "Yêu cầu khác workspace đang được chọn." : "Yêu cầu nằm ngoài phạm vi Dự án đang được chọn.";
+    return { decision: "DENY", riskLevel: "L5", consequences: [message], requiredApprovals: 0, confirmationRequired: false, purposeRequired: false, rollback: "NOT_AVAILABLE", reason: context.reason === "PROJECT_SCOPE_REQUIRED" ? "PROJECT_SCOPE_REQUIRED" : context.reason === "GLOBAL_PROJECT_REQUIRED" ? "GLOBAL_PROJECT_REQUIRED" : context.reason };
+  }
   if (request.action === "get_workspace_overview" && currentWorkspace !== "GLOBAL") return { decision: "DENY", riskLevel: "L5", consequences: ["Aggregate toàn hệ thống chỉ được gọi khi Admin đã chọn phạm vi GLOBAL."], requiredApprovals: 0, confirmationRequired: false, purposeRequired: false, rollback: "NOT_AVAILABLE", reason: "GLOBAL_SCOPE_REQUIRED" };
-  if (currentWorkspace === "PROJECT" && principal.activeProjectId && request.action !== "none" && !request.projectId) return { decision: "DENY", riskLevel: "L5", consequences: ["Tool chưa khai báo projectId nên AI không được đọc/ghi dữ liệu trong Dự án này."], requiredApprovals: 0, confirmationRequired: false, purposeRequired: false, rollback: "NOT_AVAILABLE", reason: "PROJECT_SCOPE_REQUIRED" };
-  if (currentWorkspace === "GLOBAL" && request.action !== "none" && !request.projectId && request.action !== "get_workspace_overview") return { decision: "DENY", riskLevel: "L5", consequences: ["Global AI chỉ được gọi aggregate tool hoặc phải nêu rõ projectId; không được rơi về dữ liệu Nội Bộ."], requiredApprovals: 0, confirmationRequired: false, purposeRequired: false, rollback: "NOT_AVAILABLE", reason: "GLOBAL_PROJECT_REQUIRED" };
-  const inScope = !request.projectId || principal.projectIds.includes(request.projectId);
-  if (!inScope || (principal.activeProjectId && request.projectId !== principal.activeProjectId)) return { decision: "DENY", riskLevel: "L5", consequences: ["Yêu cầu nằm ngoài phạm vi Dự án đang được chọn."], requiredApprovals: 0, confirmationRequired: false, purposeRequired: false, rollback: "NOT_AVAILABLE", reason: "PROJECT_SCOPE_DENIED" };
   if (!principal.capabilities.includes(request.action)) return { decision: "DENY", riskLevel: "L5", consequences: ["AI profile hiện tại chưa được cấp capability cho thao tác này."], requiredApprovals: 0, confirmationRequired: false, purposeRequired: false, rollback: "NOT_AVAILABLE", reason: "CAPABILITY_DENIED" };
   if (request.action === "get_workspace_overview") return { decision: "ALLOW", riskLevel: "L1", consequences: [], requiredApprovals: 0, confirmationRequired: false, purposeRequired: false, rollback: "SUPPORTED", reason: "GLOBAL_AGGREGATE_READ" };
 

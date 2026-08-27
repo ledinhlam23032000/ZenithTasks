@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft, BookOpen, CircleDollarSign } from "lucide-react";
 import { prisma } from "@/lib/db";
-import { requireProjectAccess } from "@/lib/v2-access";
+import { requireProjectModule } from "@/lib/v2-access";
 import { V2WorkspaceLedgerForm } from "@/components/v2-workspace-ledger-form";
 import { V2WorkspaceLedgerVoidForm } from "@/components/v2-workspace-ledger-void-form";
 import { V2WorkspaceReconciliationForm } from "@/components/v2-workspace-reconciliation-form";
@@ -16,7 +16,7 @@ function money(value: unknown) {
 
 export default async function ProjectFinancePage({ params }: { params: Promise<{ projectId: string }> }) {
   const { projectId } = await params;
-  const { user, project } = await requireProjectAccess(projectId);
+  const { user, project } = await requireProjectModule(projectId, "finance", { activeOnly: true });
   const [entries, sales, income, expense, reconciliations] = await Promise.all([
     prisma.zWorkspaceLedgerEntry.findMany({ where: { projectId: project.id }, orderBy: [{ occurredAt: "desc" }, { createdAt: "desc" }], take: 100, select: { id: true, code: true, direction: true, status: true, category: true, description: true, amount: true, occurredAt: true, sourceRef: true, sale: { select: { code: true, serviceName: true } } } }),
     prisma.zWorkspaceSale.findMany({ where: { projectId: project.id, status: { not: "CANCELLED" } }, orderBy: { occurredAt: "desc" }, take: 100, select: { id: true, code: true, serviceName: true, amount: true } }),

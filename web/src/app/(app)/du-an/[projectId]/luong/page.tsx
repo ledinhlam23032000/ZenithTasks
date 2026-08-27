@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft, CalendarClock } from "lucide-react";
 import { prisma } from "@/lib/db";
-import { requireProjectAccess } from "@/lib/v2-access";
+import { requireProjectModule } from "@/lib/v2-access";
 import { V2WorkspacePayrollForm } from "@/components/v2-workspace-payroll-form";
 import { V2WorkspacePayrollGovernanceForm } from "@/components/v2-workspace-payroll-governance-form";
 
@@ -17,7 +17,7 @@ function displayMoney(value: unknown, visible: boolean) {
 
 export default async function ProjectPayrollPage({ params }: { params: Promise<{ projectId: string }> }) {
   const { projectId } = await params;
-  const { user, project } = await requireProjectAccess(projectId);
+  const { user, project } = await requireProjectModule(projectId, "payroll", { activeOnly: true });
   const [mechanisms, runs] = await Promise.all([
     prisma.zMechanismVersion.findMany({ where: { status: "ACTIVE", definition: { projectId: project.id } }, orderBy: { effectiveFrom: "desc" }, take: 50, select: { id: true, version: true, definition: { select: { code: true, name: true } } } }),
     prisma.zWorkspacePayrollRun.findMany({ where: { projectId: project.id }, orderBy: { periodStart: "desc" }, take: 50, include: { mechanismVersion: { select: { version: true, definition: { select: { code: true, name: true } } } }, lines: { select: { id: true, userId: true, status: true, grossAmount: true, commissionAmount: true, deductionAmount: true, netAmount: true } } } }),

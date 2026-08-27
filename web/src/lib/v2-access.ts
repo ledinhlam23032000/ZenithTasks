@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { prisma } from "./db";
 import { requireUser } from "./auth";
-import { projectMemberCan, type ProjectCapability } from "./v2-project-capabilities";
+import { projectMemberCan, projectModuleCanView, type ProjectCapability } from "./v2-project-capabilities";
 
 export async function requireV2User() {
   const user = await requireUser();
@@ -29,6 +29,12 @@ export async function requireProjectAccess(projectId: string, options: { activeO
 export async function requireProjectCapability(projectId: string, capability: ProjectCapability, options: { activeOnly?: boolean } = {}) {
   const access = await requireProjectAccess(projectId, options);
   if (access.user.role !== "ADMIN" && (!access.membership || !projectMemberCan(access.membership, capability))) redirect("/khong-co-quyen");
+  return access;
+}
+
+export async function requireProjectModule(projectId: string, moduleKey: string, options: { activeOnly?: boolean } = {}) {
+  const access = await requireProjectAccess(projectId, options);
+  if (access.user.role !== "ADMIN" && !projectModuleCanView(access.membership, moduleKey)) redirect("/khong-co-quyen");
   return access;
 }
 

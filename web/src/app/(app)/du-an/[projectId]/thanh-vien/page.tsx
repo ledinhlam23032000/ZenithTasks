@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft, ShieldCheck, Users } from "lucide-react";
 import { prisma } from "@/lib/db";
-import { requireProjectAccess } from "@/lib/v2-access";
+import { requireProjectCapability } from "@/lib/v2-access";
 import { projectMemberCan } from "@/lib/v2-project-capabilities";
 import { V2ProjectMemberActiveForm, V2ProjectMemberAddForm } from "@/components/v2-project-member-form";
 import { V2ProjectMemberAccountForm } from "@/components/v2-project-member-account-form";
@@ -12,7 +12,7 @@ const presetLabel: Record<string, string> = { PROJECT_ADMIN: "Project Admin", FI
 
 export default async function ProjectMembersPage({ params }: { params: Promise<{ projectId: string }> }) {
   const { projectId } = await params;
-  const { user, project, membership } = await requireProjectAccess(projectId);
+  const { user, project, membership } = await requireProjectCapability(projectId, "members.manage");
   const canManageMembers = user.role === "ADMIN" || Boolean(membership && projectMemberCan(membership, "members.manage"));
   const memberships = await prisma.zProjectMember.findMany({ where: { projectId: project.id }, orderBy: [{ active: "desc" }, { joinedAt: "asc" }] });
   const ids = memberships.map((member) => member.userId);
