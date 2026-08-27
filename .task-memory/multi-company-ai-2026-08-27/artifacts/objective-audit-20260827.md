@@ -1,7 +1,7 @@
 # Ma trận rà soát mục tiêu đầu cuộc trò chuyện
 
-**Ngày rà soát:** 2026-08-27 GMT+7  
-**Baseline:** repository `master` trước checkpoint hiện tại là `e453d12`; nhánh làm việc hiện tại `agent/mem-01-checkpoint-20260827`.  
+**Ngày rà soát:** 2026-08-27 GMT+7
+**Baseline:** repository `master` trước checkpoint hiện tại là `e453d12`; nhánh làm việc hiện tại `agent/mem-01-checkpoint-20260827`.
 **Nguyên tắc:** `DONE` chỉ dùng khi có output, acceptance, check/evidence và reviewer/owner gate phù hợp. Build/unit test xanh không tự chứng minh runtime isolation hoặc production readiness.
 
 ## Kết luận ngắn
