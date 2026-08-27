@@ -57,7 +57,9 @@ async function invoke(action, fields, path) {
     headers: {
       cookie: `zsession=${token}`,
       "next-action": action,
-      "next-router-state-tree": "[\"\",{\"children\":[\"(app)\",{\"children\":[\"du-an\",{\"children\":[\"__PAGE__\",{}]}]}]}]",
+      "next-url": path,
+      origin: "http://127.0.0.1:3000",
+      referer: `http://127.0.0.1:3000${path}`,
     },
     body: form,
   });
