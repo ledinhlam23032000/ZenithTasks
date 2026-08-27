@@ -48,3 +48,15 @@ Sau mỗi wave, ghi lại commit/PR, test result, runtime result và blocker. N�
 | DB runtime status | Chưa chạy; không có `DATABASE_URL` hoặc `QA_DATABASE_URL` trong sandbox |
 | Production/clinic status | Chưa migration, chưa deploy, chưa chạm clinic DB |
 | Immediate next action | Owner cung cấp QA PostgreSQL cô lập; nếu chưa có thì tiếp tục hoàn thiện contract/tool test nhưng không tuyên bố runtime proof |
+
+## Latest audit checkpoint — 2026-08-27 16:50 GMT+7
+
+| Checkpoint | Kết quả |
+|---|---|
+| Objective audit | Đã lập và merge PR #67; ma trận ở `artifacts/objective-audit-20260827.md`. |
+| Current master | `fc30332`, PR #68 đã merge; CI của các PR #60–#68 pass theo từng wave. |
+| Quality code gate | Prisma validate/generate, TSC, Vitest và Next build gần nhất đều pass theo evidence đã lưu. |
+| QA seed | PR #65 đã merge; seed guarded, idempotent, non-PII, không delete/reset. |
+| QA verifier | PR #68 đã merge; verifier read-only đã compile nhưng chưa chạy DB do thiếu `QA_DATABASE_URL`. |
+| Production/clinic | Chưa migration, backup production, updater Windows hoặc deploy; trạng thái đúng là blocked bởi owner gate. |
+| Next canonical action | Cung cấp PostgreSQL QA cô lập, chạy seed → verifier → authenticated walkthrough; nếu chưa có DB thì giữ MC-12/MC-13 ở `PARTIAL/BLOCKED`, không tuyên bố runtime proof. |
