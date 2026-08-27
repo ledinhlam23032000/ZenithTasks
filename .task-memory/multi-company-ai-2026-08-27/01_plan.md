@@ -52,7 +52,7 @@ flowchart TD
 
 ## Current checkpoint
 
-MC-02/MC-03 đã merge qua PR #56/#57; các wave tiếp theo đã merge PR #58–#66. Master hiện ở `e453d12`; CI đã pass cho các PR #60–#66 và local Prisma/TSC/Vitest/Next build pass cho các wave tương ứng. MC-04/MC-05 vẫn chưa có DB-backed authenticated proof. MC-09/MC-10 đã có registry/lifecycle, policy, runtime agent resolver và ba project-local read tools nhưng chưa có child mutation, health/heartbeat hay Global message/job orchestration. MC-12 có pure fixture và guarded seed script nhưng chưa thực thi vì thiếu QA PostgreSQL cô lập. Không migration/deploy clinic.
+MC-02/MC-03 đã merge qua PR #56/#57; các wave MC-04–MC-12 đã merge tiếp theo. Master hiện ở `7c33cd5` sau PR #75/#76; CI push/pull_request pass cho hai PR này. QA độc lập `zenithqa` đã seed guarded, verifier read-only và authenticated GET-only walkthrough v8 pass sau khi rebuild image; evidence sanitized ở `checks/mc13-auth-runtime-20260828.md`. MC-04/MC-05 vẫn `PARTIAL` vì chưa có export/list-detail/aggregate đầy đủ; MC-13 `PARTIAL` vì chưa có export isolation và authenticated server-action write-denial evidence. MC-09/MC-10 vẫn `PARTIAL`: registry/policy/runtime read scope đã có, nhưng child mutation, health/heartbeat và Global message/job orchestration chưa có. Không migration/deploy clinic.
 
 ## Quality gates
 
