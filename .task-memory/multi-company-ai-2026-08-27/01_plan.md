@@ -17,12 +17,12 @@
 | MC-04 | 3 | Audit và hoàn thiện projectId boundary cho mọi domain record/project action | MC-03 | Synthetic P1/P2 isolation test cho list/detail/aggregate/export | R3 | in_progress |
 | MC-05 | 3 | Xây tenant context resolver dùng chung cho page/action/AI | MC-04 | Missing/stale/foreign project context fail closed; no legacy fallback | R3 | in_progress |
 | MC-06 | 4 | Lifecycle company: create → draft → active → archived; soft-delete/restore | MC-03,MC-05 | Preview, approval, audit, dependency check, rollback/restore test | R3 | not_started |
-| MC-07 | 5 | Hoàn thiện Customer/Appointment/Sales/Finance/Task local theo tenant | MC-04,MC-05 | CRUD/permission/aggregate tests và UI empty/loading/error states | R2/R3 | not_started |
+| MC-07 | 5 | Hoàn thiện Customer/Appointment/Sales/Finance/Task local theo tenant | MC-04,MC-05 | CRUD/permission/aggregate tests và UI empty/loading/error states | R2/R3 | in_progress_partial |
 | MC-08 | 5 | Payroll/mechanism local với payout/accounting contract rõ ràng | MC-07 | Calculation snapshot, two-person approval, no Internal mixing; owner decision | R3 | blocked_pending_owner |
-| MC-09 | 5 | AI con cho từng company: profile, model/config, knowledge, tool allowlist, context | MC-05,MC-07 | AI child cannot read foreign/Internal; tool registry and audit tests | R3 | in_progress |
-| MC-10 | 6 | AI Tổng: global aggregate, company selector, child health/status/audit view | MC-03,MC-09 | ADMIN-only global scope; bounded aggregate; no hidden escalation | R3 | in_progress |
+| MC-09 | 5 | AI con cho từng company: profile, model/config, knowledge, tool allowlist, context | MC-05,MC-07 | AI child cannot read foreign/Internal; tool registry and audit tests | R3 | in_progress_partial |
+| MC-10 | 6 | AI Tổng: global aggregate, company selector, child health/status/audit view | MC-03,MC-09 | ADMIN-only global scope; bounded aggregate; no hidden escalation | R3 | in_progress_partial |
 | MC-11 | 6 | AI Tổng điều phối AI con bằng message/job contract, không truyền dữ liệu thừa | MC-09,MC-10 | Target explicit, trace child/source, timeout/retry/idempotency, no prompt-only trust | R3 | not_started |
-| MC-12 | 7 | QA seed 2–3 company, Admin/Manager/employee roles, non-PII | MC-04,MC-09 | Reproducible seed + reset only isolated QA DB | R3 | not_started |
+| MC-12 | 7 | QA seed 2–3 company, Admin/Manager/employee roles, non-PII | MC-04,MC-09 | Reproducible seed + reset only isolated QA DB | R3 | in_progress_partial |
 | MC-13 | 7 | Security/RBAC/isolation/runtime walkthrough | MC-06,MC-07,MC-10,MC-12 | Foreign URL, revoked membership, AI child/global, delete/restore all tested | R3 | not_started |
 | MC-14 | 7 | Full quality gates and migration proof | MC-13 | Prisma generate/validate, tsc, Vitest, build, migrate status, backup proof | R3 | not_started |
 | MC-15 | 8 | Clinic updater, rollout, post-deploy smoke and handoff | MC-14 | Owner backup/approval, updater exit 0, health, runtime evidence, docs | R3 | blocked_owner_gate |
@@ -52,7 +52,7 @@ flowchart TD
 
 ## Current checkpoint
 
-MC-02 merged in PR #56 at master `98c62c1`. MC-03 merged in PR #57 at master `6e2efa8`. Local and CI quality gates passed for both waves. Phase 3 now starts with MC-04/MC-05: synthetic two-company isolation and shared context resolver integration.
+MC-02/MC-03 đã merge qua PR #56/#57; các wave tiếp theo đã merge PR #58–#66. Master hiện ở `e453d12`; CI đã pass cho các PR #60–#66 và local Prisma/TSC/Vitest/Next build pass cho các wave tương ứng. MC-04/MC-05 vẫn chưa có DB-backed authenticated proof. MC-09/MC-10 đã có registry/lifecycle, policy, runtime agent resolver và ba project-local read tools nhưng chưa có child mutation, health/heartbeat hay Global message/job orchestration. MC-12 có pure fixture và guarded seed script nhưng chưa thực thi vì thiếu QA PostgreSQL cô lập. Không migration/deploy clinic.
 
 ## Quality gates
 
@@ -64,5 +64,5 @@ A task is `done` only when its acceptance, code/test/build evidence, artifact pa
 2. MC-02/MC-03: make the tenant/account/membership contract explicit before adding more modules.
 3. MC-04/MC-05: close isolation at shared server boundary.
 4. MC-06: implement safe company lifecycle and deletion preview, but keep hard delete unavailable.
-5. MC-09/MC-10: implement AI child and AI Tổng only after context/isolation evidence exists.
-6. MC-12→MC-16: QA, runtime, backup and owner-gated rollout.
+5. MC-12: chạy guarded seed trên PostgreSQL QA cô lập và authenticated walkthrough; không dùng clinic DB.
+6. Sau MC-12 evidence: hoàn thiện MC-07/MC-09/MC-10/MC-11 theo contract, rồi MC-13→MC-16 với migration, backup và owner gate.
