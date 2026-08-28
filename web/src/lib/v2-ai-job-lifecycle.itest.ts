@@ -176,6 +176,24 @@ describe.runIf(enabled)("MC-11 AI job dispatcher lifecycle (QA database)", () =>
     expect(saved?.lastError, "phải ghi lý do từ chối").toBeTruthy();
   });
 
+  it("resolveRuntimeAiAgent fail-closed: người ngoài không gắn được vào AI company khác", async () => {
+    // Hồi quy: hàm này dựng caller kèm memberships nhưng không gọi
+    // evaluateAiAgentRequest, nên đường chỉ-resolve (startNewAssistantConversation)
+    // từng cho người KHÔNG phải thành viên mở hội thoại gắn AI con của company khác.
+    const { resolveRuntimeAiAgent } = await import("./v2-ai-agent-runtime");
+    const outsider = await ctx.prisma.user.findFirst({
+      where: { username: "revoked" },
+      select: { id: true, role: true },
+    });
+    expect(outsider, "cần user 'revoked'").toBeTruthy();
+
+    const res = await resolveRuntimeAiAgent(
+      { id: outsider!.id, role: outsider!.role },
+      { workspaceKind: "PROJECT", projectId: ctx.projectA },
+    );
+    expect(res.ok, "người ngoài PHẢI bị từ chối").toBe(false);
+  });
+
   it("approve đưa job PENDING_APPROVAL trở lại QUEUED và ghi audit", async () => {
     const job = await makeJob({ status: "PENDING_APPROVAL", resultMeta: { riskLevel: "L4" } });
     currentUser = { id: ctx.adminId, role: "ADMIN" };

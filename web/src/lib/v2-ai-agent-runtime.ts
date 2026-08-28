@@ -39,6 +39,16 @@ export async function resolveRuntimeAiAgent(user: RuntimeAiUser, workspace: AiWo
     memberships: memberships.map((membership) => ({ projectId: membership.projectId, active: true, capabilities: membershipCapabilities(membership) })),
   };
 
+  // Fail-closed TRƯỚC khi tra agent: hàm này dựng `caller` kèm memberships nhưng
+  // không tự gọi evaluateAiAgentRequest — membership chỉ được kiểm ở enforceRuntimeAiTool
+  // lúc gọi tool. Nên các đường chỉ resolve mà không gọi tool (vd
+  // startNewAssistantConversation) trước đây cho người KHÔNG phải thành viên gắn
+  // hội thoại vào AI con của company khác, và phân biệt được company nào có AI ACTIVE
+  // qua thông báo lỗi khác nhau (existence oracle). Chặn ngay tại đây, trước truy vấn.
+  if (workspace.workspaceKind === "PROJECT" && !accessibleProjectIds.includes(workspace.projectId!)) {
+    return { ok: false, reason: "Không có AI ACTIVE đúng phạm vi workspace hoặc agent đã bị dừng." };
+  }
+
   const agent = await prisma.zAiAgent.findFirst({
     where: {
       ...(requestedAgentId ? { id: requestedAgentId } : {}),
