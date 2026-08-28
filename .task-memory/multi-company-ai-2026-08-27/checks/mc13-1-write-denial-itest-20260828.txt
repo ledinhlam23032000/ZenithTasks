@@ -1,0 +1,21 @@
+MC-13.1 — Lifecycle & tenant write-denial runtime evidence
+Ngày chạy: 2026-08-28 22:25:15 +0700
+Runtime: QA Postgres cô lập (zenith_qa @ 25432), KHÔNG phải clinic.
+Lệnh: QA_CONFIRM=YES QA_DATABASE_URL=<QA, không ghi secret> npm run test:integration
+Guard: test tự skip nếu URL không khớp /qa|test|staging/ hoặc khớp clinic/production.
+----------------------------------------------------------------
+[33m(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+
+ RUN  v4.1.10 C:/Users/PC/ZenithTasks/web
+
+ ✓ src/lib/v2-write-denial.itest.ts > MC-13.1 lifecycle & tenant write denial (QA database) > ADMIN không thể tạo khách hàng trong company DRAFT 385ms
+ ✓ src/lib/v2-write-denial.itest.ts > MC-13.1 lifecycle & tenant write denial (QA database) > ADMIN không thể tạo công việc trong company ARCHIVED 35ms
+ ✓ src/lib/v2-write-denial.itest.ts > MC-13.1 lifecycle & tenant write denial (QA database) > thành viên company A không thể ghi sang company B 43ms
+ ✓ src/lib/v2-write-denial.itest.ts > MC-13.1 lifecycle & tenant write denial (QA database) > người bị thu hồi membership không thể ghi vào company cũ 25ms
+ ✓ src/lib/v2-write-denial.itest.ts > MC-13.1 lifecycle & tenant write denial (QA database) > control: ADMIN VẪN ghi được vào company ACTIVE (guard không chặn nhầm) 91ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  22:25:18
+   Duration  2.97s (transform 797ms, setup 0ms, import 118ms, tests 2.22s, environment 0ms)
+
