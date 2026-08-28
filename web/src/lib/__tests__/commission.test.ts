@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   lunchAllowance,
   doctorServiceCommission,
+  allocateDoctorServiceBase,
   doctorConsultCommission,
   nurseServiceFee,
   nurseConsultCommission,
@@ -95,5 +96,44 @@ describe("computeCommissionBreakdown", () => {
     const b = computeCommissionBreakdown({ attendanceWage: 7_807_692, daysWorked: 29 });
     expect(b.totalCommission).toBe(0);
     expect(b.total).toBe(b.attendanceWage + b.lunchAllowance);
+  });
+});
+
+describe("allocateDoctorServiceBase", () => {
+  it("chỉ phân bổ phần dịch vụ CÓ bác sĩ, không hút phần không gắn ai", () => {
+    // Hồ sơ 10tr = 6tr (bác sĩ A) + 4tr (không gắn ai), khách trả đủ 10tr.
+    const out = allocateDoctorServiceBase(10_000_000, [{ doctorId: "A", revenue: 6_000_000 }], 10_000_000);
+    expect(out).toEqual([{ doctorId: "A", base: 6_000_000 }]);
+    expect(doctorServiceCommission(out[0].base)).toBe(480_000);
+  });
+
+  it("chia theo tỷ trọng khi nhiều bác sĩ và vẫn chừa phần không gắn ai", () => {
+    // 10tr = A 3tr + B 3tr + 4tr không gắn ai -> tổng căn cứ phải là 6tr, không phải 10tr.
+    const out = allocateDoctorServiceBase(10_000_000, [
+      { doctorId: "A", revenue: 3_000_000 },
+      { doctorId: "B", revenue: 3_000_000 },
+    ], 10_000_000);
+    expect(out.reduce((s, r) => s + r.base, 0)).toBe(6_000_000);
+    expect(out).toEqual([{ doctorId: "A", base: 3_000_000 }, { doctorId: "B", base: 3_000_000 }]);
+  });
+
+  it("mọi dịch vụ đều có bác sĩ thì phân bổ trọn khoản thu", () => {
+    const out = allocateDoctorServiceBase(9_000_000, [
+      { doctorId: "A", revenue: 6_000_000 },
+      { doctorId: "B", revenue: 3_000_000 },
+    ], 9_000_000);
+    expect(out.reduce((s, r) => s + r.base, 0)).toBe(9_000_000);
+  });
+
+  it("khách trả một phần thì căn cứ giảm theo tỷ lệ", () => {
+    // Trả 5tr trên hồ sơ 10tr, bác sĩ giữ 6tr -> căn cứ = 5tr * 6/10 = 3tr.
+    const out = allocateDoctorServiceBase(5_000_000, [{ doctorId: "A", revenue: 6_000_000 }], 10_000_000);
+    expect(out).toEqual([{ doctorId: "A", base: 3_000_000 }]);
+  });
+
+  it("đầu vào rỗng hoặc không hợp lệ trả mảng rỗng, không ném lỗi", () => {
+    expect(allocateDoctorServiceBase(0, [{ doctorId: "A", revenue: 1 }], 1)).toEqual([]);
+    expect(allocateDoctorServiceBase(1000, [], 1000)).toEqual([]);
+    expect(allocateDoctorServiceBase(1000, [{ doctorId: "A", revenue: 1000 }], 0)).toEqual([]);
   });
 });

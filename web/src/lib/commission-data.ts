@@ -10,7 +10,7 @@ import { prisma } from "@/lib/db";
 import { toNum } from "@/lib/money";
 import { correctedFinalPrice } from "@/lib/financial-summary";
 import { computeBaseActual } from "@/lib/payroll-pure";
-import { computeCommissionBreakdown, type CommissionBreakdown } from "@/lib/commission";
+import { allocateDoctorServiceBase, computeCommissionBreakdown, type CommissionBreakdown } from "@/lib/commission";
 import { DONE_CASE_STATUSES } from "@/lib/status";
 const STANDARD_DAYS_DEFAULT = 26;
 import { vnDateOnly } from "@/lib/dates";
@@ -198,19 +198,21 @@ export async function getCommissionForMonth(
 
     // 2) Bác sĩ thực hiện dịch vụ: tiền thanh toán được chia theo tỷ trọng giá trị
     // các dòng dịch vụ có bác sĩ. Nếu hồ sơ chưa gắn ở dòng, fallback doctorId.
+    // Mẫu số là TOÀN BỘ dịch vụ của hồ sơ, không chỉ các dòng có bác sĩ — nếu lấy
+    // mẫu số là tổng dòng-có-bác-sĩ thì tổng phân bổ luôn bằng đúng `paid` và phần
+    // dịch vụ không gắn ai bị hút sang bác sĩ (xem allocateDoctorServiceBase).
     const serviceRows = c.services.filter((s) => s.doctorId);
-    const totalService = serviceRows.reduce((sum, s) => sum + serviceRevenue(s), 0);
-    if (totalService > 0) {
-      let assigned = 0;
-      serviceRows.forEach((s, index) => {
-        const line = index === serviceRows.length - 1
-          ? Math.max(0, paid - assigned)
-          : Math.floor((paid * serviceRevenue(s)) / totalService);
-        assigned += line;
-        if (!s.doctorId) return;
-        add(doctorServiceRevenue, s.doctorId, line);
-        pushDetail(detailsByUser, s.doctorId, { caseId: c.id, caseCode: c.code, customerName: c.customer.fullName, date: payment.paidAt, role: "doctor-service", rate: 0.08, base: line, amount: Math.round(line * 0.08) });
-      });
+    const totalCaseServiceRevenue = c.services.reduce((sum, s) => sum + serviceRevenue(s), 0);
+    const allocations = allocateDoctorServiceBase(
+      paid,
+      serviceRows.map((s) => ({ doctorId: s.doctorId as string, revenue: serviceRevenue(s) })),
+      totalCaseServiceRevenue,
+    );
+    if (allocations.length > 0) {
+      for (const { doctorId, base } of allocations) {
+        add(doctorServiceRevenue, doctorId, base);
+        pushDetail(detailsByUser, doctorId, { caseId: c.id, caseCode: c.code, customerName: c.customer.fullName, date: payment.paidAt, role: "doctor-service", rate: 0.08, base, amount: Math.round(base * 0.08) });
+      }
     } else if (c.doctorId) {
       add(doctorServiceRevenue, c.doctorId, paid);
       pushDetail(detailsByUser, c.doctorId, { caseId: c.id, caseCode: c.code, customerName: c.customer.fullName, date: payment.paidAt, role: "doctor-service", rate: 0.08, base: paid, amount: Math.round(paid * 0.08) });

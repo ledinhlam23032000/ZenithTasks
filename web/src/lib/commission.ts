@@ -162,3 +162,42 @@ export function computeCommissionBreakdown(input: CommissionBreakdownInput): Com
     total: wage + lunch + totalCommission,
   };
 }
+
+/**
+ * Phân bổ MỘT khoản thực thu cho các dòng dịch vụ CÓ gắn bác sĩ.
+ *
+ * Vì sao tồn tại: bản cũ trong `commission-data.ts` lấy tử số là toàn bộ `paid`
+ * nhưng mẫu số chỉ là tổng các dòng CÓ bác sĩ, nên tổng phân bổ luôn bằng đúng
+ * `paid` — phần dịch vụ KHÔNG gắn bác sĩ bị hút hết sang bác sĩ. Hồ sơ 10tr gồm
+ * 6tr của bác sĩ A và 4tr không gắn ai, khách trả đủ 10tr thì A nhận căn cứ 10tr
+ * (hoa hồng 800k) thay vì 6tr (480k) — trả dư 320k mỗi hồ sơ dạng này.
+ *
+ * Mẫu số đúng phải là tổng giá trị TOÀN BỘ dịch vụ của hồ sơ.
+ *
+ * @param paid                    số tiền của khoản thực thu đang xét (đã làm tròn, >= 0)
+ * @param rows                    các dòng dịch vụ có bác sĩ: { doctorId, revenue }
+ * @param totalCaseServiceRevenue tổng giá trị MỌI dòng dịch vụ của hồ sơ
+ */
+export function allocateDoctorServiceBase(
+  paid: number,
+  rows: readonly { doctorId: string; revenue: number }[],
+  totalCaseServiceRevenue: number,
+): Array<{ doctorId: string; base: number }> {
+  if (paid <= 0 || rows.length === 0 || totalCaseServiceRevenue <= 0) return [];
+  const doctorTotal = rows.reduce((sum, r) => sum + Math.max(0, r.revenue), 0);
+  if (doctorTotal <= 0) return [];
+
+  // Phần thực thu quy về các dịch vụ có bác sĩ. Kẹp <= paid phòng dữ liệu lệch
+  // (vd tổng dòng dịch vụ lớn hơn tổng hồ sơ do sửa tay).
+  const doctorBase = Math.min(paid, Math.round((paid * doctorTotal) / totalCaseServiceRevenue));
+
+  let assigned = 0;
+  return rows.map((row, index) => {
+    // Dòng cuối nhận phần dư để tổng khớp đúng doctorBase (không phải paid).
+    const base = index === rows.length - 1
+      ? Math.max(0, doctorBase - assigned)
+      : Math.floor((doctorBase * Math.max(0, row.revenue)) / doctorTotal);
+    assigned += base;
+    return { doctorId: row.doctorId, base };
+  });
+}
