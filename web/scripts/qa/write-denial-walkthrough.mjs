@@ -10,9 +10,9 @@ if (!process.env.AUTH_SECRET) throw new Error("AUTH_SECRET is required");
 
 const client = new Client({ connectionString: databaseUrl });
 await client.connect();
-const usersResult = await client.query('SELECT id, username, role, "fullName" FROM "User" WHERE username = $1', ["qa.global.admin"]);
+const usersResult = await client.query('SELECT id, username, role, "fullName" FROM "User" WHERE username = $1', ["admin"]);
 const user = usersResult.rows[0];
-if (!user) throw new Error("qa.global.admin is missing");
+if (!user) throw new Error("admin QA user is missing");
 
 const before = await client.query(`
   SELECT p.id, p.status,

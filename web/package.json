@@ -16,6 +16,7 @@
     "qa:seed:multi-company": "tsx scripts/qa/seed-multi-company.ts",
     "qa:verify:multi-company": "tsx scripts/qa/verify-multi-company-qa.ts",
     "qa:walkthrough:auth": "node scripts/qa/auth-walkthrough.mjs",
+    "qa:write-denial": "node scripts/qa/write-denial-walkthrough.mjs",
     "db:reset": "prisma migrate reset --force && npm run db:seed",
     "db:studio": "prisma studio",
     "rotate:phone": "tsx prisma/rotate-phone-key.ts",

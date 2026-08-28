@@ -12,9 +12,13 @@ export QA_CONFIRM=YES
 export QA_DEMO_PASSWORD='một-mật-khẩu-QA-dài-hơn-12-ký-tự'
 ```
 
-Không dùng `DATABASE_URL` production/clinic để thay thế `QA_DATABASE_URL`. Script tự từ chối URL có dấu hiệu clinic/production và từ chối khi thiếu `QA_CONFIRM=YES`.
+Không dùng `DATABASE_URL` production/clinic để thay thế `QA_DATABASE_URL`. Script tự từ chối URL có dấu hiệu clinic/production và từ chối khi thiếu `QA_CONFIRM=YES`. Mật khẩu không dùng chuỗi tuần tự như `123456789`/`1234567899`; `QA_DEMO_PASSWORD` phải là secret tạm thời mạnh, chỉ nằm trong môi trường QA và không được ghi vào Git/log/evidence.
 
-## 2. Chạy seed và verifier
+## 2. Tài khoản QA theo chức danh
+
+Seed tạo dữ liệu giả với các username dễ nhận biết: `admin` (Global Admin), `adminduana` (Project Admin A), `adminduana2` (Project Admin B), `sales`, `taichinh`, `bacsi` và `viewer`; tài khoản `revoked` là membership đã thu hồi để kiểm thử deny. Tất cả dùng cùng `QA_DEMO_PASSWORD` mạnh do môi trường QA cấp, bật `mustChangePassword=true`, và không dùng mật khẩu mặc định tuần tự.
+
+## 3. Chạy seed và verifier
 
 ```bash
 cd web
@@ -26,7 +30,7 @@ Không chạy `pnpm db:reset`, `prisma migrate reset` hoặc `db push` trong wor
 
 Verifier phải trả `ok: true`, `readOnly: true`, `qaOnly: true`, có Company A/B `ACTIVE`, sentinel `DRAFT`/`ARCHIVED`, users/memberships/presets/revoked membership, customer/task project ownership, đúng một child ACTIVE cho từng company ACTIVE và đúng một Global AI ACTIVE aggregate-only.
 
-## 3. Authenticated walkthrough bắt buộc
+## 4. Authenticated walkthrough bắt buộc
 
 Thực hiện bằng tài khoản QA tương ứng, lưu request/response status và timestamp vào evidence không chứa password:
 
@@ -52,6 +56,6 @@ pnpm qa:walkthrough:auth | tee ../.task-memory/multi-company-ai-2026-08-27/check
 
 Script phải trả `ok: true`. Mỗi route local hợp lệ trả 2xx và có marker nội dung route tương ứng; foreign URL, revoked membership, DRAFT/ARCHIVED và capability-denied route phải không trả nội dung tenant bị yêu cầu. Vì Next.js có thể render `ForbiddenPage` trong App Router với HTTP 200, checker ghi nhận thêm marker `/khong-co-quyen`/header redirect và không dùng status 3xx đơn độc làm tiêu chí. Đây là bằng chứng authenticated HTTP trên QA, không phải bằng chứng production.
 
-## 4. Điều kiện đóng MC-12/MC-13
+## 5. Điều kiện đóng MC-12/MC-13
 
 Chỉ chuyển task sang `done` khi seed chạy thành công, verifier pass, toàn bộ case trên có evidence path, foreign/revoked/DRAFT/ARCHIVED denial đã quan sát được, và checkpoint đã cập nhật ở `02_state.md`, `06_changelog.md`, `07_task_ledger.md`. Nếu thiếu QA database hoặc owner walkthrough, giữ trạng thái `PARTIAL/BLOCKED`.
