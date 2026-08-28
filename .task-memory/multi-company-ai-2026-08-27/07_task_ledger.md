@@ -42,13 +42,16 @@ Sau mỗi wave, ghi lại commit/PR, test result, runtime result và blocker. N�
 
 | Mục | Giá trị |
 |---|---|
-| HEAD hiện tại | `9bea719` trên `master`, đã push origin (sau `ace20db` / `75d95f3` / `c10fb95` / `26625ac`) |
+| HEAD hiện tại | `bd009e6` trên `master`, đã push origin |
 | Branch hiện tại | `master` (0 ahead / 0 behind origin); QA runtime worktree riêng `C:\Users\PC\ZenithTasks-QA` |
-| Full quality status gần nhất | `npx tsc --noEmit` exit 0; Vitest unit **95 files / 488 tests PASS**; Vitest integration **1 file / 5 tests PASS trên QA DB thật** |
+| Full quality status gần nhất | `npx tsc --noEmit` exit 0; Vitest unit **95 files / 494 tests PASS**; Vitest integration **3 files / 15 tests PASS trên QA DB thật** (`npm run test:integration`, tự skip khi thiếu QA_CONFIRM/QA_DATABASE_URL) |
+| Lỗi đã sửa trong wave 2026-08-28 | P0 leo thang quyền AI (allowlist kiểm `toolName` trong khi dispatcher chạy `action` — đã chứng minh khai thác được rồi vá); P0 hoa hồng bác sĩ hút cả phần dịch vụ không gắn bác sĩ (trả dư 320k/hồ sơ ví dụ); P0 3 enum khai trong schema mà DB không có (nhánh approval gate sẽ crash); P1 race mất trạng thái cuối kỳ lương; P1 double-submit tạo 2 phiếu chi lương; P2 AI scope không fail-closed (người ngoài gắn được vào AI company khác); P2 `/du-an` chốt bằng role thay vì capability; P2/P3 uniqueness sai phạm vi tenant + thiếu index AuditLog |
 | DB runtime status | QA độc lập (`zenith_qa` @ 25432) seed/verifier/auth GET-export pass; **write-denial nay đã có evidence runtime** (`checks/mc13-1-write-denial-itest-20260828.txt`); `20260828130000_ai_job_contract` đã apply QA, `migrate deploy` báo no-pending; không có clinic DB access |
 | Production/clinic status | Chưa migration, chưa deploy, chưa chạm clinic DB. Container clinic `zenithtasks-app-1` vẫn chạy độc lập, không bị đụng trong wave này |
 | Sự cố bảo mật đã xử lý | `75d95f3` từng commit mật khẩu QA Postgres thật vào `web/package.json` (đã lên GitHub). Đã gỡ script (`9bea719`), **đã xoay vòng mật khẩu** và xác minh qua TCP: mật khẩu cũ bị REJECTED, mật khẩu mới CONNECTED, QA app khoẻ trở lại. Lịch sử Git vẫn còn chuỗi cũ — chuỗi đó nay vô hiệu |
-| Immediate next action | MC-11 dispatcher/worker E2E (`v2-ai-job-engine.ts` đã có nhưng chưa có runtime evidence); MC-14 backup/rollback drill trước owner gate |
+| Migration QA đã apply | `20260828220000_ai_job_approval_and_lifecycle_enums` (3 enum thiếu) và `20260828230000_tenant_scoped_uniques_and_audit_indexes` (unique theo tenant + index AuditLog). Đã xác minh bằng `pg_enum`/`pg_indexes` thật. Clinic CHƯA apply cả hai |
+| Nợ đã biết, chưa làm | Worker scheduler tự động cho AI job (hiện phải gọi `executeAiJobRunner` thủ công); UI approve/reject job trên `/he-thong/ai-tong`; usage/heartbeat model; race payroll và double-submit chi lương mới xác minh bằng đọc code, CHƯA có test tái hiện chạy song song; chống trùng lịch hẹn đọc ngoài transaction và không có ràng buộc DB (mức thấp vì vốn là cảnh báo bỏ qua được); Training Studio (`ZAgentProfile`…) chưa có `projectId` — chỉ thành vấn đề nếu mở cho từng công ty |
+| Immediate next action | MC-14 backup/rollback drill trước owner gate; nối approve/reject vào UI; worker loop |
 
 ## Latest audit checkpoint — 2026-08-27 16:50 GMT+7
 
