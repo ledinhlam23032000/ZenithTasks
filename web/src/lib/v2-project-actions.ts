@@ -25,13 +25,22 @@ export async function createV2ProjectAction(_prev: ProjectActionState, formData:
   const rawType = readText(formData, "projectType", 32);
   const projectType: ProjectType = PROJECT_TYPES.includes(rawType as ProjectType) ? (rawType as ProjectType) : "OTHER";
 
+  const rawModules = formData.getAll("modules").map(String);
+  const enabledFeatures = rawModules.length > 0 ? rawModules : V2_DEFAULT_MODULE_KEYS;
+
+  const initialStatus = readText(formData, "initialStatus", 12) === "DRAFT" ? "DRAFT" : "ACTIVE";
+  const targetAdminUserId = readText(formData, "adminUserId", 80) || user.id;
+
+  const aiName = readText(formData, "aiName", 120);
+  const aiPrompt = readText(formData, "aiPrompt", 2000);
+
   if (!/^[A-Z0-9][A-Z0-9_-]{2,47}$/.test(code)) {
-    return { error: "Mã Dự án cần 3–48 ký tự, dùng chữ in hoa, số, dấu gạch ngang hoặc gạch dưới." };
+    return { error: "Mã Đơn vị cần 3–48 ký tự, dùng chữ in hoa, số, dấu gạch ngang hoặc gạch dưới." };
   }
-  if (name.length < 2) return { error: "Tên Dự án cần ít nhất 2 ký tự." };
+  if (name.length < 2) return { error: "Tên Đơn vị cần ít nhất 2 ký tự." };
 
   const existing = await prisma.zProject.findUnique({ where: { code }, select: { id: true } });
-  if (existing) return { error: `Mã Dự án ${code} đã tồn tại. Hãy chọn mã khác.` };
+  if (existing) return { error: `Mã Đơn vị ${code} đã tồn tại. Hãy chọn mã khác.` };
 
   const project = await prisma.$transaction(async (tx) => {
     const created = await tx.zProject.create({
@@ -40,25 +49,92 @@ export async function createV2ProjectAction(_prev: ProjectActionState, formData:
         name,
         description,
         projectType,
-        status: "DRAFT",
-        ownerUserId: user.id,
+        status: initialStatus,
+        ownerUserId: targetAdminUserId,
         currency: "VND",
-        enabledFeatures: V2_DEFAULT_MODULE_KEYS,
-        settings: { demoOnly: false, source: "admin-created" },
+        enabledFeatures,
+        settings: { demoOnly: false, source: "wizard-created" },
       },
     });
+
+    // Tạo Project Admin
     await tx.zProjectMember.create({
-      data: { projectId: created.id, userId: user.id, preset: "PROJECT_ADMIN", active: true },
+      data: { projectId: created.id, userId: targetAdminUserId, preset: "PROJECT_ADMIN", active: true },
     });
+    if (targetAdminUserId !== user.id) {
+      await tx.zProjectMember.create({
+        data: { projectId: created.id, userId: user.id, preset: "PROJECT_ADMIN", active: true },
+      });
+    }
+
+    // Ghi nhận phiên bản cấu hình modules
     await tx.zWorkspaceConfigVersion.create({
-      data: { projectId: created.id, kind: "MODULES", version: 1, status: "ACTIVE", config: { enabledFeatures: V2_DEFAULT_MODULE_KEYS }, effectiveFrom: new Date(), createdById: user.id, approvedById: user.id, note: "Cấu hình module khởi tạo cùng Dự án" },
+      data: {
+        projectId: created.id,
+        kind: "MODULES",
+        version: 1,
+        status: "ACTIVE",
+        config: { enabledFeatures },
+        effectiveFrom: new Date(),
+        createdById: user.id,
+        approvedById: user.id,
+        note: "Cấu hình module Lego khởi tạo cùng Đơn vị",
+      },
     });
+
+    // Tự động khởi tạo AI Con (Child AI Agent) nội bộ nếu có tên AI
+    if (aiName) {
+      const aiCode = `AI-${code}`;
+      await tx.zAiAgent.create({
+        data: {
+          code: aiCode,
+          name: aiName,
+          kind: "CHILD",
+          status: "ACTIVE",
+          projectId: created.id,
+          createdById: user.id,
+          systemPrompt: aiPrompt || `Bạn là trợ lý AI chuyên trách cho đơn vị ${name} (${code}).`,
+          model: "gemini-1.5-flash",
+          toolAllowlist: [
+            "get_project_overview",
+            "get_project_customers",
+            "get_project_tasks",
+            "get_project_sales_summary",
+            "get_project_payroll_preview",
+          ],
+          config: { scope: "PROJECT", projectId: created.id },
+          lastHeartbeatAt: new Date(),
+        },
+      });
+    }
+
+    await tx.auditLog.create({
+      data: {
+        actorId: user.id,
+        action: "V2_PROJECT_CREATED",
+        entity: "ZProject",
+        entityId: created.id,
+        meta: {
+          code: created.code,
+          name: created.name,
+          projectType,
+          status: initialStatus,
+          modulesCount: enabledFeatures.length,
+          hasAiAgent: Boolean(aiName),
+        },
+      },
+    });
+
     return created;
   });
 
   revalidatePath("/du-an");
-  return { ok: true, message: `Đã tạo Dự án ${project.code} ở trạng thái DRAFT. Hãy cấu hình thành viên và module trước khi kích hoạt vận hành.` };
+  return {
+    ok: true,
+    message: `Đã khởi tạo thành công Đơn vị ${project.code} (${project.name}) ở trạng thái ${project.status}!`,
+  };
 }
+
 
 export async function setV2ProjectStatusAction(_prev: ProjectActionState, formData: FormData): Promise<ProjectActionState> {
   const user = await requireUser(["ADMIN"]);

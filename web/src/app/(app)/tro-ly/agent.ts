@@ -34,9 +34,14 @@ const actionNames = [
   "none",
   "get_business_summary",
   "get_workspace_overview",
+  "get_ecosystem_kpi_summary",
+  "get_system_health_and_ai_status",
   "get_project_overview",
   "get_project_customers",
   "get_project_tasks",
+  "get_project_sales_summary",
+  "create_project_task",
+  "get_project_payroll_preview",
   "get_payroll_row",
   "get_customer_profile",
   "get_debt_summary",
@@ -59,6 +64,7 @@ const actionNames = [
   "propose_system_change",
   "create_work_plan",
 ] as const;
+
 
 type ActionName = (typeof actionNames)[number];
 
@@ -231,10 +237,38 @@ async function getAiPrincipal(user: { id: string; role: string }, workspace: AiW
       ? (await prisma.zProject.findMany({ where: { status: "ACTIVE" }, select: { id: true } })).map((row) => row.id)
       : (await prisma.zProjectMember.findMany({ where: { userId: user.id, active: true, project: { status: "ACTIVE" } }, select: { projectId: true } })).map((row) => row.projectId)
     : [];
+  return getPrincipalForUserWorkspace(user, projectIds, workspace);
+}
+
+function getPrincipalForUserWorkspace(user: { id: string; role: string }, projectIds: string[], workspace: AiWorkspaceContext) {
   const principal = principalForUser(user, projectIds, workspace);
-  return workspace.workspaceKind === "PROJECT"
-    ? { ...principal, capabilities: [...principal.capabilities, "get_project_overview", "get_project_customers", "get_project_tasks"] }
-    : principal;
+
+  if (workspace.workspaceKind === "PROJECT") {
+    return {
+      ...principal,
+      capabilities: [
+        ...principal.capabilities,
+        "get_project_overview",
+        "get_project_customers",
+        "get_project_tasks",
+        "get_project_sales_summary",
+        "get_project_payroll_preview",
+        "create_project_task",
+      ],
+    };
+  }
+  if (workspace.workspaceKind === "GLOBAL") {
+    return {
+      ...principal,
+      capabilities: [
+        ...principal.capabilities,
+        "get_workspace_overview",
+        "get_ecosystem_kpi_summary",
+        "get_system_health_and_ai_status",
+      ],
+    };
+  }
+  return principal;
 }
 
 function governanceBlock(principal: ReturnType<typeof principalForUser>, action: string, args: unknown, confirmationRequested: boolean, confirmationStage = false): string | null {
@@ -252,9 +286,13 @@ const actionHelp = `
 Công cụ được phép:
 - get_business_summary: đọc tổng quan vận hành Nội Bộ.
 - get_workspace_overview: ADMIN ở phạm vi GLOBAL đọc aggregate của mọi Dự án (trạng thái, số task; không trả toàn bộ bản ghi).
+- get_ecosystem_kpi_summary: ADMIN ở phạm vi GLOBAL đọc báo cáo KPI tổng hợp hệ sinh thái (tổng dự án, khách, doanh số, task).
+- get_system_health_and_ai_status: ADMIN ở phạm vi GLOBAL kiểm tra tình trạng sức khỏe AI Agents và hàng đợi ZAiJob.
 - get_project_overview: đọc aggregate của đúng company ACTIVE đang chọn (số khách, task, lịch hẹn, doanh số).
 - get_project_customers: đọc tối đa 100 khách project-local của đúng company đang chọn, không đọc Customer Nội Bộ.
 - get_project_tasks: đọc tối đa 100 task project-local của đúng company đang chọn.
+- get_project_sales_summary: đọc tổng hợp doanh số và các giao dịch gần nhất của đúng company đang chọn.
+- get_project_payroll_preview: xem trước tổng quan kỳ lương gần nhất của đúng company đang chọn.
 - get_payroll_row: xem bảng lương của một nhân sự theo tháng; args {staffName, month?}.
 - get_customer_profile: đọc hồ sơ khách theo mã, chỉ hiển thị 5 số cuối điện thoại và dữ liệu được phép; args {customerCode}.
 - get_debt_summary: đọc tổng công nợ hiện tại.
@@ -410,11 +448,60 @@ async function readAction(action: ActionName, args: unknown, userId: string, wor
     });
     const active = projects.filter((project) => project.status === "ACTIVE").length;
     const taskTotal = projects.reduce((sum, project) => sum + project._count.workspaceTasks, 0);
-    const rows = projects.slice(0, 100).map((project) => `${project.code} · ${project.name} · ${project.status} · ${project._count.workspaceTasks} task`).join("\\n");
-    const truncated = projects.length > 100 ? `\\n\\n(Đang hiển thị 100/${projects.length} Dự án; muốn xem chi tiết hãy chọn projectId cụ thể.)` : "";
-    return { ok: true, answer: `Tổng quan toàn hệ thống: ${projects.length} Dự án trong phạm vi Admin, ${active} Dự án ACTIVE, ${taskTotal} Task project-local.\\n\\n${rows || "Chưa có Dự án."}${truncated}` };
+    const rows = projects.slice(0, 100).map((project) => `${project.code} · ${project.name} · ${project.status} · ${project._count.workspaceTasks} task`).join("\n");
+    const truncated = projects.length > 100 ? `\n\n(Đang hiển thị 100/${projects.length} Dự án; muốn xem chi tiết hãy chọn projectId cụ thể.)` : "";
+    return { ok: true, answer: `Tổng quan toàn hệ thống: ${projects.length} Dự án trong phạm vi Admin, ${active} Dự án ACTIVE, ${taskTotal} Task project-local.\n\n${rows || "Chưa có Dự án."}${truncated}` };
   }
-  if (["get_project_overview", "get_project_customers", "get_project_tasks"].includes(action)) {
+  if (action === "get_ecosystem_kpi_summary") {
+    const actor = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
+    if (actor?.role !== "ADMIN") return planError("Chỉ Global Admin được đọc báo cáo KPI hệ sinh thái.");
+    const [activeProjects, totalTasks, doneTasks, totalCustomers, salesAggregate, appointmentsCount] = await Promise.all([
+      prisma.zProject.findMany({ where: { status: "ACTIVE" }, select: { id: true, code: true, name: true, projectType: true } }),
+      prisma.zWorkspaceTask.count({ where: { project: { status: "ACTIVE" } } }),
+      prisma.zWorkspaceTask.count({ where: { project: { status: "ACTIVE" }, status: "DONE" } }),
+      prisma.zWorkspaceCustomer.count({ where: { project: { status: "ACTIVE" }, active: true } }),
+      prisma.zWorkspaceSale.aggregate({ where: { project: { status: "ACTIVE" } }, _sum: { amount: true, paidAmount: true }, _count: true }),
+      prisma.zWorkspaceAppointment.count({ where: { project: { status: "ACTIVE" } } }),
+    ]);
+    const totalSalesVND = Number(salesAggregate._sum.amount ?? 0);
+    const totalPaidVND = Number(salesAggregate._sum.paidAmount ?? 0);
+    const salesCount = salesAggregate._count ?? 0;
+    const completionRate = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
+
+    return {
+      ok: true,
+      answer: `📊 **Báo cáo KPI Tổng Hợp Hệ Sinh Thái** (Chỉ số thời gian thực):\n\n` +
+        `- **Số đơn vị / Dự án đang vận hành (ACTIVE)**: ${activeProjects.length}\n` +
+        `- **Khách hàng quản lý**: ${totalCustomers.toLocaleString("vi-VN")} khách\n` +
+        `- **Lịch hẹn tiếp đón**: ${appointmentsCount.toLocaleString("vi-VN")} lượt hẹn\n` +
+        `- **Doanh số phát sinh**: ${formatVND(totalSalesVND)} (${salesCount} giao dịch, đã thực thu ${formatVND(totalPaidVND)})\n` +
+        `- **Tiến độ công việc**: ${doneTasks}/${totalTasks} tasks hoàn thành (${completionRate}%)\n\n` +
+        `*Dữ liệu được tổng hợp an toàn ở cấp hệ thống; không làm rò rỉ thông tin cá nhân khách hàng giữa các công ty con.*`,
+    };
+  }
+  if (action === "get_system_health_and_ai_status") {
+    const actor = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
+    if (actor?.role !== "ADMIN") return planError("Chỉ Global Admin được đọc tình trạng hệ thống AI.");
+    const [agents, jobsCount, queuedJobs, failedJobs] = await Promise.all([
+      prisma.zAiAgent.findMany({ select: { id: true, kind: true, status: true, lastHeartbeatAt: true } }),
+      prisma.zAiJob.count(),
+      prisma.zAiJob.count({ where: { status: "QUEUED" } }),
+      prisma.zAiJob.count({ where: { status: "FAILED" } }),
+    ]);
+    const childActive = agents.filter((a) => a.kind === "CHILD" && a.status === "ACTIVE").length;
+    const globalActive = agents.filter((a) => a.kind === "GLOBAL" && a.status === "ACTIVE").length;
+    const staleHeartbeats = agents.filter((a) => a.status === "ACTIVE" && (!a.lastHeartbeatAt || Date.now() - a.lastHeartbeatAt.getTime() > 5 * 60 * 1000)).length;
+
+    return {
+      ok: true,
+      answer: `🤖 **Tình Trạng Sức Khỏe AI & Hàng Đợi Điều Phối**:\n\n` +
+        `- **Mạng lưới AI Agent**: ${agents.length} agents (${childActive} Child ACTIVE, ${globalActive} Global ACTIVE)\n` +
+        `- **Agent thiếu/chậm heartbeat**: ${staleHeartbeats} agent\n` +
+        `- **Hàng đợi công việc AI (ZAiJob)**: Tổng ${jobsCount} jobs | ⏳ Đang chờ: ${queuedJobs} | ❌ Lỗi: ${failedJobs}\n` +
+        `- **Đánh giá chung**: ${staleHeartbeats === 0 && failedJobs === 0 ? "🟢 Hệ thống vận hành hoàn hảo" : "🟡 Cần lưu ý kiểm tra các agent/job chậm"}`,
+    };
+  }
+  if (["get_project_overview", "get_project_customers", "get_project_tasks", "get_project_sales_summary", "get_project_payroll_preview"].includes(action)) {
     if (workspace.workspaceKind !== "PROJECT" || !workspace.projectId) return planError("Project-local tool cần workspace PROJECT và projectId cụ thể.");
     if (action === "get_project_overview") {
       const project = await prisma.zProject.findFirst({ where: { id: workspace.projectId, status: "ACTIVE" }, select: { code: true, name: true, _count: { select: { workspaceCustomers: true, workspaceTasks: true, workspaceAppointments: true, workspaceSales: true } } } });
@@ -425,9 +512,37 @@ async function readAction(action: ActionName, args: unknown, userId: string, wor
       const customers = await prisma.zWorkspaceCustomer.findMany({ where: { projectId: workspace.projectId, active: true }, orderBy: { fullName: "asc" }, take: 100, select: { code: true, fullName: true, phoneLast4: true, source: true, consentStatus: true } });
       return { ok: true, answer: customers.length ? `Khách trong ${workspace.projectId} (${customers.length} bản ghi tối đa 100):\n${customers.map((customer) => `- ${customer.code} · ${customer.fullName} · ******${customer.phoneLast4 ?? ""} · ${customer.source ?? "chưa rõ nguồn"} · consent ${customer.consentStatus}`).join("\n")}` : "Company chưa có khách project-local active." };
     }
+    if (action === "get_project_sales_summary") {
+      const sales = await prisma.zWorkspaceSale.findMany({
+        where: { projectId: workspace.projectId },
+        orderBy: { occurredAt: "desc" },
+        take: 50,
+        select: { code: true, serviceName: true, amount: true, paidAmount: true, status: true, occurredAt: true },
+      });
+      const totalAmount = sales.reduce((sum, s) => sum + Number(s.amount), 0);
+      const totalPaid = sales.reduce((sum, s) => sum + Number(s.paidAmount), 0);
+      return {
+        ok: true,
+        answer: `Doanh số ${workspace.projectId} (50 giao dịch gần nhất):\n- Tổng giá trị: ${formatVND(totalAmount)}\n- Đã thu: ${formatVND(totalPaid)}\n- Số giao dịch: ${sales.length}\n\n${sales.slice(0, 10).map((s) => `- ${s.code}: ${s.serviceName} (${formatVND(Number(s.amount))}) · ${s.status}`).join("\n")}`,
+      };
+    }
+    if (action === "get_project_payroll_preview") {
+      const latestRun = await prisma.zWorkspacePayrollRun.findFirst({
+        where: { projectId: workspace.projectId },
+        orderBy: { createdAt: "desc" },
+        include: { lines: { select: { grossAmount: true, commissionAmount: true, netAmount: true } } },
+      });
+      if (!latestRun) return { ok: true, answer: `Dự án ${workspace.projectId} chưa có kỳ lương nào được tạo.` };
+      const totalNet = latestRun.lines.reduce((sum, l) => sum + Number(l.netAmount), 0);
+      return {
+        ok: true,
+        answer: `Bảng lương kỳ gần nhất (${latestRun.code}):\n- Thời gian: ${latestRun.periodStart.toLocaleDateString("vi-VN")} đến ${latestRun.periodEnd.toLocaleDateString("vi-VN")}\n- Trạng thái: ${latestRun.status}\n- Số nhân sự trong kỳ: ${latestRun.lines.length}\n- Tổng thực lĩnh dự kiến: ${formatVND(totalNet)}`,
+      };
+    }
     const tasks = await prisma.zWorkspaceTask.findMany({ where: { projectId: workspace.projectId }, orderBy: { createdAt: "desc" }, take: 100, select: { title: true, status: true, priority: true, dueAt: true, assignee: { select: { fullName: true } } } });
     return { ok: true, answer: tasks.length ? `Task trong ${workspace.projectId} (${tasks.length} bản ghi tối đa 100):\n${tasks.map((task) => `- ${task.title} · ${task.status} · ${task.priority} · hạn ${task.dueAt?.toLocaleDateString("vi-VN") ?? "chưa đặt"} · ${task.assignee?.fullName ?? "chưa giao"}`).join("\n")}` : "Company chưa có task project-local." };
   }
+
   if (action === "get_business_summary") {
     const context = await getAssistantContext();
     return { ok: true, answer: `Tôi đã đọc số liệu hiện tại.\n\n${formatAssistantContext(context)}` };
@@ -494,9 +609,13 @@ async function readAction(action: ActionName, args: unknown, userId: string, wor
 const READ_ACTIONS = new Set<ActionName>([
   "get_business_summary",
   "get_workspace_overview",
+  "get_ecosystem_kpi_summary",
+  "get_system_health_and_ai_status",
   "get_project_overview",
   "get_project_customers",
   "get_project_tasks",
+  "get_project_sales_summary",
+  "get_project_payroll_preview",
   "get_debt_summary",
   "get_lead_priorities",
   "get_financial_alerts",
@@ -504,6 +623,7 @@ const READ_ACTIONS = new Set<ActionName>([
   "get_customer_profile",
   "prepare_payroll_export",
 ]);
+
 
 function isBareApproval(text: string) {
   const value = norm(text).replace(/[.!?]+$/g, "").trim();

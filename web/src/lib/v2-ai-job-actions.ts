@@ -105,5 +105,68 @@ export async function enqueueAiJobAction(_prev: AiJobActionState, formData: Form
   });
   revalidatePath("/tro-ly");
   revalidatePath("/he-thong/ai-tong");
-  return { ok: true, jobId: created.id, message: "Đã xếp job với target, timeout, retry, policy và audit trace explicit. Worker chưa tự chạy trong wave này." };
+  return { ok: true, jobId: created.id, message: "Đã xếp job với target, timeout, retry, policy và audit trace explicit." };
+}
+
+export async function executeAiJobAction(_prev: AiJobActionState, formData: FormData): Promise<AiJobActionState> {
+  const user = await requireV2User();
+  const jobId = text(formData, "jobId", 80);
+  if (!jobId) return { error: "Thiếu ID công việc AI." };
+
+  const { executeAiJobRunner } = await import("./v2-ai-job-engine");
+  const result = await executeAiJobRunner(jobId, user.id);
+
+  revalidatePath("/tro-ly");
+  revalidatePath("/he-thong/ai-tong");
+
+  if (!result.ok) {
+    return {
+      ok: false,
+      jobId,
+      error: `Thực thi job thất bại: ${result.error ?? "Lỗi không xác định"} (Trạng thái: ${result.status}, Lần thử: ${result.attempt})`,
+    };
+  }
+
+  return {
+    ok: true,
+    jobId,
+    message: `Đã thực thi thành công job AI (${jobId}) với trạng thái ${result.status}.`,
+  };
+}
+
+export async function cancelAiJobAction(_prev: AiJobActionState, formData: FormData): Promise<AiJobActionState> {
+  const user = await requireV2User();
+  const jobId = text(formData, "jobId", 80);
+  if (!jobId) return { error: "Thiếu ID công việc AI." };
+
+  const job = await prisma.zAiJob.findUnique({ where: { id: jobId } });
+  if (!job) return { error: "Không tìm thấy công việc AI." };
+
+  if (job.status === "SUCCEEDED" || job.status === "CANCELLED") {
+    return { error: `Không thể hủy công việc đã ở trạng thái ${job.status}.` };
+  }
+
+  if (user.role !== "ADMIN" && job.requestedById !== user.id) {
+    return { error: "Chỉ Admin hoặc người tạo job mới được hủy." };
+  }
+
+  await prisma.zAiJob.update({
+    where: { id: jobId },
+    data: { status: "CANCELLED", finishedAt: new Date() },
+  });
+
+  await prisma.auditLog.create({
+    data: {
+      actorId: user.id,
+      action: "V2_AI_JOB_CANCELLED",
+      entity: "ZAiJob",
+      entityId: jobId,
+      meta: { jobId, previousStatus: job.status },
+    },
+  });
+
+  revalidatePath("/tro-ly");
+  revalidatePath("/he-thong/ai-tong");
+
+  return { ok: true, jobId, message: `Đã hủy công việc AI (${jobId}).` };
 }

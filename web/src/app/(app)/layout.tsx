@@ -6,6 +6,7 @@ import { navForUser } from "@/lib/permissions";
 import { securityWarnings } from "@/lib/security-status";
 import { AppShell } from "@/components/layout/app-shell";
 import { ToastProvider } from "@/components/ui/toast";
+import { V2CommandPalette } from "@/components/v2-command-palette";
 import { pushPublicKey } from "@/lib/push";
 import { DismissibleBanner } from "@/components/ui/dismissible-banner";
 import { getWorkloadSummary } from "@/lib/workqueue-summary";
@@ -51,8 +52,16 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const [session, workload, workspaces] = await Promise.all([getSession(), getWorkloadSummary(user), loadWorkspaceOptions(user)]);
   const weakPassword = user.mustChangePassword || session?.weakPw === true || session?.mustChangePassword === true;
 
+  const paletteWorkspaces = workspaces.map((w) => ({
+    id: w.id,
+    code: w.code,
+    name: w.name,
+    status: w.status,
+  }));
+
   return (
     <ToastProvider>
+      <V2CommandPalette workspaces={paletteWorkspaces} userRole={user.role} />
       <AppShell
         user={{ fullName: user.fullName, role: user.role, roleLabel: ROLE_LABELS[user.role], username: user.username, avatarUrl: user.avatarUrl }}
         nav={nav}
@@ -60,6 +69,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         workload={workload}
         workspaces={workspaces}
       >
+
         {(warnings.length > 0 || weakPassword) && (
           <div className="mb-4 space-y-2">
             {weakPassword && (

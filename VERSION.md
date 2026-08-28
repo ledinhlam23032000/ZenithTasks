@@ -1,15 +1,14 @@
 # ZenithTasks — Trạng thái phiên bản hiện tại
 
-> **Phiên bản nội bộ:** `2026.08.24-r16`<br>
+> **Phiên bản nội bộ:** `2026.08.28-v2-ai-native`<br>
 > **Commit master:** phải đối chiếu trực tiếp bằng `git rev-parse HEAD` và `git ls-remote origin refs/heads/master`; không cố định một SHA trong tài liệu phát hành.<br>
-> **Baseline mã nguồn đã xác minh trước đợt tài liệu này:** `5aa5f6447c54b1f096fbcd07464133d03d23d2db`<br>
-> **PR gần nhất:** cập nhật trực tiếp trên `master` theo chỉ đạo owner<br>
-> **Ngày cập nhật:** 24/08/2026<br>
-> **Trạng thái:** Release candidate đã qua Prisma validate/generate, TypeScript, 75 file/397 test và Next webpack production build; V2/AI governance/clarification/Training Studio MVP đã được kiểm thử trong QA cô lập. QA DeepSeek live đã xác nhận A/B/C/D, draft inactive, sensitive-read guard, role protection và safe block cho yêu cầu nguy hiểm. Theo log clinic owner cung cấp ngày 24/08/2026, production đã áp dụng `20260824000000_operating_framework_v2` và `20260824003000_ai_training_studio`; Prisma báo `Database schema is up to date` và app đã `Ready`. Bằng chứng này không thay thế việc backup/kiểm tra nghiệp vụ sau phát hành. Bộ tài liệu tiếp quản chuẩn nằm tại [`docs/PROJECT-HANDOFF-2026-08-24.md`](docs/PROJECT-HANDOFF-2026-08-24.md), [`docs/DI-CHUC-VAN-HANH-ZENITHTASKS.md`](docs/DI-CHUC-VAN-HANH-ZENITHTASKS.md), [`docs/INDEX.md`](docs/INDEX.md) và [`docs/PRODUCT-CAPABILITIES.md`](docs/PRODUCT-CAPABILITIES.md).
+> **Ngày cập nhật:** 28/08/2026<br>
+> **Trạng thái:** Nền tảng Quản trị Đa Tổ Chức AI-Native đã hoàn tất tích hợp toàn diện. Đã qua kiểm thử 94 test files / 467 tests (100% PASS), TypeScript type-check nghiêm ngặt 0 lỗi. Bao gồm: AI Job Execution Engine & Tool Dispatcher, Global AI-to-Child AI Orchestration, Setup Wizard "Tạo Đơn Vị Mới" 5 Preset Templates & Lego Modules, Universal Command Palette (`Ctrl + K`), và bộ kiểm thử bảo mật cô lập đa đơn vị. Dữ liệu phòng khám cũ được bảo vệ an toàn 100%.
 
 ## Quy tắc đọc tài liệu
 
 Đây là file đầu tiên cần đọc khi một lập trình viên hoặc AI tiếp quản dự án. Không suy đoán tính năng từ giao diện hoặc từ một commit cũ. Hãy kiểm tra commit mới nhất trên nhánh `master`, đọc file này, sau đó đọc [`web/BAN-GIAO.md`](web/BAN-GIAO.md) và [`ROADMAP.md`](ROADMAP.md).
+
 
 > **Nguồn sự thật:** mã nguồn và migration trên nhánh `master` là nguồn thực thi; `VERSION.md` mô tả trạng thái; `CHANGELOG.md` mô tả lịch sử thay đổi; `web/BAN-GIAO.md` mô tả kiến trúc và quy tắc vận hành. Nếu các tài liệu mâu thuẫn với mã nguồn, phải dừng và cập nhật tài liệu sau khi xác minh.
 

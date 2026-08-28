@@ -56,9 +56,11 @@ export function evaluateAiToolRequest(principal: AiPrincipal, request: AiToolReq
     const message = context.reason === "GLOBAL_PROJECT_REQUIRED" ? "Global AI chỉ được gọi aggregate tool hoặc phải nêu rõ projectId; không được rơi về dữ liệu Nội Bộ." : context.reason === "PROJECT_SCOPE_REQUIRED" ? "Tool chưa khai báo projectId nên AI không được đọc/ghi dữ liệu trong Dự án này." : context.reason === "WORKSPACE_SCOPE_DENIED" ? "Yêu cầu khác workspace đang được chọn." : "Yêu cầu nằm ngoài phạm vi Dự án đang được chọn.";
     return { decision: "DENY", riskLevel: "L5", consequences: [message], requiredApprovals: 0, confirmationRequired: false, purposeRequired: false, rollback: "NOT_AVAILABLE", reason: context.reason === "PROJECT_SCOPE_REQUIRED" ? "PROJECT_SCOPE_REQUIRED" : context.reason === "GLOBAL_PROJECT_REQUIRED" ? "GLOBAL_PROJECT_REQUIRED" : context.reason };
   }
-  if (request.action === "get_workspace_overview" && currentWorkspace !== "GLOBAL") return { decision: "DENY", riskLevel: "L5", consequences: ["Aggregate toàn hệ thống chỉ được gọi khi Admin đã chọn phạm vi GLOBAL."], requiredApprovals: 0, confirmationRequired: false, purposeRequired: false, rollback: "NOT_AVAILABLE", reason: "GLOBAL_SCOPE_REQUIRED" };
+  const isGlobalAggregateAction = request.action === "get_workspace_overview" || request.action === "get_ecosystem_kpi_summary" || request.action === "get_system_health_and_ai_status";
+  if (isGlobalAggregateAction && currentWorkspace !== "GLOBAL") return { decision: "DENY", riskLevel: "L5", consequences: ["Aggregate toàn hệ thống chỉ được gọi khi Admin đã chọn phạm vi GLOBAL."], requiredApprovals: 0, confirmationRequired: false, purposeRequired: false, rollback: "NOT_AVAILABLE", reason: "GLOBAL_SCOPE_REQUIRED" };
   if (!principal.capabilities.includes(request.action)) return { decision: "DENY", riskLevel: "L5", consequences: ["AI profile hiện tại chưa được cấp capability cho thao tác này."], requiredApprovals: 0, confirmationRequired: false, purposeRequired: false, rollback: "NOT_AVAILABLE", reason: "CAPABILITY_DENIED" };
-  if (request.action === "get_workspace_overview") return { decision: "ALLOW", riskLevel: "L1", consequences: [], requiredApprovals: 0, confirmationRequired: false, purposeRequired: false, rollback: "SUPPORTED", reason: "GLOBAL_AGGREGATE_READ" };
+  if (isGlobalAggregateAction) return { decision: "ALLOW", riskLevel: "L1", consequences: [], requiredApprovals: 0, confirmationRequired: false, purposeRequired: false, rollback: "SUPPORTED", reason: "GLOBAL_AGGREGATE_READ" };
+
 
   const isTermination = /terminate|dismiss|fire|chấm dứt|cho nghỉ|đuổi/i.test(`${request.toolName} ${request.action}`);
   const isDelete = /delete|destroy|xóa vĩnh viễn/i.test(`${request.toolName} ${request.action}`);

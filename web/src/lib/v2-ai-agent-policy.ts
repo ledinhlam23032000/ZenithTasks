@@ -42,7 +42,8 @@ export function evaluateAiAgentRequest(agent: AiAgentDescriptor, caller: AiAgent
   }
 
   if (caller.role !== "ADMIN" || request.workspaceKind !== "GLOBAL") return { ok: false, reason: "GLOBAL_ADMIN_REQUIRED" };
-  if (request.action === "get_workspace_overview") return { ok: true, scope: "GLOBAL" };
+  const globalAggregateActions = ["get_workspace_overview", "get_ecosystem_kpi_summary", "get_system_health_and_ai_status"];
+  if (globalAggregateActions.includes(request.action)) return { ok: true, scope: "GLOBAL" };
   const targetProjectId = request.targetProjectId ?? request.projectId;
   if (!targetProjectId) return { ok: false, reason: "GLOBAL_TARGET_REQUIRED" };
   if (!caller.accessibleProjectIds.includes(targetProjectId)) return { ok: false, reason: "GLOBAL_TARGET_DENIED" };

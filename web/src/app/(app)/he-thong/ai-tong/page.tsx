@@ -1,6 +1,7 @@
-import { Activity, Bot, ClipboardList, ShieldCheck } from "lucide-react";
+import { Activity, Bot, ClipboardList, ShieldCheck, ListOrdered } from "lucide-react";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { V2AiJobPanel } from "@/components/v2-ai-job-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -21,21 +22,52 @@ function healthClass(label: string) {
 
 export default async function GlobalAiObservabilityPage() {
   await requireUser(["ADMIN"]);
-  const [agents, auditEntries] = await Promise.all([
+  const [agents, auditEntries, rawJobs] = await Promise.all([
     prisma.zAiAgent.findMany({
       orderBy: [{ kind: "asc" }, { updatedAt: "desc" }],
       select: { id: true, code: true, name: true, kind: true, status: true, projectId: true, project: { select: { code: true, name: true } }, model: true, toolAllowlist: true, lastHeartbeatAt: true, updatedAt: true },
     }),
     prisma.auditLog.findMany({
-      where: { entity: "ZAiAgent" },
+      where: { entity: { in: ["ZAiAgent", "ZAiJob"] } },
       orderBy: { at: "desc" },
       take: 25,
       select: { id: true, action: true, entityId: true, meta: true, at: true, actor: { select: { username: true, fullName: true } } },
+    }),
+    prisma.zAiJob.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 50,
+      include: {
+        targetAgent: { select: { name: true, code: true } },
+        targetProject: { select: { code: true, name: true } },
+      },
     }),
   ]);
   const activeChildren = agents.filter((agent) => agent.kind === "CHILD" && agent.status === "ACTIVE");
   const activeGlobals = agents.filter((agent) => agent.kind === "GLOBAL" && agent.status === "ACTIVE");
   const staleOrMissingHeartbeat = activeChildren.filter((agent) => healthLabel(agent.status, agent.lastHeartbeatAt) !== "Khỏe").length;
+
+  const queuedJobs = rawJobs.filter((j) => j.status === "QUEUED").length;
+  const runningJobs = rawJobs.filter((j) => j.status === "RUNNING").length;
+  const succeededJobs = rawJobs.filter((j) => j.status === "SUCCEEDED").length;
+
+  const serializedJobs = rawJobs.map((j) => ({
+    id: j.id,
+    idempotencyKey: j.idempotencyKey,
+    toolName: j.toolName,
+    action: j.action,
+    status: j.status,
+    attempt: j.attempt,
+    maxAttempts: j.maxAttempts,
+    sourceWorkspaceKind: j.sourceWorkspaceKind,
+    targetProjectId: j.targetProjectId,
+    targetProject: j.targetProject,
+    targetAgent: j.targetAgent,
+    lastError: j.lastError,
+    resultMeta: j.resultMeta,
+    createdAt: j.createdAt.toISOString(),
+    startedAt: j.startedAt ? j.startedAt.toISOString() : null,
+    finishedAt: j.finishedAt ? j.finishedAt.toISOString() : null,
+  }));
 
   return <div className="space-y-6">
     <header className="rounded-2xl border border-violet-200 bg-violet-50/60 p-6 shadow-sm">
@@ -55,9 +87,30 @@ export default async function GlobalAiObservabilityPage() {
     </section>
 
     <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <ListOrdered className="h-5 w-5 text-violet-600" />
+          <h2 className="font-semibold text-slate-900">Hàng đợi công việc AI (ZAiJob Execution Queue)</h2>
+        </div>
+        <div className="flex items-center gap-2 text-xs">
+          <span className="rounded-md bg-amber-50 px-2 py-1 font-medium text-amber-700">Chờ: {queuedJobs}</span>
+          <span className="rounded-md bg-blue-50 px-2 py-1 font-medium text-blue-700">Chạy: {runningJobs}</span>
+          <span className="rounded-md bg-emerald-50 px-2 py-1 font-medium text-emerald-700">Xong: {succeededJobs}</span>
+        </div>
+      </div>
+      <p className="mt-1 text-sm text-slate-500">
+        Tất cả các lệnh điều phối AI phân tầng (Global-to-Child) được xếp hàng, xác thực lại quyền runtime, và thực thi có kiểm soát tại đây.
+      </p>
+      <div className="mt-4">
+        <V2AiJobPanel jobs={serializedJobs} />
+      </div>
+    </section>
+
+    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex items-center gap-2"><ClipboardList className="h-5 w-5 text-indigo-600" /><h2 className="font-semibold text-slate-900">Audit lifecycle gần đây</h2></div>
       <p className="mt-1 text-sm text-slate-500">Chỉ hiển thị action, actor và metadata tối thiểu của agent; không hiển thị prompt, raw customer data hoặc payload nghiệp vụ.</p>
       <div className="mt-4 space-y-2">{auditEntries.length === 0 ? <p className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-5 text-sm text-slate-500">Chưa có audit lifecycle.</p> : auditEntries.map((entry) => <article key={entry.id} className="rounded-xl border border-slate-200 p-3"><div className="flex flex-col justify-between gap-1 md:flex-row"><p className="font-medium text-slate-800">{entry.action}</p><time className="text-xs text-slate-500">{entry.at.toISOString()}</time></div><p className="mt-1 text-xs text-slate-500">Actor: {entry.actor?.fullName ?? entry.actor?.username ?? "system"} · Agent ID: {entry.entityId ?? "—"}</p></article>)}</div>
     </section>
   </div>;
 }
+

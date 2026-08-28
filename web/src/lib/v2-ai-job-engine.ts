@@ -1,0 +1,278 @@
+import { prisma } from "./db";
+import type { Prisma } from "@/generated/prisma/client";
+import { enforceRuntimeAiTool, resolveRuntimeAiAgent } from "./v2-ai-agent-runtime";
+import { nextAiJobStatus, type AiJobStatus } from "./v2-ai-job-contract";
+import type { AiWorkspaceContext } from "./ai-governance";
+
+export type AiJobExecutionResult = {
+  ok: boolean;
+  jobId: string;
+  status: AiJobStatus;
+  attempt: number;
+  resultMeta?: Record<string, unknown>;
+  error?: string;
+};
+
+export async function dispatchJobTool(
+  toolName: string,
+  action: string,
+  targetProjectId: string | null,
+  args: Record<string, unknown>,
+  actor: { id: string; role: string }
+): Promise<Record<string, unknown>> {
+  if (toolName === "global-overview" || action === "get_workspace_overview") {
+    if (actor.role !== "ADMIN") {
+      throw new Error("FORBIDDEN_GLOBAL_OVERVIEW");
+    }
+    const [projectCount, activeProjects, totalTasks, totalAgents] = await Promise.all([
+      prisma.zProject.count(),
+      prisma.zProject.findMany({
+        where: { status: "ACTIVE" },
+        select: { id: true, code: true, name: true, projectType: true, status: true },
+        take: 50,
+      }),
+      prisma.zWorkspaceTask.count({ where: { project: { status: "ACTIVE" } } }),
+      prisma.zAiAgent.count({ where: { status: "ACTIVE" } }),
+    ]);
+    return {
+      overview: {
+        totalProjects: projectCount,
+        activeProjectsCount: activeProjects.length,
+        totalActiveTasks: totalTasks,
+        totalActiveAgents: totalAgents,
+        sampleProjects: activeProjects,
+      },
+    };
+  }
+
+  if (toolName === "project-read" || action === "read_project_overview" || action === "get_project_overview") {
+    if (!targetProjectId) throw new Error("TARGET_PROJECT_REQUIRED");
+    const project = await prisma.zProject.findUnique({
+      where: { id: targetProjectId },
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        status: true,
+        _count: {
+          select: {
+            workspaceTasks: true,
+            workspaceCustomers: true,
+            workspaceAppointments: true,
+            workspaceSales: true,
+            members: true,
+          },
+        },
+      },
+    });
+    if (!project) throw new Error("PROJECT_NOT_FOUND");
+    return { projectOverview: project };
+  }
+
+  if (action === "get_project_tasks" || toolName === "task-list") {
+    if (!targetProjectId) throw new Error("TARGET_PROJECT_REQUIRED");
+    const tasks = await prisma.zWorkspaceTask.findMany({
+      where: { projectId: targetProjectId },
+      select: { id: true, title: true, status: true, priority: true, dueAt: true, order: true },
+      orderBy: [{ status: "asc" }, { order: "asc" }],
+      take: 100,
+    });
+    return { tasks, total: tasks.length };
+  }
+
+  if (action === "get_project_customers" || toolName === "customer-list") {
+    if (!targetProjectId) throw new Error("TARGET_PROJECT_REQUIRED");
+    const customers = await prisma.zWorkspaceCustomer.findMany({
+      where: { projectId: targetProjectId, active: true },
+      select: { id: true, code: true, fullName: true, phoneLast4: true, source: true, consentStatus: true },
+      orderBy: { createdAt: "desc" },
+      take: 100,
+    });
+    return { customers, total: customers.length };
+  }
+
+  return {
+    dispatched: true,
+    toolName,
+    action,
+    targetProjectId,
+    executedAt: new Date().toISOString(),
+  };
+}
+
+export async function executeAiJobRunner(
+  jobId: string,
+  actorUserId: string
+): Promise<AiJobExecutionResult> {
+  const job = await prisma.zAiJob.findUnique({
+    where: { id: jobId },
+    include: {
+      targetAgent: true,
+      targetProject: true,
+      requestedBy: true,
+    },
+  });
+
+  if (!job) {
+    return { ok: false, jobId, status: "FAILED", attempt: 0, error: "JOB_NOT_FOUND" };
+  }
+
+  if (job.status === "SUCCEEDED" || job.status === "CANCELLED" || job.status === "TIMED_OUT") {
+    return {
+      ok: job.status === "SUCCEEDED",
+      jobId,
+      status: job.status as AiJobStatus,
+      attempt: job.attempt,
+      resultMeta: (job.resultMeta as Record<string, unknown>) ?? undefined,
+      error: job.lastError ?? undefined,
+    };
+  }
+
+  const requester = await prisma.user.findUnique({
+    where: { id: actorUserId },
+    select: { id: true, role: true },
+  });
+
+  if (!requester) {
+    return { ok: false, jobId, status: "FAILED", attempt: job.attempt, error: "ACTOR_NOT_FOUND" };
+  }
+
+  const targetWorkspace: AiWorkspaceContext =
+    job.targetProjectId
+      ? { workspaceKind: "PROJECT", projectId: job.targetProjectId }
+      : { workspaceKind: "GLOBAL" };
+
+  const agentResolution = await resolveRuntimeAiAgent(requester, targetWorkspace, job.targetAgentId);
+  if (!agentResolution.ok || !agentResolution.agent) {
+    const errorMsg = agentResolution.ok ? "AGENT_NOT_ACTIVE_IN_SCOPE" : agentResolution.reason;
+    await prisma.zAiJob.update({
+      where: { id: jobId },
+      data: {
+        status: "FAILED",
+        lastError: errorMsg,
+        finishedAt: new Date(),
+      },
+    });
+    await prisma.auditLog.create({
+      data: {
+        actorId: requester.id,
+        action: "V2_AI_JOB_REAUTHORIZATION_FAILED",
+        entity: "ZAiJob",
+        entityId: jobId,
+        meta: { reason: errorMsg },
+      },
+    });
+    return { ok: false, jobId, status: "FAILED", attempt: job.attempt, error: errorMsg };
+  }
+
+  const policyCheck = enforceRuntimeAiTool(agentResolution.agent, targetWorkspace, {
+    toolName: job.toolName,
+    action: job.action,
+    projectId: job.targetProjectId ?? undefined,
+    targetProjectId: job.targetProjectId ?? undefined,
+  });
+
+  if (!policyCheck.ok) {
+    await prisma.zAiJob.update({
+      where: { id: jobId },
+      data: {
+        status: "FAILED",
+        lastError: policyCheck.reason,
+        finishedAt: new Date(),
+      },
+    });
+    return { ok: false, jobId, status: "FAILED", attempt: job.attempt, error: policyCheck.reason };
+  }
+
+  const currentAttempt = job.attempt + 1;
+  const runningStatus = nextAiJobStatus(job.status as AiJobStatus, "START");
+
+  await prisma.zAiJob.update({
+    where: { id: jobId },
+    data: {
+      status: runningStatus,
+      attempt: currentAttempt,
+      startedAt: new Date(),
+    },
+  });
+
+  try {
+    const resultMeta = await dispatchJobTool(
+      job.toolName,
+      job.action,
+      job.targetProjectId,
+      (job.arguments as Record<string, unknown>) ?? {},
+      requester
+    );
+
+    const nextStatus = nextAiJobStatus("RUNNING", "SUCCEED");
+    await prisma.zAiJob.update({
+      where: { id: jobId },
+      data: {
+        status: nextStatus,
+        resultMeta: resultMeta as Prisma.InputJsonValue,
+        finishedAt: new Date(),
+      },
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        actorId: requester.id,
+        action: "V2_AI_JOB_SUCCEEDED",
+        entity: "ZAiJob",
+        entityId: jobId,
+        meta: {
+          jobId,
+          toolName: job.toolName,
+          action: job.action,
+          targetProjectId: job.targetProjectId,
+          attempt: currentAttempt,
+        },
+      },
+    });
+
+    return {
+      ok: true,
+      jobId,
+      status: nextStatus,
+      attempt: currentAttempt,
+      resultMeta,
+    };
+  } catch (err: unknown) {
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    const hasRetriesLeft = currentAttempt < job.maxAttempts;
+    const finalStatus: AiJobStatus = hasRetriesLeft ? "QUEUED" : "FAILED";
+
+    await prisma.zAiJob.update({
+      where: { id: jobId },
+      data: {
+        status: finalStatus,
+        lastError: errorMsg,
+        finishedAt: hasRetriesLeft ? null : new Date(),
+      },
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        actorId: requester.id,
+        action: hasRetriesLeft ? "V2_AI_JOB_RETRY_SCHEDULED" : "V2_AI_JOB_FAILED",
+        entity: "ZAiJob",
+        entityId: jobId,
+        meta: {
+          jobId,
+          attempt: currentAttempt,
+          maxAttempts: job.maxAttempts,
+          error: errorMsg,
+        },
+      },
+    });
+
+    return {
+      ok: false,
+      jobId,
+      status: finalStatus,
+      attempt: currentAttempt,
+      error: errorMsg,
+    };
+  }
+}

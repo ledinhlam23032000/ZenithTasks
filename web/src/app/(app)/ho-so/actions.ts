@@ -17,7 +17,13 @@ import { canAccessCase, type CaseAccess, type CaseAccessUser } from "@/lib/case-
 import { validateAllocations, type AllocationRole } from "@/lib/revenue-attribution";
 import { defaultScreening, normalizeScreening } from "@/lib/consultation-sheet";
 import { isCaseAutoLocked } from "@/lib/case-lock";
+import { isMonthClosed } from "@/lib/accounting";
 import type { Prisma } from "@/generated/prisma/client";
+
+function paymentMonth(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+const CLOSED_PERIOD_MSG = "Tháng của khoản thu này đã chốt sổ; hãy mở sổ ở trang Kế toán trước khi sửa/xóa.";
 
 // Client dùng được cho cả prisma thường lẫn trong $transaction.
 type Db = Prisma.TransactionClient | typeof prisma;
@@ -730,6 +736,7 @@ export async function addPayment(_prev: CaseActionState, formData: FormData): Pr
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu không hợp lệ." };
   const d = parsed.data;
+  if (await isMonthClosed(paymentMonth(new Date()))) return { error: CLOSED_PERIOD_MSG };
   await withCaseLock(d.caseId, async (tx) => {
     const duplicate = await tx.payment.findUnique({ where: { clientNonce: d.clientNonce }, select: { id: true, caseId: true, amount: true, method: true, note: true } });
     if (duplicate) {
@@ -789,12 +796,15 @@ export async function updatePayment(_prev: CaseActionState, formData: FormData):
 
   await withCaseLock(d.caseId, async (tx) => {
     const [payment, record, services, payments] = await Promise.all([
-      tx.payment.findFirst({ where: { id: d.id, caseId: d.caseId }, select: { amount: true } }),
+      tx.payment.findFirst({ where: { id: d.id, caseId: d.caseId }, select: { amount: true, paidAt: true } }),
       tx.caseRecord.findUnique({ where: { id: d.caseId }, select: { voucherAmount: true } }),
       tx.caseService.findMany({ where: { caseId: d.caseId }, select: { listPrice: true, unitPrice: true, quantity: true, discount: true, finalPrice: true } }),
       tx.payment.findMany({ where: { caseId: d.caseId, NOT: { id: d.id } }, select: { amount: true } }),
     ]);
     if (!payment || !record) throw new Error("Không tìm thấy khoản thu thuộc hồ sơ này.");
+    // Chặn cả tháng CŨ lẫn tháng MỚI: không được rút khoản thu ra khỏi / đẩy vào một tháng đã chốt sổ.
+    if (await isMonthClosed(paymentMonth(payment.paidAt))) throw new Error(CLOSED_PERIOD_MSG);
+    if (paidAt && await isMonthClosed(paymentMonth(paidAt))) throw new Error(CLOSED_PERIOD_MSG);
     const current = summarizeCase({ services, payments, voucherAmount: record.voucherAmount });
     const validation = validatePaymentAmount({ amount: d.amount, total: current.total, paid: current.paid });
     if (!validation.ok) throw new Error(validation.error);
@@ -1150,8 +1160,9 @@ export async function deletePayment(formData: FormData): Promise<void> {
   const id = String(formData.get("id") ?? "");
   const caseId = String(formData.get("caseId") ?? "");
   if (!id || !caseId || !(await hasCaseAccess(user, caseId, "payment.manage")) || (await isLockedFor(caseId, user.role))) return;
-  const pay = await prisma.payment.findFirst({ where: { id, caseId }, select: { amount: true } });
+  const pay = await prisma.payment.findFirst({ where: { id, caseId }, select: { amount: true, paidAt: true } });
   if (!pay) return;
+  if (await isMonthClosed(paymentMonth(pay.paidAt))) return;
   await withCaseLock(caseId, async (tx) => {
     const deleted = await tx.payment.deleteMany({ where: { id, caseId } });
     if (deleted.count === 0) return;

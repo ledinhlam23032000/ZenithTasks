@@ -3,16 +3,29 @@ import { evaluateAiToolRequest, maskSensitiveRecord, type AiPrincipal } from "./
 
 const principal: AiPrincipal = { userId: "owner-1", role: "ADMIN", agentProfile: "EXECUTIVE", projectIds: ["project-1"], capabilities: ["read.dashboard", "read.medical", "hr.terminate", "system.deploy"] };
 const projectPrincipal: AiPrincipal = { ...principal, workspaceKind: "PROJECT", activeProjectId: "project-1" };
-const globalPrincipal: AiPrincipal = { ...principal, workspaceKind: "GLOBAL", capabilities: [...principal.capabilities, "get_workspace_overview"] };
+const globalPrincipal: AiPrincipal = {
+  ...principal,
+  workspaceKind: "GLOBAL",
+  capabilities: [
+    ...principal.capabilities,
+    "get_workspace_overview",
+    "get_ecosystem_kpi_summary",
+    "get_system_health_and_ai_status",
+  ],
+};
 
 describe("AI governance policy", () => {
   it("denies requests outside project scope", () => {
     expect(evaluateAiToolRequest(principal, { toolName: "read", action: "read.dashboard", resource: "sales", projectId: "other" }).decision).toBe("DENY");
   });
-  it("allows the aggregate overview only in GLOBAL scope", () => {
+  it("allows the aggregate overview and ecosystem KPI only in GLOBAL scope", () => {
     expect(evaluateAiToolRequest(globalPrincipal, { toolName: "get_workspace_overview", action: "get_workspace_overview", resource: "projects" }).decision).toBe("ALLOW");
+    expect(evaluateAiToolRequest(globalPrincipal, { toolName: "get_ecosystem_kpi_summary", action: "get_ecosystem_kpi_summary", resource: "projects" }).decision).toBe("ALLOW");
+    expect(evaluateAiToolRequest(globalPrincipal, { toolName: "get_system_health_and_ai_status", action: "get_system_health_and_ai_status", resource: "ai" }).decision).toBe("ALLOW");
     expect(evaluateAiToolRequest(principal, { toolName: "get_workspace_overview", action: "get_workspace_overview", resource: "projects" }).reason).toBe("GLOBAL_SCOPE_REQUIRED");
+    expect(evaluateAiToolRequest(principal, { toolName: "get_ecosystem_kpi_summary", action: "get_ecosystem_kpi_summary", resource: "projects" }).reason).toBe("GLOBAL_SCOPE_REQUIRED");
   });
+
   it("requires an explicit projectId for non-aggregate tools in GLOBAL scope", () => {
     const result = evaluateAiToolRequest(globalPrincipal, { toolName: "read", action: "read.dashboard", resource: "sales" });
     expect(result.decision).toBe("DENY");

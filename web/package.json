@@ -21,7 +21,8 @@
     "db:studio": "prisma studio",
     "rotate:phone": "tsx prisma/rotate-phone-key.ts",
     "backup": "node scripts/backup.mjs",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "7.9.1",
