@@ -1,4 +1,4 @@
-﻿import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { evaluateAiAgentRequest, type AiAgentDescriptor, type AiAgentCaller } from "./v2-ai-agent-policy";
 import { evaluateAiToolRequest, type AiPrincipal } from "./ai-governance";
 import { validateAiJobEnvelope, nextAiJobStatus, type AiJobEnvelope } from "./v2-ai-job-contract";
@@ -68,6 +68,7 @@ describe("V2 Multi-Tenant Security & Isolation Invariants", () => {
     const globalPrincipal: AiPrincipal = {
       userId: "admin-1",
       role: "ADMIN",
+      agentProfile: "EXECUTIVE",
       workspaceKind: "GLOBAL",
       projectIds: ["project-alpha", "project-beta"],
       capabilities: ["get_workspace_overview", "get_ecosystem_kpi_summary"],
@@ -76,6 +77,7 @@ describe("V2 Multi-Tenant Security & Isolation Invariants", () => {
     const staffPrincipal: AiPrincipal = {
       userId: "staff-1",
       role: "STAFF",
+      agentProfile: "OPERATOR",
       workspaceKind: "PROJECT",
       activeProjectId: "project-alpha",
       projectIds: ["project-alpha"],

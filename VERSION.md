@@ -1,9 +1,9 @@
 # ZenithTasks — Trạng thái phiên bản hiện tại
 
-> **Phiên bản nội bộ:** `2026.08.28-v2-ai-native`<br>
+> **Phiên bản nội bộ:** `2026.08.28-r2-remediation`<br>
 > **Commit master:** phải đối chiếu trực tiếp bằng `git rev-parse HEAD` và `git ls-remote origin refs/heads/master`; không cố định một SHA trong tài liệu phát hành.<br>
 > **Ngày cập nhật:** 28/08/2026<br>
-> **Trạng thái:** Nền tảng Quản trị Đa Tổ Chức AI-Native đã hoàn tất tích hợp toàn diện. Đã qua kiểm thử 94 test files / 467 tests (100% PASS), TypeScript type-check nghiêm ngặt 0 lỗi. Bao gồm: AI Job Execution Engine & Tool Dispatcher, Global AI-to-Child AI Orchestration, Setup Wizard "Tạo Đơn Vị Mới" 5 Preset Templates & Lego Modules, Universal Command Palette (`Ctrl + K`), và bộ kiểm thử bảo mật cô lập đa đơn vị. Dữ liệu phòng khám cũ được bảo vệ an toàn 100%.
+> **Trạng thái:** Đã khắc phục 5 Bug P0/P1 từ Forensic Audit (tsc clean, fake-success removed, arguments preserved, race condition fixed). 94 test files / 468 tests PASS, tsc --noEmit exit 0. **CHƯA HOÀN THÀNH:** Phần 3 Architecture Upgrade (L5 Approval Flow, Prisma Tenant Extension, Lego Seed Data, Project Lifecycle Archive) chưa được triển khai. Tỷ lệ hoàn thành ước tính: ~55% Master Prompt.
 
 ## Quy tắc đọc tài liệu
 

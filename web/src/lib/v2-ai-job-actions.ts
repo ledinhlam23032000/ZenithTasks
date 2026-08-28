@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "./db";
+import type { Prisma } from "@/generated/prisma/client";
 import { requireV2User } from "./v2-access";
 import { enforceRuntimeAiTool, resolveRuntimeAiAgent } from "./v2-ai-agent-runtime";
 import { validateAiJobEnvelope, type AiJobDataAccess, type AiJobEnvelope } from "./v2-ai-job-contract";
@@ -40,6 +41,22 @@ export async function enqueueAiJobAction(_prev: AiJobActionState, formData: Form
   const timeoutMs = integer(formData, "timeoutMs", 30_000);
   const maxAttempts = integer(formData, "maxAttempts", 2);
 
+  // Parse arguments JSON payload — KHÔNG được hardcode {}
+  let parsedArguments: Record<string, unknown> = {};
+  const rawArguments = String(formData.get("arguments") ?? "").trim();
+  if (rawArguments) {
+    try {
+      const parsed = JSON.parse(rawArguments);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        parsedArguments = parsed;
+      } else {
+        return { error: "Tham số AI Job phải là JSON object hợp lệ (không phải array hoặc primitive)." };
+      }
+    } catch {
+      return { error: `Tham số AI Job không phải JSON hợp lệ: ${rawArguments.slice(0, 200)}` };
+    }
+  }
+
   if (workspaceKind !== "PROJECT" && workspaceKind !== "GLOBAL") return { error: "Workspace AI job không hợp lệ." };
   if (targetKind !== "CHILD" && targetKind !== "GLOBAL") return { error: "Target AI job không hợp lệ." };
   if (!agentId) return { error: "Phải chỉ rõ agent đích; không suy đoán agent từ prompt." };
@@ -63,7 +80,7 @@ export async function enqueueAiJobAction(_prev: AiJobActionState, formData: Form
     target: targetKind === "CHILD" ? { kind: "CHILD", agentId: resolution.agent.id, projectId: targetProjectId! } : { kind: "GLOBAL", agentId: resolution.agent.id, projectId: null },
     toolName,
     action,
-    arguments: {},
+    arguments: parsedArguments,
     dataAccess,
     requiresRuntimeReauthorization: true,
     ...(approvalId ? { approvalId } : {}),
@@ -92,7 +109,7 @@ export async function enqueueAiJobAction(_prev: AiJobActionState, formData: Form
         targetProjectId: targetKind === "CHILD" ? targetProjectId : null,
         toolName,
         action,
-        arguments: {},
+        arguments: parsedArguments as Prisma.InputJsonValue,
         dataAccess,
         requiresRuntimeReauthorization: true,
         approvalId,

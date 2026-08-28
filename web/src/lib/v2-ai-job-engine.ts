@@ -91,13 +91,7 @@ export async function dispatchJobTool(
     return { customers, total: customers.length };
   }
 
-  return {
-    dispatched: true,
-    toolName,
-    action,
-    targetProjectId,
-    executedAt: new Date().toISOString(),
-  };
+  throw new Error(`UNSUPPORTED_JOB_TOOL_ACTION: Tool [${toolName}] Action [${action}] không tồn tại trong registry. Từ chối thực thi.`);
 }
 
 export async function executeAiJobRunner(
@@ -185,16 +179,21 @@ export async function executeAiJobRunner(
   }
 
   const currentAttempt = job.attempt + 1;
-  const runningStatus = nextAiJobStatus(job.status as AiJobStatus, "START");
 
-  await prisma.zAiJob.update({
-    where: { id: jobId },
+  // ATOMIC LOCK: Dùng updateMany với WHERE status='QUEUED' để tránh 2 worker
+  // cùng nhận 1 job. Chỉ worker nào match điều kiện đầu tiên mới update thành công (count=1).
+  const lockResult = await prisma.zAiJob.updateMany({
+    where: { id: jobId, status: "QUEUED" },
     data: {
-      status: runningStatus,
+      status: "RUNNING",
       attempt: currentAttempt,
       startedAt: new Date(),
     },
   });
+  if (lockResult.count === 0) {
+    // Job đã bị worker khác chiếm hoặc đã chuyển trạng thái → dừng ngay
+    return { ok: false, jobId, status: job.status as AiJobStatus, attempt: job.attempt, error: "JOB_ALREADY_RUNNING_OR_PROCESSED" };
+  }
 
   try {
     const resultMeta = await dispatchJobTool(

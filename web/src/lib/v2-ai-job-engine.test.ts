@@ -1,4 +1,4 @@
-﻿import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { dispatchJobTool } from "./v2-ai-job-engine";
 import { prisma } from "./db";
 
@@ -91,5 +91,17 @@ describe("v2-ai-job-engine dispatchJobTool", () => {
     );
     expect(customersRes.customers).toBeDefined();
     expect(customersRes.total).toBe(1);
+  });
+
+  it("rejects unknown tool/action with UNSUPPORTED_JOB_TOOL_ACTION instead of fake success", async () => {
+    await expect(
+      dispatchJobTool(
+        "nonexistent-tool",
+        "nonexistent_action",
+        "proj-1",
+        {},
+        { id: "user-admin", role: "ADMIN" }
+      )
+    ).rejects.toThrow("UNSUPPORTED_JOB_TOOL_ACTION");
   });
 });
