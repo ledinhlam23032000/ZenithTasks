@@ -5,7 +5,7 @@ import { prisma } from "./db";
 import { requireUser } from "./auth";
 import { PROJECT_TYPES, type ProjectType } from "./v2-project-types";
 import { V2_DEFAULT_MODULE_KEYS } from "./v2-modules";
-import { transitionProjectStatus, type ProjectLifecycleStatus } from "./v2-project-lifecycle";
+import { validateLifecycleTransition, type ProjectLifecycle } from "./v2-project-lifecycle";
 
 export type ProjectActionState = { ok?: boolean; error?: string; message?: string };
 
@@ -140,18 +140,18 @@ export async function setV2ProjectStatusAction(_prev: ProjectActionState, formDa
   const user = await requireUser(["ADMIN"]);
   if (process.env.ENABLE_ZENITH_V2 !== "true") return { error: "Lớp đa Dự án đang tắt." };
   const projectId = readText(formData, "projectId", 80);
-  const targetStatus = readText(formData, "status", 12) as ProjectLifecycleStatus;
+  const targetStatus = readText(formData, "status", 12) as ProjectLifecycle;
   if (!["ACTIVE", "ARCHIVED"].includes(targetStatus)) return { error: "Trạng thái chuyển không hợp lệ." };
   const project = await prisma.zProject.findUnique({ where: { id: projectId }, select: { id: true, code: true, name: true, status: true } });
   if (!project) return { error: "Không tìm thấy Dự án." };
-  const transition = transitionProjectStatus(project.status, targetStatus);
-  if (!transition.ok) return { error: transition.error };
+  const transition = validateLifecycleTransition(project.status as ProjectLifecycle, targetStatus);
+  if (!transition.ok) return { error: transition.reason };
   if (targetStatus === "ACTIVE") {
     const memberCount = await prisma.zProjectMember.count({ where: { projectId: project.id, active: true } });
     if (memberCount === 0) return { error: "Không thể kích hoạt Dự án chưa có thành viên active." };
   }
   await prisma.$transaction(async (tx) => {
-    await tx.zProject.update({ where: { id: project.id }, data: { status: targetStatus } });
+    await tx.zProject.update({ where: { id: project.id }, data: { status: targetStatus as any } });
     await tx.auditLog.create({ data: { actorId: user.id, action: targetStatus === "ARCHIVED" ? "V2_PROJECT_ARCHIVED" : "V2_PROJECT_ACTIVATED", entity: "ZProject", entityId: project.id, meta: { projectId: project.id, from: project.status, to: targetStatus, reason: readText(formData, "reason", 500) || null } } });
   });
   revalidatePath("/du-an");

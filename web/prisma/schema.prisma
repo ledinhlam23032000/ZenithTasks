@@ -181,6 +181,7 @@ enum ZAiAgentStatus {
 
 enum ZAiJobStatus {
   QUEUED
+  PENDING_APPROVAL
   RUNNING
   SUCCEEDED
   FAILED
@@ -1373,6 +1374,7 @@ enum ZProjectType {
 enum ZProjectStatus {
   DRAFT
   ACTIVE
+  SUSPENDED
   ARCHIVED
 }
 

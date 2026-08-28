@@ -2,7 +2,7 @@ import { prisma } from "./db";
 import type { Prisma } from "@/generated/prisma/client";
 import { enforceRuntimeAiTool, resolveRuntimeAiAgent } from "./v2-ai-agent-runtime";
 import { nextAiJobStatus, type AiJobStatus } from "./v2-ai-job-contract";
-import type { AiWorkspaceContext } from "./ai-governance";
+import { evaluateAiToolRequest, type AiWorkspaceContext, type AiPrincipal } from "./ai-governance";
 
 export type AiJobExecutionResult = {
   ok: boolean;
@@ -178,6 +178,63 @@ export async function executeAiJobRunner(
     return { ok: false, jobId, status: "FAILED", attempt: job.attempt, error: policyCheck.reason };
   }
 
+  // APPROVAL GATE: Kiểm tra risk level. L4/L5 phải qua phê duyệt của con người.
+  const approvalPrincipal: AiPrincipal = {
+    userId: requester.id,
+    role: requester.role,
+    agentProfile: "OPERATOR",
+    workspaceKind: targetWorkspace.workspaceKind,
+    activeProjectId: job.targetProjectId ?? undefined,
+    projectIds: job.targetProjectId ? [job.targetProjectId] : [],
+    capabilities: [job.action],
+  };
+  const riskAssessment = evaluateAiToolRequest(approvalPrincipal, {
+    toolName: job.toolName,
+    action: job.action,
+    resource: job.targetProjectId ?? "system",
+    projectId: job.targetProjectId ?? undefined,
+  });
+
+  const requiresApproval = (riskAssessment.riskLevel === "L4" || riskAssessment.riskLevel === "L5")
+    && riskAssessment.decision !== "ALLOW";
+  const jobApprovalId = (job as Record<string, unknown>).approvalId as string | null | undefined;
+
+  if (requiresApproval && !jobApprovalId?.trim()) {
+    // Job chưa được phê duyệt → chuyển sang PENDING_APPROVAL, sinh preview JSON
+    const previewDraft = {
+      toolName: job.toolName,
+      action: job.action,
+      arguments: job.arguments,
+      riskLevel: riskAssessment.riskLevel,
+      consequences: riskAssessment.consequences,
+      requiredApprovals: riskAssessment.requiredApprovals,
+      requestedAt: new Date().toISOString(),
+    };
+    await prisma.zAiJob.update({
+      where: { id: jobId },
+      data: {
+        status: "PENDING_APPROVAL" as any,
+        resultMeta: previewDraft as Prisma.InputJsonValue,
+      },
+    });
+    await prisma.auditLog.create({
+      data: {
+        actorId: requester.id,
+        action: "V2_AI_JOB_REQUIRES_APPROVAL",
+        entity: "ZAiJob",
+        entityId: jobId,
+        meta: { riskLevel: riskAssessment.riskLevel, consequences: riskAssessment.consequences },
+      },
+    });
+    return {
+      ok: false,
+      jobId,
+      status: "PENDING_APPROVAL" as AiJobStatus,
+      attempt: job.attempt,
+      error: `APPROVAL_REQUIRED: Risk ${riskAssessment.riskLevel} — ${riskAssessment.warningTitle ?? "Cần phê duyệt từ Admin"}`,
+    };
+  }
+
   const currentAttempt = job.attempt + 1;
 
   // ATOMIC LOCK: Dùng updateMany với WHERE status='QUEUED' để tránh 2 worker
@@ -208,7 +265,7 @@ export async function executeAiJobRunner(
     await prisma.zAiJob.update({
       where: { id: jobId },
       data: {
-        status: nextStatus,
+        status: nextStatus as any,
         resultMeta: resultMeta as Prisma.InputJsonValue,
         finishedAt: new Date(),
       },

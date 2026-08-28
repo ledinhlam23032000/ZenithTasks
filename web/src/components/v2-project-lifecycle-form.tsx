@@ -5,9 +5,9 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useFormAction } from "@/lib/use-form-action";
 import { setV2ProjectStatusAction, type ProjectActionState } from "@/lib/v2-project-actions";
-import type { ProjectLifecycleStatus } from "@/lib/v2-project-lifecycle";
+import type { ProjectLifecycle } from "@/lib/v2-project-lifecycle";
 
-export function V2ProjectLifecycleForm({ projectId, projectCode, status, allowRestore = false }: { projectId: string; projectCode: string; status: ProjectLifecycleStatus; allowRestore?: boolean }) {
+export function V2ProjectLifecycleForm({ projectId, projectCode, status, allowRestore = false }: { projectId: string; projectCode: string; status: ProjectLifecycle; allowRestore?: boolean }) {
   const router = useRouter();
   const [state, action, pending] = useFormAction(setV2ProjectStatusAction, () => router.refresh());
   const targetStatus = status === "ARCHIVED" ? "ACTIVE" : status === "DRAFT" ? "ACTIVE" : "ARCHIVED";

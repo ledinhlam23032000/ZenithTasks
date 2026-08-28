@@ -53,10 +53,14 @@ export function validateAiJobEnvelope(job: AiJobEnvelope): AiJobValidation {
   return { ok: true };
 }
 
-export type AiJobStatus = "QUEUED" | "RUNNING" | "SUCCEEDED" | "FAILED" | "TIMED_OUT" | "CANCELLED";
+export type AiJobStatus = "QUEUED" | "PENDING_APPROVAL" | "RUNNING" | "SUCCEEDED" | "FAILED" | "TIMED_OUT" | "CANCELLED";
 
-export function nextAiJobStatus(current: AiJobStatus, event: "START" | "SUCCEED" | "FAIL" | "TIMEOUT" | "CANCEL"): AiJobStatus {
+export function nextAiJobStatus(current: AiJobStatus, event: "START" | "SUCCEED" | "FAIL" | "TIMEOUT" | "CANCEL" | "REQUIRE_APPROVAL" | "APPROVE" | "REJECT"): AiJobStatus {
   if (current === "QUEUED" && event === "START") return "RUNNING";
+  if (current === "QUEUED" && event === "REQUIRE_APPROVAL") return "PENDING_APPROVAL";
+  if (current === "PENDING_APPROVAL" && event === "APPROVE") return "QUEUED";  // Quay lại QUEUED để worker pick up
+  if (current === "PENDING_APPROVAL" && event === "REJECT") return "CANCELLED";
+  if (current === "PENDING_APPROVAL" && event === "CANCEL") return "CANCELLED";
   if (current === "RUNNING" && event === "SUCCEED") return "SUCCEEDED";
   if (current === "RUNNING" && event === "FAIL") return "FAILED";
   if (current === "RUNNING" && event === "TIMEOUT") return "TIMED_OUT";
