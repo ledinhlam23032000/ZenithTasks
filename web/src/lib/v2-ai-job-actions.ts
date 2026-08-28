@@ -187,3 +187,90 @@ export async function cancelAiJobAction(_prev: AiJobActionState, formData: FormD
 
   return { ok: true, jobId, message: `Đã hủy công việc AI (${jobId}).` };
 }
+
+// ---- Approval gate: duyệt / từ chối AI job đang chờ ----
+//
+// Vì sao cần: `executeAiJobRunner` đẩy job rủi ro L4/L5 sang PENDING_APPROVAL,
+// nhưng trước wave này KHÔNG có đường nào đưa job ra khỏi trạng thái đó —
+// atomic lock của worker chỉ nhận `status='QUEUED'`, nên job đã duyệt cũng
+// không bao giờ chạy. Approval gate khi đó là ngõ cụt.
+
+async function loadPendingJob(jobId: string) {
+  return prisma.zAiJob.findUnique({
+    where: { id: jobId },
+    select: { id: true, status: true, requestedById: true, targetProjectId: true, resultMeta: true, toolName: true, action: true },
+  });
+}
+
+function riskLevelOf(resultMeta: unknown): string | null {
+  if (!resultMeta || typeof resultMeta !== "object") return null;
+  const level = (resultMeta as Record<string, unknown>).riskLevel;
+  return typeof level === "string" ? level : null;
+}
+
+export async function approveAiJobAction(_prev: AiJobActionState, formData: FormData): Promise<AiJobActionState> {
+  const user = await requireV2User();
+  if (user.role !== "ADMIN") return { error: "Chỉ Admin được phê duyệt AI job." };
+  const jobId = text(formData, "jobId", 80);
+  if (!jobId) return { error: "Thiếu jobId." };
+
+  const job = await loadPendingJob(jobId);
+  if (!job) return { error: "Không tìm thấy job." };
+  if (job.status !== "PENDING_APPROVAL") return { error: `Job đang ở trạng thái ${job.status}, không phải PENDING_APPROVAL.` };
+
+  // Two-person rule cho rủi ro cao nhất: người duyệt không được là người yêu cầu.
+  // L4 vẫn cho phép cùng người nhưng BẮT BUỘC có bước duyệt tường minh.
+  if (riskLevelOf(job.resultMeta) === "L5" && job.requestedById === user.id) {
+    return { error: "Job rủi ro L5 cần người phê duyệt KHÁC người yêu cầu (two-person approval)." };
+  }
+
+  const approvalId = `apr_${jobId}_${user.id}`;
+  // updateMany + điều kiện status để hai lần bấm đồng thời không cùng duyệt được.
+  const result = await prisma.zAiJob.updateMany({
+    where: { id: jobId, status: "PENDING_APPROVAL" },
+    data: { status: "QUEUED", approvalId, lastError: null },
+  });
+  if (result.count !== 1) return { error: "Job đã đổi trạng thái bởi thao tác khác; hãy tải lại." };
+
+  await prisma.auditLog.create({
+    data: {
+      actorId: user.id,
+      action: "V2_AI_JOB_APPROVED",
+      entity: "ZAiJob",
+      entityId: jobId,
+      meta: { jobId, approvalId, approvedBy: user.id, requestedBy: job.requestedById, toolName: job.toolName, action: job.action, riskLevel: riskLevelOf(job.resultMeta) },
+    },
+  });
+  revalidatePath("/he-thong/ai-tong");
+  return { ok: true, jobId, message: "Đã phê duyệt; job quay lại hàng đợi để worker thực thi." };
+}
+
+export async function rejectAiJobAction(_prev: AiJobActionState, formData: FormData): Promise<AiJobActionState> {
+  const user = await requireV2User();
+  if (user.role !== "ADMIN") return { error: "Chỉ Admin được từ chối AI job." };
+  const jobId = text(formData, "jobId", 80);
+  const reason = text(formData, "reason", 500);
+  if (!jobId) return { error: "Thiếu jobId." };
+
+  const job = await loadPendingJob(jobId);
+  if (!job) return { error: "Không tìm thấy job." };
+  if (job.status !== "PENDING_APPROVAL") return { error: `Job đang ở trạng thái ${job.status}, không phải PENDING_APPROVAL.` };
+
+  const result = await prisma.zAiJob.updateMany({
+    where: { id: jobId, status: "PENDING_APPROVAL" },
+    data: { status: "CANCELLED", lastError: reason || "REJECTED_BY_ADMIN", finishedAt: new Date() },
+  });
+  if (result.count !== 1) return { error: "Job đã đổi trạng thái bởi thao tác khác; hãy tải lại." };
+
+  await prisma.auditLog.create({
+    data: {
+      actorId: user.id,
+      action: "V2_AI_JOB_REJECTED",
+      entity: "ZAiJob",
+      entityId: jobId,
+      meta: { jobId, rejectedBy: user.id, requestedBy: job.requestedById, reason: reason || null },
+    },
+  });
+  revalidatePath("/he-thong/ai-tong");
+  return { ok: true, jobId, message: "Đã từ chối job; job chuyển sang CANCELLED và không thể tự chạy lại." };
+}

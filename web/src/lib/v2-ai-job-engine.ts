@@ -4,6 +4,8 @@ import { enforceRuntimeAiTool, resolveRuntimeAiAgent } from "./v2-ai-agent-runti
 import { nextAiJobStatus, type AiJobStatus } from "./v2-ai-job-contract";
 import { evaluateAiToolRequest, type AiWorkspaceContext, type AiPrincipal } from "./ai-governance";
 
+const JOB_TIMEOUT_MARKER = "JOB_TIMEOUT_EXCEEDED";
+
 export type AiJobExecutionResult = {
   ok: boolean;
   jobId: string;
@@ -20,7 +22,7 @@ export async function dispatchJobTool(
   args: Record<string, unknown>,
   actor: { id: string; role: string }
 ): Promise<Record<string, unknown>> {
-  if (toolName === "global-overview" || action === "get_workspace_overview") {
+  if (action === "get_workspace_overview") {
     if (actor.role !== "ADMIN") {
       throw new Error("FORBIDDEN_GLOBAL_OVERVIEW");
     }
@@ -45,7 +47,7 @@ export async function dispatchJobTool(
     };
   }
 
-  if (toolName === "project-read" || action === "read_project_overview" || action === "get_project_overview") {
+  if (action === "read_project_overview" || action === "get_project_overview") {
     if (!targetProjectId) throw new Error("TARGET_PROJECT_REQUIRED");
     const project = await prisma.zProject.findUnique({
       where: { id: targetProjectId },
@@ -69,7 +71,7 @@ export async function dispatchJobTool(
     return { projectOverview: project };
   }
 
-  if (action === "get_project_tasks" || toolName === "task-list") {
+  if (action === "get_project_tasks") {
     if (!targetProjectId) throw new Error("TARGET_PROJECT_REQUIRED");
     const tasks = await prisma.zWorkspaceTask.findMany({
       where: { projectId: targetProjectId },
@@ -80,7 +82,7 @@ export async function dispatchJobTool(
     return { tasks, total: tasks.length };
   }
 
-  if (action === "get_project_customers" || toolName === "customer-list") {
+  if (action === "get_project_customers") {
     if (!targetProjectId) throw new Error("TARGET_PROJECT_REQUIRED");
     const customers = await prisma.zWorkspaceCustomer.findMany({
       where: { projectId: targetProjectId, active: true },
@@ -288,13 +290,24 @@ export async function executeAiJobRunner(
   }
 
   try {
-    const resultMeta = await dispatchJobTool(
-      job.toolName,
-      job.action,
-      job.targetProjectId,
-      (job.arguments as Record<string, unknown>) ?? {},
-      requester
-    );
+    // Thực thi timeout đã cam kết trong job contract. Trước đây `timeoutMs` được
+    // validate và lưu DB nhưng runner không dùng, nên một tool treo sẽ chạy vô hạn
+    // và trạng thái TIMED_OUT không bao giờ đạt tới được.
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const resultMeta = await Promise.race([
+      dispatchJobTool(
+        job.toolName,
+        job.action,
+        job.targetProjectId,
+        (job.arguments as Record<string, unknown>) ?? {},
+        requester
+      ),
+      new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(() => reject(new Error(JOB_TIMEOUT_MARKER)), job.timeoutMs);
+      }),
+    ]).finally(() => {
+      if (timer) clearTimeout(timer);
+    });
 
     const nextStatus = nextAiJobStatus("RUNNING", "SUCCEED");
     await prisma.zAiJob.update({
@@ -331,8 +344,12 @@ export async function executeAiJobRunner(
     };
   } catch (err: unknown) {
     const errorMsg = err instanceof Error ? err.message : String(err);
+    const timedOut = errorMsg === JOB_TIMEOUT_MARKER;
+    // Timeout vẫn được retry theo maxAttempts (có thể là sự cố thoáng qua), nhưng
+    // khi hết lượt thì trạng thái cuối là TIMED_OUT chứ không phải FAILED — để
+    // phân biệt "tool quá chậm" với "tool từ chối/lỗi nghiệp vụ" lúc điều tra.
     const hasRetriesLeft = currentAttempt < job.maxAttempts;
-    const finalStatus: AiJobStatus = hasRetriesLeft ? "QUEUED" : "FAILED";
+    const finalStatus: AiJobStatus = hasRetriesLeft ? "QUEUED" : timedOut ? "TIMED_OUT" : "FAILED";
 
     await prisma.zAiJob.update({
       where: { id: jobId },
@@ -346,7 +363,7 @@ export async function executeAiJobRunner(
     await prisma.auditLog.create({
       data: {
         actorId: requester.id,
-        action: hasRetriesLeft ? "V2_AI_JOB_RETRY_SCHEDULED" : "V2_AI_JOB_FAILED",
+        action: hasRetriesLeft ? "V2_AI_JOB_RETRY_SCHEDULED" : timedOut ? "V2_AI_JOB_TIMED_OUT" : "V2_AI_JOB_FAILED",
         entity: "ZAiJob",
         entityId: jobId,
         meta: {

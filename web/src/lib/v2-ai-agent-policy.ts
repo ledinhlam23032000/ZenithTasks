@@ -29,7 +29,16 @@ export type AiAgentPolicyResult =
 
 export function evaluateAiAgentRequest(agent: AiAgentDescriptor, caller: AiAgentCaller, request: AiAgentRequest): AiAgentPolicyResult {
   if (agent.status !== "ACTIVE") return { ok: false, reason: "AGENT_NOT_ACTIVE" };
-  if (!agent.toolAllowlist.includes(request.toolName)) return { ok: false, reason: "TOOL_NOT_ALLOWLISTED" };
+  // Allowlist phải chặn đúng THỨ ĐƯỢC THỰC THI, và thứ được thực thi là `action`
+  // (xem dispatchJobTool — nay chỉ định tuyến theo action, không còn theo toolName).
+  //
+  // Gate trước đây chỉ kiểm `toolName` nên là lỗ leo thang quyền: agent có allowlist
+  // ["get_project_tasks"] chỉ cần gửi toolName="get_project_tasks" kèm
+  // action="create_customer_profile" là qua cửa rồi GHI dữ liệu chưa hề được cấp.
+  //
+  // `toolName` nay chỉ là nhãn mô tả (vd "task-list"), KHÔNG quyết định hành vi và
+  // KHÔNG được dùng làm căn cứ phân quyền — giữ đúng một nguồn thẩm quyền duy nhất.
+  if (!agent.toolAllowlist.includes(request.action)) return { ok: false, reason: "TOOL_NOT_ALLOWLISTED" };
 
   if (agent.kind === "CHILD") {
     if (request.workspaceKind !== "PROJECT") return { ok: false, reason: "AGENT_KIND_SCOPE_MISMATCH" };

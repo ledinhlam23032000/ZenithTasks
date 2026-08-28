@@ -16,9 +16,19 @@ describe("AI agent runtime policy", () => {
     expect(evaluateAiAgentRequest(child, admin, childRequest)).toEqual({ ok: true, scope: "CHILD", projectId: "company-a" });
   });
 
-  it("requires ACTIVE status and an allowlisted tool", () => {
+  it("requires ACTIVE status and an allowlisted action", () => {
     expect(evaluateAiAgentRequest({ ...child, status: "DRAFT" }, memberA, childRequest)).toEqual({ ok: false, reason: "AGENT_NOT_ACTIVE" });
-    expect(evaluateAiAgentRequest(child, memberA, { ...childRequest, toolName: "get_payroll" })).toEqual({ ok: false, reason: "TOOL_NOT_ALLOWLISTED" });
+    // Thẩm quyền nằm ở `action` — đó mới là thứ dispatchJobTool thực thi.
+    expect(evaluateAiAgentRequest(child, memberA, { ...childRequest, action: "get_payroll" })).toEqual({ ok: false, reason: "TOOL_NOT_ALLOWLISTED" });
+  });
+
+  it("toolName KHÔNG cấp quyền: action ngoài allowlist vẫn bị chặn dù toolName hợp lệ", () => {
+    // Hồi quy cho lỗ leo thang quyền có thật: gate cũ chỉ kiểm `toolName`, nên gửi
+    // toolName allowlisted kèm action ghi dữ liệu là qua cửa. `toolName` nay chỉ là
+    // nhãn mô tả, không được dùng làm căn cứ phân quyền.
+    expect(
+      evaluateAiAgentRequest(child, memberA, { ...childRequest, toolName: "read_customers", action: "create_customer_profile" }),
+    ).toEqual({ ok: false, reason: "TOOL_NOT_ALLOWLISTED" });
   });
 
   it("requires membership and workspace.view capability for child access", () => {
