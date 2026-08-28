@@ -1,4 +1,4 @@
-export type AiJobStatus = "QUEUED" | "RUNNING" | "SUCCEEDED" | "FAILED" | "TIMED_OUT" | "CANCELLED";
+export type AiJobDataAccess = "METADATA_ONLY" | "SCOPED_PROJECT_DATA" | "APPROVED_RAW_TENANT_DATA";
 
 export type AiJobTarget =
   | { kind: "CHILD"; agentId: string; projectId: string }
@@ -7,11 +7,16 @@ export type AiJobTarget =
 export type AiJobEnvelope = {
   idempotencyKey: string;
   requestedByUserId: string;
-  source: { workspaceKind: "PROJECT" | "GLOBAL"; conversationId?: string; messageId?: string };
+  source:
+    | { workspaceKind: "PROJECT"; projectId: string; conversationId?: string; messageId?: string }
+    | { workspaceKind: "GLOBAL"; conversationId?: string; messageId?: string };
   target: AiJobTarget;
   toolName: string;
   action: string;
   arguments: Record<string, unknown>;
+  dataAccess: AiJobDataAccess;
+  requiresRuntimeReauthorization: boolean;
+  approvalId?: string;
   timeoutMs: number;
   maxAttempts: number;
 };
@@ -33,12 +38,22 @@ export function validateAiJobEnvelope(job: AiJobEnvelope): AiJobValidation {
   if (!job.toolName.trim() || !job.action.trim()) return { ok: false, reason: "TOOL_ACTION_REQUIRED" };
   if (!Number.isInteger(job.timeoutMs) || job.timeoutMs < AI_JOB_LIMITS.minTimeoutMs || job.timeoutMs > AI_JOB_LIMITS.maxTimeoutMs) return { ok: false, reason: "TIMEOUT_OUT_OF_BOUNDS" };
   if (!Number.isInteger(job.maxAttempts) || job.maxAttempts < AI_JOB_LIMITS.minAttempts || job.maxAttempts > AI_JOB_LIMITS.maxAttempts) return { ok: false, reason: "RETRY_OUT_OF_BOUNDS" };
-  if (job.source.workspaceKind === "PROJECT" && job.target.kind !== "CHILD") return { ok: false, reason: "PROJECT_SOURCE_REQUIRES_CHILD_TARGET" };
-  if (job.source.workspaceKind === "GLOBAL" && job.target.kind !== "GLOBAL") return { ok: false, reason: "GLOBAL_SOURCE_REQUIRES_GLOBAL_TARGET" };
+  if (!job.requiresRuntimeReauthorization) return { ok: false, reason: "RUNTIME_REAUTHORIZATION_REQUIRED" };
+  if (job.dataAccess === "APPROVED_RAW_TENANT_DATA" && !job.approvalId?.trim()) return { ok: false, reason: "RAW_DATA_APPROVAL_REQUIRED" };
+
+  if (job.source.workspaceKind === "PROJECT") {
+    if (!job.source.projectId.trim()) return { ok: false, reason: "PROJECT_SOURCE_SCOPE_REQUIRED" };
+    if (job.target.kind !== "CHILD") return { ok: false, reason: "PROJECT_SOURCE_REQUIRES_CHILD_TARGET" };
+    if (job.target.projectId !== job.source.projectId) return { ok: false, reason: "PROJECT_TARGET_MUST_MATCH_SOURCE" };
+  }
+
+  if (job.source.workspaceKind === "GLOBAL" && job.target.kind === "CHILD" && (!job.target.agentId.trim() || !job.target.projectId.trim())) return { ok: false, reason: "GLOBAL_CHILD_TARGET_SCOPE_REQUIRED" };
   if (job.target.kind === "CHILD" && (!job.target.agentId.trim() || !job.target.projectId.trim())) return { ok: false, reason: "CHILD_TARGET_SCOPE_REQUIRED" };
-  if (job.target.kind === "GLOBAL" && job.target.projectId !== null) return { ok: false, reason: "GLOBAL_TARGET_MUST_NOT_HAVE_PROJECT_ID" };
+  if (job.target.kind === "GLOBAL" && (!job.target.agentId.trim() || job.target.projectId !== null)) return { ok: false, reason: "GLOBAL_TARGET_MUST_BE_EXPLICIT_AGGREGATE" };
   return { ok: true };
 }
+
+export type AiJobStatus = "QUEUED" | "RUNNING" | "SUCCEEDED" | "FAILED" | "TIMED_OUT" | "CANCELLED";
 
 export function nextAiJobStatus(current: AiJobStatus, event: "START" | "SUCCEED" | "FAIL" | "TIMEOUT" | "CANCEL"): AiJobStatus {
   if (current === "QUEUED" && event === "START") return "RUNNING";

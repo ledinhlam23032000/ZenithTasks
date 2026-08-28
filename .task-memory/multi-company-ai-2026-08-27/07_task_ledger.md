@@ -24,13 +24,13 @@
 | MC-07 | Project-local AI tools và business adapter | MC-04, MC-05, MC-09 | PARTIAL | PR #64, commit `2456982`; `checks/mc07-ai-read-full-summary.txt` | Mới có 3 read tools; chưa có mutation/approval adapter đầy đủ | Sau DB evidence, thiết kế mutation contract |
 | MC-09 | AI con registry/lifecycle/control UI | MC-02, MC-03 | PARTIAL | PR #60, commit `8d1bcdc`; schema/UI tests; QA verifier | Additive hierarchy migration verified only on independent QA; clinic migration/health/heartbeat not proven | MC-11 after runtime scope evidence |
 | MC-10 | AI runtime scope, agentId, allowlist, dispatcher gate và Global observability | MC-05, MC-09 | PARTIAL | PR #62/#63; PR #87 Global AI observability; QA verifier/auth walkthrough; `checks/mc13-1-credential-wave-20260828.md` | Route scope and read-only dashboard proven; heartbeat is currently missing in fixture, usage model, dispatcher child/global E2E and message/job orchestration remain | MC-11 |
-| MC-11 | AI Tổng control plane, bounded aggregate, child health/audit/usage | MC-10, MC-12 | PARTIAL | PR #87 read-only dashboard; CI xanh; QA source build | Health/status/audit summary UI exists; explicit target message/job, timeout, retry, idempotency, usage persistence and child control remain | Mở MC-11.1 contract tests |
+| MC-11 | AI Tổng control plane, bounded aggregate, child health/audit/usage | MC-10, MC-12 | PARTIAL | PR #87 read-only dashboard; corrective contract + persistence code in `checks/mc11-contract-persistence-wave-20260828.md` | Contract/persistent enqueue foundation is code-level only; no QA migration, dispatcher/worker, runtime reauthorization E2E, usage/heartbeat or child control proof | Run full gates, review/apply additive migration only on isolated QA, then separately implement dispatcher reauthorization |
 | MC-12 | DB-backed synthetic QA multi-company fixture + authenticated walkthrough | MC-03..MC-10 | DONE | PR #61/#65; QA `mc13-1-stable-credential-seed.json`; `mc13-1-stable-credential-verifier.json`; `mc13-1-auth-stable-usernames-final.json` | QA-only seed/verifier/GET-export evidence complete; production/clinic remains separate | Duy trì QA fixture và không dùng secret trong repo |
 | MC-13 | Export/list/detail/foreign URL/revoked membership isolation proof | MC-12 | PARTIAL | PR #78 export routes; PR #86 QA client harness; `checks/mc13-1-credential-wave-20260828.md`; QA `mc13-1-auth-stable-usernames-final.json` | Foreign/revoked/DRAFT/ARCHIVED/capability route and customer/task export isolation proven on QA; authenticated DRAFT/ARCHIVED write-denial remains blocked by browser connector, direct synthetic POST inconclusive | Reconnect browser and submit QA-only harness; do not weaken guard |
-| MC-14 | Additive Prisma migration, backup/rollback drill | MC-09, MC-12, owner approval | NOT_STARTED | Chưa tạo migration | Không chạy clinic DB; cần backup/rollback evidence | Sau schema acceptance |
+| MC-14 | Additive Prisma migration, backup/rollback drill | MC-09, MC-12, owner approval | PARTIAL | Additive draft `web/prisma/migrations/20260828130000_ai_job_contract/migration.sql`; no QA apply yet | Migration draft exists, but no isolated QA apply, backup, rollback drill or owner approval; clinic remains untouched | Review SQL and run only guarded QA migration after CI/backup gate |
 | MC-15 | Payroll payout/accounting local và money safety gates | MC-03, MC-12, owner approval | NOT_STARTED | Chưa có settlement local | Cần owner approval, reconciliation, idempotency, no real payment | Sau isolation |
 | MC-16 | Clinic deploy, Windows updater, health check, final acceptance | MC-12..MC-15, owner approval | BLOCKED | Chưa được phép deploy | Thiếu backup, migration, authenticated walkthrough và owner sign-off | Chỉ mở khi toàn bộ R3 gate pass |
-| MEM-01 | Cập nhật checkpoint/state/changelog sau mỗi wave | Mọi task | NEXT | `02_state.md`, `06_changelog.md`, file này | Không được bỏ qua khi chuyển phase | Commit checkpoint sau PR #87 và QA role-username evidence |
+| MEM-01 | Cập nhật checkpoint/state/changelog sau mỗi wave | Mọi task | NEXT | `02_state.md`, `06_changelog.md`, file này, `checks/mc11-contract-persistence-wave-20260828.md` | Không được bỏ qua khi chuyển phase | Commit corrective wave only after diff/gates; preserve untracked historical artifacts |
 
 ## Checkpoint protocol
 
@@ -42,12 +42,12 @@ Sau mỗi wave, ghi lại commit/PR, test result, runtime result và blocker. N�
 
 | Mục | Giá trị |
 |---|---|
-| HEAD trước ledger branch | `54e24f2` — PR #87 đã merge; checkpoint branch đang ghi state |
-| Branch hiện tại | `master` (sandbox); QA runtime worktree riêng trên Windows |
-| Full quality status gần nhất | PR #85/#86/#87 CI push/pull_request pass; TSC, Vitest 90 files/447 tests, QA Docker production build pass; node --check và git diff --check pass |
-| DB runtime status | QA độc lập seed/verifier/auth GET-export pass với role usernames; client write-denial page đã build nhưng browser submit còn blocked; không có clinic DB access |
+| HEAD trước ledger branch | `3879e11` — PR #89 preliminary job contract; corrective/persistence wave đang uncommitted trên dedicated branch |
+| Branch hiện tại | `agent/mc-11-2-persistent-ai-job-20260828`; QA runtime worktree riêng trên Windows |
+| Full quality status gần nhất | Corrective wave: Prisma validate/generate PASS, TSC PASS, focused Vitest 1 file/6 tests PASS; full Vitest/Next build/CI chưa chạy cho wave này |
+| DB runtime status | QA độc lập seed/verifier/auth GET-export pass với role usernames; client write-denial page đã build nhưng browser submit còn blocked; ZAiJob migration chưa apply QA; không có clinic DB access |
 | Production/clinic status | Chưa migration, chưa deploy, chưa chạm clinic DB |
-| Immediate next action | Reconnect browser để submit QA-only DRAFT/ARCHIVED forms; song song chuẩn bị MC-11.1 explicit message/job contract nhưng không đánh dấu MC-13 DONE khi thiếu write evidence |
+| Immediate next action | Chạy full gates và review migration; sau đó mới guarded QA apply nếu đủ safety gate. Reconnect browser để submit QA-only DRAFT/ARCHIVED forms; không đánh dấu MC-13 DONE khi thiếu write evidence |
 
 ## Latest audit checkpoint — 2026-08-27 16:50 GMT+7
 

@@ -179,6 +179,21 @@ enum ZAiAgentStatus {
   ARCHIVED
 }
 
+enum ZAiJobStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  TIMED_OUT
+  CANCELLED
+}
+
+enum ZAiJobDataAccess {
+  METADATA_ONLY
+  SCOPED_PROJECT_DATA
+  APPROVED_RAW_TENANT_DATA
+}
+
 enum PaymentRequestType {
   EXPENSE
   SALARY
@@ -305,6 +320,7 @@ model User {
   assistantFeedback             AssistantFeedback[]
   assistantFiles                AssistantFile[]
   aiAgentsCreated               ZAiAgent[]                 @relation("AiAgentCreator")
+  aiJobsRequested               ZAiJob[]                   @relation("AiJobRequester")
   collaboratorProfile           Collaborator?
   collaboratorDocumentsUploaded CollaboratorDocument[]     @relation("CollaboratorDocumentUploadedBy")
   collaboratorPayoutRecordsPaid CollaboratorPayoutRecord[] @relation("CollaboratorPayoutRecordPaidBy")
@@ -1480,6 +1496,7 @@ model ZProject {
   updatedAt           DateTime               @updatedAt
     members             ZProjectMember[]
   aiAgents            ZAiAgent[]
+  aiJobs              ZAiJob[]
   units                ZOrganizationUnit[]
   positions           ZProjectPosition[]
   mechanisms          ZMechanismDefinition[]
@@ -1495,6 +1512,42 @@ model ZProject {
   configVersions      ZWorkspaceConfigVersion[]
   configProposals     ZWorkspaceConfigProposal[]
 
+  @@index([status, createdAt])
+}
+
+model ZAiJob {
+  id                  String                 @id @default(cuid())
+  idempotencyKey      String                 @unique
+  requestedById       String
+  sourceWorkspaceKind AssistantWorkspaceKind
+  sourceProjectId     String?
+  conversationId      String?
+  messageId           String?
+  targetAgentId       String
+  targetProjectId     String?
+  toolName            String
+  action              String
+  arguments           Json
+  dataAccess          ZAiJobDataAccess
+  requiresRuntimeReauthorization Boolean     @default(true)
+  approvalId          String?
+  resultMeta          Json?
+  failureMeta         Json?
+  status              ZAiJobStatus           @default(QUEUED)
+  attempt             Int                    @default(0)
+  maxAttempts         Int
+  timeoutMs           Int
+  startedAt           DateTime?
+  finishedAt          DateTime?
+  lastError           String?
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
+  requestedBy         User                   @relation("AiJobRequester", fields: [requestedById], references: [id], onDelete: Restrict)
+  targetAgent         ZAiAgent               @relation(fields: [targetAgentId], references: [id], onDelete: Restrict)
+  targetProject       ZProject?              @relation(fields: [targetProjectId], references: [id], onDelete: Restrict)
+
+  @@index([targetAgentId, status, createdAt])
+  @@index([targetProjectId, status, createdAt])
   @@index([status, createdAt])
 }
 
@@ -1517,6 +1570,7 @@ model ZAiAgent {
   updatedAt       DateTime       @updatedAt
   conversations   AssistantConversation[]
   approvals       AssistantApproval[]
+  aiJobs           ZAiJob[]
 
   @@index([projectId, kind, status])
   @@index([status, lastHeartbeatAt])
