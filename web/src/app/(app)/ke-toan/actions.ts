@@ -23,6 +23,10 @@ import { paymentRequestNo } from "@/lib/payment-request";
 export type AccState = { ok?: boolean; error?: string };
 
 const MONTH_RE = /^\d{4}-\d{2}$/;
+
+// Ném từ trong $transaction khi phát hiện kỳ lương đã được gắn phiếu chi bởi một
+// thao tác song song, để rollback cả phiếu chi vừa tạo thay vì để lại bản mồ côi.
+class AlreadyPaid extends Error {}
 const METHODS = ["CASH", "CARD", "TRANSFER", "EWALLET"];
 
 function monthDate(month: string): Date {
@@ -72,6 +76,7 @@ export async function payStaffSalary(_prev: AccState, formData: FormData): Promi
   const when = payDate(formData.get("occurredAt"), month);
   const method = payMethod(formData.get("method"));
 
+  try {
   await prisma.$transaction(async (tx) => {
     const request = await tx.paymentRequest.create({
       data: {
@@ -103,28 +108,45 @@ export async function payStaffSalary(_prev: AccState, formData: FormData): Promi
         paymentRequestId: request.id,
       },
     });
-    await tx.payrollEntry.upsert({
-      where: { userId_month: { userId, month } },
-      create: {
-        userId,
-        month,
-        commission: 0,
-        commissionOverride: row.commissionOverride || null,
-        bonus: row.bonus,
-        adjustment: row.adjustment,
-        paidAmount: row.total,
-        paidAt: new Date(),
-        cashTxId: cashTx.id,
-        paymentRequestId: request.id,
-      },
-      update: { paidAmount: row.total, paidAt: new Date(), cashTxId: cashTx.id, paymentRequestId: request.id },
-    });
+    // Guard `row.cashTxId` ở trên đọc NGOÀI transaction. Nếu chỉ upsert-ghi-đè thì
+    // hai lần bấm đồng thời đều thấy chưa chi, cùng tạo phiếu chi, và bản upsert sau
+    // ghi đè cashTxId — để lại một phiếu chi MỒ CÔI trong sổ quỹ mà `undoStaffSalary`
+    // (tìm theo cashTxId đang gắn) không gỡ được. Vì vậy phải gắn CÓ ĐIỀU KIỆN.
+    const existing = await tx.payrollEntry.findUnique({ where: { userId_month: { userId, month } }, select: { id: true, cashTxId: true } });
+    if (existing?.cashTxId) throw new AlreadyPaid();
+    if (existing) {
+      const applied = await tx.payrollEntry.updateMany({
+        where: { userId, month, cashTxId: null },
+        data: { paidAmount: row.total, paidAt: new Date(), cashTxId: cashTx.id, paymentRequestId: request.id },
+      });
+      if (applied.count !== 1) throw new AlreadyPaid();
+    } else {
+      // Không có dòng lương: tạo mới. Unique [userId, month] chặn hai lần tạo song song.
+      await tx.payrollEntry.create({
+        data: {
+          userId,
+          month,
+          commission: 0,
+          commissionOverride: row.commissionOverride || null,
+          bonus: row.bonus,
+          adjustment: row.adjustment,
+          paidAmount: row.total,
+          paidAt: new Date(),
+          cashTxId: cashTx.id,
+          paymentRequestId: request.id,
+        },
+      });
+    }
     await auditRequired(tx, user.id, "PAY_SALARY", {
       entity: "PayrollEntry",
       entityId: userId,
       meta: { month, amount: row.total, name: row.name },
     });
   });
+  } catch (err) {
+    if (err instanceof AlreadyPaid) return { error: `Đã ghi sổ chi lương cho ${row.name} rồi (thao tác song song).` };
+    throw err;
+  }
   return { ok: true };
 }
 
