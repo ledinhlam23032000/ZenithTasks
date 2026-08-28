@@ -91,6 +91,41 @@ export async function dispatchJobTool(
     return { customers, total: customers.length };
   }
 
+  if (action === "create_customer_profile") {
+    if (!targetProjectId) throw new Error("TARGET_PROJECT_REQUIRED");
+    const { CreateCustomerProfileSchema } = await import("./v2-ai-tool-schemas");
+    const parsed = CreateCustomerProfileSchema.parse(args);
+    const created = await prisma.zWorkspaceCustomer.create({
+      data: {
+        projectId: targetProjectId,
+        createdById: actor.id,
+        code: `CUST-${Date.now()}`,
+        fullName: parsed.fullName,
+        phoneLast4: parsed.phoneLast4,
+        source: parsed.source,
+        active: true,
+      },
+    });
+    return { createdCustomer: created };
+  }
+
+  if (action === "generate_commission_draft") {
+    if (!targetProjectId) throw new Error("TARGET_PROJECT_REQUIRED");
+    const { GenerateCommissionDraftSchema } = await import("./v2-ai-tool-schemas");
+    const parsed = GenerateCommissionDraftSchema.parse(args);
+    const commissionValue = parsed.amount * (parsed.rate / 100);
+    return {
+      draftCommission: {
+        salesCode: parsed.salesCode,
+        amount: parsed.amount,
+        rate: parsed.rate,
+        commissionValue,
+        note: parsed.note,
+        status: "DRAFT",
+      },
+    };
+  }
+
   throw new Error(`UNSUPPORTED_JOB_TOOL_ACTION: Tool [${toolName}] Action [${action}] không tồn tại trong registry. Từ chối thực thi.`);
 }
 

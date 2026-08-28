@@ -82,6 +82,30 @@ export async function createV2ProjectAction(_prev: ProjectActionState, formData:
       },
     });
 
+    // 3D: Lego Module Scaffolding - Khởi tạo Seed Data theo Template Industry
+    const defaultRoles = projectType === "INTERNAL_CLINIC" 
+      ? ["Doctor", "Nurse", "Receptionist", "Clinic Manager"]
+      : projectType === "DISTRIBUTION"
+      ? ["Sales Representative", "Warehouse Manager", "Delivery Driver", "Accountant"]
+      : projectType === "SERVICE"
+      ? ["Service Agent", "Technician", "Customer Support", "Manager"]
+      : ["Manager", "Staff"];
+    
+    // Tạo cấu hình Roles mặc định vào ZWorkspaceConfigVersion
+    await tx.zWorkspaceConfigVersion.create({
+      data: {
+        projectId: created.id,
+        kind: "ROLES",
+        version: 1,
+        status: "ACTIVE",
+        config: { roles: defaultRoles },
+        effectiveFrom: new Date(),
+        createdById: user.id,
+        approvedById: user.id,
+        note: `Cấu hình roles mặc định cho mô hình ${projectType}`,
+      },
+    });
+
     // Tự động khởi tạo AI Con (Child AI Agent) nội bộ nếu có tên AI
     if (aiName) {
       const aiCode = `AI-${code}`;
@@ -151,7 +175,7 @@ export async function setV2ProjectStatusAction(_prev: ProjectActionState, formDa
     if (memberCount === 0) return { error: "Không thể kích hoạt Dự án chưa có thành viên active." };
   }
   await prisma.$transaction(async (tx) => {
-    await tx.zProject.update({ where: { id: project.id }, data: { status: targetStatus as any } });
+    await tx.zProject.update({ where: { id: project.id }, data: { status: targetStatus } });
     await tx.auditLog.create({ data: { actorId: user.id, action: targetStatus === "ARCHIVED" ? "V2_PROJECT_ARCHIVED" : "V2_PROJECT_ACTIVATED", entity: "ZProject", entityId: project.id, meta: { projectId: project.id, from: project.status, to: targetStatus, reason: readText(formData, "reason", 500) || null } } });
   });
   revalidatePath("/du-an");

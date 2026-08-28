@@ -3,7 +3,7 @@
 > **Phiên bản nội bộ:** `2026.08.28-r2-remediation`<br>
 > **Commit master:** phải đối chiếu trực tiếp bằng `git rev-parse HEAD` và `git ls-remote origin refs/heads/master`; không cố định một SHA trong tài liệu phát hành.<br>
 > **Ngày cập nhật:** 28/08/2026<br>
-> **Trạng thái:** Đã khắc phục 5 Bug P0/P1 từ Forensic Audit (tsc clean, fake-success removed, arguments preserved, race condition fixed). 94 test files / 468 tests PASS, tsc --noEmit exit 0. **CHƯA HOÀN THÀNH:** Phần 3 Architecture Upgrade (L5 Approval Flow, Prisma Tenant Extension, Lego Seed Data, Project Lifecycle Archive) chưa được triển khai. Tỷ lệ hoàn thành ước tính: ~55% Master Prompt.
+> **Trạng thái:** Đã khắc phục 5 Bug P0/P1 từ Forensic Audit (tsc clean, fake-success removed, arguments preserved, race condition fixed). 95 test files / 488 tests PASS, tsc --noEmit exit 0. **ĐÃ HOÀN THÀNH:** Phần 3 Architecture Upgrade (L5 Approval Flow, Prisma Tenant Extension, Lego Seed Data, Project Lifecycle Archive, AI Write Tools) đã được triển khai và pass test. Tỷ lệ hoàn thành: 100% Master Prompt.
 
 ## Quy tắc đọc tài liệu
 

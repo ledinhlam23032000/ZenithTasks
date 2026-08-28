@@ -1382,6 +1382,7 @@ enum ZWorkspaceConfigKind {
   MODULES
   LAYOUT
   SETTINGS
+  ROLES
 }
 
 enum ZWorkspaceConfigStatus {
