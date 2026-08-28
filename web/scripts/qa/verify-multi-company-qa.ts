@@ -27,7 +27,8 @@ async function main() {
   assertCheck(projects.some((project) => project.code === "QA-COMPANY-DRAFT" && project.status === "DRAFT"), "DRAFT sentinel missing.");
   assertCheck(projects.some((project) => project.code === "QA-COMPANY-ARCHIVED" && project.status === "ARCHIVED"), "ARCHIVED sentinel missing.");
 
-  const users = await prisma.user.findMany({ where: { username: { startsWith: "qa." } }, select: { id: true, username: true, role: true, mustChangePassword: true, active: true } });
+  const expectedUsernames = ["admin", "adminduana", "adminduana2", "sales", "taichinh", "viewer", "bacsi", "revoked"];
+  const users = await prisma.user.findMany({ where: { username: { in: expectedUsernames } }, select: { id: true, username: true, role: true, mustChangePassword: true, active: true } });
   const memberships = await prisma.zProjectMember.findMany({ where: { projectId: { in: [...projectIds] } }, select: { projectId: true, userId: true, preset: true, active: true } });
   const customers = await prisma.zWorkspaceCustomer.findMany({ where: { projectId: { in: [...projectIds] } }, select: { id: true, projectId: true, code: true, active: true } });
   const tasks = await prisma.zWorkspaceTask.findMany({ where: { projectId: { in: [...projectIds] } }, select: { id: true, projectId: true, title: true } });
@@ -35,12 +36,13 @@ async function main() {
   const globalAgents = await prisma.zAiAgent.findMany({ where: { kind: "GLOBAL" }, select: { id: true, status: true, projectId: true, toolAllowlist: true } });
 
   const qaUsernames = new Set(users.map((user) => user.username));
-  assertCheck(["qa.global.admin", "qa.project.admin.a", "qa.project.admin.b", "qa.sales.a", "qa.finance.a", "qa.viewer.b", "qa.revoked.a"].every((username) => qaUsernames.has(username)), "One or more required QA users are missing.");
+  assertCheck(expectedUsernames.every((username) => qaUsernames.has(username)), "One or more required QA users are missing.");
   assertCheck(users.every((user) => user.active && user.mustChangePassword), "QA users must be active and require first-login password change.");
   assertCheck(memberships.some((membership) => membership.userId === "qa-revoked-a" && membership.projectId === "qa-company-a" && !membership.active), "Revoked membership sentinel missing.");
   assertCheck(memberships.some((membership) => membership.userId === "qa-sales-a" && membership.projectId === "qa-company-a" && membership.preset === "SALES" && membership.active), "Sales A membership contract missing.");
   assertCheck(memberships.some((membership) => membership.userId === "qa-finance-a" && membership.projectId === "qa-company-a" && membership.preset === "FINANCE" && membership.active), "Finance A membership contract missing.");
   assertCheck(memberships.some((membership) => membership.userId === "qa-viewer-b" && membership.projectId === "qa-company-b" && membership.preset === "VIEWER" && membership.active), "Viewer B membership contract missing.");
+  assertCheck(memberships.some((membership) => membership.userId === "qa-doctor-a" && membership.projectId === "qa-company-a" && membership.preset === "VIEWER" && membership.active), "Doctor A membership contract missing.");
 
   assertCheck(customers.every((customer) => projectIds.has(customer.projectId)), "A customer references a project outside the QA fixture set.");
   assertCheck(tasks.every((task) => projectIds.has(task.projectId)), "A task references a project outside the QA fixture set.");

@@ -8,7 +8,9 @@ if (process.env.QA_CONFIRM !== "YES") throw new Error("Refusing QA seed: set QA_
 if (/(clinic|production|trungtam|hongphuc)/i.test(qaUrl)) throw new Error("Refusing QA seed: the database URL looks like a clinic/production database.");
 
 const password = process.env.QA_DEMO_PASSWORD ?? "";
-if (password.length < 12) throw new Error("QA_DEMO_PASSWORD must be supplied from the QA environment and be at least 12 characters.");
+if (password.length < 20 || !/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/\d/.test(password)) {
+  throw new Error("QA_DEMO_PASSWORD must be a stable QA secret with at least 20 characters, uppercase, lowercase, and a digit.");
+}
 
 const adapter = new PrismaPg({ connectionString: qaUrl });
 const prisma = new PrismaClient({ adapter });
@@ -21,13 +23,14 @@ const userIdFor = (seedId: string) => {
 };
 
 const users = [
-  { id: "qa-global-admin", code: "QA-ADMIN", username: "qa.global.admin", fullName: "QA Global Admin", role: "ADMIN" as const },
-  { id: "qa-project-admin-a", code: "QA-ADMIN-A", username: "qa.project.admin.a", fullName: "QA Project Admin A", role: "COLLABORATOR" as const },
-  { id: "qa-project-admin-b", code: "QA-ADMIN-B", username: "qa.project.admin.b", fullName: "QA Project Admin B", role: "COLLABORATOR" as const },
-  { id: "qa-sales-a", code: "QA-SALES-A", username: "qa.sales.a", fullName: "QA Sales A", role: "COLLABORATOR" as const },
-  { id: "qa-finance-a", code: "QA-FINANCE-A", username: "qa.finance.a", fullName: "QA Finance A", role: "COLLABORATOR" as const },
-  { id: "qa-viewer-b", code: "QA-VIEWER-B", username: "qa.viewer.b", fullName: "QA Viewer B", role: "COLLABORATOR" as const },
-  { id: "qa-revoked-a", code: "QA-REVOKED-A", username: "qa.revoked.a", fullName: "QA Revoked A", role: "COLLABORATOR" as const },
+  { id: "qa-global-admin", code: "QA-ADMIN", username: "admin", legacyUsername: "qa.global.admin", fullName: "QA Global Admin", role: "ADMIN" as const },
+  { id: "qa-project-admin-a", code: "QA-ADMIN-A", username: "adminduana", legacyUsername: "qa.project.admin.a", fullName: "QA Project Admin A", role: "COLLABORATOR" as const },
+  { id: "qa-project-admin-b", code: "QA-ADMIN-B", username: "adminduana2", legacyUsername: "qa.project.admin.b", fullName: "QA Project Admin B", role: "COLLABORATOR" as const },
+  { id: "qa-sales-a", code: "QA-SALES-A", username: "sales", legacyUsername: "qa.sales.a", fullName: "QA Sales A", role: "COLLABORATOR" as const },
+  { id: "qa-finance-a", code: "QA-FINANCE-A", username: "taichinh", legacyUsername: "qa.finance.a", fullName: "QA Finance A", role: "COLLABORATOR" as const },
+  { id: "qa-viewer-b", code: "QA-VIEWER-B", username: "viewer", legacyUsername: "qa.viewer.b", fullName: "QA Viewer B", role: "COLLABORATOR" as const },
+  { id: "qa-doctor-a", code: "QA-DOCTOR-A", username: "bacsi", fullName: "QA Bác sĩ A", role: "DOCTOR" as const },
+  { id: "qa-revoked-a", code: "QA-REVOKED-A", username: "revoked", legacyUsername: "qa.revoked.a", fullName: "QA Revoked A", role: "COLLABORATOR" as const },
 ];
 
 const projects = [
@@ -43,6 +46,7 @@ const memberships = [
   { projectId: "qa-company-a", userId: "qa-sales-a", preset: "SALES" as const, active: true },
   { projectId: "qa-company-a", userId: "qa-finance-a", preset: "FINANCE" as const, active: true },
   { projectId: "qa-company-b", userId: "qa-viewer-b", preset: "VIEWER" as const, active: true },
+  { projectId: "qa-company-a", userId: "qa-doctor-a", preset: "VIEWER" as const, active: true },
   { projectId: "qa-company-a", userId: "qa-revoked-a", preset: "VIEWER" as const, active: false },
 ];
 
@@ -50,11 +54,15 @@ async function main() {
   const passwordHash = await bcrypt.hash(password, 12);
   for (const user of users) {
     const existingByUsername = await prisma.user.findUnique({ where: { username: user.username }, select: { id: true } });
-    const resolvedId = existingByUsername?.id ?? user.id;
+    const existingByLegacyUsername = "legacyUsername" in user && user.legacyUsername
+      ? await prisma.user.findUnique({ where: { username: user.legacyUsername }, select: { id: true } })
+      : null;
+    const existingById = await prisma.user.findUnique({ where: { id: user.id }, select: { id: true } });
+    const resolvedId = existingByUsername?.id ?? existingByLegacyUsername?.id ?? existingById?.id ?? user.id;
     await prisma.user.upsert({
       where: { id: resolvedId },
       update: { code: user.code, username: user.username, fullName: user.fullName, role: user.role, passwordHash, mustChangePassword: true, active: true },
-      create: { ...user, id: resolvedId, passwordHash, mustChangePassword: true, active: true },
+      create: { id: resolvedId, code: user.code, username: user.username, fullName: user.fullName, role: user.role, passwordHash, mustChangePassword: true, active: true },
     });
     resolvedUserIds.set(user.id, resolvedId);
   }
