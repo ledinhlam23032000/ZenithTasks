@@ -23,3 +23,10 @@ checks/release-verification-*.txt
 Thumbs.db
 .vscode/
 .idea/
+
+# Git worktree / checkout phụ nằm bên trong repo chính — đây là repo Git RIÊNG
+# (có .git của chính nó), tuyệt đối không được `git add` thành gitlink của repo
+# này (không có .gitmodules → ai clone sẽ nhận thư mục rỗng). Nếu cần track,
+# phải làm submodule thật có chủ đích, không phải add nhầm.
+worktrees/
+_qa-latest-candidate/

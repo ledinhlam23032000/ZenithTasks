@@ -22,8 +22,7 @@
     "rotate:phone": "tsx prisma/rotate-phone-key.ts",
     "backup": "node scripts/backup.mjs",
     "test": "vitest run",
-    "test:integration": "vitest run --config vitest.integration.config.ts",
-    "test:integration:qa": "cross-env QA_CONFIRM=YES QA_DATABASE_URL=postgresql://zenithqa:ZenithQA_Db_2026_Only@localhost:25432/zenith_qa?schema=test vitest run --config vitest.integration.config.ts"
+    "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "7.9.1",
