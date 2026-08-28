@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ArrowLeft, ChevronRight, FolderKanban, Search, ShieldCheck } from "lucide-react";
-import { requireUser } from "@/lib/auth";
+import { requireCap } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { V2CreateProjectWizard } from "@/components/v2-create-project-wizard";
 import { V2ProjectLifecycleForm } from "@/components/v2-project-lifecycle-form";
@@ -12,7 +12,11 @@ export const dynamic = "force-dynamic";
 const PAGE_SIZE = GLOBAL_PROJECT_PAGE_SIZE;
 
 export default async function ProjectsPage({ searchParams }: { searchParams: Promise<{ cursor?: string; q?: string }> }) {
-  const user = await requireUser(["ADMIN", "MANAGER"]);
+  // Quy ước BAN-GIAO mục 6: TRANG chốt bằng requireCap("mod:<key>"), không dùng
+  // requireUser([roles]). `du-an` là module có trong permissions.ts nên admin cấp/thu
+  // hồi được cho từng người qua UI Phân quyền — nếu chỉ kiểm role thì việc thu hồi
+  // chỉ ẩn menu, gõ thẳng URL vẫn vào được.
+  const user = await requireCap("mod:du-an");
   if (process.env.ENABLE_ZENITH_V2 !== "true") return <div className="space-y-4"><header className="rounded-2xl border border-slate-200 bg-white p-6"><p className="text-sm font-medium text-brand-600">Nền tảng vận hành</p><h1 className="mt-1 text-2xl font-bold text-slate-900">Dự án</h1><p className="mt-2 text-sm leading-6 text-slate-500">Lớp đa Dự án đang khóa để bảo toàn hệ thống clinic hiện tại. Bật <code>ENABLE_ZENITH_V2=true</code> trong môi trường test để mở.</p></header><div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-800">Chưa truy vấn bảng V2 khi feature flag tắt.</div></div>;
 
   const query = await searchParams;
