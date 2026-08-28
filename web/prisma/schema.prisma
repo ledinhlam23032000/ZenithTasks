@@ -867,6 +867,13 @@ model AuditLog {
   at       DateTime @default(now())
 
   @@index([at])
+  // Bảng append-only (trigger AuditLog_append_only chặn UPDATE/DELETE) nên chỉ lớn
+  // dần, không bao giờ co lại. Các trang Nhật ký / Hệ thống / AI Tổng / chi tiết
+  // khách V2 và route export đều lọc theo entity/entityId/action/actorId — không có
+  // index thì Postgres quét ngược theo `at` cho tới khi gom đủ, càng ngày càng chậm.
+  @@index([entity, entityId, at])
+  @@index([action, at])
+  @@index([actorId, at])
 }
 
 model RateLimitBucket {
@@ -1520,7 +1527,10 @@ model ZProject {
 
 model ZAiJob {
   id                  String                 @id @default(cuid())
-  idempotencyKey      String                 @unique
+  // Scope theo người yêu cầu, KHÔNG unique toàn cục: key do client gửi lên với
+  // pattern lỏng, nên unique toàn cục cho phép tenant này chiếm chỗ key của tenant
+  // kia (job hợp lệ bị từ chối) và suy ra key nào đã tồn tại trong hệ thống.
+  idempotencyKey      String
   requestedById       String
   sourceWorkspaceKind AssistantWorkspaceKind
   sourceProjectId     String?
@@ -1549,6 +1559,7 @@ model ZAiJob {
   targetAgent         ZAiAgent               @relation(fields: [targetAgentId], references: [id], onDelete: Restrict)
   targetProject       ZProject?              @relation(fields: [targetProjectId], references: [id], onDelete: Restrict)
 
+  @@unique([requestedById, idempotencyKey])
   @@index([targetAgentId, status, createdAt])
   @@index([targetProjectId, status, createdAt])
   @@index([status, createdAt])
@@ -1556,7 +1567,13 @@ model ZAiJob {
 
 model ZAiAgent {
   id              String         @id @default(cuid())
-  code            String         @unique
+  // Agent CHILD thuộc phạm vi từng project (CHECK ZAiAgent_scope_check buộc CHILD
+  // phải có projectId), nên code unique TOÀN CỤC là sai phạm vi: công ty B không đặt
+  // được code mà công ty A đã dùng, và thông báo lỗi để lộ agent của tenant kia có
+  // tồn tại hay không. Unique theo [projectId, code]; riêng agent GLOBAL (projectId
+  // NULL — Postgres coi các NULL là khác nhau) được chặn trùng bằng partial unique
+  // index khai trong migration, vì Prisma schema không diễn đạt được partial index.
+  code            String
   name            String
   kind            ZAiAgentKind
   status          ZAiAgentStatus @default(DRAFT)
@@ -1575,6 +1592,7 @@ model ZAiAgent {
   approvals       AssistantApproval[]
   aiJobs           ZAiJob[]
 
+  @@unique([projectId, code])
   @@index([projectId, kind, status])
   @@index([status, lastHeartbeatAt])
 }

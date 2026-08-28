@@ -32,8 +32,10 @@ export async function createProjectAiAgentAction(_prev: AiAgentActionState, form
   if (name.length < 2) return { error: "Tên AI cần ít nhất 2 ký tự." };
   if (!systemPrompt) return { error: "System prompt cần ít nhất 20 ký tự và phải mô tả phạm vi của AI con." };
   if (project.status === "ARCHIVED") return { error: "Company đã lưu trữ, không thể tạo AI con mới." };
-  const existing = await prisma.zAiAgent.findUnique({ where: { code }, select: { id: true } });
-  if (existing) return { error: "Mã AI đã tồn tại trong hệ thống." };
+  // Chỉ tra trong PHẠM VI company này. Tra toàn cục sẽ để lộ agent của tenant khác
+  // có tồn tại hay không, và chặn oan company này dùng một mã đã bị company kia lấy.
+  const existing = await prisma.zAiAgent.findFirst({ where: { code, projectId: project.id }, select: { id: true } });
+  if (existing) return { error: "Mã AI đã tồn tại trong company này." };
   const created = await prisma.$transaction(async (tx) => {
     const agent = await tx.zAiAgent.create({ data: { code, name, kind: "CHILD", status: "DRAFT", projectId: project.id, createdById: user.id, systemPrompt, model, toolAllowlist: ["get_project_overview", "get_project_customers", "get_project_tasks"], config: { scope: "PROJECT", projectId: project.id, defaultTools: ["get_project_overview", "get_project_customers", "get_project_tasks"] } } });
     await tx.auditLog.create({ data: { actorId: user.id, action: "V2_CHILD_AI_CREATED", entity: "ZAiAgent", entityId: agent.id, meta: { projectId: project.id, agentId: agent.id, kind: "CHILD", status: "DRAFT", code } } });
@@ -87,7 +89,9 @@ export async function createGlobalAiAgentAction(_prev: AiAgentActionState, formD
   if (!code) return { error: "Mã AI Tổng cần 3–36 ký tự chữ, số, gạch ngang hoặc gạch dưới." };
   if (name.length < 2) return { error: "Tên AI Tổng cần ít nhất 2 ký tự." };
   if (!systemPrompt) return { error: "System prompt cần ít nhất 20 ký tự và phải mô tả rõ quyền aggregate của AI Tổng." };
-  const existing = await prisma.zAiAgent.findUnique({ where: { code }, select: { id: true } });
+  // AI Tổng nằm ngoài mọi company (projectId NULL) nên phạm vi đúng của nó CHÍNH LÀ
+  // toàn cục — nhưng chỉ so với các agent GLOBAL khác, không so với agent của company.
+  const existing = await prisma.zAiAgent.findFirst({ where: { code, projectId: null }, select: { id: true } });
   if (existing) return { error: "Mã AI Tổng đã tồn tại trong hệ thống." };
   const created = await prisma.$transaction(async (tx) => {
     const agent = await tx.zAiAgent.create({ data: { code, name, kind: "GLOBAL", status: "DRAFT", createdById: user.id, systemPrompt, model, toolAllowlist: ["get_workspace_overview"], config: { scope: "GLOBAL", requiresExplicitProjectTarget: true, canControlChildAgents: true } } });

@@ -90,9 +90,11 @@ export async function enqueueAiJobAction(_prev: AiJobActionState, formData: Form
   const valid = validateAiJobEnvelope(envelope);
   if (!valid.ok) return { error: valid.reason };
 
-  const existing = await prisma.zAiJob.findUnique({ where: { idempotencyKey }, select: { id: true, requestedById: true, targetAgentId: true, toolName: true, action: true } });
+  // Tra trong phạm vi CHÍNH NGƯỜI YÊU CẦU. Tra toàn cục thì một tenant chiếm chỗ key
+  // là tenant khác bị từ chối oan, và phản hồi khác nhau để lộ key nào đã tồn tại.
+  const existing = await prisma.zAiJob.findUnique({ where: { requestedById_idempotencyKey: { requestedById: user.id, idempotencyKey } }, select: { id: true, requestedById: true, targetAgentId: true, toolName: true, action: true } });
   if (existing) {
-    if (existing.requestedById !== user.id || existing.targetAgentId !== resolution.agent.id || existing.toolName !== toolName || existing.action !== action) return { error: "IDEMPOTENCY_KEY_CONFLICT" };
+    if (existing.targetAgentId !== resolution.agent.id || existing.toolName !== toolName || existing.action !== action) return { error: "IDEMPOTENCY_KEY_CONFLICT" };
     return { ok: true, jobId: existing.id, message: "Job đã tồn tại với cùng idempotency key; không tạo bản sao." };
   }
 
