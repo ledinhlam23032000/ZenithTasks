@@ -106,31 +106,32 @@ export async function createV2ProjectAction(_prev: ProjectActionState, formData:
       },
     });
 
-    // Tự động khởi tạo AI Con (Child AI Agent) nội bộ nếu có tên AI
-    if (aiName) {
-      const aiCode = `AI-${code}`;
-      await tx.zAiAgent.create({
-        data: {
-          code: aiCode,
-          name: aiName,
-          kind: "CHILD",
-          status: "ACTIVE",
-          projectId: created.id,
-          createdById: user.id,
-          systemPrompt: aiPrompt || `Bạn là trợ lý AI chuyên trách cho đơn vị ${name} (${code}).`,
-          model: "gemini-1.5-flash",
-          toolAllowlist: [
-            "get_project_overview",
-            "get_project_customers",
-            "get_project_tasks",
-            "get_project_sales_summary",
-            "get_project_payroll_preview",
-          ],
-          config: { scope: "PROJECT", projectId: created.id },
-          lastHeartbeatAt: new Date(),
-        },
-      });
-    }
+    // MC-18: Đơn vị/công ty con mở ra LUÔN có AI con — không còn điều kiện
+    // theo aiName. Trước đây `if (aiName)` khiến bất kỳ đường tạo project nào
+    // khác wizard (script, API sau này, hay chỉ đơn giản aiName rỗng) đều tạo
+    // ra company không có AI, trái với yêu cầu "mặc định có AI con". Wizard UI
+    // vẫn cho admin đặt tên/system prompt riêng; rỗng thì dùng mặc định hợp lý.
+    await tx.zAiAgent.create({
+      data: {
+        code: `AI-${code}`,
+        name: aiName || `Trợ lý ${name}`,
+        kind: "CHILD",
+        status: "ACTIVE",
+        projectId: created.id,
+        createdById: user.id,
+        systemPrompt: aiPrompt || `Bạn là trợ lý AI chuyên trách cho đơn vị ${name} (${code}).`,
+        model: "gemini-1.5-flash",
+        toolAllowlist: [
+          "get_project_overview",
+          "get_project_customers",
+          "get_project_tasks",
+          "get_project_sales_summary",
+          "get_project_payroll_preview",
+        ],
+        config: { scope: "PROJECT", projectId: created.id },
+        lastHeartbeatAt: new Date(),
+      },
+    });
 
     await tx.auditLog.create({
       data: {
@@ -144,7 +145,7 @@ export async function createV2ProjectAction(_prev: ProjectActionState, formData:
           projectType,
           status: initialStatus,
           modulesCount: enabledFeatures.length,
-          hasAiAgent: Boolean(aiName),
+          hasAiAgent: true,
         },
       },
     });

@@ -50,7 +50,6 @@ export function V2CreateProjectWizard({ users = [] }: Props) {
     "simulation",
   ]);
   const [adminUserId, setAdminUserId] = useState<string>("");
-  const [enableAi, setEnableAi] = useState(true);
   const [aiName, setAiName] = useState("Trợ lý Y tế & Vận hành");
   const [aiPrompt, setAiPrompt] = useState(
     "Bạn là AI đồng nghiệp số chuyên trách hỗ trợ theo dõi lịch hẹn, nhắc nhở khách hàng và tổng hợp ca dịch vụ."
@@ -104,10 +103,8 @@ export function V2CreateProjectWizard({ users = [] }: Props) {
     formData.set("projectType", projectType);
     formData.set("initialStatus", "ACTIVE");
     if (adminUserId) formData.set("adminUserId", adminUserId);
-    if (enableAi && aiName) {
-      formData.set("aiName", aiName);
-      formData.set("aiPrompt", aiPrompt);
-    }
+    formData.set("aiName", aiName);
+    formData.set("aiPrompt", aiPrompt);
     selectedModules.forEach((m) => formData.append("modules", m));
 
     startTransition(async () => {
@@ -374,46 +371,36 @@ export function V2CreateProjectWizard({ users = [] }: Props) {
 
             {/* AI Agent Configuration */}
             <div className="rounded-2xl border border-violet-200 bg-violet-50/40 p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Bot className="h-5 w-5 text-violet-600" />
-                  <h4 className="font-bold text-slate-900">Khởi tạo AI Trợ Lý Nội Bộ (Child AI Agent)</h4>
-                </div>
-                <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={enableAi}
-                    onChange={(e) => setEnableAi(e.target.checked)}
-                    className="h-4 w-4 rounded text-violet-600 focus:ring-violet-500"
-                  />
-                  Kích hoạt AI
-                </label>
+              <div className="flex items-center gap-2">
+                <Bot className="h-5 w-5 text-violet-600" />
+                <h4 className="font-bold text-slate-900">AI Trợ Lý Nội Bộ (Child AI Agent)</h4>
               </div>
-              {enableAi && (
-                <div className="space-y-3 pt-2">
-                  <label className="grid gap-1 text-sm font-medium text-slate-700">
-                    Tên hiển thị của AI Trợ Lý
-                    <input
-                      value={aiName}
-                      onChange={(e) => setAiName(e.target.value)}
-                      placeholder="VD: Trợ lý Vận hành Chi nhánh"
-                      className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-100"
-                    />
-                  </label>
-                  <label className="grid gap-1 text-sm font-medium text-slate-700">
-                    Chỉ dẫn hành vi (System Prompt ban đầu)
-                    <textarea
-                      value={aiPrompt}
-                      onChange={(e) => setAiPrompt(e.target.value)}
-                      rows={2}
-                      className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-100"
-                    />
-                  </label>
-                  <p className="text-[11px] text-slate-500">
-                    * AI Con được phân vùng bảo mật tự động: chỉ đọc dữ liệu của đơn vị này và gọi các tool trong Allowlist được cấp.
-                  </p>
-                </div>
-              )}
+              <p className="text-[11px] text-slate-500">
+                Mọi Đơn vị mới đều có sẵn 1 AI con — anh chỉ cần đặt tên/chỉ dẫn riêng nếu muốn, không cần bật/tắt.
+              </p>
+              <div className="space-y-3 pt-1">
+                <label className="grid gap-1 text-sm font-medium text-slate-700">
+                  Tên hiển thị của AI Trợ Lý
+                  <input
+                    value={aiName}
+                    onChange={(e) => setAiName(e.target.value)}
+                    placeholder="VD: Trợ lý Vận hành Chi nhánh"
+                    className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-100"
+                  />
+                </label>
+                <label className="grid gap-1 text-sm font-medium text-slate-700">
+                  Chỉ dẫn hành vi (System Prompt ban đầu)
+                  <textarea
+                    value={aiPrompt}
+                    onChange={(e) => setAiPrompt(e.target.value)}
+                    rows={2}
+                    className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-100"
+                  />
+                </label>
+                <p className="text-[11px] text-slate-500">
+                  * AI Con được phân vùng bảo mật tự động: chỉ đọc dữ liệu của đơn vị này và gọi các tool trong Allowlist được cấp.
+                </p>
+              </div>
             </div>
           </div>
         )}
@@ -455,12 +442,10 @@ export function V2CreateProjectWizard({ users = [] }: Props) {
                   ))}
                 </div>
               </div>
-              {enableAi && (
-                <div className="flex justify-between py-2">
-                  <span className="text-slate-500">AI Đồng nghiệp số:</span>
-                  <span className="font-semibold text-violet-700">{aiName} (Đã cấu hình)</span>
-                </div>
-              )}
+              <div className="flex justify-between py-2">
+                <span className="text-slate-500">AI Đồng nghiệp số:</span>
+                <span className="font-semibold text-violet-700">{aiName} (Đã cấu hình)</span>
+              </div>
             </div>
 
             {error && (
