@@ -166,6 +166,7 @@ export async function payAllSalaries(_prev: AccState, formData: FormData): Promi
   const method = payMethod(formData.get("method"));
   const label = `Lương tháng ${format(monthDate(month), "MM/yyyy")}`;
 
+  try {
   await prisma.$transaction(async (tx) => {
     for (const row of pending) {
       const request = await tx.paymentRequest.create({
@@ -197,28 +198,45 @@ export async function payAllSalaries(_prev: AccState, formData: FormData): Promi
           paymentRequestId: request.id,
         },
       });
-      await tx.payrollEntry.upsert({
-        where: { userId_month: { userId: row.id, month } },
-        create: {
-          userId: row.id,
-          month,
-          commission: 0,
-          commissionOverride: row.commissionOverride || null,
-          bonus: row.bonus,
-          adjustment: row.adjustment,
-          paidAmount: row.total,
-          paidAt: new Date(),
-          cashTxId: cashTx.id,
-          paymentRequestId: request.id,
-        },
-        update: { paidAmount: row.total, paidAt: new Date(), cashTxId: cashTx.id, paymentRequestId: request.id },
-      });
+      // Guard `!r.cashTxId` ở bên ngoài đọc trước transaction nên không đủ chống hai
+      // lần bấm song song: cả hai lần đều thấy cùng tập "chưa chi", cùng tạo phiếu
+      // chi, và bản upsert sau ghi đè cashTxId — X2 số tiền chi lương, các phiếu đầu
+      // thành mồ côi mà undo không gỡ được. Gắn CÓ ĐIỀU KIỆN, lặc hụt thì rollback
+      // toàn bộ lần chi này thay vì để lại bản ghi lệch sổ.
+      const existing = await tx.payrollEntry.findUnique({ where: { userId_month: { userId: row.id, month } }, select: { id: true, cashTxId: true } });
+      if (existing?.cashTxId) throw new AlreadyPaid();
+      if (existing) {
+        const applied = await tx.payrollEntry.updateMany({
+          where: { userId: row.id, month, cashTxId: null },
+          data: { paidAmount: row.total, paidAt: new Date(), cashTxId: cashTx.id, paymentRequestId: request.id },
+        });
+        if (applied.count !== 1) throw new AlreadyPaid();
+      } else {
+        await tx.payrollEntry.create({
+          data: {
+            userId: row.id,
+            month,
+            commission: 0,
+            commissionOverride: row.commissionOverride || null,
+            bonus: row.bonus,
+            adjustment: row.adjustment,
+            paidAmount: row.total,
+            paidAt: new Date(),
+            cashTxId: cashTx.id,
+            paymentRequestId: request.id,
+          },
+        });
+      }
     }
     await auditRequired(tx, user.id, "PAY_SALARY_ALL", {
       entity: "PayrollEntry",
       meta: { month, count: pending.length, total: pending.reduce((s, r) => s + r.total, 0) },
     });
   });
+  } catch (err) {
+    if (err instanceof AlreadyPaid) return { error: "Một số nhân sự vừa được ghi sổ chi lương bởi thao tác khác; hãy tải lại bảng lương và chi phần còn lại." };
+    throw err;
+  }
   return { ok: true };
 }
 
