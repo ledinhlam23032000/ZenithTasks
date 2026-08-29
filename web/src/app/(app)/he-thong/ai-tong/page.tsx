@@ -49,6 +49,7 @@ export default async function GlobalAiObservabilityPage() {
   const queuedJobs = rawJobs.filter((j) => j.status === "QUEUED").length;
   const runningJobs = rawJobs.filter((j) => j.status === "RUNNING").length;
   const succeededJobs = rawJobs.filter((j) => j.status === "SUCCEEDED").length;
+  const pendingApprovalJobs = rawJobs.filter((j) => j.status === "PENDING_APPROVAL").length;
 
   const serializedJobs = rawJobs.map((j) => ({
     id: j.id,
@@ -93,6 +94,9 @@ export default async function GlobalAiObservabilityPage() {
           <h2 className="font-semibold text-slate-900">Hàng đợi công việc AI (ZAiJob Execution Queue)</h2>
         </div>
         <div className="flex items-center gap-2 text-xs">
+          {pendingApprovalJobs > 0 && (
+            <span className="rounded-md bg-orange-100 px-2 py-1 font-semibold text-orange-800">Chờ phê duyệt: {pendingApprovalJobs}</span>
+          )}
           <span className="rounded-md bg-amber-50 px-2 py-1 font-medium text-amber-700">Chờ: {queuedJobs}</span>
           <span className="rounded-md bg-blue-50 px-2 py-1 font-medium text-blue-700">Chạy: {runningJobs}</span>
           <span className="rounded-md bg-emerald-50 px-2 py-1 font-medium text-emerald-700">Xong: {succeededJobs}</span>

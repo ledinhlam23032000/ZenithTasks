@@ -126,5 +126,24 @@ if [ -f /app/scripts/backup.mjs ]; then
   echo "🗄️  Đã bật sao lưu tự động hằng ngày (xem trang Tình trạng hệ thống)."
 fi
 
+# ---------------------------------------------------------------------------
+# AI JOB WORKER (MC-11) — chạy nền: nhặt ZAiJob ở QUEUED và thực thi.
+#
+# Trước worker này, job xếp hàng qua enqueueAiJobAction chỉ chạy khi có người
+# tự bấm "Thực thi ngay" trên /he-thong/ai-tong — bao gồm cả job vừa được Admin
+# duyệt (approveAiJobAction đưa PENDING_APPROVAL về lại QUEUED) cũng nằm im vô
+# thời hạn nếu không ai vào bấm tay. Worker tự khởi động lại nếu tiến trình con
+# thoát bất ngờ (until ... || true trong vòng lặp ngoài).
+# ---------------------------------------------------------------------------
+if [ -f /app/scripts/ai-job-worker.ts ]; then
+  (
+    while true; do
+      ./node_modules/.bin/tsx /app/scripts/ai-job-worker.ts >> "$SECRET_DIR/ai-job-worker.log" 2>&1 || true
+      sleep 10
+    done
+  ) &
+  echo "🤖 Đã bật AI job worker nền (xem log tại .runtime/ai-job-worker.log)."
+fi
+
 echo "🚀 Khởi động Zenith Clinic trên cổng nội bộ 3000 (origin host: http://127.0.0.1:3000)"
 exec "$@"

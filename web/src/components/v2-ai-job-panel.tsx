@@ -1,8 +1,8 @@
 ﻿"use client";
 
 import { useActionState } from "react";
-import { Play, XCircle, Clock, CheckCircle2, AlertCircle } from "lucide-react";
-import { executeAiJobAction, cancelAiJobAction, type AiJobActionState } from "@/lib/v2-ai-job-actions";
+import { Play, XCircle, Clock, CheckCircle2, AlertCircle, ShieldAlert, ThumbsUp, ThumbsDown } from "lucide-react";
+import { executeAiJobAction, cancelAiJobAction, approveAiJobAction, rejectAiJobAction, type AiJobActionState } from "@/lib/v2-ai-job-actions";
 
 type JobItem = {
   id: string;
@@ -52,6 +52,20 @@ function JobStatusBadge({ status }: { status: string }) {
       </span>
     );
   }
+  if (status === "PENDING_APPROVAL") {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-orange-100 px-2.5 py-0.5 text-xs font-semibold text-orange-800">
+        <ShieldAlert className="h-3.5 w-3.5" /> Chờ phê duyệt
+      </span>
+    );
+  }
+  if (status === "TIMED_OUT") {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-semibold text-rose-800">
+        <Clock className="h-3.5 w-3.5" /> Quá thời gian
+      </span>
+    );
+  }
   return (
     <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-semibold text-rose-800">
       <AlertCircle className="h-3.5 w-3.5" /> Thất bại
@@ -98,6 +112,60 @@ function CancelJobButton({ jobId }: { jobId: string }) {
       >
         <XCircle className="h-3.5 w-3.5 text-slate-500" />
         {isPending ? "Đang hủy..." : "Hủy"}
+      </button>
+      {state.error && <span className="text-xs text-rose-600">{state.error}</span>}
+    </form>
+  );
+}
+
+/** Hiển thị bản xem trước rủi ro trước khi Admin quyết định duyệt — tránh duyệt mù. */
+function ApprovalPreview({ resultMeta }: { resultMeta: unknown }) {
+  if (!resultMeta || typeof resultMeta !== "object") return null;
+  const meta = resultMeta as { riskLevel?: string; consequences?: string[]; requiredApprovals?: number };
+  if (!meta.riskLevel) return null;
+  return (
+    <div className="mb-1.5 max-w-[260px] rounded-lg border border-orange-200 bg-orange-50 px-2 py-1.5 text-[11px] text-orange-900">
+      <p className="font-semibold">Mức rủi ro {meta.riskLevel}{meta.requiredApprovals ? ` · cần ${meta.requiredApprovals} người duyệt` : ""}</p>
+      {Array.isArray(meta.consequences) && meta.consequences.length > 0 && (
+        <ul className="mt-0.5 list-disc space-y-0.5 pl-3.5">
+          {meta.consequences.map((c, i) => <li key={i}>{c}</li>)}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function ApproveJobButton({ jobId }: { jobId: string }) {
+  const [state, formAction, isPending] = useActionState<AiJobActionState, FormData>(approveAiJobAction, {});
+  return (
+    <form action={formAction} className="inline-flex items-center gap-2">
+      <input type="hidden" name="jobId" value={jobId} />
+      <button
+        type="submit"
+        disabled={isPending}
+        className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+      >
+        <ThumbsUp className="h-3.5 w-3.5" />
+        {isPending ? "Đang duyệt..." : "Phê duyệt"}
+      </button>
+      {state.error && <span className="text-xs text-rose-600">{state.error}</span>}
+    </form>
+  );
+}
+
+function RejectJobButton({ jobId }: { jobId: string }) {
+  const [state, formAction, isPending] = useActionState<AiJobActionState, FormData>(rejectAiJobAction, {});
+  return (
+    <form action={formAction} className="inline-flex items-center gap-2">
+      <input type="hidden" name="jobId" value={jobId} />
+      <input type="hidden" name="reason" value="Từ chối qua bảng điều khiển AI Tổng" />
+      <button
+        type="submit"
+        disabled={isPending}
+        className="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-white px-2.5 py-1 text-xs font-medium text-rose-700 hover:bg-rose-50 disabled:opacity-50"
+      >
+        <ThumbsDown className="h-3.5 w-3.5" />
+        {isPending ? "Đang từ chối..." : "Từ chối"}
       </button>
       {state.error && <span className="text-xs text-rose-600">{state.error}</span>}
     </form>
@@ -161,6 +229,15 @@ export function V2AiJobPanel({ jobs }: { jobs: JobItem[] }) {
                       <ExecuteJobButton jobId={job.id} />
                       <CancelJobButton jobId={job.id} />
                     </>
+                  )}
+                  {job.status === "PENDING_APPROVAL" && (
+                    <div>
+                      <ApprovalPreview resultMeta={job.resultMeta} />
+                      <div className="flex items-center gap-2">
+                        <ApproveJobButton jobId={job.id} />
+                        <RejectJobButton jobId={job.id} />
+                      </div>
+                    </div>
                   )}
                   {job.status === "FAILED" && job.attempt < job.maxAttempts && (
                     <ExecuteJobButton jobId={job.id} />
