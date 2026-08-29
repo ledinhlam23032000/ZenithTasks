@@ -2,6 +2,64 @@
 
 Tài liệu này ghi các thay đổi đã được đẩy lên nhánh `master`. Commit mới hơn nằm ở phía trên. Phiên bản mô tả đầy đủ hiện tại nằm trong [`VERSION.md`](VERSION.md).
 
+## 2026-08-29 — AI thực chất hơn: dữ liệu thật, mặc định, Verify, two-person approval
+
+> Tiếp phiên 28-29/08: sau khi vá 17 lỗi và deploy 4 đợt (mục dưới), chủ dự án yêu cầu rà lại việc gì
+> "Master Prompt" ban đầu còn thiếu so với tầm nhìn AI-native đa công ty, rồi làm lần lượt từng mục.
+
+- **`generate_commission_draft` dùng dữ liệu thật**: trước đây AI con nhận thẳng `amount`/`rate` do AI tự
+  đưa ra, không đọc DB. Nay bắt buộc tra `ZWorkspaceSale` + `ZMechanismVersion` ACTIVE thật của company,
+  tính bằng đúng công thức money path thật (`v2-payroll-calculation.ts`, không dùng `lib/commission.ts`
+  vốn là công thức riêng của clinic Hồng Phúc).
+- **AI con bắt buộc khi tạo company**: `createV2ProjectAction` trước đây chỉ tạo AI con `if(aiName)` —
+  script/API khác wizard vẫn tạo được company 0 AI. Nay LUÔN tạo AI con; bỏ checkbox "Kích hoạt AI" ở
+  wizard. Xóa `v2-create-project-form.tsx` (form cũ chết, không có field AI).
+- **AI Tổng quản lý AI con nhiều hơn**: thêm `resume_child_agent` (đối xứng `suspend_child_agent`, qua
+  approval gate) và `get_child_agent_jobs` (xem lịch sử job thật của agent con).
+- **Bước Verify riêng biệt** (Plan→Preview→Approve→Execute→**Verify**→Audit): `verifyJobExecution()` đọc
+  lại DB thật sau khi thực thi 4 action ghi dữ liệu (customer/task/suspend/resume agent) — verify fail thì
+  job chuyển FAILED (không SUCCEEDED), có negative control chứng minh bắt được resultMeta sai.
+- **Two-person approval thật cho `delete_customer`**: trước đây bị chặn cứng HOÀN TOÀN (không tạo được
+  preview) vì "workflow 2 người chưa nối". Nay PENDING → PENDING_SECOND (chờ 1 ADMIN khác, không tự duyệt
+  2 lần) → APPROVED (xóa thật). Thêm banner `/tro-ly` cho ADMIN thấy hàng chờ duyệt lần 2. Migration
+  `20260829220000_assistant_two_person_approval` (apply QA, chưa apply clinic). Tự phát hiện+vá thêm bug
+  liên đới: `purpose` bị mất khi lưu `approval.arguments`, khiến hành động này chưa từng chạy hết vòng đời.
+- **Rà soát governance**: đối chiếu lại mọi action trong `tro-ly/agent.ts` với `includesPayrollData`/
+  `includesMedicalData` — không còn action lương/y khoa nào bị bỏ sót (như vụ `get_project_payroll_preview`
+  đã vá trước đó).
+- **MC-14 rollback script**: `web/scripts/rollback-restore.mjs` — restore CSDL khẩn cấp từ backup pg_dump,
+  mặc định dry-run, diễn tập thật trên QA cô lập (dump/restore/verify số liệu khớp, app khoẻ sau restore).
+- **Phát hiện quan trọng, chưa xử lý (ghi vào ledger MC-24)**: KHÔNG có UI nào gọi `enqueueAiJobAction` —
+  toàn bộ tầng AI Job V2 (AI Tổng/AI con/hàng đợi) chỉ chứng minh đúng qua test server/data layer, chưa
+  ai dùng được qua trình duyệt.
+- Gate: `tsc` 0 lỗi; Vitest unit **495/495 PASS**; Vitest integration **40/40 PASS trên QA DB thật**
+  (16 file, +5 so với đầu phiên). Chi tiết từng mục: `.task-memory/multi-company-ai-2026-08-27/checks/`.
+
+## 2026-08-28 → 2026-08-29 — Multi-company AI governance: 17 lỗi vá, 4 đợt deploy clinic
+
+> Tiếp quản dự án theo Master Prompt đa công ty/AI-native: audit toàn diện trước khi mở rộng, sửa lỗi P0
+> trước khi thêm tính năng, mọi hành động AI qua Plan→Preview→Approve→Execute→Audit, checkpoint máy đọc
+> được (`.task-memory/multi-company-ai-2026-08-27/`) để phiên sau tiếp tục không cần hỏi lại lịch sử.
+
+- **17 lỗi thật đã sửa** (bảo mật/tiền/cách ly tenant/AI governance), trong đó có 3 lỗi P0 ở đúng đường
+  điều khiển AI con của AI Tổng: approval-gate không phân loại đúng action ghi dữ liệu (write action chạy
+  thẳng không cần duyệt); `targetWorkspace` suy đoán sai từ `targetProjectId` thay vì `targetAgent.kind`;
+  `enqueueAiJobAction` luôn ghi `targetProjectId=null` cho target GLOBAL dù client gửi giá trị đúng. Cùng
+  nhóm: leo thang quyền AI (allowlist kiểm `toolName` trong khi dispatcher chạy theo `action`), AI scope
+  không fail-closed (người bị revoke vẫn resolve được AI công ty khác), uniqueness sai phạm vi tenant
+  (`ZAiAgent.code`/`ZAiJob.idempotencyKey` unique toàn cục thay vì theo company), 3 enum khai trong schema
+  mà DB chưa có migration, hoa hồng bác sĩ tính dư (mẫu số sai), race condition + double-submit ở payroll
+  governance và chi lương, `get_project_payroll_preview` bị phân loại nhầm không nhạy cảm.
+- **3 tính năng lớn hoàn thiện**: worker AI job tự động (`scripts/ai-job-worker.ts`, chạy nền qua
+  `docker-entrypoint.sh`, poll `ZAiJob` mỗi 15s); payroll đa công ty đầy đủ vòng đời DRAFT→CALCULATED→
+  PREVIEW→APPROVED→second-approve (two-person, chặn tự duyệt)→FINALIZED; AI Tổng điều khiển AI con thật
+  qua hàng đợi job có approval (`suspend_child_agent`, `get_child_agent_status` aggregate toàn hệ thống).
+- **Sự cố bảo mật đã xử lý**: mật khẩu QA Postgres thật từng bị commit vào `web/package.json` (đã lên
+  GitHub) — gỡ script, xoay vòng mật khẩu, xác minh mật khẩu cũ bị TCP reject.
+- 4 đợt deploy clinic (backup pg_dump trước mỗi đợt, dữ liệu Customer/Case/Payment xuyên suốt không đổi,
+  `/login` HTTP 200 sau mỗi đợt). Gate cuối: `tsc` 0 lỗi, unit 495/495, integration 27/27 trên QA DB thật.
+  Chi tiết đầy đủ: `.task-memory/multi-company-ai-2026-08-27/checks/clinic-deploy4-20260829.md`.
+
 ## 2026-08-24 — Fix runtime `/du-an` và xác nhận deploy lại
 
 - Tái hiện lỗi màn hình `Không tải được trang này` sau khi mục Dự án đã hiện trong sidebar. Nguyên nhân là form client import hằng số `PROJECT_TYPES` từ module có chỉ thị `use server`; Next.js build vẫn đạt nhưng render runtime route bị lỗi.

@@ -4,6 +4,14 @@
 
 AI Admin Gateway là lớp trợ lý quản trị nội bộ của **Trung tâm Phẫu thuật Tạo hình Thẩm mỹ — Bệnh viện Đa khoa Hồng Phúc**. AI được phép làm nghiệp vụ khi ADMIN ủy quyền, nhưng quyền đó được thực thi bởi server-side permission và action thật của ứng dụng, không dựa vào câu chữ hoặc role do mô hình tự nhận.
 
+> **Tài liệu này mô tả lớp AI LEGACY** (`web/src/app/(app)/tro-ly/agent.ts`, 1 công ty — clinic Hồng
+> Phúc). Từ 24/08/2026 có thêm lớp **AI đa công ty (V2)** riêng biệt — AI con theo từng `ZProject`, AI
+> Tổng điều phối AI con, hàng đợi `ZAiJob` với chuỗi Plan→Preview→Approve→Execute→**Verify**→Audit đầy
+> đủ (`web/src/lib/v2-ai-job-engine.ts`). 2 lớp dùng chung TRIẾT LÝ (preview bắt buộc, audit, risk-based
+> approval) nhưng KHÁC CODE PATH hoàn toàn — sửa lớp này không tự động ảnh hưởng lớp kia. Chi tiết lớp V2:
+> `.task-memory/multi-company-ai-2026-08-27/07_task_ledger.md` (MC-00..MC-24) và các file trong
+> `.task-memory/multi-company-ai-2026-08-27/checks/`.
+
 > Nguyên tắc cốt lõi: **AI không bị cấm nghiệp vụ tuyệt đối; AI bị kiểm soát theo mức rủi ro.** Đọc có thể chạy ngay. Ghi dữ liệu nhạy cảm phải có preview, `AssistantApproval`, xác nhận ADMIN, audit và kiểm tra trạng thái/idempotency phù hợp.
 
 ## Luồng xử lý chuẩn
@@ -15,10 +23,10 @@ AI Admin Gateway là lớp trợ lý quản trị nội bộ của **Trung tâm 
 | 3. Chọn tool | `plannerSchema`, `actionNames`, `actionHelp` | Chỉ một action trong whitelist; không viết SQL và không sửa file trực tiếp. |
 | 4. Kiểm tra | `validateWrite` hoặc `readAction` | Đối chiếu mã/tên/trạng thái với DB, kiểm quyền server-side và tạo preview. |
 | 5. Chờ ADMIN | `createApproval` | Lưu arguments, preview, thời hạn 10 phút, conversationId và trạng thái PENDING. |
-| 6. Xác nhận | `confirmAssistantApproval` | Gọi server action nghiệp vụ thật, cập nhật APPROVED, ghi audit và lưu kết quả vào phiên. |
-| 7. Hủy/hết hạn | `rejectAssistantApproval` hoặc kiểm tra `expiresAt` | REJECTED/EXPIRED; không thực hiện mutation. Preview cũ bị thay thế khi có yêu cầu chấm công mới trong cùng phiên. |
+| 6. Xác nhận | `confirmAssistantApproval` | Với action `requiredApprovals` = 1 (đa số): gọi server action nghiệp vụ thật, cập nhật APPROVED, ghi audit. Với action L5 (`requiredApprovals` = 2, hiện chỉ `delete_customer`): lần xác nhận đầu ghi `firstApprovedById`, chuyển `PENDING_SECOND`, **CHƯA thực thi** — phải có một ADMIN KHÁC (không được là người vừa xác nhận) xác nhận lần 2 mới thực sự chạy hành động và chuyển APPROVED. (Thêm 29/08/2026, MC-21 — trước đó action L5 bị chặn cứng hoàn toàn, không tạo được preview.) |
+| 7. Hủy/hết hạn | `rejectAssistantApproval` hoặc kiểm tra `expiresAt` | REJECTED/EXPIRED ở CẢ giai đoạn PENDING lẫn PENDING_SECOND; không thực hiện mutation. Preview cũ bị thay thế khi có yêu cầu chấm công mới trong cùng phiên. |
 
-Không được bỏ qua bước preview bằng cách gọi trực tiếp Prisma từ planner. Nếu cần thêm tool, phải nối vào cả schema action, prompt help, validate, confirm, audit và test.
+Không được bỏ qua bước preview bằng cách gọi trực tiếp Prisma từ planner. Nếu cần thêm tool, phải nối vào cả schema action, prompt help, validate, confirm, audit và test. Banner "Chờ duyệt lần 2" ở đầu `/tro-ly` (chỉ ADMIN, loại trừ người đã duyệt lần 1) là nơi DUY NHẤT hiện tại để một ADMIN khác thấy và xác nhận lần 2 — approval thường chỉ hiện trong hội thoại của người tạo.
 
 ## Registry hiện có
 
@@ -38,7 +46,7 @@ Không được bỏ qua bước preview bằng cách gọi trực tiếp Prisma
 | `create_follow_up` | Ghi | Preview/approval | `addFollowUp` |
 | `create_appointment` | Ghi | Preview/approval | `createAppointment` |
 | `update_customer_profile` | Ghi hồ sơ | Chỉ ADMIN; kiểm tra trùng số và mã hóa | `updateCustomer` |
-| `delete_customer` | Xóa vĩnh viễn | Chỉ ADMIN; preview số lượng liên quan, hoàn kho trong transaction | `deleteCustomerForAgent` |
+| `delete_customer` | Xóa vĩnh viễn (L5, 2 người duyệt) | Chỉ ADMIN; args bắt buộc `{customerCode, purpose}` (thiếu `purpose` bị từ chối ngay ở preview); preview số lượng liên quan, hoàn kho trong transaction; **cần 2 ADMIN khác nhau xác nhận** (xem bước 6 ở trên) | `deleteCustomerForAgent` |
 | `update_consultation_record` | Ghi y khoa | Chỉ ADMIN trong Gateway; tôn trọng rule 24 giờ và case access | `saveConsultationRecord` |
 | `create_payment_request` | Ghi chứng từ | Chỉ ADMIN trong Gateway; kể cả khoản nhỏ | `createPaymentRequest` |
 | `approve_payment_request` | Duyệt chứng từ | Chỉ ADMIN; chỉ PENDING | `approvePaymentRequest` |

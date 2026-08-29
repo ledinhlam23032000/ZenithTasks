@@ -3,6 +3,27 @@
 > Tài liệu bàn giao để các phiên Claude Code sau tiếp tục hiệu quả. Đọc file này + mã nguồn là nắm được bối cảnh.
 > **Kế hoạch nâng cấp dài hạn (A→E) + theo dõi tiến độ: xem `ROADMAP.md` ở gốc repo.**
 
+## Nền tảng đa công ty/AI-native — "Đợt 39" (28-29/08/2026)
+> Tiếp quản theo Master Prompt: mở rộng ZenithTasks từ 1 phòng khám thành nền tảng quản trị đa tổ chức
+> AI-native (ZProject = tenant, AI con theo từng company, AI Tổng điều phối AI con). Chi tiết đầy đủ nằm
+> ở `.task-memory/multi-company-ai-2026-08-27/` (ledger máy đọc được, evidence từng wave) và
+> `docs/AI-ADMIN-GATEWAY.md` — mục này chỉ tóm tắt để không lặp lại toàn văn.
+- **Wave 1 (2026-08-28→29, 4 đợt deploy clinic)**: 17 lỗi thật đã vá (bảo mật/tiền/cách ly tenant/AI
+  governance — 3 lỗi P0 ở đường AI Tổng điều khiển AI con); worker AI job tự động
+  (`scripts/ai-job-worker.ts`); payroll đa công ty đủ vòng đời DRAFT→FINALIZED (two-person); AI Tổng
+  suspend được AI con thật qua hàng đợi job có approval. Gate: tsc 0, unit 495/495, integration 27/27.
+- **Wave 2 (cùng ngày, tiếp phiên — theo yêu cầu chủ dự án rà lại so với tầm nhìn ban đầu)**:
+  `generate_commission_draft` đổi từ nhận `amount/rate` tự do sang tra dữ liệu thật (ZWorkspaceSale +
+  ZMechanismVersion ACTIVE); AI con bắt buộc mặc định khi tạo company (trước đây chỉ tạo `if(aiName)`);
+  AI Tổng thêm `resume_child_agent` + `get_child_agent_jobs`; thêm bước **Verify** riêng biệt giữa
+  Execute và Audit (đọc lại DB thật, không tin resultMeta một chiều); two-person approval thật cho
+  `delete_customer` (trước đây bị chặn cứng hoàn toàn, chưa từng dùng được) + vá kèm bug mất `purpose`.
+  Migration mới: `20260829220000_assistant_two_person_approval` (QA, chưa apply clinic). Gate: tsc 0,
+  unit 495/495, integration 40/40.
+- **Việc lớn nhất còn thiếu, đã ghi lại (ledger MC-24, chưa làm)**: KHÔNG có giao diện nào để thực sự
+  tạo/duyệt 1 AI job — toàn bộ tầng AI Job V2 (AI Tổng/AI con) mới dùng được qua test, chưa qua trình
+  duyệt. Cần chủ dự án xác nhận phạm vi trước khi xây (quy mô tương đương 1 trang chat + trang duyệt mới).
+
 ## Kho Hồ sơ dịch vụ thẩm mỹ và làm sạch bản in — "Đợt 38" (21/08/2026)
 > Chủ yêu cầu bỏ các dấu chấm trong Giấy đề nghị thanh toán vì đường kẻ kéo dài làm mẫu in mất thẩm mỹ; đổi tên Phiếu tư vấn dịch vụ thẩm mỹ thành Hồ sơ dịch vụ thẩm mỹ và tập trung 100% giấy tờ hành chính của khách trong tab Giấy tờ.
 - **Bản in thanh toán**: bỏ dotted border khỏi các trường nội dung trong `payment-request.ts`; không thay đổi số tiền, trạng thái, dữ liệu lịch sử hoặc vùng ký.

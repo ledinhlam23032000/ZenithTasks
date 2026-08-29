@@ -1,9 +1,9 @@
 # ZenithTasks — Trạng thái phiên bản hiện tại
 
-> **Phiên bản nội bộ:** `2026.08.28-r2-remediation`<br>
+> **Phiên bản nội bộ:** `2026.08.29-r3-ai-governance`<br>
 > **Commit master:** phải đối chiếu trực tiếp bằng `git rev-parse HEAD` và `git ls-remote origin refs/heads/master`; không cố định một SHA trong tài liệu phát hành.<br>
-> **Ngày cập nhật:** 28/08/2026<br>
-> **Trạng thái:** Đã khắc phục 5 Bug P0/P1 từ Forensic Audit (tsc clean, fake-success removed, arguments preserved, race condition fixed). 95 test files / 488 tests PASS, tsc --noEmit exit 0. **ĐÃ HOÀN THÀNH:** Phần 3 Architecture Upgrade (L5 Approval Flow, Prisma Tenant Extension, Lego Seed Data, Project Lifecycle Archive, AI Write Tools) đã được triển khai và pass test. Tỷ lệ hoàn thành: 100% Master Prompt.
+> **Ngày cập nhật:** 29/08/2026<br>
+> **Trạng thái:** Wave 2026-08-28→29 vá 17 lỗi thật (bảo mật/tiền/cách ly tenant/AI governance) qua 4 đợt deploy clinic, kèm 3 tính năng lớn hoàn thiện: worker AI job tự động, payroll đa công ty đầy đủ vòng đời (two-person), AI Tổng điều khiển AI con thật. Sau đó (cùng ngày, tiếp phiên) vá thêm 5 hạng mục theo yêu cầu chủ dự án: `generate_commission_draft` dùng dữ liệu thật thay vì AI tự bịa số; AI con bắt buộc mặc định khi tạo company; AI Tổng resume được AI con + xem lịch sử job; bước Verify riêng biệt (Plan→Preview→Approve→Execute→**Verify**→Audit); two-person approval thật cho `delete_customer` (trước đây bị chặn cứng hoàn toàn, không dùng được). Gate: `tsc` 0 lỗi; Vitest unit **495 test PASS**; Vitest integration **40 test PASS trên QA DB thật**. Chi tiết đầy đủ: `.task-memory/multi-company-ai-2026-08-27/checks/`.
 
 ## Quy tắc đọc tài liệu
 
@@ -46,12 +46,40 @@
 | `20260824003000_ai_training_studio` | Agent profile/dataset/example/prompt/evaluation nền tảng. **Đã apply QA và production theo log clinic ngày 24/08/2026; MVP dashboard/demo seed, chưa phải full training lab.** |
 | `20260824010000_workspace_tasks` | Task project-local với projectId bắt buộc, status/priority, query scoped, membership và audit. **Đã deploy production-like qua updater ở commit 41aa7fc; migration/status up to date.** |
 | `20260824013000_ai_workspace_scope` | Workspace kind/projectId cho AssistantConversation/Approval, selector AI và governance scope. **Đã apply trên clinic qua `Sua-Loi.bat` ở master d1e5ada; migration/status up to date.** |
+| `20260826100000_ai_global_workspace` | Thêm `AssistantWorkspaceKind.GLOBAL` — phạm vi tường minh cho AI Tổng (Global Admin AI) nhìn toàn bộ company. |
+| `20260826110000_workspace_core_modules` | Bản ghi vận hành project-local đầu tiên (khách/task/lịch hẹn/doanh số) — tách hẳn khỏi Customer/Appointment/Payment/CashTransaction legacy. |
+| `20260826120000_workspace_config_versions` | Nền tảng cấu hình project có version. |
+| `20260826130000_workspace_ledger_entries` | Nền tảng sổ cái (ledger) project-local. |
+| `20260826140000_workspace_payment_reconciliation` | Đối soát thanh toán project-local. |
+| `20260826150000_workspace_payroll_runs` | Snapshot lương/hoa hồng project-local (PayrollRun/Line, ZMechanismDefinition/Version). |
+| `20260826160000_payroll_two_person_governance` | Thêm mốc approver/finalizer/void riêng cho PayrollRun — nền tảng two-person approval lương đa công ty. |
+| `20260826170000_workspace_customer_consent_lifecycle` | Consent và soft-delete cho khách hàng project-local. |
+| `20260826180000_workspace_config_proposals` | Đề xuất cấu hình project chờ AI/Admin duyệt. |
+| `20260827190000_ai_agent_hierarchy` | ZAiAgent (CHILD/GLOBAL) — CHILD bắt buộc thuộc 1 project, GLOBAL không thuộc project nào; partial unique index đảm bảo chỉ 1 agent ACTIVE/definition. |
+| `20260828130000_ai_job_contract` | ZAiJob — hàng đợi job AI Tổng/AI con tường minh, có giới hạn, có audit. |
+| `20260828220000_ai_job_approval_and_lifecycle_enums` | Bổ sung 3 giá trị enum schema đã khai nhưng thiếu migration (PENDING_APPROVAL, SUSPENDED, roles) — vá lỗi drift schema/DB phát hiện qua audit. |
+| `20260828230000_tenant_scoped_uniques_and_audit_indexes` | Sửa `ZAiAgent.code`/`ZAiJob.idempotencyKey` từ unique toàn cục về đúng phạm vi tenant; thêm index AuditLog theo entity/action/actorId. |
+| `20260829220000_assistant_two_person_approval` | `AssistantApprovalStatus.PENDING_SECOND` + `AssistantApproval.firstApprovedById/firstApprovedAt` — two-person approval thật cho `delete_customer` qua AI (MC-21). **Đã apply QA, CHƯA apply clinic — đi cùng đợt deploy tiếp theo.** |
 
 Migration là **bổ sung dữ liệu, không được tự xóa hoặc reset database**. Khi triển khai production phải dùng `prisma migrate deploy`, không dùng `prisma db push`.
 
 ## Kiểm tra chất lượng gần nhất
 
-Release candidate r16 đã được kiểm tra bằng Prisma generate/validate, TypeScript, Vitest governance targeted **10 test** và Next production build; phần Task/membership và AI workspace scope đã được build/deploy qua updater clinic. Hậu kiểm master d1e5ada cho thấy local/origin cùng SHA, 58 migrations, AI scope apply thành công, app Ready và `/login` HTTP 200. Full Vitest baseline **75 file / 397 test** vẫn là bằng chứng nền trước r16. QA isolated đã kiểm tra migration/data demo, authenticated route smoke, feature flags on/off, role access, server-action seed và live DeepSeek. Log clinic owner cung cấp ngày 24/08/2026 ghi nhận 56 migrations, hai migration V2/Training đã apply, database up to date và Next.js Ready; sau phát hành vẫn phải smoke test nghiệp vụ trên máy clinic. Baseline `origin/master` trước đợt handoff là `5aa5f64`; sau mỗi commit phải xác minh lại bằng Git. Khi sửa nghiệp vụ tiền, lương, công nợ, phân quyền, hồ sơ y tế hoặc webhook, phải bổ sung test hồi quy trước khi commit.
+Wave 2026-08-28→29 (17 lỗi vá + worker AI job + payroll đa công ty + AI Tổng điều khiển AI con): gate cuối
+`tsc` 0 lỗi, unit **495/495 PASS**, integration **27/27 PASS trên QA DB thật**, đã deploy 4 đợt lên clinic
+với backup pg_dump trước mỗi đợt, dữ liệu Customer/Case/Payment xuyên suốt không đổi, `/login` HTTP 200
+sau mỗi đợt. Chi tiết: `.task-memory/multi-company-ai-2026-08-27/checks/clinic-deploy4-20260829.md`.
+
+Tiếp phiên cùng ngày (5 hạng mục theo yêu cầu chủ dự án — xem header phía trên): mỗi hạng mục có itest
+riêng trên QA thật (bao gồm 1 negative control cho bước Verify và 1 kịch bản xóa khách hàng thật 2-admin
+cho two-person approval). Gate cuối: `tsc` 0 lỗi, unit **495/495 PASS**, integration **40/40 PASS trên QA
+DB thật**. Migration `20260829220000_assistant_two_person_approval` mới apply QA, **chưa apply clinic**.
+
+QA isolated (`zenithqa`, project riêng, không đụng clinic) dùng cho MỌI kiểm chứng runtime trong wave này
+— dump/restore thật, tạo/xóa dữ liệu thật, chạy 2 admin khác nhau cho luồng 2 người duyệt. Baseline lịch sử
+trước đó (release r16, 24/08/2026): Prisma generate/validate, TypeScript, Vitest governance, Next build,
+hậu kiểm master d1e5ada — xem lịch sử đầy đủ ở Git log nếu cần đối chiếu xa hơn. Khi sửa nghiệp vụ tiền,
+lương, công nợ, phân quyền, hồ sơ y tế hoặc webhook, phải bổ sung test hồi quy trước khi commit.
 
 ## Quy trình cập nhật máy vận hành
 
@@ -59,7 +87,7 @@ Trên máy Windows của phòng khám, chạy `windows\\Kiem-Tra-Phat-Hanh.bat` 
 
 ## Những phần chưa tự động hoàn toàn
 
-Đối soát tiền ngân hàng tự động vẫn cần API/webhook của ngân hàng hoặc nhà cung cấp đối soát. SMS/Email tự động và tổng đài điện thoại thật cần tài khoản nhà cung cấp riêng. Lịch chăm sóc sau dịch vụ không được tự đoán theo ngày cố định vì phải phụ thuộc từng dịch vụ và chỉ định của phòng khám. AI Admin Gateway có policy/capability/approval phù hợp trong phạm vi đã triển khai; L5 nguy hiểm vẫn bị chặn vì workflow hai người chưa hoàn chỉnh. Thay đổi code vẫn phải đi qua diff, test, backup và triển khai có kiểm soát, không sửa mù trực tiếp trên production.
+Đối soát tiền ngân hàng tự động vẫn cần API/webhook của ngân hàng hoặc nhà cung cấp đối soát. SMS/Email tự động và tổng đài điện thoại thật cần tài khoản nhà cung cấp riêng. Lịch chăm sóc sau dịch vụ không được tự đoán theo ngày cố định vì phải phụ thuộc từng dịch vụ và chỉ định của phòng khám. AI Admin Gateway có policy/capability/approval phù hợp trong phạm vi đã triển khai. L5 (`delete_customer`) từ 29/08/2026 **đã có two-person approval thật** (PENDING → PENDING_SECOND chờ 1 ADMIN khác → APPROVED) — action L5 khác (termination/permission-change/deploy) chưa có code path thật nên chưa cần workflow, sẽ phải đi qua đúng cơ chế PENDING_SECOND này nếu được thêm sau. **Chưa có UI nào tạo/duyệt AI job của tầng V2 (AI Tổng/AI con multi-company)** — toàn bộ mới chứng minh đúng qua test server/data layer, chưa ai dùng được qua trình duyệt (xem ledger MC-24). Thay đổi code vẫn phải đi qua diff, test, backup và triển khai có kiểm soát, không sửa mù trực tiếp trên production.
 
 ## Cách xác định bản mới nhất
 
