@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireCap } from "@/lib/auth";
@@ -274,7 +275,11 @@ function getPrincipalForUserWorkspace(user: { id: string; role: string }, projec
 function governanceBlock(principal: ReturnType<typeof principalForUser>, action: string, args: unknown, confirmationRequested: boolean, confirmationStage = false): string | null {
   const policy = evaluateDispatcherAction(principal, action, args);
   if (policy.decision === "DENY") return governanceMessage(policy);
-  if (policy.requiredApprovals > 1) return `${governanceMessage(policy)} Workflow hai phê duyệt chưa được nối vào luồng hiện tại, nên em dừng và không tạo preview một người có thể xác nhận.`;
+  // MC-21: requiredApprovals>1 KHÔNG còn bị chặn cứng ở đây — preview vẫn được
+  // tạo bình thường; luồng 2 người thật (PENDING -> PENDING_SECOND -> APPROVED,
+  // bắt buộc người thứ 2 khác người thứ nhất) nằm ở confirmAssistantApproval,
+  // nơi có đủ context về approval.status/firstApprovedById để phân biệt đúng
+  // giai đoạn — governanceBlock chỉ gate purpose/confirmation từng bước đơn lẻ.
   if (policy.purposeRequired && (!args || typeof args !== "object" || typeof (args as Record<string, unknown>).purpose !== "string" || !(args as Record<string, unknown>).purpose)) {
     return `${governanceMessage(policy)} Anh cần nêu mục đích và phạm vi tối thiểu trong yêu cầu; em chưa đọc/ghi dữ liệu.`;
   }
@@ -305,7 +310,8 @@ Công cụ được phép:
 - record_payment: ghi nhận khoản thu cho hồ sơ; args {caseCode, amount, method, note}. Luôn xem trước và xác nhận.
 - create_follow_up: tạo lịch chăm sóc/tái khám; args {caseCode, scheduledAt, note}. Luôn xem trước và xác nhận.
 - create_appointment: tạo lịch hẹn; args {guestName, phoneLast5?, scheduledAt, type, serviceInterest?, source, sourceDetail?, consultantName?, note?}. Luôn xem trước và xác nhận.
-- update_customer_profile/delete_customer: ADMIN sửa hoặc xóa hồ sơ khách theo mã chính xác; xóa là vĩnh viễn, hoàn kho trước và luôn xem trước.
+- update_customer_profile: ADMIN sửa hồ sơ khách theo mã chính xác; luôn xem trước.
+- delete_customer: ADMIN xóa hồ sơ khách theo mã chính xác; xóa là vĩnh viễn, hoàn kho trước, luôn xem trước; args {customerCode, purpose} — purpose BẮT BUỘC (lý do xóa cụ thể, hỏi lại anh nếu chưa nêu rõ); đây là thao tác rủi ro cao cần 2 ADMIN duyệt (khác nhau), em chỉ ghi nhận xác nhận đầu tiên rồi chờ người thứ 2, không tự thực thi sau 1 lần xác nhận.
 - update_consultation_record: ADMIN/nhân sự có quyền cập nhật Sổ tư vấn; AI luôn preview, áp dụng đúng khóa 24 giờ của hệ thống.
 - create_payment_request: lập Đề nghị thanh toán PENDING, dùng cả khoản nhỏ như gói tăm 3.000đ; args {type, payeeName, amount, reason, month?, category?, note?}.
 - approve_payment_request/reject_payment_request/pay_payment_request: ADMIN quản lý trạng thái Đề nghị thanh toán; chỉ ghi sổ khi chứng từ đã duyệt, luôn preview.
@@ -703,14 +709,24 @@ async function validateWrite(action: ActionName, args: unknown, userId: string):
   if (action === "delete_customer") {
     const parsed = customerLookupArgs.safeParse(args);
     if (!parsed.success) return { error: "Cần mã hồ sơ khách chính xác để xóa." };
+    // MC-21: delete_customer là L5 (purposeRequired:true theo ai-governance.ts
+    // isDelete). governanceBlock kiểm purpose LẠI ở bước confirm bằng
+    // approval.arguments đã lưu — nếu không forward purpose từ args gốc (LLM
+    // planner) vào đây, thao tác xóa sẽ KHÔNG BAO GIỜ qua được bước xác nhận
+    // dù đã tạo preview thành công (đã tự phát hiện qua itest MC-21, trước đó
+    // không lộ ra vì action này bị chặn cứng từ bước preview nên chưa từng
+    // chạy tới bước confirm để thấy lỗi này).
+    const rawPurpose = args && typeof args === "object" ? (args as Record<string, unknown>).purpose : undefined;
+    const purpose = typeof rawPurpose === "string" && rawPurpose.trim() ? rawPurpose.trim() : undefined;
     const found = await findCustomer(parsed.data.customerCode);
     if (!found.customer) return { error: found.choices.length ? `Có mã hồ sơ gần giống: ${found.choices.join(", ")}.` : "Không tìm thấy hồ sơ khách." };
+    if (!purpose) return { error: "Xóa hồ sơ khách là thao tác không thể hoàn tác — cần nêu rõ mục đích/lý do xóa trước khi em chuẩn bị preview." };
     const [caseCount, appointmentCount, paymentCount] = await Promise.all([
       prisma.caseRecord.count({ where: { customerId: found.customer.id } }),
       prisma.appointment.count({ where: { customerId: found.customer.id } }),
       prisma.payment.count({ where: { case: { customerId: found.customer.id } } }),
     ]);
-    return { args: { customerId: found.customer.id, customerCode: found.customer.code, resolvedName: found.customer.fullName }, preview: `XÓA VĨNH VIỄN hồ sơ ${found.customer.fullName} (${found.customer.code}), gồm ${caseCount} hồ sơ điều trị, ${paymentCount} khoản thanh toán và ${appointmentCount} lịch hẹn. Hệ thống sẽ hoàn kho vật tư trước khi xóa; không thể hoàn tác bằng nút thông thường.` };
+    return { args: { customerId: found.customer.id, customerCode: found.customer.code, resolvedName: found.customer.fullName, purpose }, preview: `XÓA VĨNH VIỄN hồ sơ ${found.customer.fullName} (${found.customer.code}), gồm ${caseCount} hồ sơ điều trị, ${paymentCount} khoản thanh toán và ${appointmentCount} lịch hẹn. Lý do: ${purpose}. Hệ thống sẽ hoàn kho vật tư trước khi xóa; không thể hoàn tác bằng nút thông thường.` };
   }
   if (action === "update_consultation_record") {
     const parsed = consultationArgs.safeParse(args);
@@ -987,8 +1003,14 @@ export async function confirmAssistantApproval(_prev: AgentState, formData: Form
   if (user.role !== "ADMIN") return planError("Chỉ ADMIN được xác nhận thao tác thay đổi dữ liệu.");
   const id = String(formData.get("approvalId") ?? "");
 
-  const approval = await prisma.assistantApproval.findFirst({ where: { id, userId: user.id, status: "PENDING" } });
+  // MC-21: PENDING chỉ người tạo yêu cầu (approval.userId) mới xác nhận lần
+  // đầu được — giữ nguyên hành vi cũ. PENDING_SECOND phải cho phép MỘT ADMIN
+  // KHÁC tìm thấy và duyệt (không giới hạn userId) — đó chính là điểm khác
+  // biệt với 1-người-duyệt, nên tách khỏi where-clause để kiểm rõ ràng bên dưới.
+  const approval = await prisma.assistantApproval.findFirst({ where: { id, status: { in: ["PENDING", "PENDING_SECOND"] } } });
   if (!approval) return planError("Yêu cầu không tồn tại hoặc đã được xử lý.");
+  if (approval.status === "PENDING" && approval.userId !== user.id) return planError("Yêu cầu không tồn tại hoặc đã được xử lý.");
+  if (approval.status === "PENDING_SECOND" && approval.firstApprovedById === user.id) return planError("Thao tác này cần 2 ADMIN khác nhau duyệt — anh đã xác nhận lần 1, cần một ADMIN khác xác nhận lần 2.");
     const workspace: AiWorkspaceContext = { workspaceKind: approval.workspaceKind, ...(approval.projectId ? { projectId: approval.projectId } : {}) };
   const runtimeAgentResult = await resolveRuntimeAiAgent(user, workspace, approval.agentId);
   if (!runtimeAgentResult.ok) return planError(runtimeAgentResult.reason);
@@ -1006,6 +1028,24 @@ export async function confirmAssistantApproval(_prev: AgentState, formData: Form
   if (governanceError) return planError(governanceError);
   const workspaceActionError = getAiWorkspaceActionError(workspace, approval.toolName);
   if (workspaceActionError) return planError(workspaceActionError);
+
+  // MC-21: 2 người duyệt thật cho hành động L5 (vd delete_customer) — trước
+  // đây bị chặn cứng hoàn toàn, không tạo được preview. Ở lần xác nhận ĐẦU
+  // TIÊN (status vẫn PENDING) của 1 hành động cần requiredApprovals>1, KHÔNG
+  // thực thi ngay — chỉ ghi nhận người thứ nhất rồi dừng, chờ 1 ADMIN KHÁC.
+  const twoPersonPolicy = evaluateDispatcherAction(aiPrincipal, approval.toolName, args);
+  if (twoPersonPolicy.requiredApprovals > 1 && approval.status === "PENDING") {
+    await prisma.assistantApproval.update({ where: { id }, data: { status: "PENDING_SECOND", firstApprovedById: user.id, firstApprovedAt: new Date() } });
+    await audit(user.id, "ASSISTANT_APPROVAL_FIRST_CONFIRMED", { entity: approval.toolName, entityId: id, meta: { workspaceKind: workspace.workspaceKind, projectId: workspace.projectId ?? null } });
+    const msg = `Em đã ghi nhận xác nhận lần 1 của anh. Đây là thao tác rủi ro cao (${twoPersonPolicy.warningTitle ?? "cần 2 người duyệt"}) — cần một ADMIN KHÁC xác nhận lần 2 trước khi em thực thi thật, chưa có gì thay đổi.\n\n${approval.preview}`;
+    const state: AgentState = { ok: true, answer: msg, steps: workflowSteps(approval.toolName as ActionName, "preview") };
+    if (approval.conversationId) {
+      await appendAssistantTurn(user.id, approval.conversationId, "ASSISTANT", msg, { approvalId: id, toolName: approval.toolName, status: "PENDING_SECOND", steps: state.steps ?? [], workspaceKind: workspace.workspaceKind, ...(workspace.projectId ? { projectId: workspace.projectId } : {}) });
+      state.conversationId = approval.conversationId;
+    }
+    return state;
+  }
+
     try {
     let executionAnswer = approval.preview;
     if (READ_ACTIONS.has(approval.toolName as ActionName)) {
@@ -1173,8 +1213,11 @@ export async function confirmAssistantApproval(_prev: AgentState, formData: Form
 export async function rejectAssistantApproval(_prev: AgentState, formData: FormData): Promise<AgentState> {
   const user = await requireCap("mod:tro-ly");
   const id = String(formData.get("approvalId") ?? "");
-  const approval = await prisma.assistantApproval.findFirst({ where: { id, userId: user.id, status: "PENDING" }, select: { conversationId: true, workspaceKind: true, projectId: true } });
-  await prisma.assistantApproval.updateMany({ where: { id, userId: user.id, status: "PENDING" }, data: { status: "REJECTED", resolvedAt: new Date() } });
+  // MC-21: cho phép hủy ở CẢ 2 giai đoạn (PENDING lẫn PENDING_SECOND), không
+  // giới hạn theo userId — hủy luôn là hướng an toàn (không ghi dữ liệu gì),
+  // và người thứ 2 phải hủy được yêu cầu mà mình không đồng ý duyệt.
+  const approval = await prisma.assistantApproval.findFirst({ where: { id, status: { in: ["PENDING", "PENDING_SECOND"] } }, select: { conversationId: true, workspaceKind: true, projectId: true } });
+  await prisma.assistantApproval.updateMany({ where: { id, status: { in: ["PENDING", "PENDING_SECOND"] } }, data: { status: "REJECTED", resolvedAt: new Date() } });
   await audit(user.id, "ASSISTANT_APPROVAL_REJECTED", { entity: "AssistantApproval", entityId: id, meta: { workspaceKind: approval?.workspaceKind ?? "INTERNAL", projectId: approval?.projectId ?? null } });
   const result: AgentState = { ok: true, answer: "Đã hủy thao tác. Không có dữ liệu nào bị thay đổi.", steps: ["Đối chiếu approval", "Hủy trước khi ghi dữ liệu", "Ghi audit kết quả hủy"] };
   if (approval?.conversationId) {
@@ -1182,4 +1225,27 @@ export async function rejectAssistantApproval(_prev: AgentState, formData: FormD
     result.conversationId = approval.conversationId;
   }
   return result;
+}
+
+// MC-21: danh sách chờ duyệt lần 2 — hiển thị cho ADMIN KHÁC người đã duyệt
+// lần 1 (loại trừ chính mình, vì tự duyệt cả 2 lần không có giá trị kiểm
+// soát). Đây là hành động rủi ro cao (L5, vd delete_customer) nên chỉ ADMIN.
+export async function listPendingSecondApprovals() {
+  const user = await requireCap("mod:tro-ly");
+  if (user.role !== "ADMIN") return [];
+  return prisma.assistantApproval.findMany({
+    where: { status: "PENDING_SECOND", firstApprovedById: { not: user.id } },
+    orderBy: { firstApprovedAt: "desc" },
+    take: 20,
+    select: { id: true, toolName: true, preview: true, firstApprovedAt: true, firstApprovedByUser: { select: { fullName: true } } },
+  });
+}
+
+// Wrapper form action thuần cho Server Component (không có router.refresh()
+// phía client) — theo đúng quy ước 8.1: nút gọi qua <form action> thuần cần tự
+// revalidatePath. confirmAssistantApproval giữ nguyên chữ ký (prevState,
+// formData) cho useFormAction ở khung chat; đây là lối vào riêng cho banner.
+export async function confirmSecondApprovalFromList(formData: FormData): Promise<void> {
+  await confirmAssistantApproval({}, formData);
+  revalidatePath("/tro-ly");
 }

@@ -144,6 +144,11 @@ enum PlanTaskStatus {
 
 enum AssistantApprovalStatus {
   PENDING
+  // MC-21: hành động L5 (vd delete_customer) cần 2 người duyệt thật — sau khi
+  // người thứ nhất xác nhận, chuyển sang trạng thái này chờ một ADMIN KHÁC
+  // xác nhận lần 2 mới thực sự thực thi. Trước đây các hành động này bị chặn
+  // cứng hoàn toàn (không tạo được preview) vì chưa có luồng 2 người.
+  PENDING_SECOND
   APPROVED
   REJECTED
   EXPIRED
@@ -308,6 +313,7 @@ model User {
   channelMessagesSent           Message[]
   pushSubscriptions             PushSubscription[]
   assistantApprovals            AssistantApproval[]
+  assistantApprovalsFirstApproved AssistantApproval[]      @relation("AssistantApprovalFirstApprover")
   assistantConversations        AssistantConversation[]
   assistantMessages             AssistantMessage[]
   revenueAllocationsCreated     CaseRevenueAllocation[]    @relation("RevenueAllocationCreatedBy")
@@ -1098,10 +1104,14 @@ model AssistantApproval {
   expiresAt      DateTime
   createdAt      DateTime                @default(now())
   resolvedAt     DateTime?
+  firstApprovedById String?
+  firstApprovedByUser User?               @relation("AssistantApprovalFirstApprover", fields: [firstApprovedById], references: [id], onDelete: SetNull)
+  firstApprovedAt   DateTime?
 
   @@index([userId, status])
   @@index([projectId, status])
   @@index([expiresAt])
+  @@index([status, firstApprovedById])
 }
 
 // ============================ CHỨNG TỪ & HỒ SƠ BỔ SUNG ============================
