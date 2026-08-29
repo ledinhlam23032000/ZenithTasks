@@ -93,19 +93,39 @@ export async function toggleMaterial(formData: FormData): Promise<void> {
   revalidatePath("/danh-muc");
 }
 
-export async function deleteService(formData: FormData): Promise<void> {
-  await requireUser([...ROLES]);
+/**
+ * Xóa dịch vụ. Chỉ xóa THẬT khi chưa từng dùng trong hồ sơ nào — dịch vụ đã có
+ * CaseService sẽ bị Prisma restrict (Service không khai onDelete: Cascade cho
+ * quan hệ này) nên .catch() im lặng trước đây chỉ khiến nút "Xóa" trông như đã
+ * chạy trong khi thực chất không làm gì; đã dùng thì đổi hướng dẫn sang Ẩn.
+ */
+export async function deleteService(formData: FormData): Promise<{ error?: string } | void> {
+  const user = await requireUser([...ROLES]);
   const id = String(formData.get("id") ?? "");
   if (!id) return;
-  await prisma.service.delete({ where: { id } }).catch(() => {});
+  const used = await prisma.caseService.findFirst({ where: { serviceId: id }, select: { id: true } });
+  if (used) return { error: "Dịch vụ đã dùng trong hồ sơ điều trị, không thể xóa hẳn — hãy dùng nút Ẩn (biểu tượng nguồn) để ngừng hiển thị mà vẫn giữ lịch sử." };
+  const deleted = await prisma.service.deleteMany({ where: { id } });
+  if (deleted.count > 0) await auditRequired(prisma, user.id, "DELETE_SERVICE", { entity: "Service", entityId: id });
   revalidatePath("/danh-muc");
 }
 
-export async function deleteMaterial(formData: FormData): Promise<void> {
-  await requireUser([...ROLES]);
+/**
+ * Xóa vật tư. Trước đây `prisma.material.delete` CASCADE xóa toàn bộ
+ * StockMovement (mọi phiếu nhập/xuất kèm unitCost — căn cứ duy nhất đối chiếu
+ * giá vốn bình quân) và ServiceMaterial (định mức BOM), đồng thời SetNull trên
+ * MaterialUsage — một cú bấm mất vĩnh viễn lịch sử kiểm toán kho, không audit
+ * (`.catch(() => {})` nuốt mọi lỗi). Ứng dụng đã có `toggleMaterial` để Ẩn an
+ * toàn — nút Xóa chỉ nên xóa THẬT khi vật tư CHƯA từng có giao dịch nào.
+ */
+export async function deleteMaterial(formData: FormData): Promise<{ error?: string } | void> {
+  const user = await requireUser([...ROLES]);
   const id = String(formData.get("id") ?? "");
   if (!id) return;
-  await prisma.material.delete({ where: { id } }).catch(() => {});
+  const hasHistory = await prisma.stockMovement.findFirst({ where: { materialId: id }, select: { id: true } });
+  if (hasHistory) return { error: "Vật tư đã có nhật ký nhập/xuất kho, không thể xóa hẳn (sẽ mất lịch sử giá vốn) — hãy dùng nút Ẩn (biểu tượng nguồn) để ngừng hiển thị mà vẫn giữ lịch sử." };
+  const deleted = await prisma.material.deleteMany({ where: { id } });
+  if (deleted.count > 0) await auditRequired(prisma, user.id, "DELETE_MATERIAL", { entity: "Material", entityId: id });
   revalidatePath("/danh-muc");
 }
 
