@@ -108,7 +108,17 @@ export async function enqueueAiJobAction(_prev: AiJobActionState, formData: Form
         conversationId: sourceConversationId,
         messageId: sourceMessageId,
         targetAgentId: resolution.agent!.id,
-        targetProjectId: targetKind === "CHILD" ? targetProjectId : null,
+        // BUG ĐÃ SỬA: trước đây luôn ghi null khi targetKind==="GLOBAL", nên
+        // KHÔNG có cách nào enqueue một job GLOBAL nhắm vào 1 company cụ thể
+        // (vd suspend_child_agent — GLOBAL agent tạm dừng 1 CHILD agent thuộc
+        // đúng project X). Policy check ở enforceRuntimeAiTool phía trên ĐÃ xác
+        // nhận targetProjectId hợp lệ với đúng agent/scope này (dòng enforceRuntimeAiTool
+        // ở trên) — executeAiJobRunner đọc lại targetProjectId đã lưu để tái xác
+        // thực runtime, nên nếu lưu null thì bằng chứng đã qua bị vứt bỏ, và
+        // job luôn FAIL "GLOBAL_TARGET_REQUIRED" khi thực thi dù enqueue đã pass.
+        // Aggregate action (get_workspace_overview...) không gửi targetProjectId
+        // nên vẫn tự nhiên là null — không cần nhánh riêng theo targetKind.
+        targetProjectId: targetProjectId || null,
         toolName,
         action,
         arguments: parsedArguments as Prisma.InputJsonValue,

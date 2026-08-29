@@ -19,7 +19,7 @@ const JOB_TIMEOUT_MARKER = "JOB_TIMEOUT_EXCEEDED";
  * nhánh mặc định cuối cùng "WARN/L3 — AI đang tạo bản nháp", tức là CHẠY THẲNG
  * không qua approval dù đang ghi dữ liệu thật. Danh sách này chặn đúng gốc.
  */
-const WRITE_ACTIONS = new Set(["create_customer_profile"]);
+const WRITE_ACTIONS = new Set(["create_customer_profile", "create_workspace_task", "suspend_child_agent"]);
 
 function writeIrreversibility(action: string): { irreversible?: boolean; amount?: number } {
   return WRITE_ACTIONS.has(action) ? { irreversible: true } : {};
@@ -41,6 +41,34 @@ export async function dispatchJobTool(
   args: Record<string, unknown>,
   actor: { id: string; role: string }
 ): Promise<Record<string, unknown>> {
+  // ---- AI Tổng quản lý AI con: xem trạng thái + tạm dừng khi phát hiện bất
+  // thường (vd agent lỗi liên tục, chi phí bất thường). KHÔNG có action nào
+  // cho AI Tổng tự ACTIVATE AI con — kích hoạt vẫn phải qua con người xác nhận
+  // company sẵn sàng vận hành (đúng nguyên tắc "reversible-first": tạm dừng dễ
+  // hoàn tác, kích hoạt cho phép AI con hành động thật nên cần người quyết).
+  if (action === "get_child_agent_status") {
+    if (actor.role !== "ADMIN") throw new Error("FORBIDDEN_GLOBAL_OVERVIEW");
+    const agents = await prisma.zAiAgent.findMany({
+      where: { kind: "CHILD" },
+      select: { id: true, code: true, name: true, status: true, projectId: true, lastHeartbeatAt: true, project: { select: { code: true, name: true, status: true } } },
+      orderBy: { updatedAt: "desc" },
+      take: 100,
+    });
+    return { childAgents: agents, total: agents.length };
+  }
+
+  if (action === "suspend_child_agent") {
+    if (actor.role !== "ADMIN") throw new Error("FORBIDDEN_GLOBAL_OVERVIEW");
+    const { SuspendChildAgentSchema } = await import("./v2-ai-tool-schemas");
+    const parsed = SuspendChildAgentSchema.parse(args);
+    const result = await prisma.zAiAgent.updateMany({
+      where: { id: parsed.agentId, kind: "CHILD", status: "ACTIVE" },
+      data: { status: "SUSPENDED" },
+    });
+    if (result.count !== 1) throw new Error("AGENT_NOT_FOUND_OR_NOT_ACTIVE");
+    return { suspendedAgentId: parsed.agentId, reason: parsed.reason };
+  }
+
   if (action === "get_workspace_overview") {
     if (actor.role !== "ADMIN") {
       throw new Error("FORBIDDEN_GLOBAL_OVERVIEW");
@@ -134,6 +162,31 @@ export async function dispatchJobTool(
     return { createdCustomer: created };
   }
 
+  if (action === "create_workspace_task") {
+    if (!targetProjectId) throw new Error("TARGET_PROJECT_REQUIRED");
+    const { CreateWorkspaceTaskSchema } = await import("./v2-ai-tool-schemas");
+    const parsed = CreateWorkspaceTaskSchema.parse(args);
+    // assigneeId (nếu có) phải là member ACTIVE của đúng project này — nếu
+    // không kiểm, AI có thể gán việc cho người đã rời/không thuộc company.
+    if (parsed.assigneeId) {
+      const member = await prisma.zProjectMember.findFirst({ where: { projectId: targetProjectId, userId: parsed.assigneeId, active: true }, select: { id: true } });
+      if (!member) throw new Error("ASSIGNEE_NOT_ACTIVE_MEMBER");
+    }
+    const dueAt = parsed.dueDate ? new Date(`${parsed.dueDate}T23:59:59`) : null;
+    const created = await prisma.zWorkspaceTask.create({
+      data: {
+        projectId: targetProjectId,
+        createdById: actor.id,
+        title: parsed.title,
+        description: parsed.description ?? null,
+        priority: parsed.priority ?? "NORMAL",
+        assigneeId: parsed.assigneeId ?? null,
+        dueAt,
+      },
+    });
+    return { createdTask: created };
+  }
+
   if (action === "generate_commission_draft") {
     if (!targetProjectId) throw new Error("TARGET_PROJECT_REQUIRED");
     const { GenerateCommissionDraftSchema } = await import("./v2-ai-tool-schemas");
@@ -191,10 +244,18 @@ export async function executeAiJobRunner(
     return { ok: false, jobId, status: "FAILED", attempt: job.attempt, error: "ACTOR_NOT_FOUND" };
   }
 
+  // Dựa vào targetAgent.kind (đã include, đáng tin) chứ KHÔNG suy đoán từ
+  // targetProjectId != null. Bug thật đã tìm thấy: GLOBAL agent điều khiển một
+  // CHILD agent cụ thể (vd suspend_child_agent) luôn có targetProjectId khác
+  // null (project của CHILD bị ảnh hưởng) — suy đoán cũ coi đây là workspace
+  // PROJECT rồi đi tìm CHILD agent tại targetAgentId, trong khi targetAgentId
+  // THẬT SỰ là GLOBAL agent đang thực thi → luôn FAILED "Không có AI ACTIVE
+  // đúng phạm vi workspace". ZAiJob schema không lưu targetKind riêng nên
+  // targetAgent.kind là nguồn sự thật đúng duy nhất còn lại.
   const targetWorkspace: AiWorkspaceContext =
-    job.targetProjectId
-      ? { workspaceKind: "PROJECT", projectId: job.targetProjectId }
-      : { workspaceKind: "GLOBAL" };
+    job.targetAgent.kind === "GLOBAL"
+      ? { workspaceKind: "GLOBAL" }
+      : { workspaceKind: "PROJECT", projectId: job.targetProjectId ?? undefined };
 
   const agentResolution = await resolveRuntimeAiAgent(requester, targetWorkspace, job.targetAgentId);
   if (!agentResolution.ok || !agentResolution.agent) {

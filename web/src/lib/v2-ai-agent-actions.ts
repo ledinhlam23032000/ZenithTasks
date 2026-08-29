@@ -94,7 +94,11 @@ export async function createGlobalAiAgentAction(_prev: AiAgentActionState, formD
   const existing = await prisma.zAiAgent.findFirst({ where: { code, projectId: null }, select: { id: true } });
   if (existing) return { error: "Mã AI Tổng đã tồn tại trong hệ thống." };
   const created = await prisma.$transaction(async (tx) => {
-    const agent = await tx.zAiAgent.create({ data: { code, name, kind: "GLOBAL", status: "DRAFT", createdById: user.id, systemPrompt, model, toolAllowlist: ["get_workspace_overview"], config: { scope: "GLOBAL", requiresExplicitProjectTarget: true, canControlChildAgents: true } } });
+    // toolAllowlist khớp với config.canControlChildAgents: true đã tuyên bố ngay
+    // dưới đây — trước đây config nói AI Tổng "kiểm soát được AI con" nhưng
+    // allowlist không cấp tool nào để làm việc đó, nên lời hứa trong config chỉ
+    // là dữ liệu tĩnh, không có năng lực thật đi kèm.
+    const agent = await tx.zAiAgent.create({ data: { code, name, kind: "GLOBAL", status: "DRAFT", createdById: user.id, systemPrompt, model, toolAllowlist: ["get_workspace_overview", "get_child_agent_status", "suspend_child_agent"], config: { scope: "GLOBAL", requiresExplicitProjectTarget: true, canControlChildAgents: true } } });
     await tx.auditLog.create({ data: { actorId: user.id, action: "V2_GLOBAL_AI_CREATED", entity: "ZAiAgent", entityId: agent.id, meta: { agentId: agent.id, kind: "GLOBAL", status: "DRAFT", code } } });
     return agent;
   });
