@@ -156,6 +156,24 @@ export async function getMonthlyAccounting(
     },
     period, // null = tháng chưa chốt sổ
     closed: !!period,
+    // Chốt sổ chỉ CHỤP LẠI số liệu vào AccountingPeriod, không khoá được mọi đầu
+    // vào (vd chấm công, commissionAmount hồ sơ không kiểm isMonthClosed). Nếu số
+    // LIVE (pnl phía trên) lệch khỏi snapshot đã lưu, trang phải cảnh báo rõ thay
+    // vì âm thầm hiện số mới trong khi nhãn vẫn ghi "Đã chốt sổ" — hai giá trị đó
+    // giờ khác nhau và người xem cần biết.
+    periodDrift: period
+      ? {
+          hasDrift:
+            period.serviceRevenue.toString() !== pnl.serviceRevenue.toFixed(0) ||
+            period.otherIncome.toString() !== pnl.otherIncome.toFixed(0) ||
+            period.operatingExpense.toString() !== pnl.operatingExpense.toFixed(0) ||
+            period.salaryExpense.toString() !== pnl.salaryExpense.toFixed(0) ||
+            period.ctvCommission.toString() !== pnl.ctvCommission.toFixed(0) ||
+            period.profit.toString() !== pnl.profit.toFixed(0),
+          snapshotProfit: toNum(period.profit),
+          liveProfit: pnl.profit,
+        }
+      : null,
   };
 }
 

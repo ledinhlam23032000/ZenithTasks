@@ -255,6 +255,18 @@ export async function updateCaseInfo(_prev: CaseActionState, formData: FormData)
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu không hợp lệ." };
   const d = parsed.data;
 
+  // Kiểm TRƯỚC transaction và trả {error} (không throw): các action tiền/kho khác
+  // trong file này throw giữa transaction, mà useFormAction bắt MỌI rejection (trừ
+  // NEXT_REDIRECT) và thay bằng "Không lưu được — kiểm tra kết nối" — người dùng sẽ
+  // tưởng lỗi mạng rồi bấm lại, đúng kịch bản gây double-submit đã sửa ở nơi khác.
+  {
+    const beforeCommission = await prisma.caseRecord.findUnique({ where: { id: d.caseId }, select: { createdAt: true, commissionAmount: true } });
+    if (beforeCommission && toNum(beforeCommission.commissionAmount) !== d.commissionAmount) {
+      const month = beforeCommission.createdAt.toISOString().slice(0, 7);
+      if (await isMonthClosed(month)) return { error: `Tháng ${month} (tháng tạo hồ sơ) đã chốt sổ; hãy mở lại sổ ở trang Kế toán trước khi sửa hoa hồng CTV.` };
+    }
+  }
+
   await withCaseLock(d.caseId, async (tx) => {
     const before = await tx.caseRecord.findUnique({ where: { id: d.caseId }, select: { customerId: true, status: true } });
     await tx.caseRecord.update({

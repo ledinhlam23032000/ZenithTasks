@@ -165,6 +165,13 @@ export default async function AccountingPage({
         <p className="rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800">Ghi chú chốt sổ: {a.period.note}</p>
       )}
 
+      {a.closed && a.periodDrift?.hasDrift && (
+        <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+          <strong>Cảnh báo:</strong> số liệu hiện tại KHÁC với lúc chốt sổ (Lãi/Lỗ đã chốt {formatVND(a.periodDrift.snapshotProfit)}, hiện tính lại là {formatVND(a.periodDrift.liveProfit)}).
+          Có thể do chấm công, hoa hồng hồ sơ hoặc giao dịch bị sửa sau khi chốt sổ. Mọi số liệu bên dưới là số MỚI NHẤT, không phải số đã chốt — hãy đối chiếu lại trước khi dùng cho báo cáo thuế/kiểm toán.
+        </p>
+      )}
+
       {/* Nhắc việc kế toán — app tự soát xem còn gì phải làm để chốt sổ tháng này */}
       {accTasks.length > 0 && (
         <Card className={readyToClose ? "border-emerald-200 bg-emerald-50/40" : "border-amber-200 bg-amber-50/40"}>

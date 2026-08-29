@@ -6,6 +6,12 @@ import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { vnDateOnly } from "@/lib/dates";
 import { auditRequired } from "@/lib/audit";
+import { isMonthClosed } from "@/lib/accounting";
+
+const CLOSED_MONTH_MSG = "Tháng này đã chốt sổ kế toán; hãy mở lại sổ ở trang Kế toán trước khi sửa chấm công.";
+function monthOf(dateStr: string) {
+  return dateStr.slice(0, 7);
+}
 
 export type AttState = { ok?: boolean; error?: string };
 
@@ -52,10 +58,13 @@ export async function deleteAttendance(formData: FormData): Promise<void> {
   const user = await requireUser(["ADMIN", "MANAGER"]);
   const id = String(formData.get("id") ?? "");
   if (id) {
-    await prisma.$transaction(async (tx) => {
-      const deleted = await tx.attendance.deleteMany({ where: { id } });
-      if (deleted.count > 0) await auditRequired(tx, user.id, "DELETE_ATTENDANCE", { entity: "Attendance", entityId: id });
-    });
+    const existing = await prisma.attendance.findUnique({ where: { id }, select: { date: true } });
+    if (existing && !(await isMonthClosed(existing.date.toISOString().slice(0, 7)))) {
+      await prisma.$transaction(async (tx) => {
+        const deleted = await tx.attendance.deleteMany({ where: { id } });
+        if (deleted.count > 0) await auditRequired(tx, user.id, "DELETE_ATTENDANCE", { entity: "Attendance", entityId: id });
+      });
+    }
   }
   revalidatePath("/cham-cong");
 }
@@ -103,6 +112,12 @@ export async function bulkUpsertAttendance(_prev: AttState, formData: FormData):
   const rows = d.dates.map((date) => ({ date, checkInAt: checkInAt(date), checkOutAt: checkOutAt(date) }));
   if (rows.some((row) => !row.checkInAt || (d.checkOut && !row.checkOutAt))) return { error: "Có ngày hoặc giờ chấm công không hợp lệ." };
   if (rows.some((row) => row.checkOutAt && row.checkInAt && row.checkOutAt < row.checkInAt)) return { error: "Giờ ra phải sau giờ vào." };
+  const closedMonths = new Set<string>();
+  for (const row of rows) {
+    const mk = monthOf(row.date);
+    if (!closedMonths.has(mk) && (await isMonthClosed(mk))) closedMonths.add(mk);
+  }
+  if (closedMonths.size > 0) return { error: `${CLOSED_MONTH_MSG} (tháng ${[...closedMonths].join(", ")})` };
   await prisma.$transaction(async (tx) => {
     for (const row of rows) {
       const attendance = await tx.attendance.upsert({
@@ -138,6 +153,7 @@ export async function upsertAttendance(_prev: AttState, formData: FormData): Pro
   const checkOutAt = d.checkOut ? vnDateTime(d.date, d.checkOut) : null;
   if (d.checkOut && !checkOutAt) return { error: "Giờ ra không hợp lệ." };
   if (checkOutAt && checkOutAt < checkInAt) return { error: "Giờ ra phải sau giờ vào." };
+  if (await isMonthClosed(monthOf(d.date))) return { error: CLOSED_MONTH_MSG };
 
   const target = await prisma.user.findUnique({ where: { id: d.userId }, select: { id: true } });
   if (!target) return { error: "Không tìm thấy nhân viên." };
