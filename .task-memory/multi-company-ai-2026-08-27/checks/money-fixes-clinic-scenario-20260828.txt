@@ -1,0 +1,32 @@
+Bằng chứng runtime: fix hoa hồng bác sĩ + double-submit chi lương
+trên dữ liệu nghiệp vụ phòng khám GIẢ trên QA cô lập (không phải clinic).
+Ngày: 2026-08-29 13:33:18 +0700
+Seed: scripts/qa/seed-clinic-business.ts
+----------------------------------------------------------------
+[33m(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+
+ RUN  v4.1.10 C:/Users/PC/ZenithTasks/web
+
+ ✓ src/lib/payroll-clinic-scenario.itest.ts > payStaffSalary chống double-submit trên dữ liệu QA thật > bấm 2 lần đồng thời cho cùng người/tháng chỉ tạo ĐÚNG 1 phiếu chi 5404ms
+ ✓ src/lib/commission-clinic-scenario.itest.ts > Hoa hồng bác sĩ trên dữ liệu QA thật (hồ sơ 6tr+4tr, trả đủ 10tr) > căn cứ hoa hồng bác sĩ = 6.000.000, KHÔNG phải 10.000.000 3903ms
+ ✓ src/lib/v2-ai-job-lifecycle.itest.ts > MC-11 AI job dispatcher lifecycle (QA database) > job hợp lệ chạy tới SUCCEEDED và ghi audit 372ms
+ ✓ src/lib/v2-ai-job-lifecycle.itest.ts > MC-11 AI job dispatcher lifecycle (QA database) > action lạ bị TỪ CHỐI, không giả vờ thành công 91ms
+ ✓ src/lib/v2-ai-job-lifecycle.itest.ts > MC-11 AI job dispatcher lifecycle (QA database) > LEO THANG QUYỀN bị chặn: action ghi dữ liệu không nằm trong allowlist 117ms
+ ✓ src/lib/v2-ai-job-lifecycle.itest.ts > MC-11 AI job dispatcher lifecycle (QA database) > atomic lock: chạy lại job đã xử lý không thực thi lần hai 79ms
+ ✓ src/lib/v2-ai-job-lifecycle.itest.ts > MC-11 AI job dispatcher lifecycle (QA database) > re-authorization lúc thực thi chặn agent của company khác 42ms
+ ✓ src/lib/v2-ai-job-lifecycle.itest.ts > MC-11 AI job dispatcher lifecycle (QA database) > resolveRuntimeAiAgent fail-closed: người ngoài không gắn được vào AI company khác 18ms
+ ✓ src/lib/v2-ai-job-lifecycle.itest.ts > MC-11 AI job dispatcher lifecycle (QA database) > approve đưa job PENDING_APPROVAL trở lại QUEUED và ghi audit 101ms
+ ✓ src/lib/v2-ai-job-lifecycle.itest.ts > MC-11 AI job dispatcher lifecycle (QA database) > job L5 KHÔNG được tự duyệt bởi chính người yêu cầu (two-person) 25ms
+ ✓ src/lib/v2-ai-job-lifecycle.itest.ts > MC-11 AI job dispatcher lifecycle (QA database) > reject chuyển job sang CANCELLED và không chạy được nữa 45ms
+ ✓ src/lib/v2-write-denial.itest.ts > MC-13.1 lifecycle & tenant write denial (QA database) > ADMIN không thể tạo khách hàng trong company DRAFT 133ms
+ ✓ src/lib/v2-write-denial.itest.ts > MC-13.1 lifecycle & tenant write denial (QA database) > ADMIN không thể tạo công việc trong company ARCHIVED 20ms
+ ✓ src/lib/v2-write-denial.itest.ts > MC-13.1 lifecycle & tenant write denial (QA database) > thành viên company A không thể ghi sang company B 23ms
+ ✓ src/lib/v2-write-denial.itest.ts > MC-13.1 lifecycle & tenant write denial (QA database) > người bị thu hồi membership không thể ghi vào company cũ 39ms
+ ✓ src/lib/v2-write-denial.itest.ts > MC-13.1 lifecycle & tenant write denial (QA database) > control: ADMIN VẪN ghi được vào company ACTIVE (guard không chặn nhầm) 83ms
+ ✓ src/lib/schema-enum-drift.itest.ts > schema.prisma enum không được lệch với database > mọi giá trị enum khai trong schema đều tồn tại trong Postgres 56ms
+
+ Test Files  5 passed (5)
+      Tests  17 passed (17)
+   Start at  13:33:22
+   Duration  14.84s (transform 1.23s, setup 0ms, import 341ms, tests 12.25s, environment 1ms)
+
