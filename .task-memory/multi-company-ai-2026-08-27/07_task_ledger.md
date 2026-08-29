@@ -50,7 +50,7 @@ Sau mỗi wave, ghi lại commit/PR, test result, runtime result và blocker. N�
 
 | Mục | Giá trị |
 |---|---|
-| HEAD hiện tại | `2073019` trên `master`, đã push origin (khối này lỗi thời tới hết 2026-08-28 — xem `checks/clinic-deploy4-20260829.md` + `checks/mc14-rollback-and-audit-20260829.md` cho 2 đợt gần nhất, đã cập nhật 2026-08-29) |
+| HEAD hiện tại | `c04ba57` trên `master`, đã push origin. **Deploy wave 5 (MC-17..23) đã lên clinic 2026-08-29** — xem `checks/clinic-deploy5-20260829.md`. 7/7 việc chủ dự án giao lần này đã DONE |
 | Branch hiện tại | `master` (0 ahead / 0 behind origin); QA runtime worktree riêng `C:\Users\PC\ZenithTasks-QA` (project docker compose `zenithqa`, DB `zenith_qa`, app cổng host 13000) |
 | Full quality status gần nhất | Gate trước deploy wave 4 (2026-08-29): `tsc` 0 lỗi; Vitest unit **495/495 PASS**; Vitest integration **27/27 PASS trên QA DB thật** |
 | Wave 2026-08-28 → 08-29 (4 đợt deploy clinic) | 17 lỗi thật đã sửa (bảo mật/tiền/cách ly tenant/AI governance) — danh sách đầy đủ ở `checks/clinic-deploy4-20260829.md`. 3 tính năng lớn hoàn thiện: worker AI job tự động (`scripts/ai-job-worker.ts`, chạy nền qua `docker-entrypoint.sh`), payroll đa công ty E2E (DRAFT→FINALIZE, two-person approval), AI Tổng điều khiển AI con thật (suspend/status qua job queue có approval). Worker scheduler và UI approve/reject job **KHÔNG còn là nợ** — đã có (`v2-ai-job-panel.tsx`) |
