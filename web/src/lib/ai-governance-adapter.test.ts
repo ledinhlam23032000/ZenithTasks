@@ -38,4 +38,21 @@ describe("AI dispatcher governance adapter", () => {
     expect(policy.decision).toBe("REQUIRE_CONFIRMATION");
     expect(policy.purposeRequired).toBe(true);
   });
+
+  it("marks project-local payroll preview as sensitive too — không được bỏ sót", () => {
+    // Hồi quy cho lỗ hổng có thật: get_project_payroll_preview trước đây thiếu
+    // trong includesPayrollData nên rơi vào nhánh mặc định "read" -> L1/ALLOW,
+    // đọc lương công ty mà không cần nêu mục đích hay xác nhận, dù đi đúng qua
+    // governanceBlock (không phải chưa được gate — chỉ bị PHÂN LOẠI SAI).
+    // getPrincipalForUserWorkspace (agent.ts) mở rộng capabilities cho project
+    // workspace bằng get_project_payroll_preview; ở đây thêm tay để test đúng
+    // lớp classification, không phụ thuộc hàm build principal của agent.ts.
+    const basePrincipal = principalForUser({ id: "u1", role: "ADMIN" }, ["proj-1"], { workspaceKind: "PROJECT", projectId: "proj-1" });
+    const principal = { ...basePrincipal, capabilities: [...basePrincipal.capabilities, "get_project_payroll_preview"] };
+    const request = requestForAction("get_project_payroll_preview", { projectId: "proj-1" });
+    const policy = evaluateDispatcherAction(principal, "get_project_payroll_preview", { projectId: "proj-1" });
+    expect(request.includesPayrollData, "get_project_payroll_preview phải được đánh dấu nhạy cảm").toBe(true);
+    expect(policy.decision, "phải yêu cầu xác nhận, không được ALLOW thẳng").toBe("REQUIRE_CONFIRMATION");
+    expect(policy.purposeRequired).toBe(true);
+  });
 });

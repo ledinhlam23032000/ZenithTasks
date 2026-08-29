@@ -88,7 +88,13 @@ function projectIdArg(args: unknown): string | undefined {
 
 export function requestForAction(action: AiDispatcherAction | string, args: unknown): AiToolRequest {
   const includesMedicalData = action === "get_customer_profile" || action === "update_customer_profile" || action === "update_consultation_record";
-  const includesPayrollData = action === "get_payroll_row" || action === "prepare_payroll_export" || action === "save_payroll" || action === "save_bulk_payroll";
+  // includesPayrollData PHẢI liệt kê MỌI action đọc/ghi lương, kể cả action
+  // project-local (V2) mới hơn 4 action clinic-legacy ban đầu. Bỏ sót
+  // get_project_payroll_preview từng khiến nó rơi vào nhánh mặc định
+  // action.startsWith("read") -> L1/ALLOW, KHÔNG bắt buộc nêu mục đích/xác nhận
+  // dù đọc dữ liệu lương thật của company — dữ liệu nhạy cảm bị đối xử như một
+  // read bình thường chỉ vì thiếu tên trong danh sách này.
+  const includesPayrollData = action === "get_payroll_row" || action === "prepare_payroll_export" || action === "save_payroll" || action === "save_bulk_payroll" || action === "get_project_payroll_preview";
   const destructive = action === "delete_customer";
   const amount = numberArg(args, "amount") ?? numberArg(args, "bonus") ?? numberArg(args, "adjustment");
   return {
