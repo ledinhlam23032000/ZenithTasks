@@ -16,6 +16,15 @@ export const SuspendChildAgentSchema = z.object({
   reason: z.string().min(5).max(500).describe("Lý do tạm dừng — bắt buộc để ghi audit rõ ràng"),
 });
 
+export const ResumeChildAgentSchema = z.object({
+  agentId: z.string().min(1).describe("ID của AI con (ZAiAgent) đang SUSPENDED cần kích hoạt lại"),
+  reason: z.string().min(5).max(500).describe("Lý do kích hoạt lại — bắt buộc để ghi audit rõ ràng"),
+});
+
+export const GetChildAgentJobsSchema = z.object({
+  agentId: z.string().min(1).describe("ID của AI con (ZAiAgent) cần xem lịch sử job gần đây"),
+});
+
 export const CreateWorkspaceTaskSchema = z.object({
   title: z.string().min(2).max(160).describe("Tiêu đề công việc"),
   description: z.string().max(5000).optional().describe("Mô tả chi tiết"),

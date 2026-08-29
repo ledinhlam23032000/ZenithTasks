@@ -98,7 +98,7 @@ export async function createGlobalAiAgentAction(_prev: AiAgentActionState, formD
     // dưới đây — trước đây config nói AI Tổng "kiểm soát được AI con" nhưng
     // allowlist không cấp tool nào để làm việc đó, nên lời hứa trong config chỉ
     // là dữ liệu tĩnh, không có năng lực thật đi kèm.
-    const agent = await tx.zAiAgent.create({ data: { code, name, kind: "GLOBAL", status: "DRAFT", createdById: user.id, systemPrompt, model, toolAllowlist: ["get_workspace_overview", "get_child_agent_status", "suspend_child_agent"], config: { scope: "GLOBAL", requiresExplicitProjectTarget: true, canControlChildAgents: true } } });
+    const agent = await tx.zAiAgent.create({ data: { code, name, kind: "GLOBAL", status: "DRAFT", createdById: user.id, systemPrompt, model, toolAllowlist: ["get_workspace_overview", "get_child_agent_status", "suspend_child_agent", "resume_child_agent", "get_child_agent_jobs"], config: { scope: "GLOBAL", requiresExplicitProjectTarget: true, canControlChildAgents: true } } });
     await tx.auditLog.create({ data: { actorId: user.id, action: "V2_GLOBAL_AI_CREATED", entity: "ZAiAgent", entityId: agent.id, meta: { agentId: agent.id, kind: "GLOBAL", status: "DRAFT", code } } });
     return agent;
   });

@@ -19,7 +19,7 @@ const JOB_TIMEOUT_MARKER = "JOB_TIMEOUT_EXCEEDED";
  * nhánh mặc định cuối cùng "WARN/L3 — AI đang tạo bản nháp", tức là CHẠY THẲNG
  * không qua approval dù đang ghi dữ liệu thật. Danh sách này chặn đúng gốc.
  */
-const WRITE_ACTIONS = new Set(["create_customer_profile", "create_workspace_task", "suspend_child_agent"]);
+const WRITE_ACTIONS = new Set(["create_customer_profile", "create_workspace_task", "suspend_child_agent", "resume_child_agent"]);
 
 function writeIrreversibility(action: string): { irreversible?: boolean; amount?: number } {
   return WRITE_ACTIONS.has(action) ? { irreversible: true } : {};
@@ -67,6 +67,41 @@ export async function dispatchJobTool(
     });
     if (result.count !== 1) throw new Error("AGENT_NOT_FOUND_OR_NOT_ACTIVE");
     return { suspendedAgentId: parsed.agentId, reason: parsed.reason };
+  }
+
+  // MC-19: đối xứng với suspend — AI Tổng trước đây chỉ tạm dừng được AI con,
+  // không có cách kích hoạt lại (phải vào tay sửa DB/UI). Resume vẫn là hành
+  // động GHI có hậu quả thật (AI con lại được phép hành động) nên nằm trong
+  // WRITE_ACTIONS, qua đúng approval gate như suspend.
+  if (action === "resume_child_agent") {
+    if (actor.role !== "ADMIN") throw new Error("FORBIDDEN_GLOBAL_OVERVIEW");
+    const { ResumeChildAgentSchema } = await import("./v2-ai-tool-schemas");
+    const parsed = ResumeChildAgentSchema.parse(args);
+    const result = await prisma.zAiAgent.updateMany({
+      where: { id: parsed.agentId, kind: "CHILD", status: "SUSPENDED" },
+      data: { status: "ACTIVE", lastHeartbeatAt: new Date() },
+    });
+    if (result.count !== 1) throw new Error("AGENT_NOT_FOUND_OR_NOT_SUSPENDED");
+    return { resumedAgentId: parsed.agentId, reason: parsed.reason };
+  }
+
+  // MC-19: AI Tổng trước đây chỉ biết status hiện tại của AI con
+  // (get_child_agent_status), không xem được nó ĐÃ LÀM GÌ — không thể phát
+  // hiện agent lỗi liên tục/lặp action bất thường để quyết định có nên suspend
+  // hay không. Chỉ đọc, không cần role check thêm ngoài policy GLOBAL chung.
+  if (action === "get_child_agent_jobs") {
+    if (actor.role !== "ADMIN") throw new Error("FORBIDDEN_GLOBAL_OVERVIEW");
+    const { GetChildAgentJobsSchema } = await import("./v2-ai-tool-schemas");
+    const parsed = GetChildAgentJobsSchema.parse(args);
+    const agent = await prisma.zAiAgent.findFirst({ where: { id: parsed.agentId, kind: "CHILD" }, select: { id: true, code: true, name: true } });
+    if (!agent) throw new Error("AGENT_NOT_FOUND");
+    const jobs = await prisma.zAiJob.findMany({
+      where: { targetAgentId: parsed.agentId },
+      orderBy: { createdAt: "desc" },
+      take: 20,
+      select: { id: true, action: true, status: true, attempt: true, createdAt: true, startedAt: true, finishedAt: true, lastError: true },
+    });
+    return { agent, jobs, total: jobs.length };
   }
 
   if (action === "get_workspace_overview") {
