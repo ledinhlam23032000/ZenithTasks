@@ -65,5 +65,23 @@ export async function resolveRuntimeAiAgent(user: RuntimeAiUser, workspace: AiWo
 export function enforceRuntimeAiTool(agent: RuntimeAiAgent | null, workspace: AiWorkspaceContext, request: { toolName: string; action: string; projectId?: string; targetProjectId?: string }) {
   if (!agent) return { ok: true as const };
   const policy = evaluateAiAgentRequest(agent.descriptor, agent.caller, { workspaceKind: workspace.workspaceKind, projectId: request.projectId ?? workspace.projectId, targetProjectId: request.targetProjectId, toolName: request.toolName, action: request.action });
+  if (policy.ok) touchHeartbeat(agent.id);
   return policy.ok ? policy : { ok: false as const, reason: `AI agent policy denied: ${policy.reason}` };
+}
+
+/**
+ * Cập nhật "còn sống" mỗi khi agent THỰC SỰ phục vụ một request qua policy gate
+ * — trước đây `lastHeartbeatAt` chỉ được set MỘT LẦN lúc tạo agent
+ * (v2-project-actions.ts), không có gì cập nhật định kỳ sau đó, nên dashboard
+ * /he-thong/ai-tong luôn báo "Heartbeat cũ" sau 5 phút kể từ lúc tạo — vô dụng
+ * vĩnh viễn với agent vẫn đang hoạt động bình thường.
+ *
+ * Fire-and-forget có chủ đích: đây KHÔNG phải đường ghi nghiệp vụ (không audit,
+ * không ảnh hưởng kết quả tool), nên không được để một lỗi ghi heartbeat (mất
+ * kết nối thoáng qua...) làm chậm hay hỏng luồng chính đang phục vụ người dùng.
+ * enforceRuntimeAiTool là hàm ĐỒNG BỘ dùng ở nhiều call site khác nhau nên
+ * không thể await ở đây mà không đổi chữ ký của tất cả các nơi gọi.
+ */
+function touchHeartbeat(agentId: string) {
+  prisma.zAiAgent.update({ where: { id: agentId }, data: { lastHeartbeatAt: new Date() } }).catch(() => {});
 }
