@@ -100,3 +100,23 @@ openssl rand -base64 32
 - **Sai/độ dài `PHONE_ENC_KEY`:** phải là base64 của đúng 32 byte (dùng lệnh `openssl` ở trên).
 - **Docker cổng 3000 bận:** sửa `ports: ["3001:3000"]` trong `docker-compose.yml` rồi mở `localhost:3001`.
 - **Quên/đổi mật khẩu:** đăng nhập `admin` → menu góc phải → *Đổi mật khẩu*; hoặc Nhân sự → *Mật khẩu* để đặt lại cho nhân viên.
+
+## Khôi phục khẩn cấp (rollback) từ bản sao lưu
+
+Khi một bản deploy mới gây lỗi và cần lùi CSDL về đúng bản sao lưu đã chụp trước đó (`pg_dump -Fc`,
+ví dụ file đã tạo tay trước mỗi lần deploy hoặc file trong `.runtime/backups/` do `backup.mjs` tạo):
+
+```bash
+# Chạy tại thư mục gốc repo (nơi có docker-compose.yml). Mặc định CHỈ xem trước, chưa đổi gì:
+node web/scripts/rollback-restore.mjs <đường-dẫn-file.dump>
+
+# Xác nhận đúng file rồi mới thực sự khôi phục:
+node web/scripts/rollback-restore.mjs <đường-dẫn-file.dump> --yes
+```
+
+Script tự động: (1) sao lưu CSDL hiện tại trước khi ghi đè (an toàn-của-an-toàn, lưu vào
+`.runtime/rollback-logs/`), (2) dừng container `app`, (3) `pg_restore --clean --if-exists` vào container
+`db`, (4) khởi động lại `app`, (5) in số liệu Customer/CaseRecord/Payment trước & sau để đối chiếu bằng
+mắt. Không cần biết mật khẩu DB — mọi lệnh chạy qua `docker compose exec db` bằng biến môi trường container
+đã có sẵn. Đây là thao tác **ghi đè toàn bộ dữ liệu hiện tại** — chỉ chạy `--yes` khi đã chắc chắn và đã
+báo chủ dự án.
