@@ -6,6 +6,25 @@ import { evaluateAiToolRequest, type AiWorkspaceContext, type AiPrincipal } from
 
 const JOB_TIMEOUT_MARKER = "JOB_TIMEOUT_EXCEEDED";
 
+/**
+ * Action nào GHI dữ liệu thật — phải khớp CHÍNH XÁC với các nhánh ghi trong
+ * dispatchJobTool. Đây là nguồn sự thật duy nhất cho "action này có ghi
+ * không", KHÔNG suy đoán từ tên hay để evaluateAiToolRequest tự đoán.
+ *
+ * Vì sao cần: evaluateAiToolRequest (ai-governance.ts) chỉ xếp risk cao (L4/L5,
+ * bắt buộc qua approval) khi CALLER tự truyền `irreversible: true` hoặc
+ * `amount > 0`. executeAiJobRunner trước đây gọi hàm này mà KHÔNG truyền hai
+ * field đó cho bất kỳ action nào — nên mọi write tool (kể cả
+ * create_customer_profile, đang ghi thẳng ZWorkspaceCustomer thật) rơi vào
+ * nhánh mặc định cuối cùng "WARN/L3 — AI đang tạo bản nháp", tức là CHẠY THẲNG
+ * không qua approval dù đang ghi dữ liệu thật. Danh sách này chặn đúng gốc.
+ */
+const WRITE_ACTIONS = new Set(["create_customer_profile"]);
+
+function writeIrreversibility(action: string): { irreversible?: boolean; amount?: number } {
+  return WRITE_ACTIONS.has(action) ? { irreversible: true } : {};
+}
+
 export type AiJobExecutionResult = {
   ok: boolean;
   jobId: string;
@@ -97,11 +116,15 @@ export async function dispatchJobTool(
     if (!targetProjectId) throw new Error("TARGET_PROJECT_REQUIRED");
     const { CreateCustomerProfileSchema } = await import("./v2-ai-tool-schemas");
     const parsed = CreateCustomerProfileSchema.parse(args);
+    // code phải unique theo [projectId, code]. Date.now() (mili-giây) có thể
+    // trùng khi hai job AI chạy gần như đồng thời cho cùng project — thêm hậu
+    // tố ngẫu nhiên để tránh vi phạm unique constraint và job FAIL khó hiểu.
+    const code = `CUST-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     const created = await prisma.zWorkspaceCustomer.create({
       data: {
         projectId: targetProjectId,
         createdById: actor.id,
-        code: `CUST-${Date.now()}`,
+        code,
         fullName: parsed.fullName,
         phoneLast4: parsed.phoneLast4,
         source: parsed.source,
@@ -230,6 +253,7 @@ export async function executeAiJobRunner(
     action: job.action,
     resource: job.targetProjectId ?? "system",
     projectId: job.targetProjectId ?? undefined,
+    ...writeIrreversibility(job.action),
   });
 
   const requiresApproval = (riskAssessment.riskLevel === "L4" || riskAssessment.riskLevel === "L5")
