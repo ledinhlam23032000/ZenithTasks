@@ -103,6 +103,25 @@ export async function dispatchJobTool(
     return { childAgents: agents, total: agents.length };
   }
 
+  // MC-23: tính năng AI CHỦ ĐỘNG — AI Tổng quét công nợ TOÀN BỘ company trong
+  // 1 lần gọi thay vì phải hỏi từng company riêng lẻ, tự đánh dấu công ty nào
+  // vượt ngưỡng cần chú ý (ngưỡng mặc định 5tr, khớp `getDebtThreshold()` mặc
+  // định của clinic legacy — không bịa số mới). Đây là bước đầu hướng tới AI
+  // tự phát hiện vấn đề thay vì chỉ phản ứng khi được giao job.
+  if (action === "get_ecosystem_debt_alert") {
+    if (actor.role !== "ADMIN") throw new Error("FORBIDDEN_GLOBAL_OVERVIEW");
+    const DEBT_ALERT_THRESHOLD = 5_000_000;
+    const projects = await prisma.zProject.findMany({ where: { status: "ACTIVE" }, select: { id: true, code: true, name: true } });
+    const perProject = await Promise.all(projects.map(async (p) => {
+      const sales = await prisma.zWorkspaceSale.findMany({ where: { projectId: p.id, status: { in: ["CONFIRMED", "PAID"] } }, select: { amount: true, paidAmount: true } });
+      const debts = sales.map((s) => Math.max(0, Number(s.amount) - Number(s.paidAmount))).filter((d) => d > 0);
+      return { projectId: p.id, projectCode: p.code, projectName: p.name, totalDebt: debts.reduce((a, b) => a + b, 0), overdueSalesCount: debts.length };
+    }));
+    const withDebt = perProject.filter((r) => r.totalDebt > 0).sort((a, b) => b.totalDebt - a.totalDebt);
+    const alerts = withDebt.filter((r) => r.totalDebt >= DEBT_ALERT_THRESHOLD);
+    return { threshold: DEBT_ALERT_THRESHOLD, alertCount: alerts.length, alerts, companies: withDebt.slice(0, 20) };
+  }
+
   if (action === "suspend_child_agent") {
     if (actor.role !== "ADMIN") throw new Error("FORBIDDEN_GLOBAL_OVERVIEW");
     const { SuspendChildAgentSchema } = await import("./v2-ai-tool-schemas");
@@ -219,6 +238,41 @@ export async function dispatchJobTool(
       take: 100,
     });
     return { customers, total: customers.length };
+  }
+
+  // MC-23: v2-project-actions.ts (tạo company mới) đã cấp sẵn tool này trong
+  // toolAllowlist mặc định của AI con từ trước, nhưng dispatchJobTool chưa
+  // từng hỗ trợ action này — nghĩa là AI con "tưởng có" quyền đọc doanh số
+  // nhưng gọi thật sẽ luôn UNSUPPORTED_JOB_TOOL_ACTION. Vá đúng chỗ hứa hẹn
+  // sai này, dùng cùng logic/format đã có ở bridge legacy (tro-ly/agent.ts).
+  if (action === "get_project_sales_summary") {
+    if (!targetProjectId) throw new Error("TARGET_PROJECT_REQUIRED");
+    const sales = await prisma.zWorkspaceSale.findMany({
+      where: { projectId: targetProjectId },
+      orderBy: { occurredAt: "desc" },
+      take: 50,
+      select: { code: true, serviceName: true, amount: true, paidAmount: true, status: true, occurredAt: true },
+    });
+    const totalAmount = sales.reduce((sum, s) => sum + Number(s.amount), 0);
+    const totalPaid = sales.reduce((sum, s) => sum + Number(s.paidAmount), 0);
+    return { totalAmount, totalPaid, count: sales.length, recentSales: sales.slice(0, 10).map((s) => ({ code: s.code, serviceName: s.serviceName, amount: Number(s.amount), paidAmount: Number(s.paidAmount), status: s.status })) };
+  }
+
+  // MC-23: tool đọc MỚI có giá trị thực tế — công nợ project-local, đối xứng
+  // với get_debt_summary bên trợ lý AI legacy clinic. DRAFT/CANCELLED không
+  // tính là công nợ thật (chưa xác nhận / đã huỷ).
+  if (action === "get_project_debt_summary") {
+    if (!targetProjectId) throw new Error("TARGET_PROJECT_REQUIRED");
+    const sales = await prisma.zWorkspaceSale.findMany({
+      where: { projectId: targetProjectId, status: { in: ["CONFIRMED", "PAID"] } },
+      select: { code: true, amount: true, paidAmount: true, customer: { select: { fullName: true, code: true } } },
+    });
+    const withDebt = sales
+      .map((s) => ({ code: s.code, customerName: s.customer?.fullName ?? null, customerCode: s.customer?.code ?? null, debt: Math.max(0, Number(s.amount) - Number(s.paidAmount)) }))
+      .filter((s) => s.debt > 0)
+      .sort((a, b) => b.debt - a.debt);
+    const totalDebt = withDebt.reduce((sum, s) => sum + s.debt, 0);
+    return { totalDebt, debtCount: withDebt.length, topDebtors: withDebt.slice(0, 10) };
   }
 
   if (action === "create_customer_profile") {

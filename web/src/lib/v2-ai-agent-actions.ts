@@ -37,7 +37,7 @@ export async function createProjectAiAgentAction(_prev: AiAgentActionState, form
   const existing = await prisma.zAiAgent.findFirst({ where: { code, projectId: project.id }, select: { id: true } });
   if (existing) return { error: "Mã AI đã tồn tại trong company này." };
   const created = await prisma.$transaction(async (tx) => {
-    const agent = await tx.zAiAgent.create({ data: { code, name, kind: "CHILD", status: "DRAFT", projectId: project.id, createdById: user.id, systemPrompt, model, toolAllowlist: ["get_project_overview", "get_project_customers", "get_project_tasks"], config: { scope: "PROJECT", projectId: project.id, defaultTools: ["get_project_overview", "get_project_customers", "get_project_tasks"] } } });
+    const agent = await tx.zAiAgent.create({ data: { code, name, kind: "CHILD", status: "DRAFT", projectId: project.id, createdById: user.id, systemPrompt, model, toolAllowlist: ["get_project_overview", "get_project_customers", "get_project_tasks", "get_project_sales_summary", "get_project_debt_summary"], config: { scope: "PROJECT", projectId: project.id, defaultTools: ["get_project_overview", "get_project_customers", "get_project_tasks", "get_project_sales_summary", "get_project_debt_summary"] } } });
     await tx.auditLog.create({ data: { actorId: user.id, action: "V2_CHILD_AI_CREATED", entity: "ZAiAgent", entityId: agent.id, meta: { projectId: project.id, agentId: agent.id, kind: "CHILD", status: "DRAFT", code } } });
     return agent;
   });
@@ -98,7 +98,7 @@ export async function createGlobalAiAgentAction(_prev: AiAgentActionState, formD
     // dưới đây — trước đây config nói AI Tổng "kiểm soát được AI con" nhưng
     // allowlist không cấp tool nào để làm việc đó, nên lời hứa trong config chỉ
     // là dữ liệu tĩnh, không có năng lực thật đi kèm.
-    const agent = await tx.zAiAgent.create({ data: { code, name, kind: "GLOBAL", status: "DRAFT", createdById: user.id, systemPrompt, model, toolAllowlist: ["get_workspace_overview", "get_child_agent_status", "suspend_child_agent", "resume_child_agent", "get_child_agent_jobs"], config: { scope: "GLOBAL", requiresExplicitProjectTarget: true, canControlChildAgents: true } } });
+    const agent = await tx.zAiAgent.create({ data: { code, name, kind: "GLOBAL", status: "DRAFT", createdById: user.id, systemPrompt, model, toolAllowlist: ["get_workspace_overview", "get_child_agent_status", "suspend_child_agent", "resume_child_agent", "get_child_agent_jobs", "get_ecosystem_debt_alert"], config: { scope: "GLOBAL", requiresExplicitProjectTarget: true, canControlChildAgents: true } } });
     await tx.auditLog.create({ data: { actorId: user.id, action: "V2_GLOBAL_AI_CREATED", entity: "ZAiAgent", entityId: agent.id, meta: { agentId: agent.id, kind: "GLOBAL", status: "DRAFT", code } } });
     return agent;
   });

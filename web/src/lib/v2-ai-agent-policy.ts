@@ -56,7 +56,7 @@ export function evaluateAiAgentRequest(agent: AiAgentDescriptor, caller: AiAgent
   // suspend_child_agent KHÔNG nằm trong danh sách này: nó tác động một agent cụ
   // thể thuộc một project cụ thể nên PHẢI đi qua targetProjectId + accessibleProjectIds
   // như mọi GLOBAL→CHILD action khác (đúng nguyên tắc "explicit target").
-  const globalAggregateActions = ["get_workspace_overview", "get_ecosystem_kpi_summary", "get_system_health_and_ai_status", "get_child_agent_status"];
+  const globalAggregateActions = ["get_workspace_overview", "get_ecosystem_kpi_summary", "get_system_health_and_ai_status", "get_child_agent_status", "get_ecosystem_debt_alert"];
   if (globalAggregateActions.includes(request.action)) return { ok: true, scope: "GLOBAL" };
   const targetProjectId = request.targetProjectId ?? request.projectId;
   if (!targetProjectId) return { ok: false, reason: "GLOBAL_TARGET_REQUIRED" };

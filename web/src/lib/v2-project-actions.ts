@@ -126,6 +126,7 @@ export async function createV2ProjectAction(_prev: ProjectActionState, formData:
           "get_project_customers",
           "get_project_tasks",
           "get_project_sales_summary",
+          "get_project_debt_summary",
           "get_project_payroll_preview",
         ],
         config: { scope: "PROJECT", projectId: created.id },
