@@ -7,9 +7,7 @@ export const CreateCustomerProfileSchema = z.object({
 });
 
 export const GenerateCommissionDraftSchema = z.object({
-  salesCode: z.string().describe("Mã hợp đồng / Giao dịch"),
-  amount: z.number().min(0).describe("Số tiền giao dịch"),
-  rate: z.number().min(0).max(100).describe("Tỷ lệ hoa hồng (%)"),
+  salesCode: z.string().describe("Mã hợp đồng / Giao dịch — hệ thống tự tra số tiền và cơ chế hoa hồng thật, KHÔNG nhận số tiền/tỷ lệ tự do để tránh AI tự bịa số"),
   note: z.string().optional().describe("Ghi chú thêm"),
 });
 

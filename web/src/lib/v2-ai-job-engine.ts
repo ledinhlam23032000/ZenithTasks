@@ -188,15 +188,49 @@ export async function dispatchJobTool(
   }
 
   if (action === "generate_commission_draft") {
+    // MC-17: trước đây tool này nhận thẳng `amount`/`rate` do AI tự đưa ra —
+    // AI có thể bịa số bất kỳ, "đẹp số liệu chưng cho đẹp" chứ không phản ánh
+    // dữ liệu thật. Nay bắt buộc tra CẢ giao dịch thật (ZWorkspaceSale) lẫn
+    // cơ chế hoa hồng ACTIVE thật (ZMechanismVersion) của đúng company, dùng
+    // ĐÚNG công thức mà money path thật (v2-payroll-calculation.ts,
+    // calculateCommissionPreview) đang dùng — không tự chế công thức riêng.
     if (!targetProjectId) throw new Error("TARGET_PROJECT_REQUIRED");
     const { GenerateCommissionDraftSchema } = await import("./v2-ai-tool-schemas");
+    const { parsePayrollRuleSpec } = await import("./v2-payroll-calculation");
     const parsed = GenerateCommissionDraftSchema.parse(args);
-    const commissionValue = parsed.amount * (parsed.rate / 100);
+
+    const sale = await prisma.zWorkspaceSale.findFirst({
+      where: { projectId: targetProjectId, code: parsed.salesCode },
+      select: { code: true, amount: true, paidAmount: true, status: true },
+    });
+    if (!sale) throw new Error("SALE_NOT_FOUND");
+
+    const mechanismVersion = await prisma.zMechanismVersion.findFirst({
+      where: { status: "ACTIVE", definition: { projectId: targetProjectId, kind: "COMMISSION" } },
+      select: { version: true, ruleSpec: true, definition: { select: { code: true, name: true } } },
+      // approvedAt (không phải version) vì "version desc" không so được đúng
+      // giữa NHIỀU definition khác nhau cùng kind COMMISSION (số version của
+      // mỗi definition tự đếm riêng từ 1) — lấy đúng cơ chế được kích hoạt
+      // GẦN NHẤT nếu company lỡ có hơn 1 cơ chế COMMISSION đang ACTIVE.
+      orderBy: { approvedAt: "desc" },
+    });
+    if (!mechanismVersion) throw new Error("NO_ACTIVE_COMMISSION_MECHANISM");
+
+    const ruleSpec = parsePayrollRuleSpec(mechanismVersion.ruleSpec);
+    if (!ruleSpec) throw new Error("MECHANISM_RULESPEC_INVALID");
+    if (ruleSpec.basis !== "SALE_PAID") throw new Error("MECHANISM_BASIS_NOT_SUPPORTED_FOR_SINGLE_SALE");
+
+    const basisAmount = Number(sale.paidAmount);
+    const commissionValue = Math.floor((basisAmount * ruleSpec.rateBps) / 10000);
     return {
       draftCommission: {
-        salesCode: parsed.salesCode,
-        amount: parsed.amount,
-        rate: parsed.rate,
+        salesCode: sale.code,
+        saleStatus: sale.status,
+        saleAmount: Number(sale.amount),
+        paidAmount: basisAmount,
+        mechanismCode: mechanismVersion.definition.code,
+        mechanismVersion: mechanismVersion.version,
+        rateBps: ruleSpec.rateBps,
         commissionValue,
         note: parsed.note,
         status: "DRAFT",
