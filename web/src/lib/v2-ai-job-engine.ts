@@ -25,6 +25,52 @@ function writeIrreversibility(action: string): { irreversible?: boolean; amount?
   return WRITE_ACTIONS.has(action) ? { irreversible: true } : {};
 }
 
+export type VerifyResult = { ok: boolean; notes: string[] };
+
+/**
+ * MC-20: bước Verify RIÊNG BIỆT giữa Execute và Audit, đúng chuỗi
+ * Plan->Preview->Approve->Execute->Verify->Audit owner yêu cầu — trước đây
+ * dispatchJobTool trả về không throw là coi như thành công thẳng, KHÔNG có
+ * bước nào đọc lại DB để xác nhận trạng thái thật khớp với điều tool vừa
+ * TUYÊN BỐ đã làm. Với action GHI dữ liệu, verify đọc lại đúng bản ghi vừa
+ * tạo/sửa — không tin resultMeta một chiều. Với action đọc/draft (không đổi
+ * state), verify là no-op có ghi chú rõ ràng — KHÔNG bỏ qua bước, chỉ là
+ * không có gì để xác minh lại.
+ */
+export async function verifyJobExecution(action: string, resultMeta: Record<string, unknown>): Promise<VerifyResult> {
+  if (action === "create_customer_profile") {
+    const created = resultMeta.createdCustomer as { id?: string; fullName?: string } | undefined;
+    if (!created?.id) return { ok: false, notes: ["resultMeta thiếu id khách hàng vừa tạo"] };
+    const row = await prisma.zWorkspaceCustomer.findUnique({ where: { id: created.id }, select: { active: true, fullName: true } });
+    if (!row || !row.active) return { ok: false, notes: [`không tìm thấy khách hàng active id=${created.id} trong DB sau khi tạo`] };
+    if (row.fullName !== created.fullName) return { ok: false, notes: ["fullName trong DB không khớp resultMeta đã trả về"] };
+    return { ok: true, notes: [`đã đọc lại khách hàng id=${created.id} trong DB, active=true, khớp resultMeta`] };
+  }
+  if (action === "create_workspace_task") {
+    const created = resultMeta.createdTask as { id?: string; title?: string } | undefined;
+    if (!created?.id) return { ok: false, notes: ["resultMeta thiếu id công việc vừa tạo"] };
+    const row = await prisma.zWorkspaceTask.findUnique({ where: { id: created.id }, select: { title: true } });
+    if (!row) return { ok: false, notes: [`không tìm thấy công việc id=${created.id} trong DB sau khi tạo`] };
+    if (row.title !== created.title) return { ok: false, notes: ["title trong DB không khớp resultMeta đã trả về"] };
+    return { ok: true, notes: [`đã đọc lại công việc id=${created.id} trong DB, khớp resultMeta`] };
+  }
+  if (action === "suspend_child_agent") {
+    const agentId = resultMeta.suspendedAgentId as string | undefined;
+    if (!agentId) return { ok: false, notes: ["resultMeta thiếu suspendedAgentId"] };
+    const row = await prisma.zAiAgent.findUnique({ where: { id: agentId }, select: { status: true } });
+    if (row?.status !== "SUSPENDED") return { ok: false, notes: [`agent ${agentId} thực tế đang status=${row?.status ?? "KHÔNG TÌM THẤY"}, không phải SUSPENDED`] };
+    return { ok: true, notes: [`đã đọc lại agent ${agentId} trong DB, status=SUSPENDED đúng như đã tuyên bố`] };
+  }
+  if (action === "resume_child_agent") {
+    const agentId = resultMeta.resumedAgentId as string | undefined;
+    if (!agentId) return { ok: false, notes: ["resultMeta thiếu resumedAgentId"] };
+    const row = await prisma.zAiAgent.findUnique({ where: { id: agentId }, select: { status: true } });
+    if (row?.status !== "ACTIVE") return { ok: false, notes: [`agent ${agentId} thực tế đang status=${row?.status ?? "KHÔNG TÌM THẤY"}, không phải ACTIVE`] };
+    return { ok: true, notes: [`đã đọc lại agent ${agentId} trong DB, status=ACTIVE đúng như đã tuyên bố`] };
+  }
+  return { ok: true, notes: ["action đọc dữ liệu hoặc chỉ tạo bản nháp (không đổi state) — không có gì để xác minh lại"] };
+}
+
 export type AiJobExecutionResult = {
   ok: boolean;
   jobId: string;
@@ -463,12 +509,37 @@ export async function executeAiJobRunner(
       if (timer) clearTimeout(timer);
     });
 
+    // VERIFY: đọc lại DB thật, KHÔNG tin dispatchJobTool không throw là đủ.
+    const verify = await verifyJobExecution(job.action, resultMeta as Record<string, unknown>);
+    const resultMetaWithVerify = { ...(resultMeta as Record<string, unknown>), __verify: { ok: verify.ok, notes: verify.notes, checkedAt: new Date().toISOString() } };
+
+    if (!verify.ok) {
+      // Tool trả về "thành công" nhưng state thật KHÔNG khớp — đây là lỗi
+      // nghiêm trọng hơn throw thông thường (tool tưởng đúng nhưng sai), nên
+      // KHÔNG được coi là SUCCEEDED. Không retry tự động (state đã ghi có thể
+      // không idempotent) — dừng lại để người kiểm tra trực tiếp.
+      await prisma.zAiJob.update({
+        where: { id: jobId },
+        data: { status: "FAILED", resultMeta: resultMetaWithVerify as Prisma.InputJsonValue, lastError: `VERIFY_FAILED: ${verify.notes.join("; ")}`, finishedAt: new Date() },
+      });
+      await prisma.auditLog.create({
+        data: {
+          actorId: requester.id,
+          action: "V2_AI_JOB_VERIFY_FAILED",
+          entity: "ZAiJob",
+          entityId: jobId,
+          meta: { jobId, toolName: job.toolName, action: job.action, targetProjectId: job.targetProjectId, attempt: currentAttempt, notes: verify.notes },
+        },
+      });
+      return { ok: false, jobId, status: "FAILED", attempt: currentAttempt, resultMeta: resultMetaWithVerify, error: `VERIFY_FAILED: ${verify.notes.join("; ")}` };
+    }
+
     const nextStatus = nextAiJobStatus("RUNNING", "SUCCEED");
     await prisma.zAiJob.update({
       where: { id: jobId },
       data: {
         status: nextStatus as any,
-        resultMeta: resultMeta as Prisma.InputJsonValue,
+        resultMeta: resultMetaWithVerify as Prisma.InputJsonValue,
         finishedAt: new Date(),
       },
     });
@@ -485,6 +556,7 @@ export async function executeAiJobRunner(
           action: job.action,
           targetProjectId: job.targetProjectId,
           attempt: currentAttempt,
+          verify: verify.notes,
         },
       },
     });
@@ -494,7 +566,7 @@ export async function executeAiJobRunner(
       jobId,
       status: nextStatus,
       attempt: currentAttempt,
-      resultMeta,
+      resultMeta: resultMetaWithVerify,
     };
   } catch (err: unknown) {
     const errorMsg = err instanceof Error ? err.message : String(err);
