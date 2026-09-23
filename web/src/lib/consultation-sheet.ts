@@ -1,5 +1,6 @@
 import { format } from "date-fns";
 import { GENDER_LABEL } from "@/lib/status";
+import { renderCspSafePrintAction } from "@/lib/print-action";
 
 export const CONSULTATION_DOCUMENT_TITLE = "Hồ sơ dịch vụ thẩm mỹ";
 export const CONSULTATION_DOCUMENT_TITLE_UPPER = "HỒ SƠ DỊCH VỤ THẨM MỸ";
@@ -252,7 +253,7 @@ export function renderConsultationPaper(document: ConsultationPrintDocument): st
   </section>`;
 }
 
-export function renderConsultationHtml(document: ConsultationPrintDocument, includeActions = false): string {
-  const actions = includeActions ? `<div class="consultation-screen-actions"><button onclick="window.print()">In / Lưu PDF</button></div>` : "";
+export function renderConsultationHtml(document: ConsultationPrintDocument, includeActions = false, nonce?: string | null): string {
+  const actions = includeActions ? renderCspSafePrintAction("consultation-print", "consultation-screen-actions", nonce) : "";
   return `<!doctype html><html lang="vi"><head><meta charset="utf-8"><title>${CONSULTATION_DOCUMENT_TITLE} ${escapeHtml(document.code)}</title><style>${CONSULTATION_PRINT_CSS}.consultation-screen-actions button{border:1px solid #cbd5e1;border-radius:8px;background:#fff;padding:8px 12px;cursor:pointer}</style></head><body>${actions}${renderConsultationPaper(document)}</body></html>`;
 }

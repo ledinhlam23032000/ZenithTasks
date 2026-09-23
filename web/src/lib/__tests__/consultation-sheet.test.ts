@@ -49,4 +49,21 @@ describe("consultation sheet", () => {
     expect(renderConsultationHtml(document)).toContain("HỒ SƠ DỊCH VỤ THẨM MỸ");
     expect(renderConsultationHtml(document)).toContain("Bổ sung khi in");
   });
+
+  it("renders its print action with a CSP nonce instead of an inline handler", () => {
+    const document = consultationPrintDocument({
+      code: "HS000124",
+      createdAt: new Date("2026-09-23T03:00:00Z"),
+      customer: { fullName: "Nguyễn Thị B", code: "KH000124", phoneLast5: "67890", gender: "FEMALE", dob: null, address: "Hải Phòng" },
+      consultation: null,
+      consultant: null,
+      doctor: null,
+      services: [],
+    });
+    const html = renderConsultationHtml(document, true, "nonce_123");
+    expect(html).not.toContain("onclick=");
+    expect(html).toContain('id="consultation-print"');
+    expect(html).toContain('nonce="nonce_123"');
+    expect(html).toContain('addEventListener("click"');
+  });
 });

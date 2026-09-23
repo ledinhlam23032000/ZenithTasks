@@ -2,6 +2,12 @@
 
 Tài liệu này ghi các thay đổi đã được đẩy lên nhánh `master`. Commit mới hơn nằm ở phía trên. Phiên bản mô tả đầy đủ hiện tại nằm trong [`VERSION.md`](VERSION.md).
 
+## 2026-09-23 — Tải PDF chứng từ và sửa nút in
+
+- **Giấy đề nghị thanh toán có nút `Tải PDF` thật**: PDF được tạo từ đúng trang A4 đã render trên trình duyệt, nên giữ nguyên hình thức/phông đang hiển thị và tải với tên tệp ổn định `giay-de-nghi-<mã>.pdf`; vẫn giữ nút Word cho quy trình cũ.
+- **Khôi phục `In / Lưu PDF` mà không nới CSP**: các mẫu Giấy đề nghị thanh toán và Hồ sơ dịch vụ thẩm mỹ bỏ `onclick` inline bị CSP chặn, thay bằng listener có nonce do proxy cấp. Hộp in của trình duyệt vì vậy hoạt động lại trong khi chính sách bảo mật vẫn giữ nguyên.
+- **Không đổi dữ liệu tài chính/y tế hay migration**: kiểm thử hồi quy hai mẫu đạt 10/10; TypeScript, ESLint và production build đều đạt trước khi phát hành.
+
 ## 2026-08-29 — AI thực chất hơn: dữ liệu thật, mặc định, Verify, two-person approval
 
 > Tiếp phiên 28-29/08: sau khi vá 17 lỗi và deploy 4 đợt (mục dưới), chủ dự án yêu cầu rà lại việc gì

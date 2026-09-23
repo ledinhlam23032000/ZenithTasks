@@ -3,7 +3,7 @@ import { canAccessCase } from "@/lib/case-access";
 import { prisma } from "@/lib/db";
 import { consultationPrintDocument, renderConsultationHtml } from "@/lib/consultation-sheet";
 
-export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
+export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
   const user = await requireCap("mod:ho-so");
   const { id } = await context.params;
   const record = await prisma.caseRecord.findUnique({
@@ -18,5 +18,5 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
   });
   if (!record || !record.consultation || !canAccessCase(user, record, "read")) return new Response("Không tìm thấy Hồ sơ dịch vụ thẩm mỹ", { status: 404 });
   const document = consultationPrintDocument(record);
-  return new Response(renderConsultationHtml(document, true), { headers: { "Content-Type": "text/html; charset=utf-8" } });
+  return new Response(renderConsultationHtml(document, true, request.headers.get("x-nonce")), { headers: { "Content-Type": "text/html; charset=utf-8" } });
 }

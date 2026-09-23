@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { paymentRequestDocument, PAYMENT_REQUEST_PRINT_CSS, renderPaymentRequestPaper, paymentRequestStatusLabel } from "@/lib/payment-request";
 import { buttonVariants } from "@/components/ui/button";
 import { PaymentRequestPrintEditor } from "../print-editor";
+import { PaymentRequestPdfDownload } from "../payment-request-pdf-download";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Xem giấy đề nghị thanh toán" };
@@ -34,6 +35,7 @@ export default async function PaymentRequestPreviewPage({ params }: { params: Pr
           <span className="inline-flex items-center rounded-md bg-white px-3 py-2 text-xs font-medium text-slate-600 shadow-sm">{paymentRequestStatusLabel(item.status)} · {item.requestNo}</span>
           {user.role === "ADMIN" && <PaymentRequestPrintEditor id={item.id} initial={{ recipient: document.recipient, requesterName: document.requesterName, requesterAddress: document.requesterAddress, reason: document.reason, location: document.location }} />}
           <a href={`/ke-toan/de-nghi-thanh-toan/${item.id}/print`} target="_blank" rel="noreferrer" className={buttonVariants({ size: "sm" })}><Printer className="h-4 w-4" /> Mở bản in</a>
+          <PaymentRequestPdfDownload requestNo={document.requestNo} />
           <a href={`/ke-toan/de-nghi-thanh-toan/${item.id}/export`} className={buttonVariants({ variant: "secondary", size: "sm" })}><Download className="h-4 w-4" /> Tải Word</a>
         </div>
       </div>

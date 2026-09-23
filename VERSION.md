@@ -1,9 +1,9 @@
 # ZenithTasks — Trạng thái phiên bản hiện tại
 
-> **Phiên bản nội bộ:** `2026.08.29-r3-ai-governance`<br>
+> **Phiên bản nội bộ:** `2026.09.23-r1-payment-pdf`<br>
 > **Commit master:** phải đối chiếu trực tiếp bằng `git rev-parse HEAD` và `git ls-remote origin refs/heads/master`; không cố định một SHA trong tài liệu phát hành.<br>
-> **Ngày cập nhật:** 29/08/2026<br>
-> **Trạng thái:** Wave 2026-08-28→29 vá 17 lỗi thật (bảo mật/tiền/cách ly tenant/AI governance) qua 4 đợt deploy clinic, kèm 3 tính năng lớn hoàn thiện: worker AI job tự động, payroll đa công ty đầy đủ vòng đời (two-person), AI Tổng điều khiển AI con thật. Sau đó (cùng ngày, tiếp phiên) vá thêm 5 hạng mục theo yêu cầu chủ dự án: `generate_commission_draft` dùng dữ liệu thật thay vì AI tự bịa số; AI con bắt buộc mặc định khi tạo company; AI Tổng resume được AI con + xem lịch sử job; bước Verify riêng biệt (Plan→Preview→Approve→Execute→**Verify**→Audit); two-person approval thật cho `delete_customer` (trước đây bị chặn cứng hoàn toàn, không dùng được). Gate: `tsc` 0 lỗi; Vitest unit **495 test PASS**; Vitest integration **40 test PASS trên QA DB thật**. Chi tiết đầy đủ: `.task-memory/multi-company-ai-2026-08-27/checks/`.
+> **Ngày cập nhật:** 23/09/2026<br>
+> **Trạng thái:** Bản vá Giấy đề nghị thanh toán: có PDF tải trực tiếp từ giấy A4 đã render để giữ hình thức/phông; nút `In / Lưu PDF` của Giấy đề nghị và Hồ sơ dịch vụ thẩm mỹ hoạt động lại qua CSP nonce, không nới bảo mật. Không migration hoặc đổi dữ liệu. Gate: TypeScript, ESLint, production build và 10 test hồi quy liên quan đều đạt.
 
 ## Quy tắc đọc tài liệu
 

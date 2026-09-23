@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { amountInVietnameseWords, buildCashbookPaymentRequestDetails, linkedCashTransactionGuard, paymentRequestDocument, paymentRequestNo, paymentRequestStatusLabel, paymentRequestTypeLabel, renderPaymentRequestHtml } from "../payment-request";
+import { amountInVietnameseWords, buildCashbookPaymentRequestDetails, linkedCashTransactionGuard, paymentRequestDocument, paymentRequestNo, paymentRequestPdfFilename, paymentRequestStatusLabel, paymentRequestTypeLabel, renderPaymentRequestHtml } from "../payment-request";
 
 describe("payment request helpers", () => {
   it("creates a readable unique request number", () => {
@@ -50,6 +50,26 @@ describe("payment request helpers", () => {
     expect(html).toContain("Kế toán trưởng");
     expect(html).toContain("Người đề nghị");
     expect(html).not.toContain("Lê Đình Lam");
+  });
+  it("renders a CSP-safe print action and gives the PDF a stable filename", () => {
+    const document = paymentRequestDocument({
+      requestNo: "DNT-20260923-132549-ARIY",
+      type: "EXPENSE",
+      status: "PENDING",
+      payeeName: "Nhà cung cấp",
+      amount: 400000,
+      reason: "Chi phí phát sinh",
+      details: {},
+      requestedAt: new Date("2026-09-23T04:00:00Z"),
+      requester: { fullName: "Người đề nghị", address: null },
+    });
+    const html = renderPaymentRequestHtml(document, true, "nonce_123");
+    expect(html).not.toContain("onclick=");
+    expect(html).toContain('id="payment-request-print"');
+    expect(html).toContain('nonce="nonce_123"');
+    expect(html).toContain('addEventListener("click"');
+
+    expect(paymentRequestPdfFilename(document.requestNo)).toBe("giay-de-nghi-DNT-20260923-132549-ARIY.pdf");
   });
   it("blocks editing or deleting a cash row linked to a request", () => {
     expect(linkedCashTransactionGuard(null, "edit")).toBeNull();

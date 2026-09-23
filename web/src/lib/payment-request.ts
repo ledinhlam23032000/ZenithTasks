@@ -1,4 +1,5 @@
 import { format } from "date-fns";
+import { renderCspSafePrintAction } from "@/lib/print-action";
 
 export const PAYMENT_REQUEST_TYPE_LABEL: Record<string, string> = {
   EXPENSE: "Chi phí vận hành",
@@ -209,6 +210,15 @@ export function paymentRequestDocument(item: PaymentRequestRecordForPrint): Paym
   };
 }
 
+/** Tên tệp ASCII ổn định để trình duyệt luôn tải đúng định dạng PDF. */
+export function paymentRequestPdfFilename(requestNo: string): string {
+  const safeRequestNo = requestNo
+    .replace(/[^A-Za-z0-9_-]/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+  return `giay-de-nghi-${safeRequestNo || "thanh-toan"}.pdf`;
+}
+
 export const PAYMENT_REQUEST_PRINT_CSS = `
   @page { size: A4 portrait; margin: 12mm 14mm; }
   * { box-sizing: border-box; }
@@ -265,9 +275,9 @@ export function renderPaymentRequestPaper(document: PaymentRequestDocument): str
 </section>`;
 }
 
-export function renderPaymentRequestHtml(document: PaymentRequestDocument, includeScreenActions = false): string {
+export function renderPaymentRequestHtml(document: PaymentRequestDocument, includeScreenActions = false, nonce?: string | null): string {
   const actions = includeScreenActions
-    ? `<div class="payment-screen-actions"><button onclick="window.print()">In / Lưu PDF</button></div>`
+    ? renderCspSafePrintAction("payment-request-print", "payment-screen-actions", nonce)
     : "";
   return `<!doctype html><html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Giấy đề nghị thanh toán ${escapeHtml(document.requestNo)}</title><style>${PAYMENT_REQUEST_PRINT_CSS}.payment-screen-actions button{border:1px solid #cbd5e1;border-radius:6px;background:#fff;padding:8px 14px;font-weight:600;cursor:pointer}</style></head><body>${actions}${renderPaymentRequestPaper(document)}</body></html>`;
 }
