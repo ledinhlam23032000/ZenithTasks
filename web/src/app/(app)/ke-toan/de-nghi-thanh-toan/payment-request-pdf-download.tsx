@@ -4,7 +4,43 @@ import { useState } from "react";
 import { Download, LoaderCircle } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { paymentRequestPdfFilename } from "@/lib/payment-request";
-import { paymentRequestPdfImagePlacements } from "@/lib/payment-request-pdf";
+import { paymentRequestPdfCanvasHeightForExport, paymentRequestPdfImagePlacements } from "@/lib/payment-request-pdf";
+
+function hasVisibleContentBelow(canvas: HTMLCanvasElement, startY: number): boolean {
+  if (startY >= canvas.height) return false;
+  const context = canvas.getContext("2d", { willReadFrequently: true });
+  if (!context) return true;
+
+  const width = canvas.width;
+  const pixels = context.getImageData(0, startY, width, canvas.height - startY).data;
+  for (let y = 0; y < canvas.height - startY; y += 4) {
+    for (let x = 0; x < width; x += 4) {
+      const index = (y * width + x) * 4;
+      if (pixels[index + 3] > 32 && (pixels[index] < 245 || pixels[index + 1] < 245 || pixels[index + 2] < 245)) return true;
+    }
+  }
+  return false;
+}
+
+function cropBlankPdfOverflow(canvas: HTMLCanvasElement, pageWidthMm: number, pageHeightMm: number): HTMLCanvasElement {
+  const a4HeightPx = Math.round((canvas.width * pageHeightMm) / pageWidthMm);
+  const exportHeight = paymentRequestPdfCanvasHeightForExport(
+    canvas.width,
+    canvas.height,
+    pageWidthMm,
+    pageHeightMm,
+    hasVisibleContentBelow(canvas, a4HeightPx),
+  );
+  if (exportHeight === canvas.height) return canvas;
+
+  const cropped = document.createElement("canvas");
+  cropped.width = canvas.width;
+  cropped.height = exportHeight;
+  const croppedContext = cropped.getContext("2d");
+  if (!croppedContext) throw new Error("Không thể tạo ảnh PDF");
+  croppedContext.drawImage(canvas, 0, 0, canvas.width, exportHeight, 0, 0, canvas.width, exportHeight);
+  return cropped;
+}
 
 export function PaymentRequestPdfDownload({ requestNo }: { requestNo: string }) {
   const [isGenerating, setIsGenerating] = useState(false);
@@ -34,11 +70,12 @@ export function PaymentRequestPdfDownload({ requestNo }: { requestNo: string }) 
         windowHeight: paper.scrollHeight,
         windowWidth: paper.scrollWidth,
       });
-      const image = canvas.toDataURL("image/png");
       const pdf = new jsPDF({ compress: true, format: "a4", orientation: "portrait", unit: "mm" });
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
-      const placements = paymentRequestPdfImagePlacements(canvas.width, canvas.height, pageWidth, pageHeight);
+      const pdfCanvas = cropBlankPdfOverflow(canvas, pageWidth, pageHeight);
+      const image = pdfCanvas.toDataURL("image/png");
+      const placements = paymentRequestPdfImagePlacements(pdfCanvas.width, pdfCanvas.height, pageWidth, pageHeight);
       placements.forEach((placement, index) => {
         if (index > 0) pdf.addPage();
         pdf.addImage(image, "PNG", placement.x, placement.y, placement.width, placement.height, undefined, "FAST");

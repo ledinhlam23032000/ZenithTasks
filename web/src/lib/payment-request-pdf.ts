@@ -8,6 +8,21 @@ export type PaymentRequestPdfImagePlacement = {
 const ONE_PAGE_OVERFLOW_TOLERANCE_MM = 5;
 const PAGE_BREAK_TOLERANCE_MM = 0.5;
 
+export function paymentRequestPdfCanvasHeightForExport(
+  imageWidthPx: number,
+  imageHeightPx: number,
+  pageWidthMm: number,
+  pageHeightMm: number,
+  hasVisibleContentBeyondA4: boolean,
+): number {
+  if (imageWidthPx <= 0 || imageHeightPx <= 0 || pageWidthMm <= 0 || pageHeightMm <= 0) {
+    throw new Error("Invalid PDF dimensions");
+  }
+
+  const a4HeightPx = Math.round((imageWidthPx * pageHeightMm) / pageWidthMm);
+  return hasVisibleContentBeyondA4 ? imageHeightPx : Math.min(imageHeightPx, a4HeightPx);
+}
+
 /**
  * Places a rendered payment paper in A4 PDF pages without a rounding-only
  * second page. A few millimetres of browser/canvas overflow are scaled into

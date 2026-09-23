@@ -7,7 +7,7 @@
 
 - **PDF trực tiếp**: trang xem trước Giấy đề nghị thanh toán có nút `Tải PDF`; tạo file từ phần giấy A4 đã render nên không phụ thuộc Word và giữ hình thức/phông đang thấy trên màn hình. Word vẫn được giữ để tương thích quy trình cũ.
 - **In/Lưu PDF của trình duyệt**: thay raw `onclick` bị CSP chặn bằng listener script có nonce trong hai raw-HTML print route: Giấy đề nghị thanh toán và Hồ sơ dịch vụ thẩm mỹ. Không thêm `unsafe-inline`, không giảm CSP.
-- **Giới hạn an toàn**: không migration, không đổi số tiền/trạng thái/chứng từ lịch sử. Có test hồi quy renderer cho nonce/nút in và tên PDF; PDF dài nhiều trang không tạo trang trắng do sai số làm tròn canvas.
+- **Giới hạn an toàn**: không migration, không đổi số tiền/trạng thái/chứng từ lịch sử. Có test hồi quy renderer cho nonce/nút in, tên PDF và phần canvas trắng dư; PDF dài nhiều trang vẫn giữ nội dung thay vì tạo trang trắng.
 
 ## Nền tảng đa công ty/AI-native — "Đợt 39" (28-29/08/2026)
 > Tiếp quản theo Master Prompt: mở rộng ZenithTasks từ 1 phòng khám thành nền tảng quản trị đa tổ chức
