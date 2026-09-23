@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Download, LoaderCircle } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { paymentRequestPdfFilename } from "@/lib/payment-request";
+import { paymentRequestPdfImagePlacements } from "@/lib/payment-request-pdf";
 
 export function PaymentRequestPdfDownload({ requestNo }: { requestNo: string }) {
   const [isGenerating, setIsGenerating] = useState(false);
@@ -37,19 +38,11 @@ export function PaymentRequestPdfDownload({ requestNo }: { requestNo: string }) 
       const pdf = new jsPDF({ compress: true, format: "a4", orientation: "portrait", unit: "mm" });
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
-      const imageHeight = (canvas.height * pageWidth) / canvas.width;
-      let remainingHeight = imageHeight;
-      let y = 0;
-
-      pdf.addImage(image, "PNG", 0, y, pageWidth, imageHeight, undefined, "FAST");
-      remainingHeight -= pageHeight;
-      // Avoid a blank trailing page from sub-millimetre canvas rounding.
-      while (remainingHeight > 0.5) {
-        y -= pageHeight;
-        pdf.addPage();
-        pdf.addImage(image, "PNG", 0, y, pageWidth, imageHeight, undefined, "FAST");
-        remainingHeight -= pageHeight;
-      }
+      const placements = paymentRequestPdfImagePlacements(canvas.width, canvas.height, pageWidth, pageHeight);
+      placements.forEach((placement, index) => {
+        if (index > 0) pdf.addPage();
+        pdf.addImage(image, "PNG", placement.x, placement.y, placement.width, placement.height, undefined, "FAST");
+      });
       pdf.save(paymentRequestPdfFilename(requestNo));
     } catch (cause) {
       console.error("Unable to create payment request PDF", cause);

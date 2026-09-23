@@ -1,9 +1,9 @@
 # ZenithTasks — Trạng thái phiên bản hiện tại
 
-> **Phiên bản nội bộ:** `2026.09.23-r1-payment-pdf`<br>
+> **Phiên bản nội bộ:** `2026.09.23-r2-payment-pdf`<br>
 > **Commit master:** phải đối chiếu trực tiếp bằng `git rev-parse HEAD` và `git ls-remote origin refs/heads/master`; không cố định một SHA trong tài liệu phát hành.<br>
 > **Ngày cập nhật:** 23/09/2026<br>
-> **Trạng thái:** Bản vá Giấy đề nghị thanh toán: có PDF tải trực tiếp từ giấy A4 đã render để giữ hình thức/phông; nút `In / Lưu PDF` của Giấy đề nghị và Hồ sơ dịch vụ thẩm mỹ hoạt động lại qua CSP nonce, không nới bảo mật. Không migration hoặc đổi dữ liệu. Gate: TypeScript, ESLint, production build và 10 test hồi quy liên quan đều đạt.
+> **Trạng thái:** Bản vá Giấy đề nghị thanh toán: có PDF tải trực tiếp từ giấy A4 đã render để giữ hình thức/phông; nút `In / Lưu PDF` của Giấy đề nghị và Hồ sơ dịch vụ thẩm mỹ hoạt động lại qua CSP nonce, không nới bảo mật. Không migration hoặc đổi dữ liệu. Gate: TypeScript, ESLint, production build và 11 test hồi quy liên quan đều đạt.
 
 ## Quy tắc đọc tài liệu
 
